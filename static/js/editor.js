@@ -286,13 +286,14 @@ class LanguageToolEditor {
         this.debounceCheck();
     }
     
-    showStatus(message, type = 'success') {
+    showStatus(message, type = 'success', persist = false) {
         this.status.textContent = message;
         this.status.className = `status show ${type}`;
-        
-        setTimeout(() => {
-            this.status.className = 'status';
-        }, 3000);
+        if (!persist) {
+            setTimeout(() => {
+                this.status.className = 'status';
+            }, 3000);
+        }
     }
 
     setCursorPosition(pos) {
@@ -368,10 +369,9 @@ class LanguageToolEditor {
         }
         overlay.innerHTML = html;
         overlay.style.display = 'block';
-        // Remove loading spinner and show status message only after overlay is rendered
         requestAnimationFrame(() => {
             this.status.classList.remove('loading');
-            this.showStatus('LLM call complete!', 'success');
+            this.showStatus('LLM call complete!', 'success', true); // persist the message
         });
     }
 }
