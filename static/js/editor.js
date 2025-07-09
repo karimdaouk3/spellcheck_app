@@ -369,9 +369,12 @@ class LanguageToolEditor {
         overlay.innerHTML = html;
         overlay.style.display = 'block';
         this.showStatus('LLM call complete!', 'success');
-        setTimeout(() => {
-            this.status.classList.remove('loading');
-        }, 10);
+        // Use double requestAnimationFrame to ensure the loading spinner stays until the message is visually updated
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                this.status.classList.remove('loading');
+            });
+        });
     }
 }
 
