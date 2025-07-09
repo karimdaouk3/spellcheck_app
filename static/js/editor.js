@@ -286,12 +286,15 @@ class LanguageToolEditor {
         this.debounceCheck();
     }
     
-    showStatus(message, type = 'success', persist = false) {
+    showStatus(message, type = 'success', persist = false, keepLoading = false) {
         this.status.textContent = message;
-        this.status.className = `status show ${type}`;
+        this.status.className = `status show ${type}` + (this.status.classList.contains('loading') ? ' loading' : '');
         if (!persist) {
             setTimeout(() => {
                 this.status.className = 'status';
+                if (!keepLoading) {
+                    this.status.classList.remove('loading');
+                }
             }, 3000);
         }
     }
@@ -369,10 +372,12 @@ class LanguageToolEditor {
         } else {
             overlay.style.display = 'none';
         }
-        // Always remove loading and show completion message together
+        // Show completion message and keep loading spinner until message hides
         requestAnimationFrame(() => {
-            this.status.classList.remove('loading');
-            this.showStatus('LLM call complete!', valid ? 'success' : 'error'); // auto-hide
+            this.showStatus('LLM call complete!', valid ? 'success' : 'error', false, false);
+            setTimeout(() => {
+                this.status.classList.remove('loading');
+            }, 3000);
         });
     }
 }
