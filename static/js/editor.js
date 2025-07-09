@@ -5,6 +5,7 @@ class LanguageToolEditor {
         this.currentMention = null;
         this.highlightOverlay = null;
         this.ignoredSuggestions = new Set(); // Track ignored suggestions
+        this.llmInProgress = false; // Track if LLM call is in progress
         
         this.editor = document.getElementById('editor');
         this.popup = document.getElementById('popup');
@@ -102,7 +103,7 @@ class LanguageToolEditor {
         
         if (!text.trim()) {
             this.clearSuggestions();
-            this.showStatus('Ready');
+            if (!this.llmInProgress) this.showStatus('Ready');
             return;
         }
         
@@ -125,14 +126,16 @@ class LanguageToolEditor {
             this.updateHighlights();
             
             const count = suggestions.length;
-            if (count === 0) {
-                this.showStatus('No issues found');
-            } else {
-                this.showStatus(`${count} issue${count > 1 ? 's' : ''} found`);
+            if (!this.llmInProgress) {
+                if (count === 0) {
+                    this.showStatus('No issues found');
+                } else {
+                    this.showStatus(`${count} issue${count > 1 ? 's' : ''} found`);
+                }
             }
             
         } catch (error) {
-            this.showStatus('Error checking text', 'error');
+            if (!this.llmInProgress) this.showStatus('Error checking text', 'error');
             console.error('Error:', error);
         }
     }
@@ -341,6 +344,7 @@ class LanguageToolEditor {
 
     // Placeholder LLM call
     async submitToLLM(text) {
+        this.llmInProgress = true;
         this.showStatus('Submitting to LLM...', 'checking', true); // persist loading message
         this.status.classList.add('loading');
         try {
@@ -355,6 +359,7 @@ class LanguageToolEditor {
             this.showStatus('LLM call failed', 'error');
             alert('LLM call failed: ' + e);
             this.status.classList.remove('loading');
+            this.llmInProgress = false;
         }
     }
 
@@ -381,6 +386,7 @@ class LanguageToolEditor {
         // Show completion message and remove loading spinner at the same time
         requestAnimationFrame(() => {
             this.showStatus('LLM call complete!', valid ? 'success' : 'error', false, true);
+            this.llmInProgress = false;
         });
     }
 }
