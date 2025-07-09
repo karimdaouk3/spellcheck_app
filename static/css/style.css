@@ -12,6 +12,7 @@ body {
     padding: 20px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     position: relative;
+    margin-right: 400px;
 }
 
 .editor-wrapper {
@@ -269,4 +270,20 @@ body {
     font-size: 0.97em;
     color: #444;
     line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+    .llm-result-overlay {
+        position: static;
+        width: 100%;
+        max-width: 100%;
+        margin: 30px 0 0 0;
+        top: auto;
+        right: auto;
+        bottom: auto;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+    }
+    .editor-container {
+        margin-right: 0;
+    }
 }
