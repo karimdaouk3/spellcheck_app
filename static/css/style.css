@@ -251,15 +251,6 @@ body {
     flex-direction: column;
     gap: 22px;
 }
-.llm-result-overlay::before {
-    content: "LLM Results";
-    display: block;
-    font-size: 1.18em;
-    font-weight: 600;
-    color: #2a3a4d;
-    margin-bottom: 18px;
-    letter-spacing: 0.5px;
-}
 .llm-section {
     background: #fff;
     border-radius: 8px;
