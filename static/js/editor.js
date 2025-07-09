@@ -392,6 +392,10 @@ class LanguageToolEditor {
         }
         // Show completion message and remove loading spinner at the same time
         requestAnimationFrame(() => {
+            if (this.statusTimer) {
+                clearTimeout(this.statusTimer);
+                this.statusTimer = null;
+            }
             this.status.classList.remove('loading');
             this.status.className = 'status';
             this.status.textContent = '';
