@@ -56,8 +56,10 @@ class LanguageToolEditor {
         });
         // Scroll synchronization (if needed)
         this.editor.addEventListener('scroll', () => {
-            this.highlightOverlay.scrollTop = this.editor.scrollTop;
-            this.highlightOverlay.scrollLeft = this.editor.scrollLeft;
+            requestAnimationFrame(() => {
+                this.highlightOverlay.scrollTop = this.editor.scrollTop;
+                this.highlightOverlay.scrollLeft = this.editor.scrollLeft;
+            });
         });
         // Hide popup when clicking outside
         document.addEventListener('click', (e) => {
