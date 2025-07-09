@@ -332,7 +332,7 @@ class LanguageToolEditor {
 
     // Placeholder LLM call
     async submitToLLM(text) {
-        this.showStatus('Submitting to LLM...', 'checking');
+        this.showStatus('Submitting to LLM...', 'checking', true); // persist loading message
         this.status.classList.add('loading');
         try {
             const response = await fetch('/llm', {
@@ -371,7 +371,7 @@ class LanguageToolEditor {
         overlay.style.display = 'block';
         requestAnimationFrame(() => {
             this.status.classList.remove('loading');
-            this.showStatus('LLM call complete!', 'success', true); // persist the message
+            this.showStatus('LLM call complete!', 'success'); // auto-hide
         });
     }
 }
