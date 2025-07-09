@@ -345,7 +345,6 @@ class LanguageToolEditor {
         } catch (e) {
             this.showStatus('LLM call failed', 'error');
             alert('LLM call failed: ' + e);
-        } finally {
             this.status.classList.remove('loading');
         }
     }
@@ -354,6 +353,7 @@ class LanguageToolEditor {
         const overlay = document.getElementById('llm-result-overlay');
         if (!result || typeof result !== 'object') {
             overlay.style.display = 'none';
+            this.status.classList.remove('loading');
             return;
         }
         let html = '';
@@ -369,6 +369,7 @@ class LanguageToolEditor {
         }
         overlay.innerHTML = html;
         overlay.style.display = 'block';
+        this.status.classList.remove('loading');
     }
 }
 
