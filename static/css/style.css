@@ -273,15 +273,9 @@ body {
     line-height: 1.5;
 }
 
-@media (min-width: 900px) and (max-width: 1600px) {
-    /* Align content to the left for laptop screens, keep width, add small left margin */
-    body {
-        margin-left: 20px;
-        margin-right: 0;
-        max-width: unset;
-    }
+@media (min-width: 900px) and (max-width: 1400px) {
     .editor-container {
-        margin-left: 0;
+        margin-left: 160px;
     }
 }
 @media (max-width: 900px) {
