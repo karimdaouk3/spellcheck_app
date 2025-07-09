@@ -22,6 +22,7 @@ body {
     border: 2px solid #ddd;
     border-radius: 6px;
     background: white;
+    overflow: hidden; /* Ensure overlay is clipped */
 }
 
 #editor {
@@ -188,6 +189,11 @@ body {
 /* Highlight overlay for suggestions */
 .highlight-overlay {
     position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
     pointer-events: none;
     z-index: 1;
 }
