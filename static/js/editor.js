@@ -370,6 +370,11 @@ class LanguageToolEditor {
         let html = '';
         let valid = result && typeof result === 'object';
         if (valid) {
+            // Calculate score
+            const keys = Object.keys(result);
+            const total = keys.length;
+            const passed = keys.filter(key => result[key].passed).length;
+            html += `<div class="llm-score" style="font-size:1.15em;font-weight:600;margin-bottom:16px;">Score: ${passed} / ${total}</div>`;
             for (const key in result) {
                 if (result.hasOwnProperty(key)) {
                     const section = result[key];
