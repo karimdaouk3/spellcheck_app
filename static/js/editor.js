@@ -292,9 +292,15 @@ class LanguageToolEditor {
         if (removeLoading) {
             this.status.classList.remove('loading');
         }
+        // Clear any previous timer so only the latest message can clear the status
+        if (this.statusTimer) {
+            clearTimeout(this.statusTimer);
+            this.statusTimer = null;
+        }
         if (!persist) {
-            setTimeout(() => {
+            this.statusTimer = setTimeout(() => {
                 this.status.className = 'status';
+                this.statusTimer = null;
             }, 3000);
         }
     }
