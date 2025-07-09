@@ -368,8 +368,11 @@ class LanguageToolEditor {
         }
         overlay.innerHTML = html;
         overlay.style.display = 'block';
-        this.status.classList.remove('loading');
-        this.showStatus('LLM call complete!', 'success');
+        // Ensure loading spinner stays until overlay is rendered
+        requestAnimationFrame(() => {
+            this.status.classList.remove('loading');
+            this.showStatus('LLM call complete!', 'success');
+        });
     }
 }
 
