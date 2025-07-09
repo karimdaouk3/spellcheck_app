@@ -394,6 +394,7 @@ class LanguageToolEditor {
         requestAnimationFrame(() => {
             this.status.classList.remove('loading');
             this.status.className = 'status';
+            this.status.textContent = '';
             this.llmInProgress = false;
         });
     }
