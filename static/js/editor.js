@@ -292,9 +292,7 @@ class LanguageToolEditor {
         if (!persist) {
             setTimeout(() => {
                 this.status.className = 'status';
-                if (!keepLoading) {
-                    this.status.classList.remove('loading');
-                }
+                this.status.classList.remove('loading');
             }, 3000);
         }
     }
