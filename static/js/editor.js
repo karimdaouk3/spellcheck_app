@@ -340,7 +340,6 @@ class LanguageToolEditor {
                 body: JSON.stringify({ text })
             });
             const data = await response.json();
-            this.showStatus('LLM call complete!', 'success');
             this.displayLLMResult(data.result);
         } catch (e) {
             this.showStatus('LLM call failed', 'error');
@@ -370,6 +369,7 @@ class LanguageToolEditor {
         overlay.innerHTML = html;
         overlay.style.display = 'block';
         this.status.classList.remove('loading');
+        this.showStatus('LLM call complete!', 'success');
     }
 }
 

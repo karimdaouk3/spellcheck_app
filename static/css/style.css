@@ -273,6 +273,11 @@ body {
     line-height: 1.5;
 }
 
+@media (min-width: 900px) and (max-width: 1400px) {
+    .editor-container {
+        margin-left: 80px;
+    }
+}
 @media (max-width: 900px) {
     .llm-result-overlay {
         position: static;
@@ -286,5 +291,6 @@ body {
     }
     .editor-container {
         margin-right: 0;
+        margin-left: 0;
     }
 }
