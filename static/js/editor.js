@@ -387,8 +387,6 @@ class LanguageToolEditor {
             }
             overlay.innerHTML = html;
             overlay.style.display = 'block';
-            // Change overlay heading from 'LLM Results' to 'Feedback'
-            overlay.setAttribute('data-feedback', 'true');
         } else {
             overlay.style.display = 'none';
         }
