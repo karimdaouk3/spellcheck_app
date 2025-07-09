@@ -179,6 +179,10 @@ body {
     background: #41007F;
     padding: 2px 0 2px 0;
     border-radius: 10px 10px 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
 }
 
 .header h1 {
@@ -186,6 +190,7 @@ body {
     margin-bottom: 0;
     font-size: 2.2em;
     letter-spacing: 1px;
+    line-height: 1;
 }
 
 .header p {
@@ -269,7 +274,7 @@ body {
 }
 .llm-section-title {
     font-size: 1.05em;
-    color: #1769aa;
+    color: #41007F;
     margin-bottom: 4px;
 }
 .llm-section-passed {
