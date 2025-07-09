@@ -273,10 +273,11 @@ body {
     line-height: 1.5;
 }
 
-@media (min-width: 900px) and (max-width: 1400px) {
+@media (min-width: 900px) and (max-width: 1600px) {
     body {
-        margin-left: 0;
-        margin-right: auto;
+        max-width: 1600px;
+        margin: 0 auto;
+        margin-left: -200px;
     }
     .editor-container {
         margin-left: 0;
