@@ -374,7 +374,7 @@ class LanguageToolEditor {
             const keys = Object.keys(result);
             const total = keys.length;
             const passed = keys.filter(key => result[key].passed).length;
-            html += `<div class="llm-score" style="font-size:1.15em;font-weight:600;margin-bottom:16px;">Score: ${passed} / ${total}</div>`;
+            html += `<div class="llm-score" style="font-size:1.35em;font-weight:700;margin-bottom:18px;background:#e3f2fd;color:#1769aa;padding:10px 0 10px 0;border-radius:8px;text-align:center;box-shadow:0 1px 4px rgba(33,150,243,0.07);letter-spacing:0.5px;">Score: <span style="color:#2196F3;font-size:1.2em;">${passed}</span> / <span style="color:#888;">${total}</span></div>`;
             for (const key in result) {
                 if (result.hasOwnProperty(key)) {
                     const section = result[key];
@@ -387,6 +387,8 @@ class LanguageToolEditor {
             }
             overlay.innerHTML = html;
             overlay.style.display = 'block';
+            // Change overlay heading from 'LLM Results' to 'Feedback'
+            overlay.setAttribute('data-feedback', 'true');
         } else {
             overlay.style.display = 'none';
         }

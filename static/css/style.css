@@ -245,7 +245,7 @@ body {
     gap: 22px;
 }
 .llm-result-overlay::before {
-    content: "LLM Results";
+    content: "Feedback";
     display: block;
     font-size: 1.18em;
     font-weight: 600;
