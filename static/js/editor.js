@@ -372,10 +372,10 @@ class LanguageToolEditor {
         } else {
             overlay.style.display = 'none';
         }
-        // Show completion message and remove loading spinner immediately
+        // Show completion message, then remove spinner immediately after
         requestAnimationFrame(() => {
-            this.status.classList.remove('loading');
             this.showStatus('LLM call complete!', valid ? 'success' : 'error', false, false);
+            this.status.classList.remove('loading');
         });
     }
 }
