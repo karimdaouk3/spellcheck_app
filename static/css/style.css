@@ -273,9 +273,10 @@ body {
     line-height: 1.5;
 }
 
-@media (min-width: 900px) and (max-width: 1400px) {
+@media (min-width: 900px) and (max-width: 1600px) {
+    /* Shift content left to avoid overlap with fixed overlay on laptops */
     .editor-container {
-        margin-left: 160px;
+        margin-left: 380px;
     }
 }
 @media (max-width: 900px) {
