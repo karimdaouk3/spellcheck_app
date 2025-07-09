@@ -195,7 +195,7 @@ body {
 }
 
 .main-content {
-    margin-top: 67px;
+    margin-top: 65px;
 }
 
 /* Highlight overlay for suggestions */
@@ -206,15 +206,21 @@ body {
 }
 
 .highlight-span {
-    background-color: #e0e0e0;
-    border-bottom: 2px solid #bdbdbd;
+    background-color: rgba(255, 107, 107, 0.2);
+    border-bottom: 2px solid #ff6b6b;
     border-radius: 2px;
     cursor: pointer;
     pointer-events: auto;
 }
 
 .highlight-span:hover {
-    background-color: #f5f5f5;
+    background-color: rgba(255, 107, 107, 0.3);
+}
+
+/* Light grey for user text selection */
+.editor-div ::selection, .editor-div::selection, #editor ::selection, #editor::selection {
+    background: #e0e0e0;
+    color: inherit;
 }
 
 .llm-submit-button {
