@@ -351,27 +351,28 @@ class LanguageToolEditor {
 
     displayLLMResult(result) {
         const overlay = document.getElementById('llm-result-overlay');
-        if (!result || typeof result !== 'object') {
-            overlay.style.display = 'none';
-            this.status.classList.remove('loading');
-            return;
-        }
         let html = '';
-        for (const key in result) {
-            if (result.hasOwnProperty(key)) {
-                const section = result[key];
-                html += `<div class="llm-section">
-                    <div class="llm-section-title"><strong>${this.escapeHtml(key)}</strong></div>
-                    <div class="llm-section-passed">${section.passed ? '<span style=\'color:green\'>Passed</span>' : '<span style=\'color:red\'>Failed</span>'}</div>
-                    <div class="llm-section-justification">${this.escapeHtml(section.justification || '')}</div>
-                </div>`;
+        let valid = result && typeof result === 'object';
+        if (valid) {
+            for (const key in result) {
+                if (result.hasOwnProperty(key)) {
+                    const section = result[key];
+                    html += `<div class="llm-section">
+                        <div class="llm-section-title"><strong>${this.escapeHtml(key)}</strong></div>
+                        <div class="llm-section-passed">${section.passed ? '<span style=\'color:green\'>Passed</span>' : '<span style=\'color:red\'>Failed</span>'}</div>
+                        <div class="llm-section-justification">${this.escapeHtml(section.justification || '')}</div>
+                    </div>`;
+                }
             }
+            overlay.innerHTML = html;
+            overlay.style.display = 'block';
+        } else {
+            overlay.style.display = 'none';
         }
-        overlay.innerHTML = html;
-        overlay.style.display = 'block';
+        // Always remove loading and show completion message together
         requestAnimationFrame(() => {
             this.status.classList.remove('loading');
-            this.showStatus('LLM call complete!', 'success'); // auto-hide
+            this.showStatus('LLM call complete!', valid ? 'success' : 'error'); // auto-hide
         });
     }
 }
