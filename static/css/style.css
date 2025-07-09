@@ -274,8 +274,13 @@ body {
 }
 
 @media (min-width: 900px) and (max-width: 1400px) {
+    body {
+        margin-left: 0;
+        margin-right: auto;
+    }
     .editor-container {
-        margin-left: 160px;
+        margin-left: 0;
+        margin-right: auto;
     }
 }
 @media (max-width: 900px) {
