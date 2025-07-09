@@ -275,13 +275,11 @@ body {
 
 @media (min-width: 900px) and (max-width: 1600px) {
     body {
-        max-width: 1600px;
+        max-width: 800px;
         margin: 0 auto;
-        margin-left: -200px;
     }
     .editor-container {
-        margin-left: 0;
-        margin-right: auto;
+        transform: translateX(-200px);
     }
 }
 @media (max-width: 900px) {
