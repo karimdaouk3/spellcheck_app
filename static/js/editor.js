@@ -178,20 +178,16 @@ class LanguageToolEditor {
         // Add event listeners to highlighted spans
         const spans = this.highlightOverlay.querySelectorAll('.highlight-span');
         spans.forEach(span => {
-            span.style.backgroundColor = 'rgba(255, 107, 107, 0.2)';
-            span.style.borderBottom = '2px solid #ff6b6b';
             span.style.borderRadius = '2px';
             span.style.cursor = 'pointer';
             span.style.pointerEvents = 'auto';
-            
+            // Remove inline backgroundColor and borderBottom so CSS applies
             span.addEventListener('mouseenter', (e) => {
-                span.style.backgroundColor = 'rgba(255, 107, 107, 0.3)';
+                // No inline color
             });
-            
             span.addEventListener('mouseleave', (e) => {
-                span.style.backgroundColor = 'rgba(255, 107, 107, 0.2)';
+                // No inline color
             });
-            
             span.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
