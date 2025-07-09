@@ -393,6 +393,7 @@ class LanguageToolEditor {
         // Show completion message and remove loading spinner at the same time
         requestAnimationFrame(() => {
             this.status.classList.remove('loading');
+            this.status.className = 'status';
             this.llmInProgress = false;
         });
     }
