@@ -392,7 +392,7 @@ class LanguageToolEditor {
         }
         // Show completion message and remove loading spinner at the same time
         requestAnimationFrame(() => {
-            this.showStatus('LLM call complete!', valid ? 'success' : 'error', false, true);
+            this.status.classList.remove('loading');
             this.llmInProgress = false;
         });
     }
