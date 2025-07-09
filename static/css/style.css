@@ -278,7 +278,7 @@ body {
         max-width: 800px;
         margin: 0 auto;
     }
-    .editor-container {
+    .main-content {
         transform: translateX(-200px);
     }
 }

@@ -7,16 +7,17 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <div class="header">
-        <h1>LanguageTool Editor</h1>
-        <p>Type your text below and get real-time grammar and spelling suggestions (acronyms ignored)</p>
-    </div>
-    
-    <div class="editor-container">
-        <div class="editor-wrapper">
-            <div id="editor" contenteditable="true" class="editor-div" data-placeholder="Start typing your text here..." spellcheck="false"></div>
+    <div class="main-content">
+        <div class="header">
+            <h1>LanguageTool Editor</h1>
+            <p>Type your text below and get real-time grammar and spelling suggestions (acronyms ignored)</p>
         </div>
-        <button id="llm-submit" class="llm-submit-button">Submit to LLM</button>
+        <div class="editor-container">
+            <div class="editor-wrapper">
+                <div id="editor" contenteditable="true" class="editor-div" data-placeholder="Start typing your text here..." spellcheck="false"></div>
+            </div>
+            <button id="llm-submit" class="llm-submit-button">Submit to LLM</button>
+        </div>
     </div>
     <div id="llm-result-overlay" class="llm-result-overlay" style="display:none;"></div>
     
