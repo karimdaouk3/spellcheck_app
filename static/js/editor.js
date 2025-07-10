@@ -43,6 +43,13 @@ class LanguageToolEditor {
             this.updateHighlights(); // Immediately update overlay to match text
             this.debounceCheck();
         });
+        // Force plain text paste (strip formatting)
+        this.editor.addEventListener('paste', (e) => {
+            e.preventDefault();
+            const text = (e.clipboardData || window.clipboardData).getData('text');
+            // Insert plain text at cursor position
+            document.execCommand('insertText', false, text);
+        });
         // Placeholder logic for contenteditable
         this.editor.addEventListener('focus', () => {
             if (this.editor.innerText.trim() === '') {
