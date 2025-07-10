@@ -350,7 +350,7 @@ class LanguageToolEditor {
     // Placeholder LLM call
     async submitToLLM(text) {
         this.llmInProgress = true;
-        this.showStatus('Submitting to LLM...', 'checking', true); // persist loading message
+        this.showStatus('Reviewing...', 'checking', true); // persist loading message
         this.status.classList.add('loading');
         try {
             const response = await fetch('/llm', {
