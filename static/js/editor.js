@@ -375,10 +375,55 @@ class LanguageToolEditor {
 
     displayLLMResult(result) {
         const overlay = document.getElementById('llm-result-overlay');
+        const rewritePopup = document.getElementById('rewrite-popup');
         let html = '';
         let valid = result && typeof result === 'object';
-        if (valid) {
-            // Calculate score
+        let rewritten = '';
+        // Support new format: { evaluation: {...}, rewritten_problem_statement: "..." }
+        if (valid && result.evaluation && typeof result.rewritten_problem_statement === 'string') {
+            // Use the evaluation object for the overlay
+            const evaluation = result.evaluation;
+            const keys = Object.keys(evaluation);
+            const total = keys.length;
+            const passed = keys.filter(key => evaluation[key].passed).length;
+            html += `<div class="llm-score" style="font-size:1.35em;font-weight:700;margin-bottom:18px;background:#fff;color:#41007F;padding:10px 0 10px 0;border-radius:8px;text-align:center;box-shadow:0 1px 4px rgba(33,0,127,0.07);letter-spacing:0.5px;">Score: <span style="color:#00A7E1;font-size:1.2em;">${passed}</span> <span style="color:#888;font-size:1.1em;">/</span> <span style="color:#00A7E1;">${total}</span></div>`;
+            // Sort rules: passed first, then failed
+            const sortedKeys = keys.sort((a, b) => {
+                const aPassed = evaluation[a].passed;
+                const bPassed = evaluation[b].passed;
+                if (aPassed === bPassed) return 0;
+                return aPassed ? -1 : 1;
+            });
+            // Separate passed and failed
+            const passedKeys = sortedKeys.filter(key => evaluation[key].passed);
+            const failedKeys = sortedKeys.filter(key => !evaluation[key].passed);
+            if (passedKeys.length > 0) {
+                html += `<div style="font-weight:600;font-size:1.08em;color:#4CAF50;margin-bottom:8px;">Completed</div>`;
+                for (const key of passedKeys) {
+                    const section = evaluation[key];
+                    html += `<div class="llm-section" style="border-left: 4px solid #4CAF50;">
+                        <div class="llm-section-title" style="color:#111;"><strong>${this.escapeHtml(key)}</strong></div>
+                        <div class="llm-section-justification">${this.escapeHtml(section.justification || '')}</div>
+                    </div>`;
+                }
+            }
+            if (failedKeys.length > 0) {
+                html += `<div style="font-weight:600;font-size:1.08em;color:#f44336;margin:18px 0 8px 0;">Needs Improvement</div>`;
+                for (const key of failedKeys) {
+                    const section = evaluation[key];
+                    html += `<div class="llm-section" style="border-left: 4px solid #f44336;">
+                        <div class="llm-section-title" style="color:#111;"><strong>${this.escapeHtml(key)}</strong></div>
+                        <div class="llm-section-justification">${this.escapeHtml(section.justification || '')}</div>
+                    </div>`;
+                }
+            }
+            overlay.innerHTML = html;
+            overlay.style.display = 'block';
+            // Show rewritten problem statement in the left popup
+            rewritePopup.querySelector('.rewrite-content').textContent = result.rewritten_problem_statement;
+            rewritePopup.style.display = 'block';
+        } else if (valid) {
+            // Fallback: old format (rules at top level)
             const keys = Object.keys(result);
             const total = keys.length;
             const passed = keys.filter(key => result[key].passed).length;
@@ -415,8 +460,11 @@ class LanguageToolEditor {
             }
             overlay.innerHTML = html;
             overlay.style.display = 'block';
+            // Hide rewrite popup if not present
+            rewritePopup.style.display = 'none';
         } else {
             overlay.style.display = 'none';
+            rewritePopup.style.display = 'none';
         }
         // Show completion message and remove loading spinner at the same time
         requestAnimationFrame(() => {
@@ -429,13 +477,6 @@ class LanguageToolEditor {
             this.status.textContent = '';
             this.llmInProgress = false;
         });
-        // Show rewrite popup with placeholder when LLM overlay is shown
-        const rewritePopup = document.getElementById('rewrite-popup');
-        if (overlay.style.display === 'block') {
-            rewritePopup.style.display = 'block';
-        } else {
-            rewritePopup.style.display = 'none';
-        }
     }
 }
 
