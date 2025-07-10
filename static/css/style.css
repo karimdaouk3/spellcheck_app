@@ -34,7 +34,7 @@ body {
     outline: none;
     font-size: 16px;
     line-height: 1.5;
-    resize: vertical;
+    resize: none;
     font-family: inherit;
     box-sizing: border-box;
 }
