@@ -322,6 +322,10 @@ body {
     word-break: break-word;
 }
 
+.rewrite-action-icon:hover {
+    background: #f0f0f0;
+}
+
 @media (min-width: 900px) and (max-width: 1600px) {
     .main-content {
         transform: none;
