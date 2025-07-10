@@ -271,9 +271,11 @@ class LanguageToolEditor {
     }
     
     applySuggestion(suggestion, replacement) {
-        // Save selection position
+        // Save selection position and scroll position
         const selection = window.getSelection();
         const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+        const scrollTop = this.editor.scrollTop;
+        const scrollLeft = this.editor.scrollLeft;
         const text = this.editor.innerText;
         const before = text.substring(0, suggestion.offset);
         const after = text.substring(suggestion.offset + suggestion.length);
@@ -281,6 +283,9 @@ class LanguageToolEditor {
         // Restore cursor position after replacement
         const newPosition = suggestion.offset + replacement.length;
         this.setCursorPosition(newPosition);
+        // Restore scroll position
+        this.editor.scrollTop = scrollTop;
+        this.editor.scrollLeft = scrollLeft;
         // Remove the suggestion from currentSuggestions so highlight disappears immediately
         const newText = this.editor.innerText;
         const key = this.getSuggestionKey(suggestion, newText);
