@@ -97,6 +97,16 @@ class LanguageToolEditor {
                 this.submitToLLM(text);
             });
         }
+        // Accept Rewrite button event
+        const acceptRewriteBtn = document.getElementById('accept-rewrite-btn');
+        if (acceptRewriteBtn) {
+            acceptRewriteBtn.addEventListener('click', () => {
+                const rewritePopup = document.getElementById('rewrite-popup');
+                const rewriteContent = rewritePopup.querySelector('.rewrite-content').textContent;
+                this.editor.innerText = rewriteContent;
+                this.checkText();
+            });
+        }
     }
     
     debounceCheck() {
