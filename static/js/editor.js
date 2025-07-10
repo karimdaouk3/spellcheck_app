@@ -97,14 +97,21 @@ class LanguageToolEditor {
                 this.submitToLLM(text);
             });
         }
-        // Accept Rewrite button event
-        const acceptRewriteBtn = document.getElementById('accept-rewrite-btn');
-        if (acceptRewriteBtn) {
-            acceptRewriteBtn.addEventListener('click', () => {
-                const rewritePopup = document.getElementById('rewrite-popup');
+        // Accept Rewrite check and dismiss (X) events
+        const acceptRewriteCheck = document.getElementById('accept-rewrite-check');
+        const dismissRewriteX = document.getElementById('dismiss-rewrite-x');
+        const rewritePopup = document.getElementById('rewrite-popup');
+        if (acceptRewriteCheck) {
+            acceptRewriteCheck.addEventListener('click', () => {
                 const rewriteContent = rewritePopup.querySelector('.rewrite-content').textContent;
                 this.editor.innerText = rewriteContent;
+                rewritePopup.style.display = 'none';
                 this.checkText();
+            });
+        }
+        if (dismissRewriteX) {
+            dismissRewriteX.addEventListener('click', () => {
+                rewritePopup.style.display = 'none';
             });
         }
     }
