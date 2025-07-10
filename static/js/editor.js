@@ -94,6 +94,10 @@ class LanguageToolEditor {
         if (llmButton) {
             llmButton.addEventListener('click', () => {
                 const text = this.editor.innerText;
+                if (text.trim().length < 10) {
+                    alert('Please make sure your problem statement is meaningful and complete (at least 10 characters).');
+                    return;
+                }
                 this.submitToLLM(text);
             });
         }
