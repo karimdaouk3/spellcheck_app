@@ -292,7 +292,7 @@ body {
 
 @media (min-width: 900px) and (max-width: 1600px) {
     .main-content {
-        margin-left: -160px;
+        transform: translateX(-160px);
     }
     .editor-container {
         margin-left: 0;
