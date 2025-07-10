@@ -429,6 +429,13 @@ class LanguageToolEditor {
             this.status.textContent = '';
             this.llmInProgress = false;
         });
+        // Show rewrite popup with placeholder when LLM overlay is shown
+        const rewritePopup = document.getElementById('rewrite-popup');
+        if (overlay.style.display === 'block') {
+            rewritePopup.style.display = 'block';
+        } else {
+            rewritePopup.style.display = 'none';
+        }
     }
 }
 
