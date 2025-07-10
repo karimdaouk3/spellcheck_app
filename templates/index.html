@@ -17,6 +17,10 @@
             </div>
             <button id="llm-submit" class="llm-submit-button">Submit for Review</button>
         </div>
+        <div id="rewrite-popup" class="rewrite-popup" style="display:none;">
+            <div class="rewrite-title">Suggested Rewrite</div>
+            <div class="rewrite-content">This is a placeholder for the suggested rewrite. The LLM will provide a real suggestion here.</div>
+        </div>
     </div>
     <div id="llm-result-overlay" class="llm-result-overlay" style="display:none;"></div>
     <div id="popup" class="popup">
@@ -26,9 +30,5 @@
     </div>
     <div id="status" class="status"></div>
     <script src="{{ url_for('static', filename='js/editor.js') }}"></script>
-    <div id="rewrite-popup" class="rewrite-popup" style="display:none;">
-        <div class="rewrite-title">Suggested Rewrite</div>
-        <div class="rewrite-content">This is a placeholder for the suggested rewrite. The LLM will provide a real suggestion here.</div>
-    </div>
 </body>
 </html>
