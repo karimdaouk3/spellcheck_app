@@ -326,6 +326,7 @@ body {
 @media (min-width: 900px) and (max-width: 1600px) {
     .main-content {
         transform: none;
+        margin-top: 65px;
     }
     .editor-container {
         margin-left: 0;
