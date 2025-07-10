@@ -252,7 +252,7 @@ body {
     top: 80px;
     right: 20px;
     bottom: 60px;
-    width: 340px;
+    width: 320px;
     background: #f9fafc;
     border-radius: 14px;
     box-shadow: 0 6px 32px rgba(0,0,0,0.13);
@@ -263,6 +263,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 22px;
+    font-size: 1em;
 }
 .llm-section {
     background: #fff;
@@ -292,10 +293,23 @@ body {
 
 @media (min-width: 900px) and (max-width: 1600px) {
     .main-content {
-        transform: translateX(-160px);
+        transform: none;
     }
     .editor-container {
         margin-left: 0;
+    }
+    .llm-result-overlay {
+        width: 270px;
+        font-size: 0.93em;
+    }
+    .llm-score {
+        font-size: 1.1em !important;
+    }
+    .llm-section-title {
+        font-size: 0.98em !important;
+    }
+    .llm-section-justification {
+        font-size: 0.92em !important;
     }
 }
 @media (max-width: 900px) {
