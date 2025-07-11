@@ -3,6 +3,7 @@ import language_tool_python as lt
 # Add LiteLLM import
 import litellm
 import json
+import time
 
 # --- Start / connect to your running LanguageTool server ---------------
 # Make sure the server is already running:
@@ -90,6 +91,12 @@ Evaluate the following technical note against these criteria:\n{rules}\n\nFor ea
 
 @app.route("/speech-to-text", methods=["POST"])
 def speech_to_text():
+    # Accept audio file upload (simulate processing)
+    if 'audio' not in request.files:
+        return jsonify({"error": "No audio file uploaded."}), 400
+    audio_file = request.files['audio']
+    # Simulate processing delay
+    time.sleep(1)
     # In the real implementation, you would process the audio here
     return jsonify({"transcription": "Transcribed text will appear here. (Placeholder: 'This is a sample transcription.')"})
 

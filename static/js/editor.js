@@ -101,35 +101,62 @@ class LanguageToolEditor {
         // Microphone button logic
         const micBtn = document.getElementById('mic-btn');
         let isRecording = false;
-        let recordingTimeout = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
         if (micBtn) {
-            micBtn.addEventListener('click', () => {
+            micBtn.addEventListener('click', async () => {
                 if (!isRecording) {
-                    isRecording = true;
-                    micBtn.style.background = '#ffebee';
-                    micBtn.style.color = '#d32f2f';
-                    micBtn.disabled = true;
-                    this.editor.innerText = 'Listening...';
-                    // Simulate recording for 2 seconds
-                    recordingTimeout = setTimeout(async () => {
+                    // Start recording
+                    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                        alert('Audio recording is not supported in this browser.');
+                        return;
+                    }
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        mediaRecorder = new window.MediaRecorder(stream);
+                        audioChunks = [];
+                        mediaRecorder.ondataavailable = (e) => {
+                            if (e.data.size > 0) audioChunks.push(e.data);
+                        };
+                        mediaRecorder.onstop = async () => {
+                            micBtn.style.background = '';
+                            micBtn.style.color = '';
+                            micBtn.disabled = true;
+                            this.editor.innerText = 'Processing...';
+                            // Send audio to backend
+                            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                            const formData = new FormData();
+                            formData.append('audio', audioBlob, 'recording.webm');
+                            // Wait 1 second to mimic processing
+                            setTimeout(async () => {
+                                try {
+                                    const response = await fetch('/speech-to-text', {
+                                        method: 'POST',
+                                        body: formData
+                                    });
+                                    const data = await response.json();
+                                    this.editor.innerText = data.transcription || '';
+                                    this.checkText();
+                                } catch (e) {
+                                    this.editor.innerText = 'Error: Could not transcribe.';
+                                }
+                                micBtn.disabled = false;
+                            }, 1000);
+                        };
+                        mediaRecorder.start();
+                        isRecording = true;
+                        micBtn.style.background = '#ffebee';
+                        micBtn.style.color = '#d32f2f';
+                        this.editor.innerText = 'Listening...';
+                    } catch (err) {
+                        alert('Could not access microphone.');
+                    }
+                } else {
+                    // Stop recording
+                    if (mediaRecorder && mediaRecorder.state === 'recording') {
+                        mediaRecorder.stop();
                         isRecording = false;
-                        micBtn.style.background = '';
-                        micBtn.style.color = '';
-                        micBtn.disabled = false;
-                        // Call backend for placeholder transcription
-                        try {
-                            const response = await fetch('/speech-to-text', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ audio: 'placeholder' })
-                            });
-                            const data = await response.json();
-                            this.editor.innerText = data.transcription || '';
-                            this.checkText();
-                        } catch (e) {
-                            this.editor.innerText = 'Error: Could not transcribe.';
-                        }
-                    }, 2000);
+                    }
                 }
             });
         }
