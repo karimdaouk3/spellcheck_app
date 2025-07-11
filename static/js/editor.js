@@ -111,13 +111,24 @@ class LanguageToolEditor {
                     micBtn.disabled = true;
                     this.editor.innerText = 'Listening...';
                     // Simulate recording for 2 seconds
-                    recordingTimeout = setTimeout(() => {
+                    recordingTimeout = setTimeout(async () => {
                         isRecording = false;
                         micBtn.style.background = '';
                         micBtn.style.color = '';
                         micBtn.disabled = false;
-                        this.editor.innerText = 'Transcribed text will appear here. (Placeholder: "This is a sample transcription.")';
-                        this.checkText();
+                        // Call backend for placeholder transcription
+                        try {
+                            const response = await fetch('/speech-to-text', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ audio: 'placeholder' })
+                            });
+                            const data = await response.json();
+                            this.editor.innerText = data.transcription || '';
+                            this.checkText();
+                        } catch (e) {
+                            this.editor.innerText = 'Error: Could not transcribe.';
+                        }
                     }, 2000);
                 }
             });

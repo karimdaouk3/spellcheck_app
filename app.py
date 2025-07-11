@@ -88,6 +88,11 @@ Evaluate the following technical note against these criteria:\n{rules}\n\nFor ea
         print(f"Error calling LLM: {e}")
         return jsonify({"result": f"LLM error: {e}"})
 
+@app.route("/speech-to-text", methods=["POST"])
+def speech_to_text():
+    # In the real implementation, you would process the audio here
+    return jsonify({"transcription": "Transcribed text will appear here. (Placeholder: 'This is a sample transcription.')"})
+
 if __name__ == "__main__":
     print("Starting LanguageTool Flask App...")
     print("Make sure LanguageTool is running on http://localhost:8081")
