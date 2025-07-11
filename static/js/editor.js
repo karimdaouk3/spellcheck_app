@@ -97,6 +97,31 @@ class LanguageToolEditor {
                 this.submitToLLM(text);
             });
         }
+
+        // Microphone button logic
+        const micBtn = document.getElementById('mic-btn');
+        const speechOutput = document.getElementById('speech-output');
+        let isRecording = false;
+        let recordingTimeout = null;
+        if (micBtn) {
+            micBtn.addEventListener('click', () => {
+                if (!isRecording) {
+                    isRecording = true;
+                    micBtn.style.background = '#ffebee';
+                    micBtn.style.color = '#d32f2f';
+                    micBtn.disabled = true;
+                    speechOutput.textContent = 'Listening...';
+                    // Simulate recording for 2 seconds
+                    recordingTimeout = setTimeout(() => {
+                        isRecording = false;
+                        micBtn.style.background = '';
+                        micBtn.style.color = '';
+                        micBtn.disabled = false;
+                        speechOutput.textContent = 'Transcribed text will appear here. (Placeholder: "This is a sample transcription.")';
+                    }, 2000);
+                }
+            });
+        }
     }
     
     debounceCheck() {

@@ -12,9 +12,11 @@
             <h1>FSR Textio</h1>
         </div>
         <div class="editor-container">
-            <div class="editor-wrapper">
+            <div class="editor-wrapper" style="display:flex; align-items:flex-start; gap:10px;">
                 <div id="editor" contenteditable="true" class="editor-div" data-placeholder="Start typing your text here..." spellcheck="false"></div>
+                <button id="mic-btn" title="Record speech" style="background:none; border:none; cursor:pointer; font-size:1.7em; padding:6px 8px; border-radius:50%;"><span aria-label="microphone" role="img">🎤</span></button>
             </div>
+            <div id="speech-output" style="margin-top:10px; color:#555; font-size:1.05em;"></div>
             <button id="llm-submit" class="llm-submit-button">Submit for Review</button>
         </div>
     </div>
