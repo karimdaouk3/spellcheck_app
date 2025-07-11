@@ -111,6 +111,7 @@ class LanguageToolEditor {
                         alert('Audio recording is not supported in this browser.');
                         return;
                     }
+                    this.editor.innerText = '';
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                         mediaRecorder = new window.MediaRecorder(stream);
