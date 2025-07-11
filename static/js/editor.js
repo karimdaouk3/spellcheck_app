@@ -113,6 +113,7 @@ class LanguageToolEditor {
                     }
                     this.editor.innerText = '';
                     this.highlightOverlay.innerHTML = '';
+                    this.editor.setAttribute('contenteditable', 'false');
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                         mediaRecorder = new window.MediaRecorder(stream);
@@ -143,6 +144,7 @@ class LanguageToolEditor {
                                     this.editor.innerText = 'Error: Could not transcribe.';
                                 }
                                 micBtn.disabled = false;
+                                this.editor.setAttribute('contenteditable', 'true');
                             }, 1000);
                         };
                         mediaRecorder.start();
