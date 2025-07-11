@@ -100,7 +100,6 @@ class LanguageToolEditor {
 
         // Microphone button logic
         const micBtn = document.getElementById('mic-btn');
-        const speechOutput = document.getElementById('speech-output');
         let isRecording = false;
         let recordingTimeout = null;
         if (micBtn) {
@@ -110,14 +109,15 @@ class LanguageToolEditor {
                     micBtn.style.background = '#ffebee';
                     micBtn.style.color = '#d32f2f';
                     micBtn.disabled = true;
-                    speechOutput.textContent = 'Listening...';
+                    this.editor.innerText = 'Listening...';
                     // Simulate recording for 2 seconds
                     recordingTimeout = setTimeout(() => {
                         isRecording = false;
                         micBtn.style.background = '';
                         micBtn.style.color = '';
                         micBtn.disabled = false;
-                        speechOutput.textContent = 'Transcribed text will appear here. (Placeholder: "This is a sample transcription.")';
+                        this.editor.innerText = 'Transcribed text will appear here. (Placeholder: "This is a sample transcription.")';
+                        this.checkText();
                     }, 2000);
                 }
             });
