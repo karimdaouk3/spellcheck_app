@@ -112,6 +112,7 @@ class LanguageToolEditor {
                         return;
                     }
                     this.editor.innerText = '';
+                    this.highlightOverlay.innerHTML = '';
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                         mediaRecorder = new window.MediaRecorder(stream);
