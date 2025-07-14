@@ -19,7 +19,7 @@ body {
 
 .editor-wrapper {
     position: relative;
-    min-height: 240px; /* was 400px */
+    height: 220px; /* match editor height exactly */
     border: 2px solid #ddd;
     border-radius: 6px;
     background: white;
