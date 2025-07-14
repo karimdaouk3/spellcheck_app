@@ -4,7 +4,6 @@ class LanguageToolEditor {
         this.currentSuggestions = [];
         this.currentMention = null;
         this.highlightOverlay = null;
-        this.highlightOverlayInner = null; // New property for the inner content div
         this.ignoredSuggestions = new Set(); // Track ignored suggestions
         this.llmInProgress = false; // Track if LLM call is in progress
         
@@ -31,17 +30,14 @@ class LanguageToolEditor {
         this.highlightOverlay.style.height = '100%';
         this.highlightOverlay.style.pointerEvents = 'none';
         this.highlightOverlay.style.zIndex = '1';
-        this.highlightOverlay.style.overflow = 'hidden'; // Only show visible part
+        this.highlightOverlay.style.fontFamily = this.editor.style.fontFamily || 'inherit';
+        this.highlightOverlay.style.fontSize = this.editor.style.fontSize || '16px';
+        this.highlightOverlay.style.lineHeight = this.editor.style.lineHeight || '1.5';
+        this.highlightOverlay.style.padding = '15px';
         this.highlightOverlay.style.boxSizing = 'border-box';
-        this.highlightOverlay.style.background = 'transparent';
-        // Copy font, padding, etc. from editor
-        const cs = window.getComputedStyle(this.editor);
-        this.highlightOverlay.style.fontFamily = cs.fontFamily;
-        this.highlightOverlay.style.fontSize = cs.fontSize;
-        this.highlightOverlay.style.lineHeight = cs.lineHeight;
-        this.highlightOverlay.style.padding = cs.padding;
         this.highlightOverlay.style.whiteSpace = 'pre-wrap';
         this.highlightOverlay.style.wordBreak = 'break-word';
+        this.highlightOverlay.style.background = 'transparent';
         this.editor.parentElement.appendChild(this.highlightOverlay);
         this.editor.parentElement.style.position = 'relative';
     }
