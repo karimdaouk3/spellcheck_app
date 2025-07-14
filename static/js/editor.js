@@ -34,20 +34,14 @@ class LanguageToolEditor {
         this.highlightOverlay.style.overflow = 'hidden'; // Only show visible part
         this.highlightOverlay.style.boxSizing = 'border-box';
         this.highlightOverlay.style.background = 'transparent';
-        // Create inner content div
-        this.highlightOverlayInner = document.createElement('div');
-        this.highlightOverlayInner.className = 'highlight-overlay-inner';
         // Copy font, padding, etc. from editor
         const cs = window.getComputedStyle(this.editor);
-        this.highlightOverlayInner.style.fontFamily = cs.fontFamily;
-        this.highlightOverlayInner.style.fontSize = cs.fontSize;
-        this.highlightOverlayInner.style.lineHeight = cs.lineHeight;
-        this.highlightOverlayInner.style.padding = cs.padding;
-        this.highlightOverlayInner.style.boxSizing = cs.boxSizing;
-        this.highlightOverlayInner.style.whiteSpace = 'pre-wrap';
-        this.highlightOverlayInner.style.wordBreak = 'break-word';
-        this.highlightOverlayInner.style.background = 'transparent';
-        this.highlightOverlay.appendChild(this.highlightOverlayInner);
+        this.highlightOverlay.style.fontFamily = cs.fontFamily;
+        this.highlightOverlay.style.fontSize = cs.fontSize;
+        this.highlightOverlay.style.lineHeight = cs.lineHeight;
+        this.highlightOverlay.style.padding = cs.padding;
+        this.highlightOverlay.style.whiteSpace = 'pre-wrap';
+        this.highlightOverlay.style.wordBreak = 'break-word';
         this.editor.parentElement.appendChild(this.highlightOverlay);
         this.editor.parentElement.style.position = 'relative';
     }
@@ -126,7 +120,7 @@ class LanguageToolEditor {
                         return;
                     }
                     this.editor.innerText = '';
-                    this.highlightOverlayInner.innerHTML = ''; // Clear inner content
+                    this.highlightOverlay.innerHTML = ''; // Clear overlay content
                     this.editor.setAttribute('contenteditable', 'false');
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -238,7 +232,7 @@ class LanguageToolEditor {
     updateHighlights() {
         const text = this.editor.innerText;
         if (this.currentSuggestions.length === 0) {
-            this.highlightOverlayInner.innerHTML = '';
+            this.highlightOverlay.innerHTML = '';
             return;
         }
         // Create highlighted text
@@ -263,7 +257,7 @@ class LanguageToolEditor {
         });
         // Add any remaining text after the last suggestion
         highlightedText += this.escapeHtml(text.substring(lastIndex));
-        this.highlightOverlayInner.innerHTML = highlightedText;
+        this.highlightOverlay.innerHTML = highlightedText;
     }
     
     escapeHtml(text) {
