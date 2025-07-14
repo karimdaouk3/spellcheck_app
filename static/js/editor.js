@@ -239,7 +239,8 @@ class LanguageToolEditor {
             
             // Add the highlighted suggestion
             const errorText = text.substring(suggestion.offset, suggestion.offset + suggestion.length);
-            highlightedText += `<span class="highlight-span" data-suggestion-index="${index}">${this.escapeHtml(errorText)}</span>`;
+            const errorTypeClass = suggestion.errorType ? ` highlight-span-${suggestion.errorType}` : '';
+            highlightedText += `<span class="highlight-span${errorTypeClass}" data-suggestion-index="${index}">${this.escapeHtml(errorText)}</span>`;
             
             lastIndex = suggestion.offset + suggestion.length;
         });
