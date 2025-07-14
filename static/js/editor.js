@@ -180,9 +180,13 @@ class LanguageToolEditor {
         if (acceptRewriteCheck) {
             acceptRewriteCheck.addEventListener('click', () => {
                 const rewriteContent = rewritePopup.querySelector('.rewrite-content').textContent;
-                rewritePopup.style.display = 'none';
                 this.editor.innerText = rewriteContent;
-                this.checkText();
+                this.highlightOverlay.innerHTML = '';
+                rewritePopup.style.display = 'none';
+                // Wait for DOM update before running checkText
+                requestAnimationFrame(() => {
+                    this.checkText();
+                });
             });
         }
         if (dismissRewriteX) {
