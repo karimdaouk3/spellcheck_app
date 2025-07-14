@@ -99,7 +99,7 @@ class LanguageToolEditor {
             llmButton.addEventListener('click', () => {
                 const text = this.editor.innerText;
                 if (text.replace(/\s/g, '').length < 20) {
-                    alert('Please enter at least 20 characters for a meaningful review.');
+                    alert('Please make sure your problem statement is meaningful and comprehensive (at least 20 characters)');
                     return;
                 }
                 this.submitToLLM(text);
