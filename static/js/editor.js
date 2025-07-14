@@ -168,6 +168,24 @@ class LanguageToolEditor {
                 }
             });
         }
+
+        // Accept Rewrite check and dismiss (X) events
+        const acceptRewriteCheck = document.getElementById('accept-rewrite-check');
+        const dismissRewriteX = document.getElementById('dismiss-rewrite-x');
+        const rewritePopup = document.getElementById('rewrite-popup');
+        if (acceptRewriteCheck) {
+            acceptRewriteCheck.addEventListener('click', () => {
+                const rewriteContent = rewritePopup.querySelector('.rewrite-content').textContent;
+                this.editor.innerText = rewriteContent;
+                rewritePopup.style.display = 'none';
+                this.checkText();
+            });
+        }
+        if (dismissRewriteX) {
+            dismissRewriteX.addEventListener('click', () => {
+                rewritePopup.style.display = 'none';
+            });
+        }
     }
     
     debounceCheck() {
@@ -254,6 +272,20 @@ class LanguageToolEditor {
         // Add any remaining text after the last suggestion
         highlightedText += this.escapeHtml(text.substring(lastIndex));
         this.highlightOverlay.innerHTML = highlightedText;
+        // Attach click handlers to highlights
+        const spans = this.highlightOverlay.querySelectorAll('.highlight-span');
+        spans.forEach(span => {
+            span.style.borderRadius = '2px';
+            span.style.cursor = 'pointer';
+            span.style.pointerEvents = 'auto';
+            span.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const suggestionIndex = parseInt(span.getAttribute('data-suggestion-index'));
+                const suggestion = this.currentSuggestions[suggestionIndex];
+                this.showPopup(suggestion, e.clientX, e.clientY);
+            });
+        });
     }
     
     escapeHtml(text) {
