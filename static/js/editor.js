@@ -239,8 +239,16 @@ class LanguageToolEditor {
             
             // Add the highlighted suggestion
             const errorText = text.substring(suggestion.offset, suggestion.offset + suggestion.length);
-            const errorTypeClass = suggestion.errorType ? ` highlight-span-${suggestion.errorType}` : '';
-            highlightedText += `<span class="highlight-span${errorTypeClass}" data-suggestion-index="${index}">${this.escapeHtml(errorText)}</span>`;
+            const category = suggestion.category ? suggestion.category.toLowerCase() : '';
+            let categoryClass = '';
+            if (category === 'typos' || category === 'compounding') {
+                categoryClass = 'highlight-span-spelling';
+            } else if (category === 'grammar') {
+                categoryClass = 'highlight-span-grammar';
+            } else if (category) {
+                categoryClass = 'highlight-span-other';
+            }
+            highlightedText += `<span class="highlight-span ${categoryClass}" data-suggestion-index="${index}">${this.escapeHtml(errorText)}</span>`;
             
             lastIndex = suggestion.offset + suggestion.length;
         });
