@@ -28,7 +28,7 @@ body {
 
 #editor {
     width: 100%;
-    height: 400px;
+    height: 220px; /* was 400px */
     padding: 15px;
     border: none;
     outline: none;
@@ -41,8 +41,8 @@ body {
 
 .editor-div {
     width: 100%;
-    min-height: 100px;
-    max-height: 400px;
+    min-height: 80px;
+    max-height: 220px; /* was 400px */
     overflow-y: auto;
     padding: 15px;
     border: none;
@@ -322,16 +322,14 @@ body {
 }
 
 .rewrite-popup {
-    position: fixed;
-    top: 80px;
-    left: 20px;
-    bottom: 60px;
-    width: 270px;
+    position: static;
+    width: 100%;
+    margin: 24px 0 0 0;
     background: #f9fafc;
     border-radius: 14px;
-    box-shadow: 0 6px 32px rgba(0,0,0,0.13);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.10);
     padding: 24px 18px 24px 18px;
-    z-index: 2000;
+    z-index: 10;
     overflow-y: auto;
     border: 1.5px solid #e0e0e0;
     display: flex;
