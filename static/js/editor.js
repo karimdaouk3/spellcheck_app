@@ -180,8 +180,8 @@ class LanguageToolEditor {
         if (acceptRewriteCheck) {
             acceptRewriteCheck.addEventListener('click', () => {
                 const rewriteContent = rewritePopup.querySelector('.rewrite-content').textContent;
-                this.editor.innerText = rewriteContent;
                 rewritePopup.style.display = 'none';
+                this.editor.innerText = rewriteContent;
                 this.checkText();
             });
         }
