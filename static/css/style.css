@@ -352,6 +352,22 @@ body {
     word-break: break-word;
 }
 
+.rewrite-action-icon:hover {
+    background: #e0e7ff;
+    box-shadow: 0 2px 8px rgba(65,0,127,0.08);
+    color: #222 !important;
+    transition: background 0.18s, color 0.18s;
+}
+
+#accept-rewrite-check:hover {
+    background: #e8f5e9;
+    color: #388e3c !important;
+}
+#dismiss-rewrite-x:hover {
+    background: #ffebee;
+    color: #b71c1c !important;
+}
+
 @media (min-width: 900px) and (max-width: 1600px) {
     .main-content {
         transform: none;
