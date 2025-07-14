@@ -293,7 +293,7 @@ class LanguageToolEditor {
                 this.showPopup(suggestion, e.clientX, e.clientY);
             });
         });
-        this.syncOverlayScroll(); // Always sync after updating highlights
+        requestAnimationFrame(() => this.syncOverlayScroll()); // Always sync after browser updates scroll
     }
     
     escapeHtml(text) {
@@ -384,7 +384,7 @@ class LanguageToolEditor {
             s => this.getSuggestionKey(s, newText) !== key
         );
         this.updateHighlights();
-        this.syncOverlayScroll(); // Ensure overlay is synced after applying suggestion
+        requestAnimationFrame(() => this.syncOverlayScroll()); // Ensure overlay is synced after browser updates scroll
         this.hidePopup();
         this.showStatus('Suggestion applied');
         this.editor.focus();
