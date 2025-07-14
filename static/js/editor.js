@@ -32,7 +32,7 @@ class LanguageToolEditor {
         this.highlightOverlay.style.boxSizing = 'border-box';
         this.highlightOverlay.style.whiteSpace = 'pre-wrap';
         this.highlightOverlay.style.wordWrap = 'break-word';
-        
+        this.highlightOverlay.style.overflowY = 'hidden'; // Overlay never scrolls
         this.editor.parentElement.appendChild(this.highlightOverlay);
         this.editor.parentElement.style.position = 'relative';
     }
@@ -64,8 +64,8 @@ class LanguageToolEditor {
         // Scroll synchronization (if needed)
         this.editor.addEventListener('scroll', () => {
             requestAnimationFrame(() => {
-                this.highlightOverlay.scrollTop = this.editor.scrollTop;
-                this.highlightOverlay.scrollLeft = this.editor.scrollLeft;
+                // Instead of scrolling overlay, visually offset it
+                this.highlightOverlay.style.transform = `translateY(${-this.editor.scrollTop}px)`;
             });
         });
         // Hide popup when clicking outside
@@ -279,6 +279,11 @@ class LanguageToolEditor {
                 this.showPopup(suggestion, e.clientX, e.clientY);
             });
         });
+
+        // After updating overlay content, visually offset overlay to match editor scroll
+        if (this.highlightOverlay && this.editor) {
+            this.highlightOverlay.style.transform = `translateY(${-this.editor.scrollTop}px)`;
+        }
     }
     
     escapeHtml(text) {
