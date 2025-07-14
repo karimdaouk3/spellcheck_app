@@ -224,6 +224,36 @@ body {
     background-color: rgba(255, 107, 107, 0.3);
 }
 
+.highlight-span-spelling {
+    background-color: rgba(255, 107, 107, 0.2);
+    border-bottom: 2px solid #ff6b6b;
+}
+.highlight-span-grammar {
+    background-color: rgba(255, 193, 7, 0.2);
+    border-bottom: 2px solid #ffc107;
+}
+.highlight-span-style {
+    background-color: rgba(33, 150, 243, 0.2);
+    border-bottom: 2px solid #2196f3;
+}
+.highlight-span-other {
+    background-color: rgba(158, 158, 158, 0.15);
+    border-bottom: 2px solid #888;
+}
+
+.highlight-span-spelling:hover {
+    background-color: rgba(255, 107, 107, 0.35);
+    border-bottom: 2px solid #d32f2f;
+}
+.highlight-span-grammar:hover {
+    background-color: rgba(255, 193, 7, 0.35);
+    border-bottom: 2px solid #b28704;
+}
+.highlight-span-other:hover {
+    background-color: rgba(158, 158, 158, 0.25);
+    border-bottom: 2px solid #555;
+}
+
 /* Light grey for user text selection */
 .editor-div ::selection, .editor-div::selection, #editor ::selection, #editor::selection {
     background: #e0e0e0;
@@ -320,10 +350,6 @@ body {
     font-size: 0.98em;
     line-height: 1.5;
     word-break: break-word;
-}
-
-.rewrite-action-icon:hover {
-    background: #f0f0f0;
 }
 
 @media (min-width: 900px) and (max-width: 1600px) {
