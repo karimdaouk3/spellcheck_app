@@ -237,63 +237,24 @@ class LanguageToolEditor {
     
     updateHighlights() {
         const text = this.editor.innerText;
-        
         if (this.currentSuggestions.length === 0) {
             this.highlightOverlayInner.innerHTML = '';
             return;
         }
-        
         // Create highlighted text
         let highlightedText = '';
         let lastIndex = 0;
-        
         this.currentSuggestions.forEach((suggestion, index) => {
             // Add text before the suggestion
             highlightedText += this.escapeHtml(text.substring(lastIndex, suggestion.offset));
-            
             // Add the highlighted suggestion
             const errorText = text.substring(suggestion.offset, suggestion.offset + suggestion.length);
-            const category = suggestion.category ? suggestion.category.toLowerCase() : '';
-            let categoryClass = '';
-            if (category === 'typos' || category === 'compounding') {
-                categoryClass = 'highlight-span-spelling';
-            } else if (category === 'grammar') {
-                categoryClass = 'highlight-span-grammar';
-            } else if (category) {
-                categoryClass = 'highlight-span-other';
-            }
-            highlightedText += `<span class="highlight-span ${categoryClass}" data-suggestion-index="${index}">${this.escapeHtml(errorText)}</span>`;
-            
+            highlightedText += `<span class="highlight-span" data-suggestion-index="${index}">${this.escapeHtml(errorText)}</span>`;
             lastIndex = suggestion.offset + suggestion.length;
         });
-        
-        // Add remaining text
+        // Add any remaining text after the last suggestion
         highlightedText += this.escapeHtml(text.substring(lastIndex));
-        
         this.highlightOverlayInner.innerHTML = highlightedText;
-        
-        // Add event listeners to highlighted spans
-        const spans = this.highlightOverlayInner.querySelectorAll('.highlight-span');
-        spans.forEach(span => {
-            span.style.borderRadius = '2px';
-            span.style.cursor = 'pointer';
-            span.style.pointerEvents = 'auto';
-            // Remove inline backgroundColor and borderBottom so CSS applies
-            span.addEventListener('mouseenter', (e) => {
-                // No inline color
-            });
-            span.addEventListener('mouseleave', (e) => {
-                // No inline color
-            });
-            span.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const suggestionIndex = parseInt(span.getAttribute('data-suggestion-index'));
-                const suggestion = this.currentSuggestions[suggestionIndex];
-                this.showPopup(suggestion, e.clientX, e.clientY);
-            });
-        });
-        requestAnimationFrame(() => this.syncOverlayScroll()); // Always sync after browser updates scroll
     }
     
     escapeHtml(text) {
@@ -547,8 +508,9 @@ class LanguageToolEditor {
     }
 
     syncOverlayScroll() {
-        if (this.highlightOverlayInner && this.editor) {
-            this.highlightOverlayInner.style.transform = `translateY(${-this.editor.scrollTop}px)`;
+        if (this.highlightOverlay && this.editor) {
+            this.highlightOverlay.scrollTop = this.editor.scrollTop;
+            this.highlightOverlay.scrollLeft = this.editor.scrollLeft;
         }
     }
 }
