@@ -79,8 +79,7 @@ class LanguageToolEditor {
         // Scroll synchronization (if needed)
         this.editor.addEventListener('scroll', () => {
             requestAnimationFrame(() => {
-                // Visually offset only the inner content
-                this.highlightOverlayInner.style.transform = `translateY(${-this.editor.scrollTop}px)`;
+                this.syncOverlayScroll();
             });
         });
         // Hide popup when clicking outside
@@ -294,10 +293,7 @@ class LanguageToolEditor {
                 this.showPopup(suggestion, e.clientX, e.clientY);
             });
         });
-        // Visually offset only the inner content
-        if (this.highlightOverlayInner && this.editor) {
-            this.highlightOverlayInner.style.transform = `translateY(${-this.editor.scrollTop}px)`;
-        }
+        this.syncOverlayScroll(); // Always sync after updating highlights
     }
     
     escapeHtml(text) {
@@ -388,6 +384,7 @@ class LanguageToolEditor {
             s => this.getSuggestionKey(s, newText) !== key
         );
         this.updateHighlights();
+        this.syncOverlayScroll(); // Ensure overlay is synced after applying suggestion
         this.hidePopup();
         this.showStatus('Suggestion applied');
         this.editor.focus();
@@ -546,6 +543,12 @@ class LanguageToolEditor {
             rewritePopup.style.display = 'block';
         } else {
             rewritePopup.style.display = 'none';
+        }
+    }
+
+    syncOverlayScroll() {
+        if (this.highlightOverlayInner && this.editor) {
+            this.highlightOverlayInner.style.transform = `translateY(${-this.editor.scrollTop}px)`;
         }
     }
 }
