@@ -4,6 +4,7 @@ class LanguageToolEditor {
         this.currentSuggestions = [];
         this.currentMention = null;
         this.highlightOverlay = null;
+        this.highlightOverlayInner = null; // New property for the inner content div
         this.ignoredSuggestions = new Set(); // Track ignored suggestions
         this.llmInProgress = false; // Track if LLM call is in progress
         
@@ -16,6 +17,11 @@ class LanguageToolEditor {
     }
     
     createHighlightOverlay() {
+        // Remove any existing overlay
+        if (this.highlightOverlay && this.highlightOverlay.parentElement) {
+            this.highlightOverlay.parentElement.removeChild(this.highlightOverlay);
+        }
+        // Create overlay container
         this.highlightOverlay = document.createElement('div');
         this.highlightOverlay.className = 'highlight-overlay';
         this.highlightOverlay.style.position = 'absolute';
@@ -25,14 +31,23 @@ class LanguageToolEditor {
         this.highlightOverlay.style.height = '100%';
         this.highlightOverlay.style.pointerEvents = 'none';
         this.highlightOverlay.style.zIndex = '1';
-        this.highlightOverlay.style.fontFamily = this.editor.style.fontFamily || 'inherit';
-        this.highlightOverlay.style.fontSize = this.editor.style.fontSize || '16px';
-        this.highlightOverlay.style.lineHeight = this.editor.style.lineHeight || '1.5';
-        this.highlightOverlay.style.padding = '15px';
+        this.highlightOverlay.style.overflow = 'hidden'; // Only show visible part
         this.highlightOverlay.style.boxSizing = 'border-box';
-        this.highlightOverlay.style.whiteSpace = 'pre-wrap';
-        this.highlightOverlay.style.wordWrap = 'break-word';
-        this.highlightOverlay.style.overflowY = 'hidden'; // Overlay never scrolls
+        this.highlightOverlay.style.background = 'transparent';
+        // Create inner content div
+        this.highlightOverlayInner = document.createElement('div');
+        this.highlightOverlayInner.className = 'highlight-overlay-inner';
+        // Copy font, padding, etc. from editor
+        const cs = window.getComputedStyle(this.editor);
+        this.highlightOverlayInner.style.fontFamily = cs.fontFamily;
+        this.highlightOverlayInner.style.fontSize = cs.fontSize;
+        this.highlightOverlayInner.style.lineHeight = cs.lineHeight;
+        this.highlightOverlayInner.style.padding = cs.padding;
+        this.highlightOverlayInner.style.boxSizing = cs.boxSizing;
+        this.highlightOverlayInner.style.whiteSpace = 'pre-wrap';
+        this.highlightOverlayInner.style.wordBreak = 'break-word';
+        this.highlightOverlayInner.style.background = 'transparent';
+        this.highlightOverlay.appendChild(this.highlightOverlayInner);
         this.editor.parentElement.appendChild(this.highlightOverlay);
         this.editor.parentElement.style.position = 'relative';
     }
@@ -64,8 +79,8 @@ class LanguageToolEditor {
         // Scroll synchronization (if needed)
         this.editor.addEventListener('scroll', () => {
             requestAnimationFrame(() => {
-                // Instead of scrolling overlay, visually offset it
-                this.highlightOverlay.style.transform = `translateY(${-this.editor.scrollTop}px)`;
+                // Visually offset only the inner content
+                this.highlightOverlayInner.style.transform = `translateY(${-this.editor.scrollTop}px)`;
             });
         });
         // Hide popup when clicking outside
@@ -112,7 +127,7 @@ class LanguageToolEditor {
                         return;
                     }
                     this.editor.innerText = '';
-                    this.highlightOverlay.innerHTML = '';
+                    this.highlightOverlayInner.innerHTML = ''; // Clear inner content
                     this.editor.setAttribute('contenteditable', 'false');
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -225,7 +240,7 @@ class LanguageToolEditor {
         const text = this.editor.innerText;
         
         if (this.currentSuggestions.length === 0) {
-            this.highlightOverlay.innerHTML = '';
+            this.highlightOverlayInner.innerHTML = '';
             return;
         }
         
@@ -256,10 +271,10 @@ class LanguageToolEditor {
         // Add remaining text
         highlightedText += this.escapeHtml(text.substring(lastIndex));
         
-        this.highlightOverlay.innerHTML = highlightedText;
+        this.highlightOverlayInner.innerHTML = highlightedText;
         
         // Add event listeners to highlighted spans
-        const spans = this.highlightOverlay.querySelectorAll('.highlight-span');
+        const spans = this.highlightOverlayInner.querySelectorAll('.highlight-span');
         spans.forEach(span => {
             span.style.borderRadius = '2px';
             span.style.cursor = 'pointer';
@@ -279,10 +294,9 @@ class LanguageToolEditor {
                 this.showPopup(suggestion, e.clientX, e.clientY);
             });
         });
-
-        // After updating overlay content, visually offset overlay to match editor scroll
-        if (this.highlightOverlay && this.editor) {
-            this.highlightOverlay.style.transform = `translateY(${-this.editor.scrollTop}px)`;
+        // Visually offset only the inner content
+        if (this.highlightOverlayInner && this.editor) {
+            this.highlightOverlayInner.style.transform = `translateY(${-this.editor.scrollTop}px)`;
         }
     }
     

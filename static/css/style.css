@@ -207,9 +207,16 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    overflow-y: auto;
+    overflow: hidden;
     pointer-events: none;
     z-index: 1;
+    background: transparent;
+}
+
+.highlight-overlay-inner {
+    width: 100%;
+    background: transparent;
+    /* font, padding, etc. are set in JS to match the editor */
 }
 
 .highlight-span {
