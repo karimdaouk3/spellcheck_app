@@ -500,9 +500,21 @@ class LanguageToolEditor {
             this.status.textContent = '';
             this.llmInProgress = false;
         });
-        // Show rewrite popup with placeholder when LLM overlay is shown
+        // Show rewrite popup with placeholder or suggested rewrite when LLM overlay is shown
         const rewritePopup = document.getElementById('rewrite-popup');
         if (overlay.style.display === 'block') {
+            // If a suggested rewrite is present, show it
+            let rewrite = '';
+            if (result && typeof result === 'object') {
+                if (result.rewritten_problem_statement) {
+                    rewrite = result.rewritten_problem_statement;
+                } else if (result.rewrite) {
+                    rewrite = result.rewrite;
+                }
+            }
+            if (rewrite) {
+                rewritePopup.querySelector('.rewrite-content').textContent = rewrite;
+            }
             rewritePopup.style.display = 'block';
         } else {
             rewritePopup.style.display = 'none';
