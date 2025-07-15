@@ -1,3 +1,15 @@
+// LLM section suggestion format:
+// [
+//   {
+//     "start": <number>, // start offset in the original text
+//     "end": <number>,   // end offset in the original text
+//     "original": <string>, // original section text
+//     "suggestion": <string>, // suggested replacement
+//     "justification": <string> // why this change is suggested
+//   },
+//   ...
+// ]
+
 class LanguageToolEditor {
     constructor() {
         this.debounceTimer = null;
@@ -8,6 +20,7 @@ class LanguageToolEditor {
         this.llmInProgress = false; // Track if LLM call is in progress
         this.overlayHidden = false; // Track if overlay should be hidden
         this.awaitingCheck = false; // Track if waiting for check to finish
+        this.llmSectionSuggestions = [];
         
         this.editor = document.getElementById('editor');
         this.popup = document.getElementById('popup');
@@ -611,6 +624,54 @@ class LanguageToolEditor {
             this.highlightOverlay.scrollTop = this.editor.scrollTop;
             this.highlightOverlay.scrollLeft = this.editor.scrollLeft;
         }
+    }
+
+    // Accept a section-level LLM suggestion and adjust offsets
+    acceptLLMSuggestion(index) {
+        const suggestion = this.llmSectionSuggestions[index];
+        const text = this.editor.innerText;
+        // Replace the section in the text
+        const before = text.substring(0, suggestion.start);
+        const after = text.substring(suggestion.end);
+        this.editor.innerText = before + suggestion.suggestion + after;
+        // Calculate length difference
+        const delta = suggestion.suggestion.length - (suggestion.end - suggestion.start);
+        // Remove the accepted suggestion
+        this.llmSectionSuggestions.splice(index, 1);
+        // Adjust offsets for all suggestions after this one
+        for (let i = 0; i < this.llmSectionSuggestions.length; i++) {
+            if (this.llmSectionSuggestions[i].start > suggestion.end) {
+                this.llmSectionSuggestions[i].start += delta;
+                this.llmSectionSuggestions[i].end += delta;
+            }
+        }
+        // Re-render highlights (implement as needed)
+        this.updateLLMHighlights();
+    }
+    // Render LLM section highlights
+    updateLLMHighlights() {
+        // Example: highlight each section using offsets
+        const text = this.editor.innerText;
+        let html = '';
+        let lastIndex = 0;
+        this.llmSectionSuggestions.forEach((s, i) => {
+            html += this.escapeHtml(text.substring(lastIndex, s.start));
+            html += `<span class="llm-section-suggestion" data-llm-index="${i}">${this.escapeHtml(text.substring(s.start, s.end))}</span>`;
+            lastIndex = s.end;
+        });
+        html += this.escapeHtml(text.substring(lastIndex));
+        this.highlightOverlay.innerHTML = html;
+        // Attach click handler for accepting suggestions
+        const spans = this.highlightOverlay.querySelectorAll('.llm-section-suggestion');
+        spans.forEach(span => {
+            span.style.background = '#e0f7fa';
+            span.style.borderBottom = '2px solid #00bcd4';
+            span.style.cursor = 'pointer';
+            span.onclick = (e) => {
+                const idx = parseInt(span.getAttribute('data-llm-index'));
+                this.acceptLLMSuggestion(idx);
+            };
+        });
     }
 }
 
