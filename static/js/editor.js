@@ -649,9 +649,7 @@ class LanguageToolEditor {
             const div = document.createElement('div');
             div.className = 'llm-suggestion-item';
             div.innerHTML = `
-                <div class="llm-suggestion-original"><strong>Original:</strong> ${this.escapeHtml(s.original)}</div>
                 <div class="llm-suggestion-suggested"><strong>Suggestion:</strong> ${this.escapeHtml(s.suggestion)}</div>
-                <div class="llm-suggestion-justification"><strong>Why:</strong> ${this.escapeHtml(s.justification)}</div>
                 <div class="llm-suggestion-actions">
                     <button class="llm-suggestion-accept" title="Accept">&#10003;</button>
                     <button class="llm-suggestion-decline" title="Decline">&#10005;</button>
