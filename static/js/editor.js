@@ -297,8 +297,10 @@ class LanguageToolEditor {
         // Add any remaining text after the last suggestion
         highlightedText += this.escapeHtml(text.substring(lastIndex));
         this.highlightOverlay.innerHTML = highlightedText;
-        // Always scroll overlay to top when it is shown
-        this.highlightOverlay.scrollTop = 0;
+        // Always scroll overlay to top when it is shown, after DOM update
+        requestAnimationFrame(() => {
+            this.highlightOverlay.scrollTop = 0;
+        });
         // Attach click handlers to highlights
         const spans = this.highlightOverlay.querySelectorAll('.highlight-span');
         spans.forEach(span => {
