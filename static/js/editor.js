@@ -453,6 +453,8 @@ class LanguageToolEditor {
         this.showStatus('Suggestion applied');
         this.editor.focus();
         this.debounceCheck();
+        // Realign LLM suggestions after accepting a LanguageTool suggestion
+        this.realignLLMSuggestions();
     }
     
     showStatus(message, type = 'success', persist = false, removeLoading = false) {
