@@ -7,6 +7,7 @@ class LanguageToolEditor {
         this.ignoredSuggestions = new Set(); // Track ignored suggestions
         this.llmInProgress = false; // Track if LLM call is in progress
         this.overlayHidden = false; // Track if overlay should be hidden
+        this.awaitingCheck = false; // Track if waiting for check to finish
         
         this.editor = document.getElementById('editor');
         this.popup = document.getElementById('popup');
@@ -187,6 +188,7 @@ class LanguageToolEditor {
             acceptRewriteCheck.addEventListener('click', () => {
                 const rewriteContent = rewritePopup.querySelector('.rewrite-content').textContent;
                 this.editor.innerText = rewriteContent;
+                this.awaitingCheck = true;
                 this.overlayHidden = true;
                 this.highlightOverlay.innerHTML = '';
                 rewritePopup.style.display = 'none';
@@ -236,6 +238,7 @@ class LanguageToolEditor {
             );
             
             this.currentSuggestions = suggestions;
+            this.awaitingCheck = false;
             this.overlayHidden = false;
             this.updateHighlights();
             
@@ -260,7 +263,7 @@ class LanguageToolEditor {
     }
     
     updateHighlights() {
-        if (this.overlayHidden) {
+        if (this.awaitingCheck || this.overlayHidden) {
             this.highlightOverlay.innerHTML = '';
             return;
         }
