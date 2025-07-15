@@ -398,6 +398,8 @@ class LanguageToolEditor {
         this.currentSuggestions = this.currentSuggestions.filter(
             s => this.getSuggestionKey(s, newText) !== key
         );
+        this.overlayHidden = true;
+        this.awaitingCheck = true;
         this.updateHighlights();
         requestAnimationFrame(() => this.syncOverlayScroll()); // Ensure overlay is synced after browser updates scroll
         this.hidePopup();
