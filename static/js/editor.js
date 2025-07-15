@@ -673,22 +673,35 @@ class LanguageToolEditor {
                 this.updateLLMHighlights();
             };
             // Hover highlight logic
-            div.onmouseenter = () => this.addLLMHoverHighlight(s.start, s.end);
+            div.onmouseenter = () => this.addLLMHoverHighlight(s.start, s.end, s.original);
             div.onmouseleave = () => this.removeLLMHoverHighlight();
             suggestionList.appendChild(div);
         });
     }
 
-    addLLMHoverHighlight(start, end) {
+    addLLMHoverHighlight(start, end, original) {
         // Remove any previous highlight
         this.removeLLMHoverHighlight();
         const text = this.editor.innerText;
-        if (start >= 0 && end > start && end <= text.length) {
-            const before = this.escapeHtml(text.substring(0, start));
-            const highlight = `<span class='llm-hover-highlight'>${this.escapeHtml(text.substring(start, end))}</span>`;
-            const after = this.escapeHtml(text.substring(end));
-            this.highlightOverlay.innerHTML = before + highlight + after;
+        let highlightStart = start;
+        let highlightEnd = end;
+        // If offset is invalid or out of date, search for the original string
+        if (
+            typeof start !== 'number' || typeof end !== 'number' ||
+            start < 0 || end <= start || end > text.length || text.substring(start, end) !== original
+        ) {
+            highlightStart = text.indexOf(original);
+            if (highlightStart !== -1) {
+                highlightEnd = highlightStart + original.length;
+            } else {
+                // If not found, do nothing
+                return;
+            }
         }
+        const before = this.escapeHtml(text.substring(0, highlightStart));
+        const highlight = `<span class='llm-hover-highlight'>${this.escapeHtml(text.substring(highlightStart, highlightEnd))}</span>`;
+        const after = this.escapeHtml(text.substring(highlightEnd));
+        this.highlightOverlay.innerHTML = before + highlight + after;
     }
 
     removeLLMHoverHighlight() {

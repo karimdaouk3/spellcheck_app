@@ -400,13 +400,18 @@ body {
     background: #fff;
     border-radius: 8px;
     box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-    padding: 24px 14px 10px 14px; /* reduced top padding */
+    padding: 24px 14px 36px 14px; /* more bottom padding */
     border-left: 4px solid #00bcd4;
     display: flex;
     flex-direction: column;
     gap: 6px;
     position: relative;
     margin-bottom: 18px; /* Add space between suggestions */
+    transition: background 0.18s, box-shadow 0.18s;
+}
+.llm-suggestion-item:hover {
+    background: #e0f7fa;
+    box-shadow: 0 2px 12px rgba(0,188,212,0.10);
 }
 .llm-suggestion-item:last-child {
     margin-bottom: 0;
@@ -460,6 +465,13 @@ body {
 .llm-suggestion-decline:hover {
     background: #ffebee;
     color: #b71c1c;
+}
+
+.llm-hover-highlight {
+    background: #e0f7fa;
+    border-bottom: 2px solid #00bcd4;
+    border-radius: 2px;
+    transition: background 0.18s, border 0.18s;
 }
 
 @media (min-width: 900px) and (max-width: 1600px) {
