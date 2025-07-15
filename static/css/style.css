@@ -383,6 +383,68 @@ body {
     color: #b71c1c !important;
 }
 
+.llm-suggestion-list {
+    margin: 24px auto 0 auto;
+    max-width: 700px;
+    background: #f9fafc;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    padding: 18px 18px 10px 18px;
+    border: 1.5px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    font-size: 1em;
+}
+.llm-suggestion-item {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    padding: 14px 14px 10px 14px;
+    border-left: 4px solid #00bcd4;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    position: relative;
+}
+.llm-suggestion-original {
+    color: #41007F;
+    font-size: 1.04em;
+    margin-bottom: 2px;
+}
+.llm-suggestion-suggested {
+    color: #009688;
+    font-size: 1.04em;
+    margin-bottom: 2px;
+}
+.llm-suggestion-justification {
+    color: #444;
+    font-size: 0.98em;
+    margin-bottom: 4px;
+}
+.llm-suggestion-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 4px;
+}
+.llm-suggestion-accept, .llm-suggestion-decline {
+    background: #f5f5f5;
+    border: none;
+    border-radius: 4px;
+    font-size: 1.25em;
+    padding: 4px 12px;
+    cursor: pointer;
+    transition: background 0.18s, color 0.18s;
+}
+.llm-suggestion-accept:hover {
+    background: #e8f5e9;
+    color: #388e3c;
+}
+.llm-suggestion-decline:hover {
+    background: #ffebee;
+    color: #b71c1c;
+}
+
 @media (min-width: 900px) and (max-width: 1600px) {
     .main-content {
         transform: none;

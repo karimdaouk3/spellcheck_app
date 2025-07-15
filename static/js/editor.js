@@ -635,27 +635,36 @@ class LanguageToolEditor {
     }
     // Render LLM section highlights
     updateLLMHighlights() {
-        // Example: highlight each section using offsets
-        const text = this.editor.innerText;
-        let html = '';
-        let lastIndex = 0;
+        const suggestionList = document.getElementById('llm-suggestion-list');
+        if (!suggestionList) return;
+        // Clear previous
+        suggestionList.innerHTML = '';
+        if (!this.llmSectionSuggestions || this.llmSectionSuggestions.length === 0) {
+            suggestionList.style.display = 'none';
+            return;
+        }
+        suggestionList.style.display = 'block';
+        // Render each suggestion as a card/row
         this.llmSectionSuggestions.forEach((s, i) => {
-            html += this.escapeHtml(text.substring(lastIndex, s.start));
-            html += `<span class="llm-section-suggestion" data-llm-index="${i}">${this.escapeHtml(text.substring(s.start, s.end))}</span>`;
-            lastIndex = s.end;
-        });
-        html += this.escapeHtml(text.substring(lastIndex));
-        this.highlightOverlay.innerHTML = html;
-        // Attach click handler for accepting suggestions
-        const spans = this.highlightOverlay.querySelectorAll('.llm-section-suggestion');
-        spans.forEach(span => {
-            span.style.background = '#e0f7fa';
-            span.style.borderBottom = '2px solid #00bcd4';
-            span.style.cursor = 'pointer';
-            span.onclick = (e) => {
-                const idx = parseInt(span.getAttribute('data-llm-index'));
-                this.acceptLLMSuggestion(idx);
+            const div = document.createElement('div');
+            div.className = 'llm-suggestion-item';
+            div.innerHTML = `
+                <div class="llm-suggestion-original"><strong>Original:</strong> ${this.escapeHtml(s.original)}</div>
+                <div class="llm-suggestion-suggested"><strong>Suggestion:</strong> ${this.escapeHtml(s.suggestion)}</div>
+                <div class="llm-suggestion-justification"><strong>Why:</strong> ${this.escapeHtml(s.justification)}</div>
+                <div class="llm-suggestion-actions">
+                    <button class="llm-suggestion-accept" title="Accept">&#10003;</button>
+                    <button class="llm-suggestion-decline" title="Decline">&#10005;</button>
+                </div>
+            `;
+            // Accept button
+            div.querySelector('.llm-suggestion-accept').onclick = () => this.acceptLLMSuggestion(i);
+            // Decline button
+            div.querySelector('.llm-suggestion-decline').onclick = () => {
+                this.llmSectionSuggestions.splice(i, 1);
+                this.updateLLMHighlights();
             };
+            suggestionList.appendChild(div);
         });
     }
 }
