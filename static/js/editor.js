@@ -621,27 +621,38 @@ class LanguageToolEditor {
     acceptLLMSuggestion(index) {
         const suggestion = this.llmSectionSuggestions[index];
         const text = this.editor.innerText;
+        // Find the current position of the original text
+        let start = suggestion.start;
+        let end = suggestion.end;
+        if (
+            typeof start !== 'number' || typeof end !== 'number' ||
+            start < 0 || end <= start || end > text.length || text.substring(start, end) !== suggestion.original
+        ) {
+            // Search for the first occurrence of the original text
+            start = text.indexOf(suggestion.original);
+            end = start !== -1 ? start + suggestion.original.length : -1;
+        }
+        if (start === -1 || end === -1) {
+            // Original text not found, do nothing
+            this.showStatus('Could not apply suggestion: original text not found');
+            return;
+        }
         // Replace the section in the text
-        const before = text.substring(0, suggestion.start);
-        const after = text.substring(suggestion.end);
+        const before = text.substring(0, start);
+        const after = text.substring(end);
         this.editor.innerText = before + suggestion.suggestion + after;
-        // Calculate length difference
-        const delta = suggestion.suggestion.length - (suggestion.end - suggestion.start);
         // Remove the accepted suggestion
         this.llmSectionSuggestions.splice(index, 1);
         // Adjust offsets for all suggestions after this one
         for (let i = 0; i < this.llmSectionSuggestions.length; i++) {
-            if (this.llmSectionSuggestions[i].start > suggestion.end) {
-                this.llmSectionSuggestions[i].start += delta;
-                this.llmSectionSuggestions[i].end += delta;
+            if (this.llmSectionSuggestions[i].start > end) {
+                this.llmSectionSuggestions[i].start += suggestion.suggestion.length - (end - start);
+                this.llmSectionSuggestions[i].end += suggestion.suggestion.length - (end - start);
             }
         }
-        // Clear overlay (no highlights used)
-        if (this.highlightOverlay) this.highlightOverlay.innerHTML = '';
-        // Re-render suggestions list
         this.updateLLMHighlights();
-        // Run error checker after accepting a suggestion
         this.checkText();
+        this.realignLLMSuggestions();
     }
     // Render LLM section highlights
     updateLLMHighlights() {
