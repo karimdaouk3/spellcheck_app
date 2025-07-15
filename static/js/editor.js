@@ -630,7 +630,9 @@ class LanguageToolEditor {
                 this.llmSectionSuggestions[i].end += delta;
             }
         }
-        // Re-render highlights (implement as needed)
+        // Clear overlay (no highlights used)
+        if (this.highlightOverlay) this.highlightOverlay.innerHTML = '';
+        // Re-render suggestions list
         this.updateLLMHighlights();
     }
     // Render LLM section highlights
