@@ -186,6 +186,8 @@ class LanguageToolEditor {
                 this.editor.innerText = rewriteContent;
                 this.highlightOverlay.innerHTML = '';
                 rewritePopup.style.display = 'none';
+                // Hide overlay immediately
+                this.highlightOverlay.innerHTML = '';
                 // Wait for DOM update before running checkText
                 requestAnimationFrame(() => {
                     this.checkText();
