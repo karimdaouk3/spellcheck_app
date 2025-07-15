@@ -412,7 +412,7 @@ body {
     justify-content: center; /* vertically center content */
 }
 .llm-suggestion-item:hover {
-    background: #e6fafd; /* slightly fainter teal background */
+    background: #f4fdff; /* even fainter teal background */
     box-shadow: 0 2px 12px rgba(0,188,212,0.08);
     border-left: 4px solid #00bcd4; /* keep original teal on hover */
 }
