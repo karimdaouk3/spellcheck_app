@@ -117,7 +117,7 @@ class LanguageToolEditor {
                     // Always clear editor and show status immediately
                     this.editor.innerText = '';
                     this.highlightOverlay.innerHTML = '';
-                    this.showStatus('Recording...', 'recording', true); // persist status, red with icon
+                    // Remove: this.showStatus('Recording...', 'recording', true);
                     this.editor.setAttribute('contenteditable', 'false');
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -145,7 +145,6 @@ class LanguageToolEditor {
                                     });
                                     const data = await response.json();
                                     this.editor.innerText = data.transcription || '';
-                                    // Remove: this.showStatus('Transcription complete', 'success');
                                     this.checkText();
                                 } catch (e) {
                                     this.editor.innerText = 'Error: Could not transcribe.';
@@ -159,7 +158,7 @@ class LanguageToolEditor {
                         isRecording = true;
                         micBtn.style.background = '#ffebee';
                         micBtn.style.color = '#d32f2f';
-                        // Remove: this.editor.innerText = 'Listening...';
+                        // Only show 'Listening...' alert with icon
                         this.showStatus('Listening...', 'recording', true); // red with icon
                     } catch (err) {
                         this.editor.innerText = '';
@@ -399,7 +398,7 @@ class LanguageToolEditor {
         // Add support for a 'recording' type with icon
         let icon = '';
         if (type === 'recording') {
-            icon = '<span style="display:inline-flex;align-items:center;height:20px;margin-right:8px;"><svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="none" stroke="#fff" stroke-width="2"/><circle cx="10" cy="10" r="5" fill="#d32f2f"/></svg></span>';
+            icon = '<span style="display:inline-flex;align-items:center;margin-right:8px;"><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="none" stroke="#fff" stroke-width="2"/><circle cx="8" cy="8" r="4" fill="#d32f2f"/></svg></span>';
         }
         this.status.innerHTML = icon + message;
         this.status.className = `status show ${type}`;
