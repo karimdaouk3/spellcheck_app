@@ -621,15 +621,17 @@ class LanguageToolEditor {
     acceptLLMSuggestion(index) {
         const suggestion = this.llmSectionSuggestions[index];
         const text = this.editor.innerText;
-        // Find the current position of the original text
+        // Find the current position of the original text (case-insensitive)
         let start = suggestion.start;
         let end = suggestion.end;
+        const textLower = text.toLowerCase();
+        const originalLower = suggestion.original.toLowerCase();
         if (
             typeof start !== 'number' || typeof end !== 'number' ||
             start < 0 || end <= start || end > text.length || text.substring(start, end) !== suggestion.original
         ) {
-            // Search for the first occurrence of the original text
-            start = text.indexOf(suggestion.original);
+            // Case-insensitive search for the first occurrence of the original text
+            start = textLower.indexOf(originalLower);
             end = start !== -1 ? start + suggestion.original.length : -1;
         }
         if (start === -1 || end === -1) {
@@ -704,12 +706,14 @@ class LanguageToolEditor {
         const text = this.editor.innerText;
         let highlightStart = start;
         let highlightEnd = end;
-        // If offset is invalid or out of date, search for the original string
+        const textLower = text.toLowerCase();
+        const originalLower = original.toLowerCase();
+        // If offset is invalid or out of date, search for the original string (case-insensitive)
         if (
             typeof start !== 'number' || typeof end !== 'number' ||
             start < 0 || end <= start || end > text.length || text.substring(start, end) !== original
         ) {
-            highlightStart = text.indexOf(original);
+            highlightStart = textLower.indexOf(originalLower);
             if (highlightStart !== -1) {
                 highlightEnd = highlightStart + original.length;
             } else {
