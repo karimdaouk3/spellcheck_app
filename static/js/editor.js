@@ -398,7 +398,7 @@ class LanguageToolEditor {
         // Add support for a 'recording' type with icon
         let icon = '';
         if (type === 'recording') {
-            icon = '<span style="display:inline-flex;align-items:center;margin-right:8px;"><svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="8" fill="none" stroke="#fff" stroke-width="3"/><circle cx="9" cy="9" r="4" fill="#fff"/></svg></span>';
+            icon = '<span style="display:inline-flex;align-items:center;margin-right:8px;"><svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="none" stroke="#fff" stroke-width="4"/><circle cx="10" cy="10" r="5" fill="#fff"/></svg></span>';
         }
         this.status.innerHTML = icon + message;
         this.status.className = `status show ${type}`;
