@@ -42,6 +42,8 @@ class LanguageToolEditor {
         this.highlightOverlay.style.background = 'transparent';
         this.editor.parentElement.appendChild(this.highlightOverlay);
         this.editor.parentElement.style.position = 'relative';
+        // Always scroll overlay to top when created
+        this.highlightOverlay.scrollTop = 0;
     }
     
     initEventListeners() {
@@ -241,6 +243,8 @@ class LanguageToolEditor {
             this.awaitingCheck = false;
             this.overlayHidden = false;
             this.updateHighlights();
+            // Always scroll overlay to top after check
+            setTimeout(() => { this.highlightOverlay.scrollTop = 0; }, 0);
             
             const count = suggestions.length;
             if (!this.llmInProgress) {
@@ -271,7 +275,8 @@ class LanguageToolEditor {
         if (this.currentSuggestions.length === 0) {
             this.highlightOverlay.innerHTML = '';
             // Always scroll overlay to top when it is shown (even if empty)
-            this.highlightOverlay.scrollTop = 0;
+            requestAnimationFrame(() => { this.highlightOverlay.scrollTop = 0; });
+            setTimeout(() => { this.highlightOverlay.scrollTop = 0; }, 0);
             return;
         }
         // Create highlighted text
@@ -298,9 +303,8 @@ class LanguageToolEditor {
         highlightedText += this.escapeHtml(text.substring(lastIndex));
         this.highlightOverlay.innerHTML = highlightedText;
         // Always scroll overlay to top when it is shown, after DOM update
-        requestAnimationFrame(() => {
-            this.highlightOverlay.scrollTop = 0;
-        });
+        requestAnimationFrame(() => { this.highlightOverlay.scrollTop = 0; });
+        setTimeout(() => { this.highlightOverlay.scrollTop = 0; }, 0);
         // Attach click handlers to highlights
         const spans = this.highlightOverlay.querySelectorAll('.highlight-span');
         spans.forEach(span => {
