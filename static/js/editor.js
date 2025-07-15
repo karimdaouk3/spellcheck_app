@@ -46,7 +46,9 @@ class LanguageToolEditor {
     initEventListeners() {
         // Input event for checking text
         this.editor.addEventListener('input', () => {
-            this.updateHighlights(); // Immediately update overlay to match text
+            if (!this.overlayHidden) {
+                this.updateHighlights(); // Only update overlay if not hidden
+            }
             this.debounceCheck();
         });
         // Force plain text paste (strip formatting)
