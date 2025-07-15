@@ -114,13 +114,10 @@ class LanguageToolEditor {
         if (micBtn) {
             micBtn.addEventListener('click', async () => {
                 if (!isRecording) {
-                    // Start recording
-                    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                        alert('Audio recording is not supported in this browser.');
-                        return;
-                    }
+                    // Always clear editor and show status immediately
                     this.editor.innerText = '';
-                    this.highlightOverlay.innerHTML = ''; // Clear overlay content
+                    this.highlightOverlay.innerHTML = '';
+                    this.showStatus('Recording...', 'checking', true); // persist status
                     this.editor.setAttribute('contenteditable', 'false');
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -134,6 +131,7 @@ class LanguageToolEditor {
                             micBtn.style.color = '';
                             micBtn.disabled = true;
                             this.editor.innerText = 'Processing...';
+                            this.showStatus('Processing audio...', 'checking', true);
                             // Send audio to backend
                             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
                             const formData = new FormData();
@@ -147,9 +145,11 @@ class LanguageToolEditor {
                                     });
                                     const data = await response.json();
                                     this.editor.innerText = data.transcription || '';
+                                    this.showStatus('Transcription complete', 'success');
                                     this.checkText();
                                 } catch (e) {
                                     this.editor.innerText = 'Error: Could not transcribe.';
+                                    this.showStatus('Transcription failed', 'error');
                                 }
                                 micBtn.disabled = false;
                                 this.editor.setAttribute('contenteditable', 'true');
@@ -160,7 +160,11 @@ class LanguageToolEditor {
                         micBtn.style.background = '#ffebee';
                         micBtn.style.color = '#d32f2f';
                         this.editor.innerText = 'Listening...';
+                        this.showStatus('Listening...', 'checking', true);
                     } catch (err) {
+                        this.editor.innerText = '';
+                        this.editor.setAttribute('contenteditable', 'true');
+                        this.showStatus('Could not access microphone.', 'error');
                         alert('Could not access microphone.');
                     }
                 } else {
