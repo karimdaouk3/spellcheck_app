@@ -267,13 +267,17 @@ class LanguageToolEditor {
     updateHighlights() {
         if (this.awaitingCheck || this.overlayHidden) {
             this.highlightOverlay.innerHTML = '';
+            // Scroll overlay and editor to top only when it is shown (even if empty)
+            this.highlightOverlay.scrollTop = 0;
+            this.editor.scrollTop = 0;
             return;
         }
         const text = this.editor.innerText;
         if (this.currentSuggestions.length === 0) {
             this.highlightOverlay.innerHTML = '';
-            // Scroll overlay to top only when it is shown (even if empty)
+            // Scroll overlay and editor to top only when it is shown (even if empty)
             this.highlightOverlay.scrollTop = 0;
+            this.editor.scrollTop = 0;
             return;
         }
         // Create highlighted text
@@ -299,8 +303,9 @@ class LanguageToolEditor {
         // Add any remaining text after the last suggestion
         highlightedText += this.escapeHtml(text.substring(lastIndex));
         this.highlightOverlay.innerHTML = highlightedText;
-        // Scroll overlay to top when it is shown, after DOM update
+        // Scroll overlay and editor to top when it is shown, after DOM update
         this.highlightOverlay.scrollTop = 0;
+        this.editor.scrollTop = 0;
         // Attach click handlers to highlights
         const spans = this.highlightOverlay.querySelectorAll('.highlight-span');
         spans.forEach(span => {
