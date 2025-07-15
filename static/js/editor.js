@@ -597,6 +597,10 @@ class LanguageToolEditor {
                 rewritePopup.querySelector('.rewrite-content').textContent = rewrite;
             }
             rewritePopup.style.display = 'block';
+            // Scroll the rewrite popup to the top after it updates
+            requestAnimationFrame(() => {
+                rewritePopup.scrollTop = 0;
+            });
         } else {
             rewritePopup.style.display = 'none';
         }
