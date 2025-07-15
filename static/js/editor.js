@@ -123,7 +123,9 @@ class LanguageToolEditor {
                     // Always clear editor and show status immediately
                     this.editor.innerText = '';
                     this.highlightOverlay.innerHTML = '';
-                    // Remove: this.showStatus('Recording...', 'recording', true);
+                    // Set placeholder to 'Listening...'
+                    this.editor.setAttribute('data-placeholder', 'Listening...');
+                    this.editor.classList.add('empty');
                     this.editor.setAttribute('contenteditable', 'false');
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -151,10 +153,20 @@ class LanguageToolEditor {
                                     });
                                     const data = await response.json();
                                     this.editor.innerText = data.transcription || '';
+                                    // Restore placeholder
+                                    this.editor.setAttribute('data-placeholder', 'Start typing your text here...');
+                                    if (this.editor.innerText.trim() === '') {
+                                        this.editor.classList.add('empty');
+                                    } else {
+                                        this.editor.classList.remove('empty');
+                                    }
                                     this.checkText();
                                 } catch (e) {
                                     this.editor.innerText = 'Error: Could not transcribe.';
                                     this.showStatus('Transcription failed', 'error');
+                                    // Restore placeholder
+                                    this.editor.setAttribute('data-placeholder', 'Start typing your text here...');
+                                    this.editor.classList.remove('empty');
                                 }
                                 micBtn.disabled = false;
                                 this.editor.setAttribute('contenteditable', 'true');
@@ -171,6 +183,9 @@ class LanguageToolEditor {
                         this.editor.setAttribute('contenteditable', 'true');
                         this.showStatus('Could not access microphone.', 'error');
                         alert('Could not access microphone.');
+                        // Restore placeholder
+                        this.editor.setAttribute('data-placeholder', 'Start typing your text here...');
+                        this.editor.classList.add('empty');
                     }
                 } else {
                     // Stop recording
