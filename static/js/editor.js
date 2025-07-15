@@ -617,24 +617,27 @@ class LanguageToolEditor {
         }
     }
 
+    // Helper to find the nth occurrence of a substring in a string
+    nthIndexOf(haystack, needle, n) {
+        if (!needle) return -1;
+        let pos = -1;
+        for (let i = 0; i <= n; i++) {
+            pos = haystack.indexOf(needle, pos + 1);
+            if (pos === -1) return -1;
+        }
+        return pos;
+    }
+
     // Accept a section-level LLM suggestion and adjust offsets
     acceptLLMSuggestion(index) {
         const suggestion = this.llmSectionSuggestions[index];
         let text = this.editor.innerText;
-        // Find the correct position for the original text in the current editor text
-        let start = suggestion.start;
-        let end = suggestion.end;
-        if (
-            typeof start !== 'number' || typeof end !== 'number' ||
-            start < 0 || end <= start || end > text.length || text.substring(start, end) !== suggestion.original
-        ) {
-            start = text.indexOf(suggestion.original);
-            if (start !== -1) {
-                end = start + suggestion.original.length;
-            } else {
-                // If not found, do nothing
-                return;
-            }
+        // Find the nth occurrence of the original text
+        let start = this.nthIndexOf(text, suggestion.original, index);
+        let end = start !== -1 ? start + suggestion.original.length : -1;
+        if (start === -1 || end === -1) {
+            // If not found, do nothing
+            return;
         }
         // Replace the section in the text
         const before = text.substring(0, start);
@@ -683,30 +686,21 @@ class LanguageToolEditor {
                 this.updateLLMHighlights();
             };
             // Hover highlight logic
-            div.onmouseenter = () => this.addLLMHoverHighlight(s.start, s.end, s.original);
+            div.onmouseenter = () => this.addLLMHoverHighlight(s.start, s.end, s.original, i);
             div.onmouseleave = () => this.removeLLMHoverHighlight();
             suggestionList.appendChild(div);
         });
     }
 
-    addLLMHoverHighlight(start, end, original) {
+    addLLMHoverHighlight(start, end, original, index) {
         // Remove any previous highlight
         this.removeLLMHoverHighlight();
         const text = this.editor.innerText;
-        let highlightStart = start;
-        let highlightEnd = end;
-        // If offset is invalid or out of date, search for the original string
-        if (
-            typeof start !== 'number' || typeof end !== 'number' ||
-            start < 0 || end <= start || end > text.length || text.substring(start, end) !== original
-        ) {
-            highlightStart = text.indexOf(original);
-            if (highlightStart !== -1) {
-                highlightEnd = highlightStart + original.length;
-            } else {
-                // If not found, do nothing
-                return;
-            }
+        // Find the nth occurrence of the original text
+        let highlightStart = this.nthIndexOf(text, original, index);
+        let highlightEnd = highlightStart !== -1 ? highlightStart + original.length : -1;
+        if (highlightStart === -1 || highlightEnd === -1) {
+            return;
         }
         const before = this.escapeHtml(text.substring(0, highlightStart));
         const highlight = `<span class='llm-hover-highlight'>${this.escapeHtml(text.substring(highlightStart, highlightEnd))}</span>`;
