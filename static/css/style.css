@@ -219,8 +219,12 @@ body {
     width: 100%;
     height: 100%;
     overflow-y: auto;
-    pointer-events: none;
+    pointer-events: auto;
     z-index: 1;
+}
+
+.llm-section-suggestion {
+    pointer-events: auto;
 }
 
 .highlight-span {
