@@ -145,7 +145,7 @@ class LanguageToolEditor {
                                     });
                                     const data = await response.json();
                                     this.editor.innerText = data.transcription || '';
-                                    this.showStatus('Transcription complete', 'success');
+                                    // Remove: this.showStatus('Transcription complete', 'success');
                                     this.checkText();
                                 } catch (e) {
                                     this.editor.innerText = 'Error: Could not transcribe.';
@@ -399,7 +399,7 @@ class LanguageToolEditor {
         // Add support for a 'recording' type with icon
         let icon = '';
         if (type === 'recording') {
-            icon = '<span style="display:inline-block;vertical-align:middle;margin-right:8px;"><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="#fff" stroke="#fff"/><circle cx="8" cy="8" r="6" fill="#d32f2f"/></svg></span>';
+            icon = '<span style="display:inline-flex;align-items:center;height:20px;margin-right:8px;"><svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="none" stroke="#fff" stroke-width="2"/><circle cx="10" cy="10" r="5" fill="#d32f2f"/></svg></span>';
         }
         this.status.innerHTML = icon + message;
         this.status.className = `status show ${type}`;

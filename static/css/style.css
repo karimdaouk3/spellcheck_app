@@ -140,6 +140,9 @@ body {
     font-size: 14px;
     opacity: 0;
     transition: opacity 0.3s;
+    display: flex;
+    align-items: center;
+    min-height: 40px;
 }
 
 .status.show {
