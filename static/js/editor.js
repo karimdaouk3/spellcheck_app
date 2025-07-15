@@ -634,6 +634,8 @@ class LanguageToolEditor {
         if (this.highlightOverlay) this.highlightOverlay.innerHTML = '';
         // Re-render suggestions list
         this.updateLLMHighlights();
+        // Run error checker after accepting a suggestion
+        this.checkText();
     }
     // Render LLM section highlights
     updateLLMHighlights() {
@@ -651,11 +653,11 @@ class LanguageToolEditor {
             const div = document.createElement('div');
             div.className = 'llm-suggestion-item';
             div.innerHTML = `
-                <div class="llm-suggestion-suggested"><strong>Suggestion:</strong> ${this.escapeHtml(s.suggestion)}</div>
-                <div class="llm-suggestion-actions">
+                <div class="llm-suggestion-actions-top">
                     <button class="llm-suggestion-accept" title="Accept">&#10003;</button>
                     <button class="llm-suggestion-decline" title="Decline">&#10005;</button>
                 </div>
+                <div class="llm-suggestion-suggested" style="color:#111;"><strong>Suggestion:</strong> ${this.escapeHtml(s.suggestion)}</div>
             `;
             // Accept button
             div.querySelector('.llm-suggestion-accept').onclick = () => this.acceptLLMSuggestion(i);
