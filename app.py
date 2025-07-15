@@ -93,26 +93,25 @@ Evaluate the following technical note against these criteria:\n{rules}\n\nFor ea
         llm_result_str = response["choices"][0]["message"]["content"]
         try:
             llm_result = json.loads(llm_result_str)
-            # Backend offset calculation for suggestions (nth occurrence logic)
+            # Backend offset calculation for suggestions
             if isinstance(llm_result, dict) and 'suggestions' in llm_result and isinstance(llm_result['suggestions'], list):
-                used_indices = []
+                used_ranges = []
                 for s in llm_result['suggestions']:
-                    original = s.get('original', '')
-                    if not original:
-                        s['start'] = None
-                        s['end'] = None
-                        continue
-                    # Find the nth occurrence of original, where n = number of times we've already used it
-                    n = used_indices.count(original)
-                    start = nth_index(text, original, n)
+                    # Find the next occurrence of s['original'] after the last used end
+                    last_end = used_ranges[-1][1] if used_ranges else 0
+                    start = text.find(s['original'], last_end)
                     if start == -1:
+                        # Try searching from the beginning if not found after last_end
+                        start = text.find(s['original'])
+                    if start == -1:
+                        # If still not found, skip this suggestion
                         s['start'] = None
                         s['end'] = None
                         continue
-                    end = start + len(original)
+                    end = start + len(s['original'])
                     s['start'] = start
                     s['end'] = end
-                    used_indices.append(original)
+                    used_ranges.append((start, end))
         except Exception as e:
             print(f"Error parsing LLM JSON: {e}\nRaw output: {llm_result_str}")
             return jsonify({"result": {}})
@@ -121,17 +120,6 @@ Evaluate the following technical note against these criteria:\n{rules}\n\nFor ea
         print(f"Error calling LLM: {e}")
         return jsonify({"result": f"LLM error: {e}"})
 
-def nth_index(haystack, needle, n):
-    # Return the start index of the nth occurrence of needle in haystack
-    if not needle:
-        return -1
-    start = -1
-    for _ in range(n+1):
-        start = haystack.find(needle, start + 1)
-        if start == -1:
-            return -1
-    return start
-
 @app.route("/llm-realign", methods=["POST"])
 def llm_realign():
     data = request.get_json()
@@ -139,20 +127,19 @@ def llm_realign():
     suggestions = data.get("suggestions", [])
     if not text.strip() or not isinstance(suggestions, list):
         return jsonify([])
-    used_indices = []
+    text_lower = text.lower()
     new_suggestions = []
     for s in suggestions:
         original = s.get("original", "")
         if not original:
             continue
-        n = used_indices.count(original)
-        start = nth_index(text, original, n)
+        original_lower = original.lower()
+        start = text_lower.find(original_lower)
         if start == -1:
             continue  # skip if not found
         end = start + len(original)
         s["start"] = start
         s["end"] = end
-        used_indices.append(original)
         new_suggestions.append(s)
     return jsonify(new_suggestions)
 
