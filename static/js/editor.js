@@ -66,6 +66,10 @@ class LanguageToolEditor {
                 this.updateHighlights(); // Only update overlay if not hidden
             }
             this.debounceCheck();
+            // Realign LLM suggestions if present
+            if (this.llmSectionSuggestions && this.llmSectionSuggestions.length > 0) {
+                this.realignLLMSuggestions();
+            }
         });
         // Force plain text paste (strip formatting)
         this.editor.addEventListener('paste', (e) => {
@@ -645,6 +649,8 @@ class LanguageToolEditor {
         suggestionList.innerHTML = '';
         if (!this.llmSectionSuggestions || this.llmSectionSuggestions.length === 0) {
             suggestionList.style.display = 'none';
+            // Remove any LLM hover highlight
+            this.removeLLMHoverHighlight();
             return;
         }
         suggestionList.style.display = 'block';
@@ -666,8 +672,50 @@ class LanguageToolEditor {
                 this.llmSectionSuggestions.splice(i, 1);
                 this.updateLLMHighlights();
             };
+            // Hover highlight logic
+            div.onmouseenter = () => this.addLLMHoverHighlight(s.start, s.end);
+            div.onmouseleave = () => this.removeLLMHoverHighlight();
             suggestionList.appendChild(div);
         });
+    }
+
+    addLLMHoverHighlight(start, end) {
+        // Remove any previous highlight
+        this.removeLLMHoverHighlight();
+        const text = this.editor.innerText;
+        if (start >= 0 && end > start && end <= text.length) {
+            const before = this.escapeHtml(text.substring(0, start));
+            const highlight = `<span class='llm-hover-highlight'>${this.escapeHtml(text.substring(start, end))}</span>`;
+            const after = this.escapeHtml(text.substring(end));
+            this.highlightOverlay.innerHTML = before + highlight + after;
+        }
+    }
+
+    removeLLMHoverHighlight() {
+        // Only remove if not showing normal highlights
+        if (this.awaitingCheck || this.overlayHidden) {
+            this.highlightOverlay.innerHTML = '';
+            return;
+        }
+        // Restore normal highlights if any
+        this.updateHighlights();
+    }
+
+    async realignLLMSuggestions() {
+        const text = this.editor.innerText;
+        if (!this.llmSectionSuggestions || this.llmSectionSuggestions.length === 0) return;
+        try {
+            const response = await fetch('/llm-realign', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text, suggestions: this.llmSectionSuggestions })
+            });
+            const newSuggestions = await response.json();
+            this.llmSectionSuggestions = newSuggestions;
+            this.updateLLMHighlights();
+        } catch (e) {
+            // fail silently
+        }
     }
 }
 

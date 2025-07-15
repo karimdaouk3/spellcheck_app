@@ -120,6 +120,32 @@ Evaluate the following technical note against these criteria:\n{rules}\n\nFor ea
         print(f"Error calling LLM: {e}")
         return jsonify({"result": f"LLM error: {e}"})
 
+@app.route("/llm-realign", methods=["POST"])
+def llm_realign():
+    data = request.get_json()
+    text = data.get("text", "")
+    suggestions = data.get("suggestions", [])
+    if not text.strip() or not isinstance(suggestions, list):
+        return jsonify([])
+    used_ranges = []
+    new_suggestions = []
+    for s in suggestions:
+        original = s.get("original", "")
+        if not original:
+            continue
+        last_end = used_ranges[-1][1] if used_ranges else 0
+        start = text.find(original, last_end)
+        if start == -1:
+            start = text.find(original)
+        if start == -1:
+            continue  # skip if not found
+        end = start + len(original)
+        s["start"] = start
+        s["end"] = end
+        used_ranges.append((start, end))
+        new_suggestions.append(s)
+    return jsonify(new_suggestions)
+
 @app.route("/speech-to-text", methods=["POST"])
 def speech_to_text():
     # Accept audio file upload (simulate processing)
