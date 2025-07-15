@@ -93,6 +93,25 @@ Evaluate the following technical note against these criteria:\n{rules}\n\nFor ea
         llm_result_str = response["choices"][0]["message"]["content"]
         try:
             llm_result = json.loads(llm_result_str)
+            # Backend offset calculation for suggestions
+            if isinstance(llm_result, dict) and 'suggestions' in llm_result and isinstance(llm_result['suggestions'], list):
+                used_ranges = []
+                for s in llm_result['suggestions']:
+                    # Find the next occurrence of s['original'] after the last used end
+                    last_end = used_ranges[-1][1] if used_ranges else 0
+                    start = text.find(s['original'], last_end)
+                    if start == -1:
+                        # Try searching from the beginning if not found after last_end
+                        start = text.find(s['original'])
+                    if start == -1:
+                        # If still not found, skip this suggestion
+                        s['start'] = None
+                        s['end'] = None
+                        continue
+                    end = start + len(s['original'])
+                    s['start'] = start
+                    s['end'] = end
+                    used_ranges.append((start, end))
         except Exception as e:
             print(f"Error parsing LLM JSON: {e}\nRaw output: {llm_result_str}")
             return jsonify({"result": {}})
