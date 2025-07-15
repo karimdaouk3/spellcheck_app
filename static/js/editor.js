@@ -243,8 +243,6 @@ class LanguageToolEditor {
             this.awaitingCheck = false;
             this.overlayHidden = false;
             this.updateHighlights();
-            // Always scroll overlay to top after check
-            setTimeout(() => { this.highlightOverlay.scrollTop = 0; }, 0);
             
             const count = suggestions.length;
             if (!this.llmInProgress) {
@@ -274,9 +272,8 @@ class LanguageToolEditor {
         const text = this.editor.innerText;
         if (this.currentSuggestions.length === 0) {
             this.highlightOverlay.innerHTML = '';
-            // Always scroll overlay to top when it is shown (even if empty)
-            requestAnimationFrame(() => { this.highlightOverlay.scrollTop = 0; });
-            setTimeout(() => { this.highlightOverlay.scrollTop = 0; }, 0);
+            // Scroll overlay to top only when it is shown (even if empty)
+            this.highlightOverlay.scrollTop = 0;
             return;
         }
         // Create highlighted text
@@ -302,9 +299,8 @@ class LanguageToolEditor {
         // Add any remaining text after the last suggestion
         highlightedText += this.escapeHtml(text.substring(lastIndex));
         this.highlightOverlay.innerHTML = highlightedText;
-        // Always scroll overlay to top when it is shown, after DOM update
-        requestAnimationFrame(() => { this.highlightOverlay.scrollTop = 0; });
-        setTimeout(() => { this.highlightOverlay.scrollTop = 0; }, 0);
+        // Scroll overlay to top when it is shown, after DOM update
+        this.highlightOverlay.scrollTop = 0;
         // Attach click handlers to highlights
         const spans = this.highlightOverlay.querySelectorAll('.highlight-span');
         spans.forEach(span => {
