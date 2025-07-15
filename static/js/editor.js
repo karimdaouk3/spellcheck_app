@@ -594,28 +594,13 @@ class LanguageToolEditor {
             this.status.textContent = '';
             this.llmInProgress = false;
         });
-        // Show rewrite popup with placeholder or suggested rewrite when LLM overlay is shown
-        const rewritePopup = document.getElementById('rewrite-popup');
-        if (overlay.style.display === 'block') {
-            // If a suggested rewrite is present, show it
-            let rewrite = '';
-            if (result && typeof result === 'object') {
-                if (result.rewritten_problem_statement) {
-                    rewrite = result.rewritten_problem_statement;
-                } else if (result.rewrite) {
-                    rewrite = result.rewrite;
-                }
-            }
-            if (rewrite) {
-                rewritePopup.querySelector('.rewrite-content').textContent = rewrite;
-            }
-            rewritePopup.style.display = 'block';
-            // Scroll the rewrite popup to the top after it updates
-            requestAnimationFrame(() => {
-                rewritePopup.scrollTop = 0;
-            });
+        // Handle LLM section suggestions
+        if (result && Array.isArray(result.suggestions)) {
+            this.llmSectionSuggestions = result.suggestions;
+            this.updateLLMHighlights();
         } else {
-            rewritePopup.style.display = 'none';
+            this.llmSectionSuggestions = [];
+            this.updateLLMHighlights();
         }
     }
 
