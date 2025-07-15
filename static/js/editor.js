@@ -533,6 +533,10 @@ class LanguageToolEditor {
             }
             overlay.innerHTML = html;
             overlay.style.display = 'block';
+            // Always scroll highlight overlay to top when LLM overlay appears
+            if (this.highlightOverlay) {
+                this.highlightOverlay.scrollTop = 0;
+            }
         } else {
             overlay.style.display = 'none';
         }
