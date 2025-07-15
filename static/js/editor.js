@@ -620,28 +620,36 @@ class LanguageToolEditor {
     // Accept a section-level LLM suggestion and adjust offsets
     acceptLLMSuggestion(index) {
         const suggestion = this.llmSectionSuggestions[index];
-        const text = this.editor.innerText;
-        // Replace the section in the text
-        const before = text.substring(0, suggestion.start);
-        const after = text.substring(suggestion.end);
-        this.editor.innerText = before + suggestion.suggestion + after;
-        // Calculate length difference
-        const delta = suggestion.suggestion.length - (suggestion.end - suggestion.start);
-        // Remove the accepted suggestion
-        this.llmSectionSuggestions.splice(index, 1);
-        // Adjust offsets for all suggestions after this one
-        for (let i = 0; i < this.llmSectionSuggestions.length; i++) {
-            if (this.llmSectionSuggestions[i].start > suggestion.end) {
-                this.llmSectionSuggestions[i].start += delta;
-                this.llmSectionSuggestions[i].end += delta;
+        let text = this.editor.innerText;
+        // Find the correct position for the original text in the current editor text
+        let start = suggestion.start;
+        let end = suggestion.end;
+        if (
+            typeof start !== 'number' || typeof end !== 'number' ||
+            start < 0 || end <= start || end > text.length || text.substring(start, end) !== suggestion.original
+        ) {
+            start = text.indexOf(suggestion.original);
+            if (start !== -1) {
+                end = start + suggestion.original.length;
+            } else {
+                // If not found, do nothing
+                return;
             }
         }
+        // Replace the section in the text
+        const before = text.substring(0, start);
+        const after = text.substring(end);
+        this.editor.innerText = before + suggestion.suggestion + after;
+        // Remove the accepted suggestion
+        this.llmSectionSuggestions.splice(index, 1);
         // Clear overlay (no highlights used)
         if (this.highlightOverlay) this.highlightOverlay.innerHTML = '';
         // Re-render suggestions list
         this.updateLLMHighlights();
         // Run error checker after accepting a suggestion
         this.checkText();
+        // Realign remaining LLM suggestions
+        this.realignLLMSuggestions();
     }
     // Render LLM section highlights
     updateLLMHighlights() {
