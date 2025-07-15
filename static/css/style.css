@@ -175,6 +175,11 @@ body {
     background: #41007F;
 }
 
+.status.recording {
+    background: #d32f2f;
+    color: #fff;
+}
+
 .header {
     text-align: center;
     margin-bottom: 0;

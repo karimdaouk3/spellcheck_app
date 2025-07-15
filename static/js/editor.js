@@ -117,7 +117,7 @@ class LanguageToolEditor {
                     // Always clear editor and show status immediately
                     this.editor.innerText = '';
                     this.highlightOverlay.innerHTML = '';
-                    this.showStatus('Recording...', 'checking', true); // persist status
+                    this.showStatus('Recording...', 'recording', true); // persist status, red with icon
                     this.editor.setAttribute('contenteditable', 'false');
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -130,7 +130,7 @@ class LanguageToolEditor {
                             micBtn.style.background = '';
                             micBtn.style.color = '';
                             micBtn.disabled = true;
-                            this.editor.innerText = 'Processing...';
+                            // No processing text in editor
                             this.showStatus('Processing audio...', 'checking', true);
                             // Send audio to backend
                             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
@@ -159,8 +159,8 @@ class LanguageToolEditor {
                         isRecording = true;
                         micBtn.style.background = '#ffebee';
                         micBtn.style.color = '#d32f2f';
-                        this.editor.innerText = 'Listening...';
-                        this.showStatus('Listening...', 'checking', true);
+                        // Remove: this.editor.innerText = 'Listening...';
+                        this.showStatus('Listening...', 'recording', true); // red with icon
                     } catch (err) {
                         this.editor.innerText = '';
                         this.editor.setAttribute('contenteditable', 'true');
@@ -396,7 +396,12 @@ class LanguageToolEditor {
     }
     
     showStatus(message, type = 'success', persist = false, removeLoading = false) {
-        this.status.textContent = message;
+        // Add support for a 'recording' type with icon
+        let icon = '';
+        if (type === 'recording') {
+            icon = '<span style="display:inline-block;vertical-align:middle;margin-right:8px;"><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="#fff" stroke="#fff"/><circle cx="8" cy="8" r="6" fill="#d32f2f"/></svg></span>';
+        }
+        this.status.innerHTML = icon + message;
         this.status.className = `status show ${type}`;
         if (removeLoading) {
             this.status.classList.remove('loading');
