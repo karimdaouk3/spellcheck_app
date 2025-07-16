@@ -299,19 +299,19 @@ class LanguageToolEditor {
     updateHighlights() {
         if (this.awaitingCheck || this.overlayHidden) {
             this.highlightOverlay.innerHTML = '';
-            // Scroll overlay and editor to top only when it is shown (even if empty)
-            this.highlightOverlay.scrollTop = 0;
-            this.editor.scrollTop = 0;
+            // Remove scroll-to-top here
+            // this.highlightOverlay.scrollTop = 0;
+            // this.editor.scrollTop = 0;
             return;
         }
         const text = this.editor.innerText;
         if (this.currentSuggestions.length === 0) {
             this.highlightOverlay.innerHTML = '';
-            // Scroll overlay and editor to top after DOM update
-            requestAnimationFrame(() => {
-                this.highlightOverlay.scrollTop = 0;
-                this.editor.scrollTop = 0;
-            });
+            // Remove scroll-to-top here
+            // requestAnimationFrame(() => {
+            //     this.highlightOverlay.scrollTop = 0;
+            //     this.editor.scrollTop = 0;
+            // });
             return;
         }
         // Create highlighted text
@@ -338,10 +338,10 @@ class LanguageToolEditor {
         highlightedText += this.escapeHtml(text.substring(lastIndex));
         this.highlightOverlay.innerHTML = highlightedText;
         // Scroll overlay and editor to top after DOM update
-        requestAnimationFrame(() => {
-            this.highlightOverlay.scrollTop = 0;
-            this.editor.scrollTop = 0;
-        });
+        // requestAnimationFrame(() => {
+        //     this.highlightOverlay.scrollTop = 0;
+        //     this.editor.scrollTop = 0;
+        // });
         // Attach click handlers to highlights
         const spans = this.highlightOverlay.querySelectorAll('.highlight-span');
         spans.forEach(span => {
@@ -725,6 +725,7 @@ class LanguageToolEditor {
         const highlight = `<span class='llm-hover-highlight'>${this.escapeHtml(text.substring(highlightStart, highlightEnd))}</span>`;
         const after = this.escapeHtml(text.substring(highlightEnd));
         this.highlightOverlay.innerHTML = before + highlight + after;
+        // Do not scroll overlay or editor to top here
     }
 
     removeLLMHoverHighlight() {
