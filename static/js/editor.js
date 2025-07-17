@@ -435,7 +435,7 @@ class LanguageToolEditor {
         if (!blueBtn) {
             blueBtn = document.createElement('button');
             blueBtn.className = 'add-term-button popup-action-button';
-            blueBtn.textContent = 'Add to Terms';
+            blueBtn.textContent = 'KLA Term';
         }
         // Always show the blue button for any error
         ignoreBtn.insertAdjacentElement('afterend', blueBtn);
