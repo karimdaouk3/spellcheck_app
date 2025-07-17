@@ -532,7 +532,12 @@ class LanguageToolEditor {
         this.status.classList.add('loading');
         try {
             let body = { text };
-            if (answers) body.answers = answers;
+            if (answers) {
+                body.answers = answers;
+                body.step = 2;
+            } else {
+                body.step = 1;
+            }
             const response = await fetch('/llm', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
