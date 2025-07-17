@@ -479,3 +479,29 @@ body {
     line-height: 1.5;
     display: none;
 }
+
+/* Minimal dropdown styles for LLM criteria */
+.llm-section.dropdown {
+    cursor: pointer;
+    margin-bottom: 12px;
+    padding: 0;
+    transition: box-shadow 0.15s;
+}
+.dropdown-header {
+    display: flex;
+    align-items: center;
+    padding: 14px 14px 10px 14px;
+    user-select: none;
+}
+.dropdown-chevron {
+    margin-right: 8px;
+    font-size: 1.1em;
+    transition: transform 0.18s;
+}
+.dropdown-content {
+    padding: 0 14px 14px 32px;
+    display: none;
+}
+.llm-section.dropdown.open .dropdown-content {
+    display: block;
+}

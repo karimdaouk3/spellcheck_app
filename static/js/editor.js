@@ -540,12 +540,14 @@ class LanguageToolEditor {
                 return aPassed ? -1 : 1;
             });
 
-            // Helper to render dropdown
-            function renderDropdown(key, section, openByDefault) {
+            // Helper to render dropdown, but keep color classes as before
+            function renderDropdown(key, section, openByDefault, passed) {
                 const openClass = openByDefault ? "open" : "";
                 const chevron = openByDefault ? "▼" : "►";
+                // Use color classes as before
+                const colorClass = passed ? "llm-section-passed" : "llm-section-failed";
                 return `
-                    <div class="llm-section dropdown ${openClass}" data-key="${encodeURIComponent(key)}">
+                    <div class="llm-section dropdown ${colorClass} ${openClass}" data-key="${encodeURIComponent(key)}">
                         <div class="llm-section-title dropdown-header">
                             <span class="dropdown-chevron">${chevron}</span>
                             <strong>${this.escapeHtml(key)}</strong>
@@ -563,7 +565,7 @@ class LanguageToolEditor {
                 html += `<div style="font-weight:600;font-size:1.08em;color:#4CAF50;margin-bottom:8px;">Completed</div>`;
                 for (const key of passedKeys) {
                     const section = rulesObj[key];
-                    html += renderDropdown.call(this, key, section, false); // closed by default
+                    html += renderDropdown.call(this, key, section, false, true); // closed by default, passed
                 }
             }
             // Needs Improvement (failed) - open by default
@@ -572,7 +574,7 @@ class LanguageToolEditor {
                 html += `<div style="font-weight:600;font-size:1.08em;color:#f44336;margin:18px 0 8px 0;">Needs Improvement</div>`;
                 for (const key of failedKeys) {
                     const section = rulesObj[key];
-                    html += renderDropdown.call(this, key, section, true); // open by default
+                    html += renderDropdown.call(this, key, section, true, false); // open by default, failed
                 }
             }
             overlay.innerHTML = html;
