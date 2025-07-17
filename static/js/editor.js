@@ -129,7 +129,16 @@ class LanguageToolEditor {
                     this.editor.setAttribute('contenteditable', 'false');
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                        mediaRecorder = new window.MediaRecorder(stream);
+                        // Try to use 'audio/wav' for MediaRecorder if supported
+                        let mimeType = '';
+                        if (MediaRecorder.isTypeSupported('audio/wav')) {
+                            mimeType = 'audio/wav';
+                        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+                            mimeType = 'audio/webm';
+                        } else {
+                            mimeType = '';
+                        }
+                        mediaRecorder = new window.MediaRecorder(stream, mimeType ? { mimeType } : undefined);
                         audioChunks = [];
                         mediaRecorder.ondataavailable = (e) => {
                             if (e.data.size > 0) audioChunks.push(e.data);
@@ -138,13 +147,28 @@ class LanguageToolEditor {
                             micBtn.style.background = '';
                             micBtn.style.color = '';
                             micBtn.disabled = true;
-                            // No processing text in editor
                             this.showStatus('Processing audio...', 'checking', true);
+                            // Combine audio chunks
+                            let audioBlob = new Blob(audioChunks, { type: mimeType || 'audio/webm' });
+                            // If not wav, try to convert to wav (placeholder)
+                            if (audioBlob.type !== 'audio/wav') {
+                                // Placeholder: conversion to wav (requires external library or server-side)
+                                // For now, just use the original blob
+                                // TODO: Implement client-side wav conversion if needed
+                            }
+                            // Save audio file locally (optional, placeholder)
+                            // Example: download the audio as .wav
+                            // const url = URL.createObjectURL(audioBlob);
+                            // const a = document.createElement('a');
+                            // a.style.display = 'none';
+                            // a.href = url;
+                            // a.download = 'recording.wav';
+                            // document.body.appendChild(a);
+                            // a.click();
+                            // setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 100);
                             // Send audio to backend
-                            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
                             const formData = new FormData();
-                            formData.append('audio', audioBlob, 'recording.webm');
-                            // Wait 1 second to mimic processing
+                            formData.append('audio', audioBlob, 'recording.wav');
                             setTimeout(async () => {
                                 try {
                                     const response = await fetch('/speech-to-text', {
@@ -161,10 +185,12 @@ class LanguageToolEditor {
                                         this.editor.classList.remove('empty');
                                     }
                                     this.checkText();
+                                    // --- Placeholder: Call LLM with transcription ---
+                                    // Replace this with your actual LLM call logic
+                                    this.llmPlaceholderCall(data.transcription || '');
                                 } catch (e) {
                                     this.editor.innerText = 'Error: Could not transcribe.';
                                     this.showStatus('Transcription failed', 'error');
-                                    // Restore placeholder
                                     this.editor.setAttribute('data-placeholder', 'Start typing your text here...');
                                     this.editor.classList.remove('empty');
                                 }
@@ -684,6 +710,14 @@ class LanguageToolEditor {
             this.highlightOverlay.scrollTop = this.editor.scrollTop;
             this.highlightOverlay.scrollLeft = this.editor.scrollLeft;
         }
+    }
+
+    // --- Placeholder for LLM call after transcription ---
+    llmPlaceholderCall(transcription) {
+        if (!transcription || transcription.trim() === '') return;
+        // TODO: Replace this with your actual LLM call logic
+        console.log('LLM placeholder: would process transcription:', transcription);
+        // Example: this.submitToLLM(transcription);
     }
 }
 
