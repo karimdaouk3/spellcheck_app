@@ -8,6 +8,9 @@ class LanguageToolEditor {
         this.llmInProgress = false; // Track if LLM call is in progress
         this.overlayHidden = false; // Track if overlay should be hidden
         this.awaitingCheck = false; // Track if waiting for check to finish
+        this.llmQuestions = []; // Store questions for failed criteria
+        this.llmAnswers = {};   // Store user answers
+        this.llmStep = 0;      // 0: evaluation/questions, 1: rewrite
         
         this.editor = document.getElementById('editor');
         this.popup = document.getElementById('popup');
@@ -108,7 +111,12 @@ class LanguageToolEditor {
                     alert('Please make sure your problem statement is meaningful and comprehensive (at least 20 characters)');
                     return;
                 }
-                this.submitToLLM(text);
+                // If questions are being shown, collect answers and submit for rewrite
+                if (this.llmStep === 1) {
+                    this.collectLLMAnswersAndSubmit(text);
+                } else {
+                    this.submitToLLM(text);
+                }
             });
         }
 
@@ -522,7 +530,7 @@ class LanguageToolEditor {
         this.hidePopup();
     }
 
-    // Placeholder LLM call
+    // --- LLM Step 1: Evaluation and Questions ---
     async submitToLLM(text) {
         this.llmInProgress = true;
         this.showStatus('Reviewing...', 'checking', true); // persist loading message
@@ -531,10 +539,10 @@ class LanguageToolEditor {
             const response = await fetch('/llm', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text })
+                body: JSON.stringify({ text, step: 1 })
             });
             const data = await response.json();
-            this.displayLLMResult(data.result);
+            this.displayLLMQuestions(data.result);
         } catch (e) {
             this.showStatus('LLM call failed', 'error');
             alert('LLM call failed: ' + e);
@@ -543,166 +551,102 @@ class LanguageToolEditor {
         }
     }
 
-    displayLLMResult(result) {
-        const overlay = document.getElementById('llm-result-overlay');
-        let html = '';
-        let valid = result && typeof result === 'object';
-        let rulesObj = result;
-        if (valid && result.evaluation && typeof result.evaluation === 'object') {
-            rulesObj = result.evaluation;
-        }
-        if (valid && rulesObj && typeof rulesObj === 'object') {
-            // Calculate score
-            const keys = Object.keys(rulesObj);
-            const total = keys.length;
-            const passed = keys.filter(key => rulesObj[key].passed).length;
-            html += `<div class="llm-score" style="font-size:1.35em;font-weight:700;margin-bottom:18px;background:#fff;color:#41007F;padding:10px 0 10px 0;border-radius:8px;text-align:center;box-shadow:0 1px 4px rgba(33,0,127,0.07);letter-spacing:0.5px;">Score: <span style="color:#00A7E1;font-size:1.2em;">${passed}</span> <span style="color:#888;font-size:1.1em;">/</span> <span style="color:#00A7E1;">${total}</span></div>`;
-            // Sort rules: passed first, then failed
-            const sortedKeys = keys.sort((a, b) => {
-                const aPassed = rulesObj[a].passed;
-                const bPassed = rulesObj[b].passed;
-                if (aPassed === bPassed) return 0;
-                return aPassed ? -1 : 1;
+    // --- LLM Step 2: Rewrite after answers ---
+    async collectLLMAnswersAndSubmit(text) {
+        // Collect answers from UI
+        const answers = {};
+        this.llmQuestions.forEach((q, idx) => {
+            const input = document.getElementById(`llm-answer-${idx}`);
+            answers[q.criterion] = input ? input.value : '';
+        });
+        this.llmAnswers = answers;
+        this.llmInProgress = true;
+        this.showStatus('Generating rewrite...', 'checking', true);
+        this.status.classList.add('loading');
+        try {
+            const response = await fetch('/llm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text, step: 2, answers })
             });
-            // Separate passed and failed
-            const passedKeys = sortedKeys.filter(key => rulesObj[key].passed);
-            const failedKeys = sortedKeys.filter(key => !rulesObj[key].passed);
-            if (passedKeys.length > 0) {
-                html += `<div style="font-weight:600;font-size:1.08em;color:#4CAF50;margin-bottom:8px;">Completed</div>`;
-                for (const key of passedKeys) {
-                    const section = rulesObj[key];
-                    html += `
-                        <div class="llm-section llm-dropdown" data-passed="true">
-                            <div class="llm-section-header" tabindex="0">
-                                <span class="llm-dropdown-arrow">&#9654;</span>
-                                <span class="llm-section-title" style="color:#111;"><strong>${this.escapeHtml(key)}</strong></span>
-                                <span class="llm-feedback-btn" title="Give feedback" data-criteria="${this.escapeHtml(key)}">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="thumbs-down-icon" viewBox="0 0 16 16">
-                                        <path d="M8.864 15.674c-.956.24-1.843-.484-1.908-1.42-.072-1.05-.23-2.015-.428-2.59-.125-.36-.479-1.012-1.04-1.638-.557-.624-1.282-1.179-2.131-1.41C2.685 8.432 2 7.85 2 7V3c0-.845.682-1.464 1.448-1.546 1.07-.113 1.564-.415 2.068-.723l.048-.029c.272-.166.578-.349.97-.484C6.931.08 7.395 0 8 0h3.5c.937 0 1.599.478 1.934 1.064.164.287.254.607.254.913 0 .152-.023.312-.077.464.201.262.38.577.488.9.11.33.172.762.004 1.15.069.13.12.268.159.403.077.27.113.567.113.856s-.036.586-.113.856c-.035.12-.08.244-.138.363.394.571.418 1.2.234 1.733-.206.592-.682 1.1-1.2 1.272-.847.283-1.803.276-2.516.211a10 10 0 0 1-.443-.05 9.36 9.36 0 0 1-.062 4.51c-.138.508-.55.848-1.012.964zM11.5 1H8c-.51 0-.863.068-1.14.163-.281.097-.506.229-.776.393l-.04.025c-.555.338-1.198.73-2.49.868-.333.035-.554.29-.554.55V7c0 .255.226.543.62.65 1.095.3 1.977.997 2.614 1.709.635.71 1.064 1.475 1.238 1.977.243.7.407 1.768.482 2.85.025.362.36.595.667.518l.262-.065c.16-.04.258-.144.288-.255a8.34 8.34 0 0 0-.145-4.726.5.5 0 0 1 .595-.643h.003l.014.004.058.013a9 9 0 0 0 1.036.157c.663.06 1.457.054 2.11-.163.175-.059.45-.301.57-.651.107-.308.087-.67-.266-1.021L12.793 7l.353-.354c.043-.042.105-.14.154-.315.048-.167.075-.37.075-.581s-.027-.414-.075-.581c-.05-.174-.111-.273-.154-.315l-.353-.354.353-.354c.047-.047.109-.176.005-.488a2.2 2.2 0 0 0-.505-.804l-.353-.354.353-.354c.006-.005.041-.05.041-.17a.9.9 0 0 0-.121-.415C12.4 1.272 12.063 1 11.5 1"/>
-                                    </svg>
-                                </span>
-                            </div>
-                            <div class="llm-section-justification" style="display:none;">${this.escapeHtml(section.justification || '')}</div>
-                        </div>
-                    `;
-                }
-            }
-            if (failedKeys.length > 0) {
-                html += `<div style="font-weight:600;font-size:1.08em;color:#f44336;margin:18px 0 8px 0;">Needs Improvement</div>`;
-                for (const key of failedKeys) {
-                    const section = rulesObj[key];
-                    html += `
-                        <div class="llm-section llm-dropdown open" data-passed="false">
-                            <div class="llm-section-header" tabindex="0">
-                                <span class="llm-dropdown-arrow open">&#9660;</span>
-                                <span class="llm-section-title" style="color:#111;"><strong>${this.escapeHtml(key)}</strong></span>
-                                <span class="llm-feedback-btn" title="Give feedback" data-criteria="${this.escapeHtml(key)}">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="thumbs-down-icon" viewBox="0 0 16 16">
-                                        <path d="M8.864 15.674c-.956.24-1.843-.484-1.908-1.42-.072-1.05-.23-2.015-.428-2.59-.125-.36-.479-1.012-1.04-1.638-.557-.624-1.282-1.179-2.131-1.41C2.685 8.432 2 7.85 2 7V3c0-.845.682-1.464 1.448-1.546 1.07-.113 1.564-.415 2.068-.723l.048-.029c.272-.166.578-.349.97-.484C6.931.08 7.395 0 8 0h3.5c.937 0 1.599.478 1.934 1.064.164.287.254.607.254.913 0 .152-.023.312-.077.464.201.262.38.577.488.9.11.33.172.762.004 1.15.069.13.12.268.159.403.077.27.113.567.113.856s-.036.586-.113.856c-.035.12-.08.244-.138.363.394.571.418 1.2.234 1.733-.206.592-.682 1.1-1.2 1.272-.847.283-1.803.276-2.516.211a10 10 0 0 1-.443-.05 9.36 9.36 0 0 1-.062 4.51c-.138.508-.55.848-1.012.964zM11.5 1H8c-.51 0-.863.068-1.14.163-.281.097-.506.229-.776.393l-.04.025c-.555.338-1.198.73-2.49.868-.333.035-.554.29-.554.55V7c0 .255.226.543.62.65 1.095.3 1.977.997 2.614 1.709.635.71 1.064 1.475 1.238 1.977.243.7.407 1.768.482 2.85.025.362.36.595.667.518l.262-.065c.16-.04.258-.144.288-.255a8.34 8.34 0 0 0-.145-4.726.5.5 0 0 1 .595-.643h.003l.014.004.058.013a9 9 0 0 0 1.036.157c.663.06 1.457.054 2.11-.163.175-.059.45-.301.57-.651.107-.308.087-.67-.266-1.021L12.793 7l.353-.354c.043-.042.105-.14.154-.315.048-.167.075-.37.075-.581s-.027-.414-.075-.581c-.05-.174-.111-.273-.154-.315l-.353-.354.353-.354c.047-.047.109-.176.005-.488a2.2 2.2 0 0 0-.505-.804l-.353-.354.353-.354c.006-.005.041-.05.041-.17a.9.9 0 0 0-.121-.415C12.4 1.272 12.063 1 11.5 1"/>
-                                    </svg>
-                                </span>
-                            </div>
-                            <div class="llm-section-justification" style="display:block;">${this.escapeHtml(section.justification || '')}</div>
-                        </div>
-                    `;
-                }
-            }
-            overlay.innerHTML = html;
-            overlay.style.display = 'block';
-
-            // --- Dropdown toggle logic ---
-            const dropdowns = overlay.querySelectorAll('.llm-dropdown');
-            dropdowns.forEach(dropdown => {
-                const header = dropdown.querySelector('.llm-section-header');
-                const justification = dropdown.querySelector('.llm-section-justification');
-                const arrow = dropdown.querySelector('.llm-dropdown-arrow');
-                // Set initial state
-                if (dropdown.classList.contains('open')) {
-                    justification.style.display = 'block';
-                    arrow.classList.add('open');
-                    arrow.innerHTML = '&#9660;';
-                } else {
-                    justification.style.display = 'none';
-                    arrow.classList.remove('open');
-                    arrow.innerHTML = '&#9654;';
-                }
-                // Toggle on click or enter/space
-                header.addEventListener('click', () => {
-                    dropdown.classList.toggle('open');
-                    const isOpen = dropdown.classList.contains('open');
-                    justification.style.display = isOpen ? 'block' : 'none';
-                    arrow.innerHTML = isOpen ? '&#9660;' : '&#9654;';
-                });
-                header.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        header.click();
-                    }
-                });
-            });
-
-            // Scroll the LLM result overlay to the top after it updates
-            requestAnimationFrame(() => {
-                overlay.scrollTop = 0;
-            });
-        } else {
-            overlay.style.display = 'none';
-        }
-        // Show completion message and remove loading spinner at the same time
-        requestAnimationFrame(() => {
-            if (this.statusTimer) {
-                clearTimeout(this.statusTimer);
-                this.statusTimer = null;
-            }
+            const data = await response.json();
+            this.displayLLMRewrite(data.result);
+        } catch (e) {
+            this.showStatus('LLM call failed', 'error');
+            alert('LLM call failed: ' + e);
             this.status.classList.remove('loading');
-            this.status.className = 'status';
-            this.status.textContent = '';
             this.llmInProgress = false;
-        });
-        // Show rewrite popup with placeholder or suggested rewrite when LLM overlay is shown
-        const rewritePopup = document.getElementById('rewrite-popup');
-        if (overlay.style.display === 'block') {
-            // If a suggested rewrite is present, show it
-            let rewrite = '';
-            if (result && typeof result === 'object') {
-                if (result.rewritten_problem_statement) {
-                    rewrite = result.rewritten_problem_statement;
-                } else if (result.rewrite) {
-                    rewrite = result.rewrite;
-                }
-            }
-            if (rewrite) {
-                rewritePopup.querySelector('.rewrite-content').textContent = rewrite;
-            }
-            rewritePopup.style.display = 'block';
-            // Scroll the rewrite popup to the top after it updates
-            requestAnimationFrame(() => {
-                rewritePopup.scrollTop = 0;
-            });
-        } else {
-            rewritePopup.style.display = 'none';
         }
+    }
 
-        const feedbackBtns = overlay.querySelectorAll('.llm-feedback-btn');
-        feedbackBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const criteria = btn.getAttribute('data-criteria');
-                const text = this.editor.innerText;
-                fetch('/feedback', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        criteria,
-                        text,
-                        feedback: 'thumbs_down'
-                    })
-                }).then(res => res.json()).then(data => {
-                    btn.classList.add('selected');
-                    btn.title = "Feedback received!";
-                });
+    // --- Display LLM Questions UI ---
+    displayLLMQuestions(result) {
+        this.llmStep = 1;
+        this.llmQuestions = [];
+        // Parse failed criteria and questions
+        let rulesObj = result && result.evaluation ? result.evaluation : result;
+        const questions = [];
+        for (const key in rulesObj) {
+            const section = rulesObj[key];
+            if (section.passed === false && section.question) {
+                questions.push({ criterion: key, question: section.question });
+            }
+        }
+        this.llmQuestions = questions;
+        // Render questions below the input box (rewrite-popup area)
+        const rewritePopup = document.getElementById('rewrite-popup');
+        let html = '';
+        if (questions.length > 0) {
+            html += `<div class="rewrite-title">To improve your input, please answer the following questions:</div>`;
+            questions.forEach((q, idx) => {
+                html += `<div class="rewrite-content"><strong>${this.escapeHtml(q.criterion)}:</strong> ${this.escapeHtml(q.question)}<br/><textarea id="llm-answer-${idx}" rows="2" style="width:98%;margin-top:6px;"></textarea></div>`;
             });
-        });
+            html += `<button id="llm-questions-submit" class="llm-submit-button" style="margin-top:18px;">Submit Answers</button>`;
+        } else {
+            html += `<div class="rewrite-title">No improvement questions generated. Your input may already be strong!</div>`;
+        }
+        rewritePopup.innerHTML = html;
+        rewritePopup.style.display = 'block';
+        // Add event for the submit button
+        const submitBtn = document.getElementById('llm-questions-submit');
+        if (submitBtn) {
+            submitBtn.addEventListener('click', () => {
+                document.getElementById('llm-submit').click();
+            });
+        }
+        // Hide LLM result overlay (no rewrite yet)
+        const overlay = document.getElementById('llm-result-overlay');
+        overlay.style.display = 'none';
+        // Remove loading spinner
+        this.status.classList.remove('loading');
+        this.llmInProgress = false;
+    }
+
+    // --- Display LLM Rewrite UI ---
+    displayLLMRewrite(result) {
+        this.llmStep = 0;
+        // Show the rewrite in the rewrite-popup area
+        const rewritePopup = document.getElementById('rewrite-popup');
+        let rewrite = '';
+        if (result && typeof result === 'object') {
+            if (result.rewritten_problem_statement) {
+                rewrite = result.rewritten_problem_statement;
+            } else if (result.rewrite) {
+                rewrite = result.rewrite;
+            } else if (typeof result === 'string') {
+                rewrite = result;
+            }
+        } else if (typeof result === 'string') {
+            rewrite = result;
+        }
+        rewritePopup.innerHTML = `<div class="rewrite-title">Suggested Rewrite</div><div class="rewrite-content">${this.escapeHtml(rewrite)}</div>`;
+        rewritePopup.style.display = 'block';
+        // Hide LLM result overlay
+        const overlay = document.getElementById('llm-result-overlay');
+        overlay.style.display = 'none';
+        // Remove loading spinner
+        this.status.classList.remove('loading');
+        this.llmInProgress = false;
     }
 
     syncOverlayScroll() {

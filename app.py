@@ -70,36 +70,63 @@ def check():
 def llm():
     data = request.get_json()
     text = data.get("text", "")
+    step = data.get("step", 1)
+    answers = data.get("answers", {})
     if not text.strip():
         return jsonify({"result": "No text provided."})
 
-    # Format the ruleset into a readable string
-    rules = "\n".join(f"- {rule.replace('_', ' ').capitalize()}" for rule in RULESET["common_characteristics"])
-
-    user_prompt = f"""
-Evaluate the following technical note against these criteria:\n{rules}\n\nFor each criterion, return a JSON object with the rule name as the key, and an object with:\n- 'passed': true or false\n- 'justification': a short explanation\nReturn only the JSON. No extra text.\n\nTechnical Note:{{text}}
-"""
-    try:
-        response = litellm.completion(
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt}
-            ],
-            api_base=API_BASE,
-            api_key=API_KEY,
-            custom_llm_provider=LLM_PROVIDER,
-            temperature=0.1
-        )
-        llm_result_str = response["choices"][0]["message"]["content"]
+    if step == 1:
+        # Step 1: Evaluation and question generation
+        rules = "\n".join(f"- {rule.replace('_', ' ').capitalize()}" for rule in RULESET["common_characteristics"])
+        user_prompt = f"""
+Evaluate the following technical note against these criteria:\n{rules}\n\nFor each criterion, return a JSON object with:\n- 'passed': true or false\n- 'justification': a short explanation\n- If failed, 'question': a question that would help the user improve their input to pass this criterion\nReturn only the JSON. No extra text.\n\nTechnical Note: {text}\n"""
         try:
-            llm_result = json.loads(llm_result_str)
+            response = litellm.completion(
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt}
+                ],
+                api_base=API_BASE,
+                api_key=API_KEY,
+                custom_llm_provider=LLM_PROVIDER,
+                temperature=0.1
+            )
+            llm_result_str = response["choices"][0]["message"]["content"]
+            try:
+                llm_result = json.loads(llm_result_str)
+            except Exception as e:
+                print(f"Error parsing LLM JSON: {e}\nRaw output: {llm_result_str}")
+                return jsonify({"result": {}})
+            return jsonify({"result": llm_result})
         except Exception as e:
-            print(f"Error parsing LLM JSON: {e}\nRaw output: {llm_result_str}")
-            return jsonify({"result": {}})
-        return jsonify({"result": llm_result})
-    except Exception as e:
-        print(f"Error calling LLM: {e}")
-        return jsonify({"result": f"LLM error: {e}"})
+            print(f"Error calling LLM: {e}")
+            return jsonify({"result": f"LLM error: {e}"})
+    else:
+        # Step 2: Rewrite using user answers
+        answers_str = json.dumps(answers, indent=2)
+        user_prompt = f"""
+Given the original technical note and the user's answers to the following questions, generate an improved version that would pass all criteria.\n\nOriginal Note: {text}\nUser Answers: {answers_str}\n\nReturn only the improved statement as 'rewrite'.\n"""
+        try:
+            response = litellm.completion(
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt}
+                ],
+                api_base=API_BASE,
+                api_key=API_KEY,
+                custom_llm_provider=LLM_PROVIDER,
+                temperature=0.1
+            )
+            llm_result_str = response["choices"][0]["message"]["content"]
+            try:
+                llm_result = json.loads(llm_result_str)
+            except Exception as e:
+                print(f"Error parsing LLM JSON: {e}\nRaw output: {llm_result_str}")
+                return jsonify({"result": {}})
+            return jsonify({"result": llm_result})
+        except Exception as e:
+            print(f"Error calling LLM: {e}")
+            return jsonify({"result": f"LLM error: {e}"})
 
 @app.route("/speech-to-text", methods=["POST"])
 def speech_to_text():
