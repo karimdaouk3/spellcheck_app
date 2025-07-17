@@ -407,13 +407,14 @@ body {
     background: #e0e7ff;
 }
 .llm-dropdown-arrow {
-    font-size: 1.1em;
+    font-size: 0.95em; /* smaller */
     margin-right: 10px;
     transition: transform 0.18s;
-    color: #41007F;
+    color: #bbb; /* light grey */
+    user-select: none;
 }
 .llm-dropdown-arrow.open {
-    transform: rotate(90deg);
+    transform: none; /* no rotation, just change arrow character */
 }
 .llm-section-title {
     font-size: 1.05em;
@@ -425,9 +426,8 @@ body {
     color: #444;
     line-height: 1.5;
     padding: 0 18px 14px 38px;
-    background: #f9fafc;
+    background: #fff; /* match header */
     border-radius: 0 0 8px 8px;
-    border-top: 1px solid #e0e0e0;
     margin-bottom: 0;
     margin-top: 0;
     transition: display 0.18s;
