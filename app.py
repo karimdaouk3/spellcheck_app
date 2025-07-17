@@ -70,16 +70,18 @@ def check():
 def llm():
     data = request.get_json()
     text = data.get("text", "")
-    step = data.get("step", 1)
-    answers = data.get("answers", {})
+    answers = data.get("answers")
     if not text.strip():
         return jsonify({"result": "No text provided."})
 
-    if step == 1:
-        # Step 1: Evaluation and question generation
-        rules = "\n".join(f"- {rule.replace('_', ' ').capitalize()}" for rule in RULESET["common_characteristics"])
+    # Format the ruleset into a readable string
+    rules = "\n".join(f"- {rule.replace('_', ' ').capitalize()}" for rule in RULESET["common_characteristics"])
+
+    if not answers:
+        # Step 1: Evaluation and questions
         user_prompt = f"""
-Evaluate the following technical note against these criteria:\n{rules}\n\nFor each criterion, return a JSON object with:\n- 'passed': true or false\n- 'justification': a short explanation\n- If failed, 'question': a question that would help the user improve their input to pass this criterion\nReturn only the JSON. No extra text.\n\nTechnical Note: {text}\n"""
+Evaluate the following technical note against these criteria:\n{rules}\n\nFor each criterion, return a JSON object with the rule name as the key, and an object with:\n- 'passed': true or false\n- 'justification': a short explanation\n- If failed, 'question': a question that would help the user improve their input to pass this criterion\nReturn only the JSON. No extra text.\n\nTechnical Note:{{text}}
+"""
         try:
             response = litellm.completion(
                 messages=[
@@ -97,15 +99,16 @@ Evaluate the following technical note against these criteria:\n{rules}\n\nFor ea
             except Exception as e:
                 print(f"Error parsing LLM JSON: {e}\nRaw output: {llm_result_str}")
                 return jsonify({"result": {}})
-            return jsonify({"result": llm_result})
+            return jsonify({"result": {"evaluation": llm_result}})
         except Exception as e:
             print(f"Error calling LLM: {e}")
             return jsonify({"result": f"LLM error: {e}"})
     else:
-        # Step 2: Rewrite using user answers
-        answers_str = json.dumps(answers, indent=2)
+        # Step 2: Generate rewrite using answers
+        answers_str = "\n".join(f"- {k}: {v}" for k, v in answers.items())
         user_prompt = f"""
-Given the original technical note and the user's answers to the following questions, generate an improved version that would pass all criteria.\n\nOriginal Note: {text}\nUser Answers: {answers_str}\n\nReturn only the improved statement as 'rewrite'.\n"""
+Given the original technical note and the user's answers to the following questions, generate an improved version that would pass all criteria.\n\nOriginal Note: {{text}}\nUser Answers:\n{answers_str}\n\nReturn only the improved statement as 'rewrite' in a JSON object.\nExample: {{\"rewrite\": \"...\"}}
+"""
         try:
             response = litellm.completion(
                 messages=[
