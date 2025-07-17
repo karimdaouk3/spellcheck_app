@@ -447,7 +447,7 @@ class LanguageToolEditor {
             blueBtn.style.fontSize = '14px';
         }
         // Only show for spelling errors
-        if (suggestion.category && suggestion.category.toLowerCase() === 'typos') {
+        if (suggestion.category && ['typos', 'spelling'].includes(suggestion.category.toLowerCase())) {
             ignoreBtn.insertAdjacentElement('afterend', blueBtn);
             blueBtn.onclick = () => {
                 const text = this.editor.innerText.substring(suggestion.offset, suggestion.offset + suggestion.length);
