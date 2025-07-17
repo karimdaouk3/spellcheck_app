@@ -404,17 +404,17 @@ body {
     user-select: none;
 }
 .llm-section-header:focus {
-    background: #e0e7ff;
+    background: none; /* Remove light blue highlight */
 }
 .llm-dropdown-arrow {
-    font-size: 0.95em; /* smaller */
+    font-size: 0.8em; /* even smaller */
     margin-right: 10px;
     transition: transform 0.18s;
-    color: #bbb; /* light grey */
+    color: #bbb;
     user-select: none;
 }
 .llm-dropdown-arrow.open {
-    transform: none; /* no rotation, just change arrow character */
+    transform: none;
 }
 .llm-section-title {
     font-size: 1.05em;
