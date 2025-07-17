@@ -442,9 +442,20 @@ body {
     transition: color 0.2s;
     padding-left: 10px;
     user-select: none;
+    display: flex;
+    align-items: center;
 }
-.llm-feedback-btn:hover {
-    color: #f44336;
+.llm-feedback-btn .thumbs-down-icon {
+    display: inline-block;
+    vertical-align: middle;
+    stroke: #bbb;
+    fill: none;
+    transition: stroke 0.2s, fill 0.2s;
+}
+.llm-feedback-btn:hover .thumbs-down-icon,
+.llm-feedback-btn.selected .thumbs-down-icon {
+    stroke: #f44336;
+    fill: #f44336;
 }
 
 @media (min-width: 900px) and (max-width: 1600px) {
