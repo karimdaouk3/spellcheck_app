@@ -437,15 +437,20 @@ class LanguageToolEditor {
             blueBtn.className = 'add-term-button popup-action-button';
             blueBtn.textContent = 'KLA Term';
         }
-        // Always show the blue button for any error
-        ignoreBtn.insertAdjacentElement('afterend', blueBtn);
-        blueBtn.onclick = () => {
-            const text = this.editor.innerText.substring(suggestion.offset, suggestion.offset + suggestion.length);
-            this.saveTerm(text);
-            this.ignoreCurrentSuggestion();
-            this.hidePopup();
-            this.showStatus('Added to Terms', 'success');
-        };
+        // Only show the blue button for spelling errors (red highlight logic)
+        const category = suggestion.category ? suggestion.category.toLowerCase() : '';
+        if (category === 'typos' || category === 'compounding') {
+            ignoreBtn.insertAdjacentElement('afterend', blueBtn);
+            blueBtn.onclick = () => {
+                const text = this.editor.innerText.substring(suggestion.offset, suggestion.offset + suggestion.length);
+                this.saveTerm(text);
+                this.ignoreCurrentSuggestion();
+                this.hidePopup();
+                this.showStatus('Added to Terms', 'success');
+            };
+        } else if (blueBtn.parentElement) {
+            blueBtn.parentElement.removeChild(blueBtn);
+        }
         // Style the ignore button to match the blue button's height and style
         ignoreBtn.style.height = '40px';
         ignoreBtn.style.padding = '8px';
