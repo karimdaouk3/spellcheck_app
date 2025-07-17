@@ -454,10 +454,12 @@ class LanguageToolEditor {
             this.hidePopup();
             this.showStatus('Added to Terms', 'success');
         };
-        // Style the ignore button to match the blue button's height
+        // Style the ignore button to match the blue button's height and style
         ignoreBtn.style.height = '40px';
         ignoreBtn.style.padding = '8px';
         ignoreBtn.style.fontSize = '14px';
+        ignoreBtn.style.borderRadius = '4px';
+        ignoreBtn.style.marginTop = '8px';
     }
     
     hidePopup() {
@@ -803,7 +805,7 @@ class LanguageToolEditor {
 
     saveTerm(term) {
         // Send the term to the backend
-        fetch('/add-term', {
+        fetch('/terms', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ term })
