@@ -531,7 +531,6 @@ class LanguageToolEditor {
             const total = keys.length;
             const passed = keys.filter(key => rulesObj[key].passed).length;
             html += `<div class="llm-score" style="font-size:1.35em;font-weight:700;margin-bottom:18px;background:#fff;color:#41007F;padding:10px 0 10px 0;border-radius:8px;text-align:center;box-shadow:0 1px 4px rgba(33,0,127,0.07);letter-spacing:0.5px;">Score: <span style="color:#00A7E1;font-size:1.2em;">${passed}</span> <span style="color:#888;font-size:1.1em;">/</span> <span style="color:#00A7E1;">${total}</span></div>`;
-
             // Sort rules: passed first, then failed
             const sortedKeys = keys.sort((a, b) => {
                 const aPassed = rulesObj[a].passed;
@@ -539,56 +538,70 @@ class LanguageToolEditor {
                 if (aPassed === bPassed) return 0;
                 return aPassed ? -1 : 1;
             });
-
-            // Helper to render dropdown, but keep color classes as before
-            function renderDropdown(key, section, openByDefault, passed) {
-                const openClass = openByDefault ? "open" : "";
-                const chevron = openByDefault ? "▼" : "►";
-                // Use color classes as before
-                const colorClass = passed ? "llm-section-passed" : "llm-section-failed";
-                return `
-                    <div class="llm-section dropdown ${colorClass} ${openClass}" data-key="${encodeURIComponent(key)}">
-                        <div class="llm-section-title dropdown-header">
-                            <span class="dropdown-chevron">${chevron}</span>
-                            <strong>${this.escapeHtml(key)}</strong>
-                        </div>
-                        <div class="llm-section-justification dropdown-content" style="display:${openByDefault ? 'block' : 'none'};">
-                            ${this.escapeHtml(section.justification || '')}
-                        </div>
-                    </div>
-                `;
-            }
-
-            // Completed (passed) - closed by default
+            // Separate passed and failed
             const passedKeys = sortedKeys.filter(key => rulesObj[key].passed);
+            const failedKeys = sortedKeys.filter(key => !rulesObj[key].passed);
             if (passedKeys.length > 0) {
                 html += `<div style="font-weight:600;font-size:1.08em;color:#4CAF50;margin-bottom:8px;">Completed</div>`;
                 for (const key of passedKeys) {
                     const section = rulesObj[key];
-                    html += renderDropdown.call(this, key, section, false, true); // closed by default, passed
+                    html += `
+                        <div class="llm-section llm-dropdown" data-passed="true">
+                            <div class="llm-section-header" tabindex="0">
+                                <span class="llm-dropdown-arrow">&#9654;</span>
+                                <span class="llm-section-title" style="color:#111;"><strong>${this.escapeHtml(key)}</strong></span>
+                            </div>
+                            <div class="llm-section-justification" style="display:none;">${this.escapeHtml(section.justification || '')}</div>
+                        </div>
+                    `;
                 }
             }
-            // Needs Improvement (failed) - open by default
-            const failedKeys = sortedKeys.filter(key => !rulesObj[key].passed);
             if (failedKeys.length > 0) {
                 html += `<div style="font-weight:600;font-size:1.08em;color:#f44336;margin:18px 0 8px 0;">Needs Improvement</div>`;
                 for (const key of failedKeys) {
                     const section = rulesObj[key];
-                    html += renderDropdown.call(this, key, section, true, false); // open by default, failed
+                    html += `
+                        <div class="llm-section llm-dropdown open" data-passed="false">
+                            <div class="llm-section-header" tabindex="0">
+                                <span class="llm-dropdown-arrow open">&#9660;</span>
+                                <span class="llm-section-title" style="color:#111;"><strong>${this.escapeHtml(key)}</strong></span>
+                            </div>
+                            <div class="llm-section-justification" style="display:block;">${this.escapeHtml(section.justification || '')}</div>
+                        </div>
+                    `;
                 }
             }
             overlay.innerHTML = html;
             overlay.style.display = 'block';
 
-            // Add dropdown toggle logic
-            overlay.querySelectorAll('.dropdown-header').forEach(header => {
-                header.addEventListener('click', function() {
-                    const section = this.parentElement;
-                    const content = section.querySelector('.dropdown-content');
-                    const chevron = section.querySelector('.dropdown-chevron');
-                    const isOpen = section.classList.toggle('open');
-                    content.style.display = isOpen ? 'block' : 'none';
-                    chevron.textContent = isOpen ? '▼' : '►';
+            // --- Dropdown toggle logic ---
+            const dropdowns = overlay.querySelectorAll('.llm-dropdown');
+            dropdowns.forEach(dropdown => {
+                const header = dropdown.querySelector('.llm-section-header');
+                const justification = dropdown.querySelector('.llm-section-justification');
+                const arrow = dropdown.querySelector('.llm-dropdown-arrow');
+                // Set initial state
+                if (dropdown.classList.contains('open')) {
+                    justification.style.display = 'block';
+                    arrow.classList.add('open');
+                    arrow.innerHTML = '&#9660;';
+                } else {
+                    justification.style.display = 'none';
+                    arrow.classList.remove('open');
+                    arrow.innerHTML = '&#9654;';
+                }
+                // Toggle on click or enter/space
+                header.addEventListener('click', () => {
+                    dropdown.classList.toggle('open');
+                    const isOpen = dropdown.classList.contains('open');
+                    justification.style.display = isOpen ? 'block' : 'none';
+                    arrow.innerHTML = isOpen ? '&#9660;' : '&#9654;';
+                });
+                header.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        header.click();
+                    }
                 });
             });
 
