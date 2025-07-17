@@ -430,27 +430,19 @@ class LanguageToolEditor {
         this.currentMention = suggestion;
         // Add extra blue button for spelling errors
         const ignoreBtn = this.popup.querySelector('.ignore-button');
+        ignoreBtn.classList.add('popup-action-button');
         let blueBtn = this.popup.querySelector('.add-term-button');
         if (!blueBtn) {
             blueBtn = document.createElement('button');
-            blueBtn.className = 'add-term-button';
+            blueBtn.className = 'add-term-button popup-action-button';
             blueBtn.textContent = 'Add to Terms';
-            blueBtn.style.display = 'block';
-            blueBtn.style.width = '100%';
-            blueBtn.style.padding = '8px';
-            blueBtn.style.background = '#2196F3';
-            blueBtn.style.color = 'white';
-            blueBtn.style.border = 'none';
-            blueBtn.style.borderRadius = '4px';
-            blueBtn.style.cursor = 'pointer';
-            blueBtn.style.marginTop = '8px';
-            blueBtn.style.fontSize = '14px';
         }
         // Always show the blue button for any error
         ignoreBtn.insertAdjacentElement('afterend', blueBtn);
         blueBtn.onclick = () => {
             const text = this.editor.innerText.substring(suggestion.offset, suggestion.offset + suggestion.length);
             this.saveTerm(text);
+            this.ignoreCurrentSuggestion();
             this.hidePopup();
             this.showStatus('Added to Terms', 'success');
         };
