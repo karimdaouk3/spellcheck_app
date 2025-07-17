@@ -444,3 +444,38 @@ body {
     scrollbar-width: thin;
     scrollbar-color: #e0e0e0 transparent;
 }
+
+/* Dropdown styles for LLM criteria */
+.llm-section.dropdown {
+    cursor: pointer;
+    margin-bottom: 12px;
+    border-left: 4px solid #2196F3;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    padding: 0;
+    transition: box-shadow 0.15s;
+}
+.llm-section.dropdown.open {
+    box-shadow: 0 2px 8px rgba(33,0,127,0.08);
+}
+.dropdown-header {
+    display: flex;
+    align-items: center;
+    padding: 14px 14px 10px 14px;
+    font-size: 1.05em;
+    color: #41007F;
+    user-select: none;
+}
+.dropdown-chevron {
+    margin-right: 8px;
+    font-size: 1.1em;
+    transition: transform 0.18s;
+}
+.dropdown-content {
+    padding: 0 14px 14px 32px;
+    font-size: 0.97em;
+    color: #444;
+    line-height: 1.5;
+    display: none;
+}

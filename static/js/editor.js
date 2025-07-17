@@ -531,6 +531,7 @@ class LanguageToolEditor {
             const total = keys.length;
             const passed = keys.filter(key => rulesObj[key].passed).length;
             html += `<div class="llm-score" style="font-size:1.35em;font-weight:700;margin-bottom:18px;background:#fff;color:#41007F;padding:10px 0 10px 0;border-radius:8px;text-align:center;box-shadow:0 1px 4px rgba(33,0,127,0.07);letter-spacing:0.5px;">Score: <span style="color:#00A7E1;font-size:1.2em;">${passed}</span> <span style="color:#888;font-size:1.1em;">/</span> <span style="color:#00A7E1;">${total}</span></div>`;
+
             // Sort rules: passed first, then failed
             const sortedKeys = keys.sort((a, b) => {
                 const aPassed = rulesObj[a].passed;
@@ -538,31 +539,57 @@ class LanguageToolEditor {
                 if (aPassed === bPassed) return 0;
                 return aPassed ? -1 : 1;
             });
-            // Separate passed and failed
+
+            // Helper to render dropdown
+            function renderDropdown(key, section, openByDefault) {
+                const openClass = openByDefault ? "open" : "";
+                const chevron = openByDefault ? "▼" : "►";
+                return `
+                    <div class="llm-section dropdown ${openClass}" data-key="${encodeURIComponent(key)}">
+                        <div class="llm-section-title dropdown-header">
+                            <span class="dropdown-chevron">${chevron}</span>
+                            <strong>${this.escapeHtml(key)}</strong>
+                        </div>
+                        <div class="llm-section-justification dropdown-content" style="display:${openByDefault ? 'block' : 'none'};">
+                            ${this.escapeHtml(section.justification || '')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Completed (passed) - closed by default
             const passedKeys = sortedKeys.filter(key => rulesObj[key].passed);
-            const failedKeys = sortedKeys.filter(key => !rulesObj[key].passed);
             if (passedKeys.length > 0) {
                 html += `<div style="font-weight:600;font-size:1.08em;color:#4CAF50;margin-bottom:8px;">Completed</div>`;
                 for (const key of passedKeys) {
                     const section = rulesObj[key];
-                    html += `<div class="llm-section" style="border-left: 4px solid #4CAF50;">
-                        <div class="llm-section-title" style="color:#111;"><strong>${this.escapeHtml(key)}</strong></div>
-                        <div class="llm-section-justification">${this.escapeHtml(section.justification || '')}</div>
-                    </div>`;
+                    html += renderDropdown.call(this, key, section, false); // closed by default
                 }
             }
+            // Needs Improvement (failed) - open by default
+            const failedKeys = sortedKeys.filter(key => !rulesObj[key].passed);
             if (failedKeys.length > 0) {
                 html += `<div style="font-weight:600;font-size:1.08em;color:#f44336;margin:18px 0 8px 0;">Needs Improvement</div>`;
                 for (const key of failedKeys) {
                     const section = rulesObj[key];
-                    html += `<div class="llm-section" style="border-left: 4px solid #f44336;">
-                        <div class="llm-section-title" style="color:#111;"><strong>${this.escapeHtml(key)}</strong></div>
-                        <div class="llm-section-justification">${this.escapeHtml(section.justification || '')}</div>
-                    </div>`;
+                    html += renderDropdown.call(this, key, section, true); // open by default
                 }
             }
             overlay.innerHTML = html;
             overlay.style.display = 'block';
+
+            // Add dropdown toggle logic
+            overlay.querySelectorAll('.dropdown-header').forEach(header => {
+                header.addEventListener('click', function() {
+                    const section = this.parentElement;
+                    const content = section.querySelector('.dropdown-content');
+                    const chevron = section.querySelector('.dropdown-chevron');
+                    const isOpen = section.classList.toggle('open');
+                    content.style.display = isOpen ? 'block' : 'none';
+                    chevron.textContent = isOpen ? '▼' : '►';
+                });
+            });
+
             // Scroll the LLM result overlay to the top after it updates
             requestAnimationFrame(() => {
                 overlay.scrollTop = 0;
