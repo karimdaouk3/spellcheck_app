@@ -684,8 +684,8 @@ class LanguageToolEditor {
             if (this.llmQuestions.length > 0) {
                 let qHtml = '<div class="rewrite-title">To improve your input, please answer the following questions:</div>';
                 this.llmQuestions.forEach((q, idx) => {
-                    qHtml += `<div class="rewrite-question"><strong>${this.escapeHtml(q.criteria)}:</strong> ${this.escapeHtml(q.question)}</div>`;
-                    qHtml += `<textarea class="rewrite-answer" data-criteria="${this.escapeHtml(q.criteria)}" rows="2" style="width:100%;margin-bottom:12px;"></textarea>`;
+                    qHtml += `<div class="rewrite-question">${this.escapeHtml(q.question)}</div>`;
+                    qHtml += `<textarea class="rewrite-answer" data-criteria="${this.escapeHtml(q.criteria)}" rows="2" style="width:100%;margin-bottom:12px;resize:none;"></textarea>`;
                 });
                 qHtml += `<button id="submit-answers-btn" class="llm-submit-button" style="margin-top:10px;">Submit Answers</button>`;
                 rewritePopup.innerHTML = qHtml;
