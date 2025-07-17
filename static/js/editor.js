@@ -334,13 +334,12 @@ class LanguageToolEditor {
             highlightedText += this.escapeHtml(text.substring(lastIndex, suggestion.offset));
             // Add the highlighted suggestion
             const errorText = text.substring(suggestion.offset, suggestion.offset + suggestion.length);
-            const category = suggestion.category ? suggestion.category.toLowerCase() : '';
             let categoryClass = '';
-            if (category === 'typos' || category === 'compounding') {
+            if (suggestion.errorType === 'spelling') {
                 categoryClass = 'highlight-span-spelling';
-            } else if (category === 'grammar') {
+            } else if (suggestion.errorType === 'grammar') {
                 categoryClass = 'highlight-span-grammar';
-            } else if (category) {
+            } else if (suggestion.errorType) {
                 categoryClass = 'highlight-span-other';
             }
             highlightedText += `<span class="highlight-span ${categoryClass}" data-suggestion-index="${index}">${this.escapeHtml(errorText)}</span>`;
@@ -438,8 +437,7 @@ class LanguageToolEditor {
             blueBtn.textContent = 'KLA Term';
         }
         // Only show the blue button for spelling errors (red highlight logic)
-        const category = suggestion.category ? suggestion.category.toLowerCase() : '';
-        if (category === 'typos' || category === 'compounding') {
+        if (suggestion.errorType === 'spelling') {
             ignoreBtn.insertAdjacentElement('afterend', blueBtn);
             blueBtn.onclick = () => {
                 const text = this.editor.innerText.substring(suggestion.offset, suggestion.offset + suggestion.length);
