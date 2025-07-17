@@ -428,6 +428,36 @@ class LanguageToolEditor {
         
         // Keep reference to current suggestion
         this.currentMention = suggestion;
+        // Add extra blue button for spelling errors
+        const ignoreBtn = this.popup.querySelector('.ignore-button');
+        let blueBtn = this.popup.querySelector('.add-term-button');
+        if (!blueBtn) {
+            blueBtn = document.createElement('button');
+            blueBtn.className = 'add-term-button';
+            blueBtn.textContent = 'Add to Terms';
+            blueBtn.style.display = 'block';
+            blueBtn.style.width = '100%';
+            blueBtn.style.padding = '8px';
+            blueBtn.style.background = '#2196F3';
+            blueBtn.style.color = 'white';
+            blueBtn.style.border = 'none';
+            blueBtn.style.borderRadius = '4px';
+            blueBtn.style.cursor = 'pointer';
+            blueBtn.style.marginTop = '8px';
+            blueBtn.style.fontSize = '14px';
+        }
+        // Only show for spelling errors
+        if (suggestion.category && suggestion.category.toLowerCase() === 'typos') {
+            ignoreBtn.insertAdjacentElement('afterend', blueBtn);
+            blueBtn.onclick = () => {
+                const text = this.editor.innerText.substring(suggestion.offset, suggestion.offset + suggestion.length);
+                this.saveTerm(text);
+                this.hidePopup();
+                this.showStatus('Added to Terms', 'success');
+            };
+        } else if (blueBtn.parentElement) {
+            blueBtn.parentElement.removeChild(blueBtn);
+        }
     }
     
     hidePopup() {
@@ -769,6 +799,27 @@ class LanguageToolEditor {
         // TODO: Replace this with your actual LLM call logic
         console.log('LLM placeholder: would process transcription:', transcription);
         // Example: this.submitToLLM(transcription);
+    }
+
+    saveTerm(term) {
+        // Save the term to a local JSON file (simulate by using localStorage for now)
+        let terms = [];
+        try {
+            const stored = localStorage.getItem('terms');
+            if (stored) terms = JSON.parse(stored);
+        } catch (e) {}
+        if (!terms.includes(term)) {
+            terms.push(term);
+            localStorage.setItem('terms', JSON.stringify(terms));
+        }
+        // Optionally, trigger a download of the JSON file
+        // const blob = new Blob([JSON.stringify(terms, null, 2)], { type: 'application/json' });
+        // const url = URL.createObjectURL(blob);
+        // const a = document.createElement('a');
+        // a.href = url;
+        // a.download = 'terms.json';
+        // a.click();
+        // URL.revokeObjectURL(url);
     }
 }
 
