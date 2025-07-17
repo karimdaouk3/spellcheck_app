@@ -454,6 +454,10 @@ class LanguageToolEditor {
             this.hidePopup();
             this.showStatus('Added to Terms', 'success');
         };
+        // Style the ignore button to match the blue button's height
+        ignoreBtn.style.height = '40px';
+        ignoreBtn.style.padding = '8px';
+        ignoreBtn.style.fontSize = '14px';
     }
     
     hidePopup() {
@@ -798,24 +802,23 @@ class LanguageToolEditor {
     }
 
     saveTerm(term) {
-        // Save the term to a local JSON file (simulate by using localStorage for now)
-        let terms = [];
-        try {
-            const stored = localStorage.getItem('terms');
-            if (stored) terms = JSON.parse(stored);
-        } catch (e) {}
-        if (!terms.includes(term)) {
-            terms.push(term);
-            localStorage.setItem('terms', JSON.stringify(terms));
-        }
-        // Optionally, trigger a download of the JSON file
-        // const blob = new Blob([JSON.stringify(terms, null, 2)], { type: 'application/json' });
-        // const url = URL.createObjectURL(blob);
-        // const a = document.createElement('a');
-        // a.href = url;
-        // a.download = 'terms.json';
-        // a.click();
-        // URL.revokeObjectURL(url);
+        // Send the term to the backend
+        fetch('/add-term', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ term })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.terms && Array.isArray(data.terms)) {
+                this.showStatus('Added to Terms', 'success');
+            } else {
+                this.showStatus('Failed to add term', 'error');
+            }
+        })
+        .catch(() => {
+            this.showStatus('Failed to add term', 'error');
+        });
     }
 }
 
