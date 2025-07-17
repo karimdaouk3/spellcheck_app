@@ -551,9 +551,9 @@ class LanguageToolEditor {
                                 <span class="llm-dropdown-arrow">&#9654;</span>
                                 <span class="llm-section-title" style="color:#111;"><strong>${this.escapeHtml(key)}</strong></span>
                                 <span class="llm-feedback-btn" title="Give feedback" data-criteria="${this.escapeHtml(key)}">
-                                    <svg class="thumbs-down-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M10 15V19a2 2 0 0 0 2 2c.7 0 1.3-.4 1.6-1l3.6-7.1A2 2 0 0 0 15.5 10H5.1a2 2 0 0 0-2 2.4l1.4 7A2 2 0 0 0 6.5 21H17"/>
-                                        <path d="M19 10V3a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v7"/>
+                                    <svg class="thumbs-down-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M10 14V19a2 2 0 0 0 2 2c.7 0 1.3-.4 1.6-1l3.6-7.1A2 2 0 0 0 15.5 10H5.1a2 2 0 0 0-2 2.4l1.4 7A2 2 0 0 0 6.5 21H17"/>
+                                        <path d="M22 10V3a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v7"/>
                                     </svg>
                                 </span>
                             </div>
@@ -572,9 +572,9 @@ class LanguageToolEditor {
                                 <span class="llm-dropdown-arrow open">&#9660;</span>
                                 <span class="llm-section-title" style="color:#111;"><strong>${this.escapeHtml(key)}</strong></span>
                                 <span class="llm-feedback-btn" title="Give feedback" data-criteria="${this.escapeHtml(key)}">
-                                    <svg class="thumbs-down-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M10 15V19a2 2 0 0 0 2 2c.7 0 1.3-.4 1.6-1l3.6-7.1A2 2 0 0 0 15.5 10H5.1a2 2 0 0 0-2 2.4l1.4 7A2 2 0 0 0 6.5 21H17"/>
-                                        <path d="M19 10V3a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v7"/>
+                                    <svg class="thumbs-down-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M10 14V19a2 2 0 0 0 2 2c.7 0 1.3-.4 1.6-1l3.6-7.1A2 2 0 0 0 15.5 10H5.1a2 2 0 0 0-2 2.4l1.4 7A2 2 0 0 0 6.5 21H17"/>
+                                        <path d="M22 10V3a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v7"/>
                                     </svg>
                                 </span>
                             </div>
