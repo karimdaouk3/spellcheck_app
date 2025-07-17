@@ -722,6 +722,8 @@ class LanguageToolEditor {
             if (rewrite) {
                 rewritePopup.innerHTML = `<div class="rewrite-title">Suggested Rewrite</div><div class="rewrite-content">${this.escapeHtml(rewrite)}</div>`;
                 rewritePopup.style.display = 'block';
+                // Hide the overlay when rewrite is shown
+                overlay.style.display = 'none';
             } else {
                 rewritePopup.style.display = 'none';
             }
