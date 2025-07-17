@@ -528,7 +528,11 @@ class LanguageToolEditor {
     // Placeholder LLM call
     async submitToLLM(text, answers = null) {
         this.llmInProgress = true;
-        this.showStatus('Reviewing...', 'checking', true); // persist loading message
+        if (answers) {
+            this.showStatus('Rewriting...', 'checking', true); // persist loading message
+        } else {
+            this.showStatus('Reviewing...', 'checking', true); // persist loading message
+        }
         this.status.classList.add('loading');
         try {
             let body = { text };
