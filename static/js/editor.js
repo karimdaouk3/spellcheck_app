@@ -614,9 +614,54 @@ class LanguageToolEditor {
                 document.getElementById('llm-submit').click();
             });
         }
-        // Hide LLM result overlay (no rewrite yet)
+        // --- Render the side overlay with evaluation (no rewrite) ---
         const overlay = document.getElementById('llm-result-overlay');
-        overlay.style.display = 'none';
+        let overlayHtml = '';
+        if (rulesObj && typeof rulesObj === 'object') {
+            const keys = Object.keys(rulesObj);
+            const total = keys.length;
+            const passed = keys.filter(key => rulesObj[key].passed).length;
+            overlayHtml += `<div class="llm-score" style="font-size:1.35em;font-weight:700;margin-bottom:18px;background:#fff;color:#41007F;padding:10px 0 10px 0;border-radius:8px;text-align:center;box-shadow:0 1px 4px rgba(33,0,127,0.07);letter-spacing:0.5px;">Score: <span style="color:#00A7E1;font-size:1.2em;">${passed}</span> <span style="color:#888;font-size:1.1em;">/</span> <span style="color:#00A7E1;">${total}</span></div>`;
+            // Sort rules: passed first, then failed
+            const sortedKeys = keys.sort((a, b) => {
+                const aPassed = rulesObj[a].passed;
+                const bPassed = rulesObj[b].passed;
+                if (aPassed === bPassed) return 0;
+                return aPassed ? -1 : 1;
+            });
+            const passedKeys = sortedKeys.filter(key => rulesObj[key].passed);
+            const failedKeys = sortedKeys.filter(key => !rulesObj[key].passed);
+            if (passedKeys.length > 0) {
+                overlayHtml += `<div style="font-weight:600;font-size:1.08em;color:#4CAF50;margin-bottom:8px;">Completed</div>`;
+                for (const key of passedKeys) {
+                    const section = rulesObj[key];
+                    overlayHtml += `
+                        <div class="llm-section" data-passed="true">
+                            <div class="llm-section-header" tabindex="0">
+                                <span class="llm-section-title" style="color:#111;"><strong>${this.escapeHtml(key)}</strong></span>
+                            </div>
+                            <div class="llm-section-justification">${this.escapeHtml(section.justification || '')}</div>
+                        </div>
+                    `;
+                }
+            }
+            if (failedKeys.length > 0) {
+                overlayHtml += `<div style="font-weight:600;font-size:1.08em;color:#f44336;margin:18px 0 8px 0;">Needs Improvement</div>`;
+                for (const key of failedKeys) {
+                    const section = rulesObj[key];
+                    overlayHtml += `
+                        <div class="llm-section" data-passed="false">
+                            <div class="llm-section-header" tabindex="0">
+                                <span class="llm-section-title" style="color:#111;"><strong>${this.escapeHtml(key)}</strong></span>
+                            </div>
+                            <div class="llm-section-justification">${this.escapeHtml(section.justification || '')}</div>
+                        </div>
+                    `;
+                }
+            }
+        }
+        overlay.innerHTML = overlayHtml;
+        overlay.style.display = 'block';
         // Remove loading spinner
         this.status.classList.remove('loading');
         this.llmInProgress = false;
