@@ -560,6 +560,15 @@ class LanguageToolEditor {
         let html = '';
         let valid = result && typeof result === 'object';
         let rulesObj = result && result.evaluation ? result.evaluation : result;
+        // Hide loading status as soon as overlay appears
+        if (this.statusTimer) {
+            clearTimeout(this.statusTimer);
+            this.statusTimer = null;
+        }
+        this.status.classList.remove('loading');
+        this.status.className = 'status';
+        this.status.textContent = '';
+        this.llmInProgress = false;
         if (valid && rulesObj && typeof rulesObj === 'object') {
             // Calculate score
             const keys = Object.keys(rulesObj);
