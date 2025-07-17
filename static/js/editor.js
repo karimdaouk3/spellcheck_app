@@ -444,7 +444,7 @@ class LanguageToolEditor {
                 this.saveTerm(text);
                 this.ignoreCurrentSuggestion();
                 this.hidePopup();
-                this.showStatus(`${text} added to KLA term bank`, 'success');
+                this.showStatus(`"${text}" added to KLA term bank`, 'success');
             };
         } else if (blueBtn.parentElement) {
             blueBtn.parentElement.removeChild(blueBtn);
