@@ -550,6 +550,7 @@ class LanguageToolEditor {
                             <div class="llm-section-header" tabindex="0">
                                 <span class="llm-dropdown-arrow">&#9654;</span>
                                 <span class="llm-section-title" style="color:#111;"><strong>${this.escapeHtml(key)}</strong></span>
+                                <span class="llm-feedback-btn" title="Give feedback" data-criteria="${this.escapeHtml(key)}">&#128078;</span>
                             </div>
                             <div class="llm-section-justification" style="display:none;">${this.escapeHtml(section.justification || '')}</div>
                         </div>
@@ -565,6 +566,7 @@ class LanguageToolEditor {
                             <div class="llm-section-header" tabindex="0">
                                 <span class="llm-dropdown-arrow open">&#9660;</span>
                                 <span class="llm-section-title" style="color:#111;"><strong>${this.escapeHtml(key)}</strong></span>
+                                <span class="llm-feedback-btn" title="Give feedback" data-criteria="${this.escapeHtml(key)}">&#128078;</span>
                             </div>
                             <div class="llm-section-justification" style="display:block;">${this.escapeHtml(section.justification || '')}</div>
                         </div>
@@ -646,6 +648,27 @@ class LanguageToolEditor {
         } else {
             rewritePopup.style.display = 'none';
         }
+
+        const feedbackBtns = overlay.querySelectorAll('.llm-feedback-btn');
+        feedbackBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const criteria = btn.getAttribute('data-criteria');
+                const text = this.editor.innerText;
+                fetch('/feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        criteria,
+                        text,
+                        feedback: 'thumbs_down'
+                    })
+                }).then(res => res.json()).then(data => {
+                    btn.style.color = '#f44336';
+                    btn.title = "Feedback received!";
+                });
+            });
+        });
     }
 
     syncOverlayScroll() {

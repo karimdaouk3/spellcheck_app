@@ -433,6 +433,20 @@ body {
     transition: display 0.18s;
 }
 
+.llm-feedback-btn {
+    margin-left: auto;
+    margin-right: 0;
+    font-size: 1.1em;
+    color: #bbb;
+    cursor: pointer;
+    transition: color 0.2s;
+    padding-left: 10px;
+    user-select: none;
+}
+.llm-feedback-btn:hover {
+    color: #f44336;
+}
+
 @media (min-width: 900px) and (max-width: 1600px) {
     .main-content {
         transform: none;
