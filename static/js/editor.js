@@ -807,6 +807,10 @@ class LanguageToolEditor {
                     feedbackBox.style.marginTop = '0px';
                     feedbackBox.innerHTML = `<textarea class="llm-feedback-text" rows="1" placeholder="Please give your feedback"></textarea><button class="llm-feedback-submit" title="Send Feedback"> <svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><line x1='22' y1='2' x2='11' y2='13'/><polygon points='22 2 15 22 11 13 2 9 22 2'/></svg></button>`;
                     card.appendChild(feedbackBox);
+                    // Add vertical space below feedback box
+                    const feedbackSpace = document.createElement('div');
+                    feedbackSpace.style.height = '12px';
+                    card.appendChild(feedbackSpace);
                     const submitBtn = feedbackBox.querySelector('.llm-feedback-submit');
                     submitBtn.addEventListener('click', () => {
                         const feedbackText = feedbackBox.querySelector('.llm-feedback-text').value;
@@ -837,6 +841,7 @@ class LanguageToolEditor {
                             btn.classList.add('selected');
                             btn.title = "Feedback received!";
                             feedbackBox.remove();
+                            feedbackSpace.remove();
                         });
                     });
                 }
