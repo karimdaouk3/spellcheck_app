@@ -880,9 +880,7 @@ class LanguageToolEditor {
         })
         .then(res => res.json())
         .then(data => {
-            if (data.terms && Array.isArray(data.terms)) {
-                this.showStatus('Added to Terms', 'success');
-            } else {
+            if (!(data.terms && Array.isArray(data.terms))) {
                 this.showStatus('Failed to add term', 'error');
             }
         })
