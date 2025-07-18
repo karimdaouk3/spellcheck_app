@@ -11,6 +11,16 @@ class LanguageToolEditor {
         this.llmQuestions = [];
         this.llmAnswers = {};
         this.llmLastResult = null;
+        this.history = [];
+        this.historyPanel = document.getElementById('history-panel');
+        this.historyList = document.getElementById('history-list');
+        this.toggleHistoryBtn = document.getElementById('toggle-history');
+        if (this.toggleHistoryBtn) {
+            this.toggleHistoryBtn.addEventListener('click', () => {
+                this.historyPanel.classList.toggle('closed');
+            });
+        }
+        this.renderHistory();
         
         this.editor = document.getElementById('editor');
         this.popup = document.getElementById('popup');
@@ -751,6 +761,8 @@ class LanguageToolEditor {
                 }
             }
             if (rewrite) {
+                // Add to history
+                this.addToHistory(rewrite);
                 // Replace the editor content with the rewrite
                 this.editor.innerText = rewrite;
                 // Hide the rewrite popup and overlay
@@ -818,6 +830,28 @@ class LanguageToolEditor {
         })
         .catch(() => {
             this.showStatus('Failed to add term', 'error');
+        });
+    }
+
+    addToHistory(text) {
+        if (!text || !text.trim()) return;
+        this.history.unshift(text);
+        if (this.history.length > 50) this.history = this.history.slice(0, 50);
+        this.renderHistory();
+    }
+
+    renderHistory() {
+        if (!this.historyList) return;
+        this.historyList.innerHTML = '';
+        this.history.forEach((item, idx) => {
+            const li = document.createElement('li');
+            li.textContent = item.length > 120 ? item.slice(0, 117) + '...' : item;
+            li.title = item;
+            li.onclick = () => {
+                this.editor.innerText = item;
+                this.debounceCheck();
+            };
+            this.historyList.appendChild(li);
         });
     }
 }

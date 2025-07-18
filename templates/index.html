@@ -7,6 +7,13 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
+    <div class="history-panel" id="history-panel">
+        <div class="history-header">
+            <span>History</span>
+            <button id="toggle-history" class="toggle-history">&#9776;</button>
+        </div>
+        <ul id="history-list" class="history-list"></ul>
+    </div>
     <div class="main-content">
         <div class="header">
             <h1>Input Enhancer</h1>
