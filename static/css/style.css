@@ -494,6 +494,7 @@ body {
     font-weight: 700;
     color: #41007F;
     border-bottom: 1.5px solid #e0e0e0;
+    height: 48px;
 }
 .toggle-history {
     background: none;
@@ -502,6 +503,16 @@ body {
     cursor: pointer;
     color: #41007F;
     padding: 0 4px;
+    display: flex;
+    align-items: center;
+    height: 100%;
+}
+#history-close-icon {
+    display: block;
+    vertical-align: middle;
+}
+#history-menu-icon {
+    display: none !important;
 }
 .history-list {
     list-style: none;
@@ -539,9 +550,19 @@ body {
     cursor: pointer;
     display: block;
     transition: opacity 0.18s, left 0.18s;
+    opacity: 0;
+    pointer-events: none;
+    transition-delay: 0.25s;
+}
+.history-panel.closed ~ .open-history-btn {
+    opacity: 1;
+    pointer-events: auto;
+    transition-delay: 0s;
 }
 .history-panel:not(.closed) ~ .open-history-btn {
-    display: none;
+    opacity: 0;
+    pointer-events: none;
+    transition-delay: 0.25s;
 }
 @media (max-width: 900px) {
     .open-history-btn {

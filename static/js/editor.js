@@ -22,26 +22,17 @@ class LanguageToolEditor {
             this.toggleHistoryBtn.addEventListener('click', () => {
                 this.historyPanel.classList.add('closed');
                 if (this.openHistoryBtn) this.openHistoryBtn.style.display = 'block';
-                if (this.historyMenuIcon) this.historyMenuIcon.style.display = '';
-                if (this.historyCloseIcon) this.historyCloseIcon.style.display = 'none';
             });
         }
         if (this.openHistoryBtn) {
             this.openHistoryBtn.addEventListener('click', () => {
                 this.historyPanel.classList.remove('closed');
                 this.openHistoryBtn.style.display = 'none';
-                if (this.historyMenuIcon) this.historyMenuIcon.style.display = 'none';
-                if (this.historyCloseIcon) this.historyCloseIcon.style.display = '';
             });
         }
         // Hide open-history button if panel is open on load
         if (this.historyPanel && !this.historyPanel.classList.contains('closed') && this.openHistoryBtn) {
             this.openHistoryBtn.style.display = 'none';
-            if (this.historyMenuIcon) this.historyMenuIcon.style.display = 'none';
-            if (this.historyCloseIcon) this.historyCloseIcon.style.display = '';
-        } else {
-            if (this.historyMenuIcon) this.historyMenuIcon.style.display = '';
-            if (this.historyCloseIcon) this.historyCloseIcon.style.display = 'none';
         }
         this.renderHistory();
         
