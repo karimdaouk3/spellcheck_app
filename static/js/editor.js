@@ -869,7 +869,6 @@ class LanguageToolEditor {
             icon.onclick = (e) => {
                 e.stopPropagation();
                 this.editor.innerText = item;
-                this.submitToLLM(item);
             };
             li.appendChild(icon);
             // Clicking the item just puts it in the editor (no review)
