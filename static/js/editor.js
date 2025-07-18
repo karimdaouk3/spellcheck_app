@@ -810,6 +810,19 @@ class LanguageToolEditor {
                     const submitBtn = feedbackBox.querySelector('.llm-feedback-submit');
                     submitBtn.addEventListener('click', () => {
                         const feedbackText = feedbackBox.querySelector('.llm-feedback-text').value;
+                        // Find pass/fail for this criteria
+                        let passed = null;
+                        if (this.llmLastResult && this.llmLastResult.evaluation && this.llmLastResult.evaluation[criteria]) {
+                            passed = this.llmLastResult.evaluation[criteria].passed;
+                        }
+                        // Log feedback (console.log for now, or send to backend)
+                        const feedbackLog = {
+                            text,
+                            criteria,
+                            passed,
+                            user_feedback: feedbackText
+                        };
+                        console.log('Feedback log:', feedbackLog);
                         fetch('/feedback', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -817,7 +830,8 @@ class LanguageToolEditor {
                                 criteria,
                                 text,
                                 feedback: 'thumbs_down',
-                                explanation: feedbackText
+                                explanation: feedbackText,
+                                passed
                             })
                         }).then(res => res.json()).then(data => {
                             btn.classList.add('selected');

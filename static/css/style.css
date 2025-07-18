@@ -658,7 +658,7 @@ body {
     gap: 0;
     margin-left: 32px;
     margin-top: -2px;
-    margin-bottom: 0;
+    margin-bottom: 10px;
 }
 .llm-feedback-text {
     flex: 1 1 auto;
@@ -678,8 +678,13 @@ body {
     max-height: 26px;
     line-height: 1.1;
     margin-bottom: 0;
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
     white-space: nowrap;
+    scrollbar-width: none;
+}
+.llm-feedback-text::-webkit-scrollbar {
+    display: none;
 }
 .llm-feedback-text::placeholder {
     font-size: 0.85em;
