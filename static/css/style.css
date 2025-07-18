@@ -553,8 +553,8 @@ body {
     opacity: 0;
     pointer-events: none;
     transition-delay: 0.25s;
-    width: 44px;
-    height: 44px;
+    width: 56px;
+    height: 56px;
 }
 .open-history-btn svg {
     width: 32px;
@@ -648,4 +648,43 @@ body {
 .llm-result-overlay {
     scrollbar-width: thin;
     scrollbar-color: #e0e0e0 transparent;
+}
+.llm-feedback-box {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    gap: 0;
+}
+.llm-feedback-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    border-radius: 4px 0 0 4px;
+    border: 1.5px solid #e0e0e0;
+    font-size: 1em;
+    padding: 6px 8px;
+    box-sizing: border-box;
+    resize: none;
+    outline: none;
+}
+.llm-feedback-submit {
+    border: none;
+    background: #bbb;
+    color: #fff;
+    border-radius: 0 4px 4px 0;
+    padding: 0 16px;
+    font-size: 1.2em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.18s;
+    height: auto;
+}
+.llm-feedback-submit:hover {
+    background: #888;
+}
+.llm-feedback-submit svg {
+    width: 20px;
+    height: 20px;
+    display: block;
 }

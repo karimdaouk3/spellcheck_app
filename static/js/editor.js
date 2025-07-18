@@ -804,7 +804,7 @@ class LanguageToolEditor {
                     feedbackBox = document.createElement('div');
                     feedbackBox.className = 'llm-feedback-box';
                     feedbackBox.style.marginTop = '12px';
-                    feedbackBox.innerHTML = `<textarea class="llm-feedback-text" rows="2" style="width:100%;resize:none;padding:6px 8px;font-size:1em;border-radius:4px;border:1.5px solid #e0e0e0;box-sizing:border-box;" placeholder="Please explain why you clicked thumbs down..."></textarea><button class="llm-feedback-submit" style="margin-top:8px;padding:7px 18px;background:#41007F;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:1em;">Submit Feedback</button>`;
+                    feedbackBox.innerHTML = `<textarea class="llm-feedback-text" rows="2" placeholder="Please explain why you clicked thumbs down..."></textarea><button class="llm-feedback-submit" title="Send Feedback"> <svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><line x1='22' y1='2' x2='11' y2='13'/><polygon points='22 2 15 22 11 13 2 9 22 2'/></svg></button>`;
                     card.appendChild(feedbackBox);
                     const submitBtn = feedbackBox.querySelector('.llm-feedback-submit');
                     submitBtn.addEventListener('click', () => {
