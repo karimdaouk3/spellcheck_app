@@ -656,6 +656,7 @@ body {
     align-items: stretch;
     width: 100%;
     gap: 0;
+    margin-left: 32px;
 }
 .llm-feedback-text {
     flex: 1 1 auto;
@@ -670,11 +671,16 @@ body {
     outline: none;
     background: #f9fafc;
     color: #222;
+    height: 32px;
+    min-height: 32px;
+    max-height: 32px;
+    line-height: 1.2;
+    margin-bottom: 0;
 }
 /* Rewrite answer textareas */
 .rewrite-answer {
     width: 100%;
-    padding: 8px 10px;
+    padding: 4px 10px;
     border: 1.5px solid #e0e0e0;
     border-radius: 6px;
     font-size: 1em;
@@ -684,6 +690,11 @@ body {
     margin-bottom: 10px;
     box-sizing: border-box;
     transition: border-color 0.18s, box-shadow 0.18s;
+    height: 32px;
+    min-height: 32px;
+    max-height: 32px;
+    line-height: 1.2;
+    resize: none;
 }
 .rewrite-answer:focus {
     border-color: #41007F;
