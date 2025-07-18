@@ -859,22 +859,25 @@ class LanguageToolEditor {
             const li = document.createElement('li');
             li.textContent = item.length > 120 ? item.slice(0, 117) + '...' : item;
             li.title = item;
-            // Add restore icon
+            // Add reload/restore icon
             const icon = document.createElement('span');
-            icon.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#41007F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V6M5 12l7-7 7 7"/></svg>';
+            icon.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#41007F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M21 12a9 9 0 1 1-3-7.7"/><polyline points="21 3 21 12 12 12"/></svg>';
             icon.style.float = 'right';
             icon.style.cursor = 'pointer';
             icon.style.marginLeft = '12px';
-            icon.title = 'Restore and review';
+            icon.style.display = 'inline-flex';
+            icon.style.alignItems = 'center';
+            icon.title = 'Restore to editor';
             icon.onclick = (e) => {
                 e.stopPropagation();
                 this.editor.innerText = item;
             };
             li.appendChild(icon);
-            // Clicking the item just puts it in the editor (no review)
-            li.onclick = () => {
-                this.editor.innerText = item;
-            };
+            // Remove item click/hover highlight
+            li.style.cursor = 'default';
+            li.onmouseenter = null;
+            li.onmouseleave = null;
+            li.onclick = null;
             this.historyList.appendChild(li);
         });
     }

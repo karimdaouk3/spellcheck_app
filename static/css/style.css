@@ -513,16 +513,17 @@ body {
 .history-list li {
     padding: 12px 18px;
     border-bottom: 1px solid #e0e0e0;
-    cursor: pointer;
     color: #333;
     background: #fff;
-    transition: background 0.18s;
     font-size: 0.98em;
     word-break: break-word;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 .history-list li:hover {
-    background: #e0e7ff;
-    color: #41007F;
+    background: #fff;
+    color: #333;
 }
 
 .open-history-btn {
