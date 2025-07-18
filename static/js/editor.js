@@ -764,16 +764,10 @@ class LanguageToolEditor {
                                     question: q.question,
                                     user_answer: this.llmAnswers[q.criteria] || ''
                                 }));
-                                // Send each log entry to the backend
-                                logArr.forEach(entry => {
-                                    fetch('/feedback', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                            type: 'rewrite',
-                                            ...entry
-                                        })
-                                    });
+                                fetch('/rewrite-feedback', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(logArr)
                                 });
                             }
                             // Resubmit to LLM with answers
