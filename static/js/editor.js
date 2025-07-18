@@ -756,8 +756,8 @@ class LanguageToolEditor {
                 // Hide the rewrite popup and overlay
                 rewritePopup.style.display = 'none';
                 overlay.style.display = 'none';
-                // Optionally, trigger a check on the new text
-                this.debounceCheck();
+                // Trigger a review (LLM evaluation) for the new text
+                this.submitToLLM(rewrite);
             } else {
                 rewritePopup.style.display = 'none';
             }
