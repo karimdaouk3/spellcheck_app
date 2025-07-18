@@ -718,7 +718,7 @@ class LanguageToolEditor {
                     qHtml += `<div class="rewrite-question">${this.escapeHtml(q.question)}</div>`;
                     qHtml += `<textarea class="rewrite-answer" data-criteria="${this.escapeHtml(q.criteria)}" rows="2" style="width:100%;margin-bottom:12px;resize:none;"></textarea>`;
                 });
-                qHtml += `<button id="submit-answers-btn" class="llm-submit-button" style="margin-top:10px;">Submit for Rewrite</button>`;
+                qHtml += `<button id="submit-answers-btn" class="llm-submit-button" style="margin-top:10px;">Rewrite</button>`;
                 rewritePopup.innerHTML = qHtml;
                 rewritePopup.style.display = 'block';
                 // Add event listener for submit answers
@@ -751,10 +751,13 @@ class LanguageToolEditor {
                 }
             }
             if (rewrite) {
-                rewritePopup.innerHTML = `<div class="rewrite-title">Suggested Rewrite</div><div class="rewrite-content">${this.escapeHtml(rewrite)}</div>`;
-                rewritePopup.style.display = 'block';
-                // Hide the overlay when rewrite is shown
+                // Replace the editor content with the rewrite
+                this.editor.innerText = rewrite;
+                // Hide the rewrite popup and overlay
+                rewritePopup.style.display = 'none';
                 overlay.style.display = 'none';
+                // Optionally, trigger a check on the new text
+                this.debounceCheck();
             } else {
                 rewritePopup.style.display = 'none';
             }
