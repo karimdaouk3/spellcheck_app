@@ -561,6 +561,8 @@ body {
     height: 32px;
     display: block;
     margin: 0 auto;
+    color: #41007F;
+    fill: #41007F;
 }
 .history-panel.closed ~ .open-history-btn {
     opacity: 1;
@@ -661,9 +663,31 @@ body {
     border-radius: 4px 0 0 4px;
     border: 1.5px solid #e0e0e0;
     font-size: 1em;
+    font-family: 'Open Sans', sans-serif;
     padding: 6px 8px;
     box-sizing: border-box;
     resize: none;
+    outline: none;
+    background: #f9fafc;
+    color: #222;
+}
+/* Rewrite answer textareas */
+.rewrite-answer {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 1em;
+    font-family: 'Open Sans', sans-serif;
+    background: #f9fafc;
+    color: #222;
+    margin-bottom: 10px;
+    box-sizing: border-box;
+    transition: border-color 0.18s, box-shadow 0.18s;
+}
+.rewrite-answer:focus {
+    border-color: #41007F;
+    box-shadow: 0 0 0 2px #e0e7ff;
     outline: none;
 }
 .llm-feedback-submit {
