@@ -764,7 +764,17 @@ class LanguageToolEditor {
                                     question: q.question,
                                     user_answer: this.llmAnswers[q.criteria] || ''
                                 }));
-                                console.log('Rewrite log:', logArr);
+                                // Send each log entry to the backend
+                                logArr.forEach(entry => {
+                                    fetch('/feedback', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            type: 'rewrite',
+                                            ...entry
+                                        })
+                                    });
+                                });
                             }
                             // Resubmit to LLM with answers
                             this.submitToLLM(this.editor.innerText, this.llmAnswers);
