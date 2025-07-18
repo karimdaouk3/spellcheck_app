@@ -540,7 +540,7 @@ body {
 .open-history-btn {
     position: fixed;
     top: 32px;
-    left: 28px;
+    left: 20px;
     z-index: 3100;
     background: #fff;
     border: 2px solid #e0e0e0;
@@ -560,7 +560,7 @@ body {
     width: 32px;
     height: 32px;
     display: block;
-    margin: 0 0 0 6px;
+    margin: 0 0 0 2px;
     color: #41007F;
     fill: #41007F;
 }
@@ -657,7 +657,7 @@ body {
     width: calc(100% - 32px);
     gap: 0;
     margin-left: 32px;
-    margin-top: 0px;
+    margin-top: -2px;
     margin-bottom: 0;
 }
 .llm-feedback-text {
@@ -698,10 +698,10 @@ body {
     margin-bottom: 10px;
     box-sizing: border-box;
     transition: border-color 0.18s, box-shadow 0.18s;
-    height: 26px;
-    min-height: 26px;
-    max-height: 26px;
-    line-height: 1.1;
+    height: 32px;
+    min-height: 32px;
+    max-height: 32px;
+    line-height: 1.2;
     resize: none;
     margin-top: 10px;
 }
@@ -715,7 +715,7 @@ body {
     background: #bbb;
     color: #fff;
     border-radius: 0 4px 4px 0;
-    padding: 0 16px;
+    padding: 0 10px;
     font-size: 1.2em;
     display: flex;
     align-items: center;
