@@ -773,8 +773,8 @@ class LanguageToolEditor {
                 }
             }
             if (rewrite) {
-                // Add to history
-                this.addToHistory(rewrite);
+                // Add the version that was submitted (before rewrite) to history
+                this.addToHistory(this.editor.innerText);
                 // Replace the editor content with the rewrite
                 this.editor.innerText = rewrite;
                 // Hide the rewrite popup and overlay
