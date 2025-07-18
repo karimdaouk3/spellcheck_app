@@ -796,18 +796,35 @@ class LanguageToolEditor {
                 e.stopPropagation();
                 const criteria = btn.getAttribute('data-criteria');
                 const text = this.editor.innerText;
-                fetch('/feedback', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        criteria,
-                        text,
-                        feedback: 'thumbs_down'
-                    })
-                }).then(res => res.json()).then(data => {
-                    btn.classList.add('selected');
-                    btn.title = "Feedback received!";
-                });
+                // Show feedback box if not already present
+                let card = btn.closest('.llm-section');
+                if (!card) return;
+                let feedbackBox = card.querySelector('.llm-feedback-box');
+                if (!feedbackBox) {
+                    feedbackBox = document.createElement('div');
+                    feedbackBox.className = 'llm-feedback-box';
+                    feedbackBox.style.marginTop = '12px';
+                    feedbackBox.innerHTML = `<textarea class="llm-feedback-text" rows="2" style="width:100%;resize:none;padding:6px 8px;font-size:1em;border-radius:4px;border:1.5px solid #e0e0e0;box-sizing:border-box;" placeholder="Please explain why you clicked thumbs down..."></textarea><button class="llm-feedback-submit" style="margin-top:8px;padding:7px 18px;background:#41007F;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:1em;">Submit Feedback</button>`;
+                    card.appendChild(feedbackBox);
+                    const submitBtn = feedbackBox.querySelector('.llm-feedback-submit');
+                    submitBtn.addEventListener('click', () => {
+                        const feedbackText = feedbackBox.querySelector('.llm-feedback-text').value;
+                        fetch('/feedback', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                criteria,
+                                text,
+                                feedback: 'thumbs_down',
+                                explanation: feedbackText
+                            })
+                        }).then(res => res.json()).then(data => {
+                            btn.classList.add('selected');
+                            btn.title = "Feedback received!";
+                            feedbackBox.remove();
+                        });
+                    });
+                }
             });
         });
     }
