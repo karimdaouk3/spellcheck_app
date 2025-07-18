@@ -540,7 +540,7 @@ body {
 .open-history-btn {
     position: fixed;
     top: 32px;
-    left: 16px;
+    left: 28px;
     z-index: 3100;
     background: #fff;
     border: 2px solid #e0e0e0;
@@ -560,7 +560,7 @@ body {
     width: 32px;
     height: 32px;
     display: block;
-    margin: 0 auto;
+    margin: 0 0 0 6px;
     color: #41007F;
     fill: #41007F;
 }
@@ -657,7 +657,7 @@ body {
     width: calc(100% - 32px);
     gap: 0;
     margin-left: 32px;
-    margin-top: 4px;
+    margin-top: 0px;
     margin-bottom: 0;
 }
 .llm-feedback-text {
@@ -665,44 +665,43 @@ body {
     min-width: 0;
     border-radius: 4px 0 0 4px;
     border: 1.5px solid #e0e0e0;
-    font-size: 1em;
+    font-size: 0.93em;
     font-family: 'Open Sans', sans-serif;
-    padding: 6px 8px;
+    padding: 4px 7px;
     box-sizing: border-box;
     resize: none;
     outline: none;
     background: #f9fafc;
     color: #222;
-    height: 32px;
-    min-height: 32px;
-    max-height: 32px;
-    line-height: 1.2;
+    height: 26px;
+    min-height: 26px;
+    max-height: 26px;
+    line-height: 1.1;
     margin-bottom: 0;
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: hidden;
     white-space: nowrap;
 }
 .llm-feedback-text::placeholder {
-    font-size: 0.92em;
+    font-size: 0.85em;
     color: #888;
 }
 /* Rewrite answer textareas */
 .rewrite-answer {
     width: 100%;
-    padding: 4px 10px;
+    padding: 2px 8px;
     border: 1.5px solid #e0e0e0;
     border-radius: 6px;
-    font-size: 1em;
+    font-size: 0.93em;
     font-family: 'Open Sans', sans-serif;
     background: #f9fafc;
     color: #222;
     margin-bottom: 10px;
     box-sizing: border-box;
     transition: border-color 0.18s, box-shadow 0.18s;
-    height: 32px;
-    min-height: 32px;
-    max-height: 32px;
-    line-height: 1.2;
+    height: 26px;
+    min-height: 26px;
+    max-height: 26px;
+    line-height: 1.1;
     resize: none;
     margin-top: 10px;
 }
