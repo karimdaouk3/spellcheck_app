@@ -654,7 +654,7 @@ body {
 .llm-feedback-box {
     display: flex;
     align-items: stretch;
-    width: calc(100% - 64px);
+    width: calc(100% - 44px);
     gap: 0;
     margin-left: 32px;
     margin-top: -2px;
