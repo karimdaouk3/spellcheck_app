@@ -756,6 +756,16 @@ class LanguageToolEditor {
                                 const crit = el.getAttribute('data-criteria');
                                 this.llmAnswers[crit] = el.value;
                             });
+                            // Log rewrite submission
+                            if (this.llmQuestions && this.llmQuestions.length > 0) {
+                                const logArr = this.llmQuestions.map(q => ({
+                                    original_text: this.editor.innerText,
+                                    criteria: q.criteria,
+                                    question: q.question,
+                                    user_answer: this.llmAnswers[q.criteria] || ''
+                                }));
+                                console.log('Rewrite log:', logArr);
+                            }
                             // Resubmit to LLM with answers
                             this.submitToLLM(this.editor.innerText, this.llmAnswers);
                         };
@@ -820,13 +830,6 @@ class LanguageToolEditor {
                             passed = this.llmLastResult.evaluation[criteria].passed;
                         }
                         // Log feedback (console.log for now, or send to backend)
-                        const feedbackLog = {
-                            text,
-                            criteria,
-                            passed,
-                            user_feedback: feedbackText
-                        };
-                        console.log('Feedback log:', feedbackLog);
                         fetch('/feedback', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
