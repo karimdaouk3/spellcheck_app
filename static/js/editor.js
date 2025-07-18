@@ -16,21 +16,32 @@ class LanguageToolEditor {
         this.historyList = document.getElementById('history-list');
         this.toggleHistoryBtn = document.getElementById('toggle-history');
         this.openHistoryBtn = document.getElementById('open-history-btn');
+        this.historyMenuIcon = document.getElementById('history-menu-icon');
+        this.historyCloseIcon = document.getElementById('history-close-icon');
         if (this.toggleHistoryBtn) {
             this.toggleHistoryBtn.addEventListener('click', () => {
                 this.historyPanel.classList.add('closed');
                 if (this.openHistoryBtn) this.openHistoryBtn.style.display = 'block';
+                if (this.historyMenuIcon) this.historyMenuIcon.style.display = '';
+                if (this.historyCloseIcon) this.historyCloseIcon.style.display = 'none';
             });
         }
         if (this.openHistoryBtn) {
             this.openHistoryBtn.addEventListener('click', () => {
                 this.historyPanel.classList.remove('closed');
                 this.openHistoryBtn.style.display = 'none';
+                if (this.historyMenuIcon) this.historyMenuIcon.style.display = 'none';
+                if (this.historyCloseIcon) this.historyCloseIcon.style.display = '';
             });
         }
         // Hide open-history button if panel is open on load
         if (this.historyPanel && !this.historyPanel.classList.contains('closed') && this.openHistoryBtn) {
             this.openHistoryBtn.style.display = 'none';
+            if (this.historyMenuIcon) this.historyMenuIcon.style.display = 'none';
+            if (this.historyCloseIcon) this.historyCloseIcon.style.display = '';
+        } else {
+            if (this.historyMenuIcon) this.historyMenuIcon.style.display = '';
+            if (this.historyCloseIcon) this.historyCloseIcon.style.display = 'none';
         }
         this.renderHistory();
         
@@ -859,9 +870,9 @@ class LanguageToolEditor {
             const li = document.createElement('li');
             li.textContent = item.length > 120 ? item.slice(0, 117) + '...' : item;
             li.title = item;
-            // Add reload/restore icon
+            // Add history icon for restore
             const icon = document.createElement('span');
-            icon.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#41007F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M21 12a9 9 0 1 1-3-7.7"/><polyline points="21 3 21 12 12 12"/></svg>';
+            icon.innerHTML = '<svg width="20" height="20" viewBox="0 0 512 512" fill="#41007F" style="display:inline-block;vertical-align:middle;"><path d="M256 64C150 64 64 150 64 256H16l80 96 80-96h-48c0-88.2 71.8-160 160-160s160 71.8 160 160-71.8 160-160 160c-39.7 0-76.1-14.3-104.2-37.9-6.9-5.7-17.1-4.7-22.8 2.2s-4.7 17.1 2.2 22.8C163.7 426.2 207.6 448 256 448c106 0 192-86 192-192S362 64 256 64z"/></svg>';
             icon.style.float = 'right';
             icon.style.cursor = 'pointer';
             icon.style.marginLeft = '12px';
