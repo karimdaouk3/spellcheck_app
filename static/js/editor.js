@@ -15,10 +15,22 @@ class LanguageToolEditor {
         this.historyPanel = document.getElementById('history-panel');
         this.historyList = document.getElementById('history-list');
         this.toggleHistoryBtn = document.getElementById('toggle-history');
+        this.openHistoryBtn = document.getElementById('open-history-btn');
         if (this.toggleHistoryBtn) {
             this.toggleHistoryBtn.addEventListener('click', () => {
-                this.historyPanel.classList.toggle('closed');
+                this.historyPanel.classList.add('closed');
+                if (this.openHistoryBtn) this.openHistoryBtn.style.display = 'block';
             });
+        }
+        if (this.openHistoryBtn) {
+            this.openHistoryBtn.addEventListener('click', () => {
+                this.historyPanel.classList.remove('closed');
+                this.openHistoryBtn.style.display = 'none';
+            });
+        }
+        // Hide open-history button if panel is open on load
+        if (this.historyPanel && !this.historyPanel.classList.contains('closed') && this.openHistoryBtn) {
+            this.openHistoryBtn.style.display = 'none';
         }
         this.renderHistory();
         
