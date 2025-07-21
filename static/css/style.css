@@ -552,7 +552,7 @@ body {
     transition: opacity 0.18s, left 0.18s;
     opacity: 0;
     pointer-events: none;
-    transition-delay: 0.25s;
+    transition-delay: 0.4s;
     width: 56px;
     height: 56px;
 }
@@ -567,12 +567,12 @@ body {
 .history-panel.closed ~ .open-history-btn {
     opacity: 1;
     pointer-events: auto;
-    transition-delay: 0.25s;
+    transition-delay: 0.4s;
 }
 .history-panel:not(.closed) ~ .open-history-btn {
     opacity: 0;
     pointer-events: none;
-    transition-delay: 0.25s;
+    transition-delay: 0.4s;
 }
 @media (max-width: 900px) {
     .open-history-btn {

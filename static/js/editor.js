@@ -754,7 +754,7 @@ class LanguageToolEditor {
                 let qHtml = '<div class="rewrite-title">To improve your input, please answer the following questions:</div>';
                 this.llmQuestions.forEach((q, idx) => {
                     qHtml += `<div class="rewrite-question">${this.escapeHtml(q.question)}</div>`;
-                    qHtml += `<textarea class="rewrite-answer" data-criteria="${this.escapeHtml(q.criteria)}" rows="2" style="width:100%;margin-bottom:12px;resize:none;"></textarea>`;
+                    qHtml += `<textarea class="rewrite-answer" data-criteria="${this.escapeHtml(q.criteria)}" rows="1" style="width:100%;margin-bottom:12px;resize:none;" placeholder="Please Give Feedback"></textarea>`;
                 });
                 qHtml += `<button id="submit-answers-btn" class="llm-submit-button" style="margin-top:10px;">Rewrite</button>`;
                 rewritePopup.innerHTML = qHtml;
@@ -769,6 +769,12 @@ class LanguageToolEditor {
                             answerEls.forEach(el => {
                                 const crit = el.getAttribute('data-criteria');
                                 this.llmAnswers[crit] = el.value;
+                            });
+                            // Prevent newlines in rewrite answer boxes
+                            answerEls.forEach(el => {
+                                el.addEventListener('keydown', (e) => {
+                                    if (e.key === 'Enter') e.preventDefault();
+                                });
                             });
                             // Log rewrite submission
                             if (this.llmQuestions && this.llmQuestions.length > 0) {
@@ -833,7 +839,7 @@ class LanguageToolEditor {
                     feedbackBox = document.createElement('div');
                     feedbackBox.className = 'llm-feedback-box';
                     feedbackBox.style.marginTop = '0px';
-                    feedbackBox.innerHTML = `<textarea class="llm-feedback-text" rows="1" placeholder="please give feedback"></textarea><button class="llm-feedback-submit" title="Send Feedback"> <svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><line x1='22' y1='2' x2='11' y2='13'/><polygon points='22 2 15 22 11 13 2 9 22 2'/></svg></button>`;
+                    feedbackBox.innerHTML = `<textarea class="llm-feedback-text" rows="1" placeholder="Please Give Feedback"></textarea><button class="llm-feedback-submit" title="Send Feedback"> <svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><line x1='22' y1='2' x2='11' y2='13'/><polygon points='22 2 15 22 11 13 2 9 22 2'/></svg></button>`;
                     card.appendChild(feedbackBox);
                     // Add vertical space below feedback box
                     const feedbackSpace = document.createElement('div');
