@@ -567,7 +567,7 @@ body {
 .history-panel.closed ~ .open-history-btn {
     opacity: 1;
     pointer-events: auto;
-    transition-delay: 0s;
+    transition-delay: 0.25s;
 }
 .history-panel:not(.closed) ~ .open-history-btn {
     opacity: 0;
@@ -689,6 +689,8 @@ body {
 .llm-feedback-text::placeholder {
     font-size: 1em;
     color: #888;
+    opacity: 1;
+    content: 'please give feedback';
 }
 /* Rewrite answer textareas */
 .rewrite-answer {
@@ -711,6 +713,13 @@ body {
     align-items: center;
     resize: none;
     margin-top: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    scrollbar-width: none;
+}
+.rewrite-answer::-webkit-scrollbar {
+    display: none;
 }
 .rewrite-answer:focus {
     border-color: #41007F;
