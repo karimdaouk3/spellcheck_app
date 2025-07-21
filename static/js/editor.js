@@ -754,7 +754,7 @@ class LanguageToolEditor {
                 let qHtml = '<div class="rewrite-title">To improve your input, please answer the following questions:</div>';
                 this.llmQuestions.forEach((q, idx) => {
                     qHtml += `<div class="rewrite-question">${this.escapeHtml(q.question)}</div>`;
-                    qHtml += `<textarea class="rewrite-answer" data-criteria="${this.escapeHtml(q.criteria)}" rows="1" style="width:100%;margin-bottom:12px;resize:none;" placeholder="Please Give Feedback"></textarea>`;
+                    qHtml += `<textarea class="rewrite-answer" data-criteria="${this.escapeHtml(q.criteria)}" rows="1" style="width:100%;margin-bottom:12px;resize:none;"></textarea>`;
                 });
                 qHtml += `<button id="submit-answers-btn" class="llm-submit-button" style="margin-top:10px;">Rewrite</button>`;
                 rewritePopup.innerHTML = qHtml;
@@ -762,19 +762,22 @@ class LanguageToolEditor {
                 // Add event listener for submit answers
                 setTimeout(() => {
                     const btn = document.getElementById('submit-answers-btn');
+                    const answerEls = rewritePopup.querySelectorAll('.rewrite-answer');
+                    // Prevent newlines and blur on Enter in rewrite answer boxes
+                    answerEls.forEach(el => {
+                        el.addEventListener('keydown', (e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                el.blur();
+                            }
+                        });
+                    });
                     if (btn) {
                         btn.onclick = () => {
                             // Collect answers
-                            const answerEls = rewritePopup.querySelectorAll('.rewrite-answer');
                             answerEls.forEach(el => {
                                 const crit = el.getAttribute('data-criteria');
                                 this.llmAnswers[crit] = el.value;
-                            });
-                            // Prevent newlines in rewrite answer boxes
-                            answerEls.forEach(el => {
-                                el.addEventListener('keydown', (e) => {
-                                    if (e.key === 'Enter') e.preventDefault();
-                                });
                             });
                             // Log rewrite submission
                             if (this.llmQuestions && this.llmQuestions.length > 0) {
@@ -870,6 +873,14 @@ class LanguageToolEditor {
                             feedbackBox.remove();
                             feedbackSpace.remove();
                         });
+                    });
+                    // Prevent newlines in feedback box
+                    const feedbackTextarea = feedbackBox.querySelector('.llm-feedback-text');
+                    feedbackTextarea.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            feedbackTextarea.blur();
+                        }
                     });
                 }
             });
