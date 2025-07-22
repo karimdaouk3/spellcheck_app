@@ -909,11 +909,9 @@ class LanguageToolEditor {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ term })
         })
-        .then(res => res.json())
-        .then(data => {
-            if (!(data.terms && Array.isArray(data.terms))) {
-                this.showStatus('Failed to add term', 'error');
-            }
+        .then(res => {
+            if (!res.ok) throw new Error('Failed to add term');
+            // No need to check for data.terms anymore
         })
         .catch(() => {
             this.showStatus('Failed to add term', 'error');
