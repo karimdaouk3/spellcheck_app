@@ -111,6 +111,7 @@ class LanguageToolEditor {
             fieldObj.editor.addEventListener('focus', () => {
                 this.activeField = field;
                 this.renderHistory();
+                this.renderEvaluationAndRewrite(field);
                 this.updateHighlights(field);
             });
             fieldObj.editor.addEventListener('input', () => {
@@ -148,7 +149,7 @@ class LanguageToolEditor {
                         alert('Please make sure your problem statement is meaningful and comprehensive (at least 20 characters)');
                         return;
                     }
-                    this.submitToLLM(text); // Only text on first submit
+                    this.submitToLLM(text, null, field); // Only text on first submit, pass field
                 });
             }
             // Microphone button logic
@@ -551,12 +552,13 @@ class LanguageToolEditor {
     }
 
     // Placeholder LLM call
-    async submitToLLM(text, answers = null) {
-        this.llmInProgress = true;
+    async submitToLLM(text, answers = null, field = this.activeField) {
+        const fieldObj = this.fields[field];
+        fieldObj.llmInProgress = true;
         if (answers) {
-            this.showStatus('Rewriting...', 'checking', true); // persist loading message
+            this.showStatus('Rewriting...', 'checking', true);
         } else {
-            this.showStatus('Reviewing...', 'checking', true); // persist loading message
+            this.showStatus('Reviewing...', 'checking', true);
         }
         this.status.classList.add('loading');
         try {
@@ -573,17 +575,18 @@ class LanguageToolEditor {
                 body: JSON.stringify(body)
             });
             const data = await response.json();
-            this.llmLastResult = data.result;
-            this.displayLLMResult(data.result, answers !== null);
+            fieldObj.llmLastResult = data.result;
+            this.displayLLMResult(data.result, answers !== null, field);
         } catch (e) {
             this.showStatus('LLM call failed', 'error');
             alert('LLM call failed: ' + e);
             this.status.classList.remove('loading');
-            this.llmInProgress = false;
+            fieldObj.llmInProgress = false;
         }
     }
 
-    displayLLMResult(result, showRewrite) {
+    displayLLMResult(result, showRewrite, field = this.activeField) {
+        const fieldObj = this.fields[field];
         // --- Render evaluation/score as a box above rewrite questions ---
         const evalBox = document.getElementById('llm-eval-box');
         let html = '';
@@ -596,7 +599,7 @@ class LanguageToolEditor {
         this.status.classList.remove('loading');
         this.status.className = 'status';
         this.status.textContent = '';
-        this.llmInProgress = false;
+        fieldObj.llmInProgress = false;
         if (valid && rulesObj && typeof rulesObj === 'object') {
             // Calculate score
             const keys = Object.keys(rulesObj);
@@ -607,7 +610,7 @@ class LanguageToolEditor {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    text: this.fields[this.activeField].editor.innerText,
+                    text: fieldObj.editor.innerText,
                     score: `${passed}/${total}`,
                     criteria: keys.map(key => ({
                         name: key,
@@ -709,19 +712,19 @@ class LanguageToolEditor {
         const rewritePopup = document.getElementById('rewrite-popup');
         if (!showRewrite) {
             // Show questions for failed criteria
-            this.llmQuestions = [];
-            this.llmAnswers = {};
+            fieldObj.llmQuestions = [];
+            fieldObj.llmAnswers = {};
             if (rulesObj) {
                 for (const key of Object.keys(rulesObj)) {
                     const section = rulesObj[key];
                     if (!section.passed && section.question) {
-                        this.llmQuestions.push({ criteria: key, question: section.question });
+                        fieldObj.llmQuestions.push({ criteria: key, question: section.question });
                     }
                 }
             }
-            if (this.llmQuestions.length > 0) {
+            if (fieldObj.llmQuestions.length > 0) {
                 let qHtml = '<div class="rewrite-title">To improve your input, please answer the following questions:</div>';
-                this.llmQuestions.forEach((q, idx) => {
+                fieldObj.llmQuestions.forEach((q, idx) => {
                     qHtml += `<div class="rewrite-question">${this.escapeHtml(q.question)}</div>`;
                     qHtml += `<textarea class="rewrite-answer" data-criteria="${this.escapeHtml(q.criteria)}" rows="1" style="width:100%;margin-bottom:12px;resize:none;"></textarea>`;
                 });
@@ -746,15 +749,15 @@ class LanguageToolEditor {
                             // Collect answers
                             answerEls.forEach(el => {
                                 const crit = el.getAttribute('data-criteria');
-                                this.llmAnswers[crit] = el.value;
+                                fieldObj.llmAnswers[crit] = el.value;
                             });
                             // Log rewrite submission
-                            if (this.llmQuestions && this.llmQuestions.length > 0) {
-                                const logArr = this.llmQuestions.map(q => ({
-                                    original_text: this.fields[this.activeField].editor.innerText,
+                            if (fieldObj.llmQuestions && fieldObj.llmQuestions.length > 0) {
+                                const logArr = fieldObj.llmQuestions.map(q => ({
+                                    original_text: fieldObj.editor.innerText,
                                     criteria: q.criteria,
                                     question: q.question,
-                                    user_answer: this.llmAnswers[q.criteria] || ''
+                                    user_answer: fieldObj.llmAnswers[q.criteria] || ''
                                 }));
                                 fetch('/rewrite-feedback', {
                                     method: 'POST',
@@ -763,7 +766,7 @@ class LanguageToolEditor {
                                 });
                             }
                             // Resubmit to LLM with answers
-                            this.submitToLLM(this.fields[this.activeField].editor.innerText, this.llmAnswers);
+                            this.submitToLLM(fieldObj.editor.innerText, fieldObj.llmAnswers, field);
                         };
                     }
                 }, 100);
@@ -782,19 +785,19 @@ class LanguageToolEditor {
             }
             if (rewrite) {
                 // Add the version that was submitted (before rewrite) to history
-                this.addToHistory(this.fields[this.activeField].editor.innerText);
+                this.addToHistory(fieldObj.editor.innerText, field);
                 // Replace the editor content with the rewrite
-                this.fields[this.activeField].editor.innerText = rewrite;
+                fieldObj.editor.innerText = rewrite;
                 // Hide overlay immediately to prevent flash of old highlights
-                this.fields[this.activeField].overlayHidden = true;
-                this.updateHighlights(this.activeField);
+                fieldObj.overlayHidden = true;
+                this.updateHighlights(field);
                 // Hide the rewrite popup and overlay
                 rewritePopup.style.display = 'none';
                 evalBox.style.display = 'none'; // Hide evaluation box as well
                 // Update overlay for new text
-                this.checkText(this.activeField);
+                this.checkText(field);
                 // Trigger a review (LLM evaluation) for the new text
-                this.submitToLLM(rewrite);
+                this.submitToLLM(rewrite, null, field);
             } else {
                 rewritePopup.style.display = 'none';
             }
@@ -806,7 +809,7 @@ class LanguageToolEditor {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const criteria = btn.getAttribute('data-criteria');
-                const text = this.fields[this.activeField].editor.innerText;
+                const text = fieldObj.editor.innerText;
                 // Show feedback box if not already present
                 let card = btn.closest('.llm-section');
                 if (!card) return;
@@ -827,8 +830,8 @@ class LanguageToolEditor {
                         const feedbackText = feedbackBox.querySelector('.llm-feedback-text').value;
                         // Find pass/fail for this criteria
                         let passed = null;
-                        if (this.llmLastResult && this.llmLastResult.evaluation && this.llmLastResult.evaluation[criteria]) {
-                            passed = this.llmLastResult.evaluation[criteria].passed;
+                        if (fieldObj.llmLastResult && fieldObj.llmLastResult.evaluation && fieldObj.llmLastResult.evaluation[criteria]) {
+                            passed = fieldObj.llmLastResult.evaluation[criteria].passed;
                         }
                         // Log feedback (console.log for now, or send to backend)
                         fetch('/feedback', {
@@ -895,17 +898,19 @@ class LanguageToolEditor {
         });
     }
 
-    addToHistory(text) {
+    addToHistory(text, field = this.activeField) {
         if (!text || !text.trim()) return;
-        this.history.unshift(text);
-        if (this.history.length > 50) this.history = this.history.slice(0, 50);
+        const fieldObj = this.fields[field];
+        fieldObj.history.unshift(text);
+        if (fieldObj.history.length > 50) fieldObj.history = fieldObj.history.slice(0, 50);
         this.renderHistory();
     }
 
     renderHistory() {
         if (!this.historyList) return;
         this.historyList.innerHTML = '';
-        this.history.forEach((item, idx) => {
+        const fieldObj = this.fields[this.activeField];
+        fieldObj.history.forEach((item, idx) => {
             const li = document.createElement('li');
             li.textContent = item.length > 120 ? item.slice(0, 117) + '...' : item;
             li.title = item;
@@ -920,7 +925,7 @@ class LanguageToolEditor {
             icon.title = 'Restore to editor';
             icon.onclick = (e) => {
                 e.stopPropagation();
-                this.fields[this.activeField].editor.innerText = item;
+                fieldObj.editor.innerText = item;
             };
             li.appendChild(icon);
             // Remove item click/hover highlight
