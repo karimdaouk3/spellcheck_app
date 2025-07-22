@@ -811,6 +811,9 @@ class LanguageToolEditor {
                 this.addToHistory(this.editor.innerText);
                 // Replace the editor content with the rewrite
                 this.editor.innerText = rewrite;
+                // Hide overlay immediately to prevent flash of old highlights
+                this.overlayHidden = true;
+                this.highlightOverlay.innerHTML = '';
                 // Hide the rewrite popup and overlay
                 rewritePopup.style.display = 'none';
                 evalBox.style.display = 'none'; // Hide evaluation box as well
