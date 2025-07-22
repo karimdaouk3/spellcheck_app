@@ -896,6 +896,20 @@ body {
     border: none;
     border-radius: 10px 10px 10px 10px;
 }
+.active-editor-header {
+    max-width: 1160px;
+    width: 100%;
+    font-size: 1.35em;
+    font-weight: 700;
+    color: #41007F;
+    margin-bottom: 16px;
+    text-align: center;
+    padding: 16px 0;
+    border: 2px solid #e0e6f7;
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(33,0,127,0.07);
+}
 /* Remove extra spacing between the two editors */
 .editor-container + .editor-container {
     margin-top: 18px;
