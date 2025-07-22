@@ -32,6 +32,7 @@ body {
 
 #editor {
     width: 100%;
+    max-width: 900px;
     height: 400px;
     padding: 15px;
     border: none;
@@ -45,6 +46,7 @@ body {
 
 .editor-div {
     width: 100%;
+    max-width: 900px;
     min-height: 100px;
     max-height: 400px;
     overflow-y: auto;
@@ -644,6 +646,8 @@ body {
 .llm-feedback-text {
     flex: 1 1 auto;
     min-width: 0;
+    width: 100%;
+    max-width: 860px;
     border-radius: 4px 0 0 4px;
     border: 1.5px solid #e0e0e0;
     font-size: 1.05em;
@@ -676,6 +680,7 @@ body {
 /* Rewrite answer textareas */
 .rewrite-answer {
     width: 100%;
+    max-width: 860px;
     padding: 7px 10px;
     border: 1.5px solid #e0e0e0;
     border-radius: 6px;
