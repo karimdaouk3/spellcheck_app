@@ -25,23 +25,33 @@
             <div class="header">
                 <h1>Input Enhancer</h1>
             </div>
-            <div class="editor-container">
+            <div class="editor-container" id="editor-container-problem">
                 <label for="editor-problem" class="editor-label">Problem Statement</label>
                 <div class="editor-wrapper" style="position:relative;">
-                    <div id="editor-problem" contenteditable="true" class="editor-div editor-field" data-placeholder="Start typing your problem statement here..." spellcheck="false"></div>
-                    <button id="mic-btn" title="Record speech" style="position:absolute; bottom:10px; right:10px; background:none; border:none; cursor:pointer; font-size:1.7em; padding:6px 8px; border-radius:50%; display:flex; align-items:center; justify-content:center;">
-                        <svg id="mic-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+                    <div id="editor-problem" contenteditable="true" class="editor-div" data-placeholder="Start typing your problem statement here..." spellcheck="false"></div>
+                    <button id="mic-btn-problem" title="Record speech" style="position:absolute; bottom:10px; right:10px; background:none; border:none; cursor:pointer; font-size:1.7em; padding:6px 8px; border-radius:50%; display:flex; align-items:center; justify-content:center;">
+                        <svg id="mic-icon-problem" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
                             <rect x="9" y="2" width="6" height="12" rx="3" fill="#bbb"/>
                             <line x1="12" y1="16" x2="12" y2="22" />
                             <path d="M5 11v1a7 7 0 0 0 14 0v-1" />
                         </svg>
                     </button>
                 </div>
-                <label for="editor-fsr" class="editor-label" style="margin-top:18px;">FSR Daily Notes</label>
+                <button id="llm-submit-problem" class="llm-submit-button">Submit for Review</button>
+            </div>
+            <div class="editor-container" id="editor-container-fsr">
+                <label for="editor-fsr" class="editor-label">FSR Daily Notes</label>
                 <div class="editor-wrapper" style="position:relative;">
-                    <div id="editor-fsr" contenteditable="true" class="editor-div editor-field" data-placeholder="Start typing your FSR daily notes here..." spellcheck="false"></div>
+                    <div id="editor-fsr" contenteditable="true" class="editor-div" data-placeholder="Start typing your FSR daily notes here..." spellcheck="false"></div>
+                    <button id="mic-btn-fsr" title="Record speech" style="position:absolute; bottom:10px; right:10px; background:none; border:none; cursor:pointer; font-size:1.7em; padding:6px 8px; border-radius:50%; display:flex; align-items:center; justify-content:center;">
+                        <svg id="mic-icon-fsr" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="9" y="2" width="6" height="12" rx="3" fill="#bbb"/>
+                            <line x1="12" y1="16" x2="12" y2="22" />
+                            <path d="M5 11v1a7 7 0 0 0 14 0v-1" />
+                        </svg>
+                    </button>
                 </div>
-                <button id="llm-submit" class="llm-submit-button">Submit for Review</button>
+                <button id="llm-submit-fsr" class="llm-submit-button">Submit for Review</button>
             </div>
             <div class="history-box">
                 <div class="history-header">

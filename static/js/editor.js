@@ -1,435 +1,174 @@
 class LanguageToolEditor {
     constructor() {
+        // State for both fields
         this.fields = {
-            problem: {
-                editor: document.getElementById('editor-problem'),
-                text: '',
-                history: [],
-                evaluation: null,
-                rewrite: null
-            },
-            fsr: {
-                editor: document.getElementById('editor-fsr'),
-                text: '',
-                history: [],
-                evaluation: null,
-                rewrite: null
-            }
+            problem: this.createFieldState('problem'),
+            fsr: this.createFieldState('fsr')
         };
         this.activeField = 'problem';
-        this.debounceTimer = null;
-        this.currentSuggestions = [];
-        this.currentMention = null;
-        this.highlightOverlay = null;
-        this.ignoredSuggestions = new Set(); // Track ignored suggestions
-        this.llmInProgress = false; // Track if LLM call is in progress
-        this.overlayHidden = false; // Track if overlay should be hidden
-        this.awaitingCheck = false; // Track if waiting for check to finish
-        this.llmQuestions = [];
-        this.llmAnswers = {};
-        this.llmLastResult = null;
-        this.history = [];
-        this.historyPanel = document.getElementById('history-panel');
-        this.historyList = document.getElementById('history-list');
-        this.toggleHistoryBtn = document.getElementById('toggle-history');
-        this.openHistoryBtn = document.getElementById('open-history-btn');
-        this.historyMenuIcon = document.getElementById('history-menu-icon');
-        this.historyCloseIcon = document.getElementById('history-close-icon');
-        this.popup = document.getElementById('popup');
-        this.status = document.getElementById('status');
-        if (this.toggleHistoryBtn) {
-            this.toggleHistoryBtn.addEventListener('click', () => {
-                this.historyPanel.classList.add('closed');
-                if (this.openHistoryBtn) this.openHistoryBtn.style.display = 'block';
-            });
-        }
-        if (this.openHistoryBtn) {
-            this.openHistoryBtn.addEventListener('click', () => {
-                this.historyPanel.classList.remove('closed');
-                this.openHistoryBtn.style.display = 'none';
-            });
-        }
-        // Hide open-history button if panel is open on load
-        if (this.historyPanel && !this.historyPanel.classList.contains('closed') && this.openHistoryBtn) {
-            this.openHistoryBtn.style.display = 'none';
-        }
-        this.renderHistory();
-        
         this.initEventListeners();
-        this.setActiveField('problem');
+        this.switchField('problem');
     }
-    
-    setActiveField(field) {
+
+    createFieldState(field) {
+        return {
+            debounceTimer: null,
+            currentSuggestions: [],
+            currentMention: null,
+            highlightOverlay: null,
+            ignoredSuggestions: new Set(),
+            llmInProgress: false,
+            overlayHidden: false,
+            awaitingCheck: false,
+            llmQuestions: [],
+            llmAnswers: {},
+            llmLastResult: null,
+            history: [],
+            editor: document.getElementById(`editor-${field}`),
+            popup: document.getElementById('popup'),
+            status: document.getElementById('status'),
+            historyList: document.getElementById('history-list'),
+        };
+    }
+
+    switchField(field) {
         this.activeField = field;
-        // Highlight active editor
-        Object.entries(this.fields).forEach(([key, val]) => {
-            if (val.editor) {
-                val.editor.classList.toggle('active-editor', key === field);
-            }
+        // Update UI: set both editors to inactive, then activate the selected one
+        ['problem', 'fsr'].forEach(f => {
+            const ed = this.fields[f].editor;
+            if (ed) ed.classList.remove('active-editor');
         });
-        // Set editor text
-        const fieldObj = this.fields[field];
-        if (fieldObj.editor) {
-            fieldObj.editor.innerText = fieldObj.text;
-        }
-        // Render history for this field
+        this.fields[field].editor.classList.add('active-editor');
+        // Render history for the active field
         this.renderHistory();
-        // Render evaluation/rewrite for this field
-        if (fieldObj.evaluation) {
-            this.displayLLMResult(fieldObj.evaluation, false);
-        } else {
-            document.getElementById('llm-eval-box').innerHTML = '';
-            document.getElementById('llm-eval-box').style.display = 'none';
-            document.getElementById('rewrite-popup').style.display = 'none';
-        }
-        // Update highlights for this field
-        this.createHighlightOverlay();
-        this.updateHighlights();
+        // Render evaluation and rewrite for the active field
+        this.displayLLMResult(this.fields[field].llmLastResult, false, true);
     }
 
-    createHighlightOverlay() {
-        // Remove any existing overlay
-        if (this.highlightOverlay && this.highlightOverlay.parentElement) {
-            this.highlightOverlay.parentElement.removeChild(this.highlightOverlay);
-        }
-        // Create overlay container
-        this.highlightOverlay = document.createElement('div');
-        this.highlightOverlay.className = 'highlight-overlay';
-        this.highlightOverlay.style.position = 'absolute';
-        this.highlightOverlay.style.top = '0';
-        this.highlightOverlay.style.left = '0';
-        this.highlightOverlay.style.width = '100%';
-        this.highlightOverlay.style.height = '100%';
-        this.highlightOverlay.style.pointerEvents = 'none';
-        this.highlightOverlay.style.zIndex = '1';
-        this.highlightOverlay.style.fontFamily = this.getActiveEditor().style.fontFamily || 'inherit';
-        this.highlightOverlay.style.fontSize = this.getActiveEditor().style.fontSize || '16px';
-        this.highlightOverlay.style.lineHeight = this.getActiveEditor().style.lineHeight || '1.5';
-        this.highlightOverlay.style.padding = '15px';
-        this.highlightOverlay.style.boxSizing = 'border-box';
-        this.highlightOverlay.style.whiteSpace = 'pre-wrap';
-        this.highlightOverlay.style.wordBreak = 'break-word';
-        this.highlightOverlay.style.background = 'transparent';
-        this.getActiveEditor().parentElement.appendChild(this.highlightOverlay);
-        this.getActiveEditor().parentElement.style.position = 'relative';
-        // Always scroll overlay to top when created
-        this.highlightOverlay.scrollTop = 0;
-    }
-    
     initEventListeners() {
-        // Editor focus/click switches active field
-        this.fields.problem.editor.addEventListener('focus', () => this.setActiveField('problem'));
-        this.fields.fsr.editor.addEventListener('focus', () => this.setActiveField('fsr'));
-        this.fields.problem.editor.addEventListener('click', () => this.setActiveField('problem'));
-        this.fields.fsr.editor.addEventListener('click', () => this.setActiveField('fsr'));
-        // Input event for checking text
-        Object.entries(this.fields).forEach(([key, val]) => {
-            val.editor.addEventListener('input', () => {
-                if (this.activeField !== key) return;
-                this.fields[key].text = val.editor.innerText;
-                if (!this.overlayHidden) {
-                    this.updateHighlights();
-                }
-                this.debounceCheck();
-            });
-            val.editor.addEventListener('paste', (e) => {
-                if (this.activeField !== key) return;
-                e.preventDefault();
-                const text = (e.clipboardData || window.clipboardData).getData('text');
-                document.execCommand('insertText', false, text);
-            });
-            val.editor.addEventListener('focus', () => {
-                if (val.editor.innerText.trim() === '') {
-                    val.editor.classList.remove('empty');
-                }
-            });
-            val.editor.addEventListener('blur', () => {
-                if (val.editor.innerText.trim() === '') {
-                    val.editor.classList.add('empty');
-                }
-            });
-            val.editor.addEventListener('scroll', () => {
-                requestAnimationFrame(() => {
-                    this.syncOverlayScroll();
+        // Editor focus switches active field
+        ['problem', 'fsr'].forEach(field => {
+            const ed = this.fields[field].editor;
+            if (ed) {
+                ed.addEventListener('focus', () => this.switchField(field));
+                ed.addEventListener('input', () => {
+                    if (!this.fields[field].overlayHidden) {
+                        this.updateHighlights(field);
+                    }
+                    this.debounceCheck(field);
                 });
-            });
-        });
-        // Force plain text paste (strip formatting)
-        // Placeholder logic for contenteditable
-        // Hide popup when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!this.popup.contains(e.target) && !e.target.classList.contains('highlight-span')) {
-                this.hidePopup();
+                ed.addEventListener('paste', (e) => {
+                    e.preventDefault();
+                    const text = (e.clipboardData || window.clipboardData).getData('text');
+                    document.execCommand('insertText', false, text);
+                });
             }
         });
-        // Escape key to hide popup
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                this.hidePopup();
-            }
+        // Submit buttons
+        document.getElementById('llm-submit-problem').addEventListener('click', () => {
+            this.switchField('problem');
+            this.submitToLLM('problem', this.fields['problem'].editor.innerText);
         });
-        // Initial check if there's existing text
-        if (this.getActiveEditor().innerText.trim()) {
-            this.checkText();
-        }
-
-        this.popup.querySelector('.ignore-button').addEventListener('click', () => {
-            this.ignoreCurrentSuggestion();
+        document.getElementById('llm-submit-fsr').addEventListener('click', () => {
+            this.switchField('fsr');
+            this.submitToLLM('fsr', this.fields['fsr'].editor.innerText);
         });
-
-        // LLM submit button event
-        const llmButton = document.getElementById('llm-submit');
-        if (llmButton) {
-            llmButton.addEventListener('click', () => {
-                const text = this.getActiveEditor().innerText;
-                if (text.replace(/\s/g, '').length < 20) {
-                    alert('Please make sure your problem statement is meaningful and comprehensive (at least 20 characters)');
-                    return;
-                }
-                this.submitToLLM(text); // Only text on first submit
-            });
-        }
-
-        // Microphone button logic
-        const micBtn = document.getElementById('mic-btn');
-        let isRecording = false;
-        let mediaRecorder = null;
-        let audioChunks = [];
-        if (micBtn) {
-            micBtn.addEventListener('click', async () => {
-                if (!isRecording) {
-                    // Always clear editor and show status immediately
-                    this.getActiveEditor().innerText = '';
-                    this.highlightOverlay.innerHTML = '';
-                    // Set placeholder to 'Listening...'
-                    this.getActiveEditor().setAttribute('data-placeholder', 'Listening...');
-                    this.getActiveEditor().classList.add('empty');
-                    this.getActiveEditor().setAttribute('contenteditable', 'false');
-                    try {
-                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                        // Try to use 'audio/wav' for MediaRecorder if supported
-                        let mimeType = '';
-                        if (MediaRecorder.isTypeSupported('audio/wav')) {
-                            mimeType = 'audio/wav';
-                        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
-                            mimeType = 'audio/webm';
-                        } else {
-                            mimeType = '';
-                        }
-                        mediaRecorder = new window.MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-                        audioChunks = [];
-                        mediaRecorder.ondataavailable = (e) => {
-                            if (e.data.size > 0) audioChunks.push(e.data);
-                        };
-                        mediaRecorder.onstop = async () => {
-                            micBtn.style.background = '';
-                            micBtn.style.color = '';
-                            micBtn.disabled = true;
-                            this.showStatus('Processing audio...', 'checking', true);
-                            // Combine audio chunks
-                            let audioBlob = new Blob(audioChunks, { type: mimeType || 'audio/webm' });
-                            // If not wav, try to convert to wav (placeholder)
-                            if (audioBlob.type !== 'audio/wav') {
-                                // Placeholder: conversion to wav (requires external library or server-side)
-                                // For now, just use the original blob
-                                // TODO: Implement client-side wav conversion if needed
-                            }
-                            // Save audio file locally (optional, placeholder)
-                            // Example: download the audio as .wav
-                            // const url = URL.createObjectURL(audioBlob);
-                            // const a = document.createElement('a');
-                            // a.style.display = 'none';
-                            // a.href = url;
-                            // a.download = 'recording.wav';
-                            // document.body.appendChild(a);
-                            // a.click();
-                            // setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 100);
-                            // Send audio to backend
-                            const formData = new FormData();
-                            formData.append('audio', audioBlob, 'recording.wav');
-                            setTimeout(async () => {
-                                try {
-                                    const response = await fetch('/speech-to-text', {
-                                        method: 'POST',
-                                        body: formData
-                                    });
-                                    const data = await response.json();
-                                    this.getActiveEditor().innerText = data.transcription || '';
-                                    // Restore placeholder
-                                    this.getActiveEditor().setAttribute('data-placeholder', 'Start typing your text here...');
-                                    if (this.getActiveEditor().innerText.trim() === '') {
-                                        this.getActiveEditor().classList.add('empty');
-                                    } else {
-                                        this.getActiveEditor().classList.remove('empty');
-                                    }
-                                    this.checkText();
-                                    // --- Placeholder: Call LLM with transcription ---
-                                    // Replace this with your actual LLM call logic
-                                    this.llmPlaceholderCall(data.transcription || '');
-                                } catch (e) {
-                                    this.getActiveEditor().innerText = 'Error: Could not transcribe.';
-                                    this.showStatus('Transcription failed', 'error');
-                                    this.getActiveEditor().setAttribute('data-placeholder', 'Start typing your text here...');
-                                    this.getActiveEditor().classList.remove('empty');
-                                }
-                                micBtn.disabled = false;
-                                this.getActiveEditor().setAttribute('contenteditable', 'true');
-                            }, 1000);
-                        };
-                        mediaRecorder.start();
-                        isRecording = true;
-                        micBtn.style.background = '#ffebee';
-                        micBtn.style.color = '#d32f2f';
-                        // Only show 'Listening...' alert with icon
-                        this.showStatus('Listening...', 'recording', true); // red with icon
-                    } catch (err) {
-                        this.getActiveEditor().innerText = '';
-                        this.getActiveEditor().setAttribute('contenteditable', 'true');
-                        this.showStatus('Could not access microphone.', 'error');
-                        alert('Could not access microphone.');
-                        // Restore placeholder
-                        this.getActiveEditor().setAttribute('data-placeholder', 'Start typing your text here...');
-                        this.getActiveEditor().classList.add('empty');
-                    }
-                } else {
-                    // Stop recording
-                    if (mediaRecorder && mediaRecorder.state === 'recording') {
-                        mediaRecorder.stop();
-                        isRecording = false;
-                    }
-                }
-            });
-        }
-
-        // Accept Rewrite check and dismiss (X) events
-        const acceptRewriteCheck = document.getElementById('accept-rewrite-check');
-        const dismissRewriteX = document.getElementById('dismiss-rewrite-x');
-        const rewritePopup = document.getElementById('rewrite-popup');
-        if (acceptRewriteCheck) {
-            acceptRewriteCheck.addEventListener('click', () => {
-                const rewriteContent = rewritePopup.querySelector('.rewrite-content').textContent;
-                this.getActiveEditor().innerText = rewriteContent;
-                this.awaitingCheck = true;
-                this.overlayHidden = true;
-                this.highlightOverlay.innerHTML = '';
-                rewritePopup.style.display = 'none';
-                // Wait for DOM update before running checkText
-                requestAnimationFrame(() => {
-                    this.checkText();
-                });
-            });
-        }
-        if (dismissRewriteX) {
-            dismissRewriteX.addEventListener('click', () => {
-                rewritePopup.style.display = 'none';
-            });
-        }
+        // History click/restore logic will be handled in renderHistory
     }
-    
-    debounceCheck() {
-        this.showStatus('Checking...', 'checking');
-        clearTimeout(this.debounceTimer);
-        this.debounceTimer = setTimeout(() => {
-            this.checkText();
+
+    debounceCheck(field) {
+        const state = this.fields[field];
+        state.status.textContent = 'Checking...';
+        clearTimeout(state.debounceTimer);
+        state.debounceTimer = setTimeout(() => {
+            this.checkText(field);
         }, 1000);
     }
-    
-    async checkText() {
-        const text = this.getActiveEditor().innerText;
-        
+
+    async checkText(field) {
+        const state = this.fields[field];
+        const text = state.editor.innerText;
         if (!text.trim()) {
-            this.clearSuggestions();
-            if (!this.llmInProgress) this.showStatus('Ready');
+            this.clearSuggestions(field);
+            if (!state.llmInProgress) state.status.textContent = 'Ready';
             return;
         }
-        
         try {
             const response = await fetch('/check', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ text: text })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
             });
-            
-            // Filter out ignored suggestions using robust key
             const suggestionsRaw = await response.json();
             const suggestions = suggestionsRaw.filter(
-                s => !this.ignoredSuggestions.has(this.getSuggestionKey(s, text))
+                s => !state.ignoredSuggestions.has(this.getSuggestionKey(s, text))
             );
-            
-            this.currentSuggestions = suggestions;
-            this.awaitingCheck = false;
-            this.overlayHidden = false;
-            this.updateHighlights();
-            
+            state.currentSuggestions = suggestions;
+            state.awaitingCheck = false;
+            state.overlayHidden = false;
+            this.updateHighlights(field);
             const count = suggestions.length;
-            if (!this.llmInProgress) {
-                if (count === 0) {
-                    this.showStatus('No issues found');
-                } else {
-                    this.showStatus(`${count} issue${count > 1 ? 's' : ''} found`);
-                }
+            if (!state.llmInProgress) {
+                state.status.textContent = count === 0 ? 'No issues found' : `${count} issue${count > 1 ? 's' : ''} found`;
             }
-            
         } catch (error) {
-            if (!this.llmInProgress) this.showStatus('Error checking text', 'error');
-            console.error('Error:', error);
+            if (!state.llmInProgress) state.status.textContent = 'Error checking text';
         }
     }
-    
-    clearSuggestions() {
-        this.currentSuggestions = [];
-        this.updateHighlights();
+
+    clearSuggestions(field) {
+        this.fields[field].currentSuggestions = [];
+        this.updateHighlights(field);
     }
-    
-    updateHighlights() {
-        if (this.awaitingCheck || this.overlayHidden) {
-            this.highlightOverlay.innerHTML = '';
-            // Scroll overlay and editor to top only when it is shown (even if empty)
-            this.highlightOverlay.scrollTop = 0;
-            this.getActiveEditor().scrollTop = 0;
+
+    updateHighlights(field) {
+        const state = this.fields[field];
+        if (state.awaitingCheck || state.overlayHidden) {
+            if (state.highlightOverlay) state.highlightOverlay.innerHTML = '';
             return;
         }
-        const text = this.getActiveEditor().innerText;
-        if (this.currentSuggestions.length === 0) {
-            this.highlightOverlay.innerHTML = '';
-            // Scroll overlay and editor to top after DOM update
-            requestAnimationFrame(() => {
-                this.highlightOverlay.scrollTop = 0;
-                this.getActiveEditor().scrollTop = 0;
-            });
+        const text = state.editor.innerText;
+        if (state.currentSuggestions.length === 0) {
+            if (state.highlightOverlay) state.highlightOverlay.innerHTML = '';
             return;
         }
-        // Create highlighted text
+        if (!state.highlightOverlay) {
+            state.highlightOverlay = document.createElement('div');
+            state.highlightOverlay.className = 'highlight-overlay';
+            state.highlightOverlay.style.position = 'absolute';
+            state.highlightOverlay.style.top = '0';
+            state.highlightOverlay.style.left = '0';
+            state.highlightOverlay.style.width = '100%';
+            state.highlightOverlay.style.height = '100%';
+            state.highlightOverlay.style.pointerEvents = 'none';
+            state.highlightOverlay.style.zIndex = '1';
+            state.highlightOverlay.style.fontFamily = state.editor.style.fontFamily || 'inherit';
+            state.highlightOverlay.style.fontSize = state.editor.style.fontSize || '16px';
+            state.highlightOverlay.style.lineHeight = state.editor.style.lineHeight || '1.5';
+            state.highlightOverlay.style.padding = '15px';
+            state.highlightOverlay.style.boxSizing = 'border-box';
+            state.highlightOverlay.style.whiteSpace = 'pre-wrap';
+            state.highlightOverlay.style.wordBreak = 'break-word';
+            state.highlightOverlay.style.background = 'transparent';
+            state.editor.parentElement.appendChild(state.highlightOverlay);
+            state.editor.parentElement.style.position = 'relative';
+        }
         let highlightedText = '';
         let lastIndex = 0;
-        this.currentSuggestions.forEach((suggestion, index) => {
-            // Add text before the suggestion
+        state.currentSuggestions.forEach((suggestion, index) => {
             highlightedText += this.escapeHtml(text.substring(lastIndex, suggestion.offset));
-            // Add the highlighted suggestion
             const errorText = text.substring(suggestion.offset, suggestion.offset + suggestion.length);
             let categoryClass = '';
-            if (suggestion.errorType === 'spelling') {
-                categoryClass = 'highlight-span-spelling';
-            } else if (suggestion.errorType === 'grammar') {
-                categoryClass = 'highlight-span-grammar';
-            } else if (suggestion.errorType) {
-                categoryClass = 'highlight-span-other';
-            }
+            if (suggestion.errorType === 'spelling') categoryClass = 'highlight-span-spelling';
+            else if (suggestion.errorType === 'grammar') categoryClass = 'highlight-span-grammar';
+            else if (suggestion.errorType) categoryClass = 'highlight-span-other';
             highlightedText += `<span class="highlight-span ${categoryClass}" data-suggestion-index="${index}">${this.escapeHtml(errorText)}</span>`;
             lastIndex = suggestion.offset + suggestion.length;
         });
-        // Add any remaining text after the last suggestion
         highlightedText += this.escapeHtml(text.substring(lastIndex));
-        this.highlightOverlay.innerHTML = highlightedText;
-        // Scroll overlay and editor to top after DOM update
-        requestAnimationFrame(() => {
-            this.highlightOverlay.scrollTop = 0;
-            this.getActiveEditor().scrollTop = 0;
-        });
+        state.highlightOverlay.innerHTML = highlightedText;
         // Attach click handlers to highlights
-        const spans = this.highlightOverlay.querySelectorAll('.highlight-span');
+        const spans = state.highlightOverlay.querySelectorAll('.highlight-span');
         spans.forEach(span => {
             span.style.borderRadius = '2px';
             span.style.cursor = 'pointer';
@@ -438,21 +177,22 @@ class LanguageToolEditor {
                 e.preventDefault();
                 e.stopPropagation();
                 const suggestionIndex = parseInt(span.getAttribute('data-suggestion-index'));
-                const suggestion = this.currentSuggestions[suggestionIndex];
-                this.showPopup(suggestion, e.clientX, e.clientY);
+                const suggestion = state.currentSuggestions[suggestionIndex];
+                this.showPopup(field, suggestion, e.clientX, e.clientY);
             });
         });
     }
-    
+
     escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     }
-    
-    showPopup(suggestion, x, y) {
-        const messageDiv = this.popup.querySelector('.popup-message');
-        const suggestionsDiv = this.popup.querySelector('.suggestions-list');
+
+    showPopup(field, suggestion, x, y) {
+        const state = this.fields[field];
+        const messageDiv = state.popup.querySelector('.popup-message');
+        const suggestionsDiv = state.popup.querySelector('.suggestions-list');
         
         // Set message
         messageDiv.textContent = suggestion.message;
@@ -466,7 +206,7 @@ class LanguageToolEditor {
                 const item = document.createElement('div');
                 item.className = 'suggestion-item';
                 item.textContent = replacement;
-                item.onclick = () => this.applySuggestion(suggestion, replacement);
+                item.onclick = () => this.applySuggestion(field, suggestion, replacement);
                 suggestionsDiv.appendChild(item);
             });
         } else {
@@ -479,10 +219,10 @@ class LanguageToolEditor {
         }
         
         // Position and show popup
-        this.popup.style.display = 'block';
+        state.popup.style.display = 'block';
         
         // Adjust position to stay within viewport
-        const rect = this.popup.getBoundingClientRect();
+        const rect = state.popup.getBoundingClientRect();
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
         
@@ -497,15 +237,15 @@ class LanguageToolEditor {
             adjustedY = y - rect.height - 10;
         }
         
-        this.popup.style.left = adjustedX + 'px';
-        this.popup.style.top = adjustedY + 'px';
+        state.popup.style.left = adjustedX + 'px';
+        state.popup.style.top = adjustedY + 'px';
         
         // Keep reference to current suggestion
-        this.currentMention = suggestion;
+        state.currentMention = suggestion;
         // Add extra blue button for spelling errors
-        const ignoreBtn = this.popup.querySelector('.ignore-button');
+        const ignoreBtn = state.popup.querySelector('.ignore-button');
         ignoreBtn.classList.add('popup-action-button');
-        let blueBtn = this.popup.querySelector('.add-term-button');
+        let blueBtn = state.popup.querySelector('.add-term-button');
         if (!blueBtn) {
             blueBtn = document.createElement('button');
             blueBtn.className = 'add-term-button popup-action-button';
@@ -515,11 +255,11 @@ class LanguageToolEditor {
         if (suggestion.errorType === 'spelling') {
             ignoreBtn.insertAdjacentElement('afterend', blueBtn);
             blueBtn.onclick = () => {
-                const text = this.getActiveEditor().innerText.substring(suggestion.offset, suggestion.offset + suggestion.length);
-                this.saveTerm(text);
-                this.ignoreCurrentSuggestion();
-                this.hidePopup();
-                this.showStatus(`"${text}" added to KLA term bank`, 'success');
+                const text = state.editor.innerText.substring(suggestion.offset, suggestion.offset + suggestion.length);
+                this.saveTerm(field, text);
+                this.ignoreCurrentSuggestion(field);
+                this.hidePopup(field);
+                this.showStatus(field, `"${text}" added to KLA term bank`, 'success');
             };
         } else if (blueBtn.parentElement) {
             blueBtn.parentElement.removeChild(blueBtn);
@@ -532,53 +272,56 @@ class LanguageToolEditor {
         ignoreBtn.style.marginTop = '8px';
     }
     
-    hidePopup() {
-        this.popup.style.display = 'none';
-        this.currentMention = null;
+    hidePopup(field) {
+        const state = this.fields[field];
+        state.popup.style.display = 'none';
+        state.currentMention = null;
     }
     
-    applySuggestion(suggestion, replacement) {
+    applySuggestion(field, suggestion, replacement) {
+        const state = this.fields[field];
         // Save selection position and scroll position
         const selection = window.getSelection();
         const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
-        const scrollTop = this.getActiveEditor().scrollTop;
-        const scrollLeft = this.getActiveEditor().scrollLeft;
-        const text = this.getActiveEditor().innerText;
+        const scrollTop = state.editor.scrollTop;
+        const scrollLeft = state.editor.scrollLeft;
+        const text = state.editor.innerText;
         const before = text.substring(0, suggestion.offset);
         const after = text.substring(suggestion.offset + suggestion.length);
-        this.getActiveEditor().innerText = before + replacement + after;
+        state.editor.innerText = before + replacement + after;
         // Restore cursor position after replacement
         const newPosition = suggestion.offset + replacement.length;
         this.setCursorPosition(newPosition);
         // Restore scroll position
-        this.getActiveEditor().scrollTop = scrollTop;
-        this.getActiveEditor().scrollLeft = scrollLeft;
+        state.editor.scrollTop = scrollTop;
+        state.editor.scrollLeft = scrollLeft;
         // Remove the suggestion from currentSuggestions so highlight disappears immediately
-        const newText = this.getActiveEditor().innerText;
+        const newText = state.editor.innerText;
         const key = this.getSuggestionKey(suggestion, newText);
-        this.currentSuggestions = this.currentSuggestions.filter(
+        state.currentSuggestions = state.currentSuggestions.filter(
             s => this.getSuggestionKey(s, newText) !== key
         );
-        this.overlayHidden = true;
-        this.awaitingCheck = true;
-        this.updateHighlights();
+        state.overlayHidden = true;
+        state.awaitingCheck = true;
+        this.updateHighlights(field);
         requestAnimationFrame(() => this.syncOverlayScroll()); // Ensure overlay is synced after browser updates scroll
-        this.hidePopup();
-        this.showStatus('Suggestion applied');
-        this.getActiveEditor().focus();
-        this.debounceCheck();
+        this.hidePopup(field);
+        this.showStatus(field, 'Suggestion applied');
+        state.editor.focus();
+        this.debounceCheck(field);
     }
     
-    showStatus(message, type = 'success', persist = false, removeLoading = false) {
+    showStatus(field, message, type = 'success', persist = false, removeLoading = false) {
         // Add support for a 'recording' type with icon
         let icon = '';
         if (type === 'recording') {
             icon = '<span style="display:inline-flex;align-items:center;margin-right:8px;"><svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="none" stroke="#fff" stroke-width="2"/><circle cx="10" cy="10" r="5" fill="#fff"/></svg></span>';
         }
-        this.status.innerHTML = icon + message;
-        this.status.className = `status show ${type}`;
+        const state = this.fields[field];
+        state.status.innerHTML = icon + message;
+        state.status.className = `status show ${type}`;
         if (removeLoading) {
-            this.status.classList.remove('loading');
+            state.status.classList.remove('loading');
         }
         // Clear any previous timer so only the latest message can clear the status
         if (this.statusTimer) {
@@ -587,7 +330,7 @@ class LanguageToolEditor {
         }
         if (!persist) {
             this.statusTimer = setTimeout(() => {
-                this.status.className = 'status';
+                state.status.className = 'status';
                 this.statusTimer = null;
             }, 3000);
         }
@@ -595,8 +338,8 @@ class LanguageToolEditor {
 
     setCursorPosition(pos) {
         // Set cursor at character offset 'pos' in the contenteditable div
-        this.getActiveEditor().focus();
-        const textNode = this.getActiveEditor().firstChild;
+        this.editor.focus();
+        const textNode = this.editor.firstChild;
         if (textNode && textNode.nodeType === Node.TEXT_NODE) {
             const range = document.createRange();
             range.setStart(textNode, Math.min(pos, textNode.length));
@@ -613,29 +356,31 @@ class LanguageToolEditor {
         return `${errorText}:${suggestion.ruleId}:${suggestion.message}`;
     }
 
-    ignoreCurrentSuggestion() {
-        if (this.currentMention) {
-            const text = this.getActiveEditor().innerText;
-            const key = this.getSuggestionKey(this.currentMention, text);
-            this.ignoredSuggestions.add(key);
+    ignoreCurrentSuggestion(field) {
+        const state = this.fields[field];
+        if (state.currentMention) {
+            const text = state.editor.innerText;
+            const key = this.getSuggestionKey(state.currentMention, text);
+            state.ignoredSuggestions.add(key);
             // Remove from currentSuggestions and update highlights
-            this.currentSuggestions = this.currentSuggestions.filter(
+            state.currentSuggestions = state.currentSuggestions.filter(
                 s => this.getSuggestionKey(s, text) !== key
             );
-            this.updateHighlights();
+            this.updateHighlights(field);
         }
-        this.hidePopup();
+        this.hidePopup(field);
     }
 
     // Placeholder LLM call
-    async submitToLLM(text, answers = null) {
-        this.llmInProgress = true;
+    async submitToLLM(field, text, answers = null) {
+        const state = this.fields[field];
+        state.llmInProgress = true;
         if (answers) {
-            this.showStatus('Rewriting...', 'checking', true); // persist loading message
+            this.showStatus(field, 'Rewriting...', 'checking', true); // persist loading message
         } else {
-            this.showStatus('Reviewing...', 'checking', true); // persist loading message
+            this.showStatus(field, 'Reviewing...', 'checking', true); // persist loading message
         }
-        this.status.classList.add('loading');
+        state.status.classList.add('loading');
         try {
             let body = { text };
             if (answers) {
@@ -650,17 +395,18 @@ class LanguageToolEditor {
                 body: JSON.stringify(body)
             });
             const data = await response.json();
-            this.llmLastResult = data.result;
-            this.displayLLMResult(data.result, answers !== null);
+            state.llmLastResult = data.result;
+            this.displayLLMResult(data.result, answers !== null, true);
         } catch (e) {
-            this.showStatus('LLM call failed', 'error');
+            this.showStatus(field, 'LLM call failed', 'error');
             alert('LLM call failed: ' + e);
-            this.status.classList.remove('loading');
-            this.llmInProgress = false;
+            state.status.classList.remove('loading');
+            state.llmInProgress = false;
         }
     }
 
-    displayLLMResult(result, showRewrite) {
+    displayLLMResult(result, showRewrite, isActiveField) {
+        const state = this.fields[this.activeField];
         // --- Render evaluation/score as a box above rewrite questions ---
         const evalBox = document.getElementById('llm-eval-box');
         let html = '';
@@ -670,10 +416,10 @@ class LanguageToolEditor {
             clearTimeout(this.statusTimer);
             this.statusTimer = null;
         }
-        this.status.classList.remove('loading');
-        this.status.className = 'status';
-        this.status.textContent = '';
-        this.llmInProgress = false;
+        state.status.classList.remove('loading');
+        state.status.className = 'status';
+        state.status.textContent = '';
+        state.llmInProgress = false;
         if (valid && rulesObj && typeof rulesObj === 'object') {
             // Calculate score
             const keys = Object.keys(rulesObj);
@@ -684,7 +430,7 @@ class LanguageToolEditor {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    text: this.getActiveEditor().innerText,
+                    text: state.editor.innerText,
                     score: `${passed}/${total}`,
                     criteria: keys.map(key => ({
                         name: key,
@@ -786,19 +532,19 @@ class LanguageToolEditor {
         const rewritePopup = document.getElementById('rewrite-popup');
         if (!showRewrite) {
             // Show questions for failed criteria
-            this.llmQuestions = [];
-            this.llmAnswers = {};
+            state.llmQuestions = [];
+            state.llmAnswers = {};
             if (rulesObj) {
                 for (const key of Object.keys(rulesObj)) {
                     const section = rulesObj[key];
                     if (!section.passed && section.question) {
-                        this.llmQuestions.push({ criteria: key, question: section.question });
+                        state.llmQuestions.push({ criteria: key, question: section.question });
                     }
                 }
             }
-            if (this.llmQuestions.length > 0) {
+            if (state.llmQuestions.length > 0) {
                 let qHtml = '<div class="rewrite-title">To improve your input, please answer the following questions:</div>';
-                this.llmQuestions.forEach((q, idx) => {
+                state.llmQuestions.forEach((q, idx) => {
                     qHtml += `<div class="rewrite-question">${this.escapeHtml(q.question)}</div>`;
                     qHtml += `<textarea class="rewrite-answer" data-criteria="${this.escapeHtml(q.criteria)}" rows="1" style="width:100%;margin-bottom:12px;resize:none;"></textarea>`;
                 });
@@ -823,15 +569,15 @@ class LanguageToolEditor {
                             // Collect answers
                             answerEls.forEach(el => {
                                 const crit = el.getAttribute('data-criteria');
-                                this.llmAnswers[crit] = el.value;
+                                state.llmAnswers[crit] = el.value;
                             });
                             // Log rewrite submission
-                            if (this.llmQuestions && this.llmQuestions.length > 0) {
-                                const logArr = this.llmQuestions.map(q => ({
-                                    original_text: this.getActiveEditor().innerText,
+                            if (state.llmQuestions && state.llmQuestions.length > 0) {
+                                const logArr = state.llmQuestions.map(q => ({
+                                    original_text: state.editor.innerText,
                                     criteria: q.criteria,
                                     question: q.question,
-                                    user_answer: this.llmAnswers[q.criteria] || ''
+                                    user_answer: state.llmAnswers[q.criteria] || ''
                                 }));
                                 fetch('/rewrite-feedback', {
                                     method: 'POST',
@@ -840,7 +586,7 @@ class LanguageToolEditor {
                                 });
                             }
                             // Resubmit to LLM with answers
-                            this.submitToLLM(this.getActiveEditor().innerText, this.llmAnswers);
+                            this.submitToLLM(this.activeField, state.editor.innerText, state.llmAnswers);
                         };
                     }
                 }, 100);
@@ -859,19 +605,19 @@ class LanguageToolEditor {
             }
             if (rewrite) {
                 // Add the version that was submitted (before rewrite) to history
-                this.addToHistory(this.getActiveEditor().innerText);
+                this.addToHistory(this.activeField, state.editor.innerText);
                 // Replace the editor content with the rewrite
-                this.getActiveEditor().innerText = rewrite;
+                state.editor.innerText = rewrite;
                 // Hide overlay immediately to prevent flash of old highlights
-                this.overlayHidden = true;
-                this.highlightOverlay.innerHTML = '';
+                state.overlayHidden = true;
+                this.updateHighlights(this.activeField);
                 // Hide the rewrite popup and overlay
                 rewritePopup.style.display = 'none';
                 evalBox.style.display = 'none'; // Hide evaluation box as well
                 // Update overlay for new text
-                this.checkText();
+                this.checkText(this.activeField);
                 // Trigger a review (LLM evaluation) for the new text
-                this.submitToLLM(rewrite);
+                this.submitToLLM(this.activeField, rewrite);
             } else {
                 rewritePopup.style.display = 'none';
             }
@@ -883,7 +629,7 @@ class LanguageToolEditor {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const criteria = btn.getAttribute('data-criteria');
-                const text = this.getActiveEditor().innerText;
+                const text = state.editor.innerText;
                 // Show feedback box if not already present
                 let card = btn.closest('.llm-section');
                 if (!card) return;
@@ -904,8 +650,8 @@ class LanguageToolEditor {
                         const feedbackText = feedbackBox.querySelector('.llm-feedback-text').value;
                         // Find pass/fail for this criteria
                         let passed = null;
-                        if (this.llmLastResult && this.llmLastResult.evaluation && this.llmLastResult.evaluation[criteria]) {
-                            passed = this.llmLastResult.evaluation[criteria].passed;
+                        if (state.llmLastResult && state.llmLastResult.evaluation && state.llmLastResult.evaluation[criteria]) {
+                            passed = state.llmLastResult.evaluation[criteria].passed;
                         }
                         // Log feedback (console.log for now, or send to backend)
                         fetch('/feedback', {
@@ -939,9 +685,10 @@ class LanguageToolEditor {
     }
 
     syncOverlayScroll() {
-        if (this.highlightOverlay && this.getActiveEditor()) {
-            this.highlightOverlay.scrollTop = this.getActiveEditor().scrollTop;
-            this.highlightOverlay.scrollLeft = this.getActiveEditor().scrollLeft;
+        const state = this.fields[this.activeField];
+        if (state.highlightOverlay && state.editor) {
+            state.highlightOverlay.scrollTop = state.editor.scrollTop;
+            state.highlightOverlay.scrollLeft = state.editor.scrollLeft;
         }
     }
 
@@ -953,7 +700,7 @@ class LanguageToolEditor {
         // Example: this.submitToLLM(transcription);
     }
 
-    saveTerm(term) {
+    saveTerm(field, term) {
         // Send the term to the backend
         fetch('/terms', {
             method: 'POST',
@@ -965,21 +712,23 @@ class LanguageToolEditor {
             // No need to check for data.terms anymore
         })
         .catch(() => {
-            this.showStatus('Failed to add term', 'error');
+            this.showStatus(field, 'Failed to add term', 'error');
         });
     }
 
-    addToHistory(text) {
+    addToHistory(field, text) {
         if (!text || !text.trim()) return;
-        this.history.unshift(text);
-        if (this.history.length > 50) this.history = this.history.slice(0, 50);
+        const state = this.fields[field];
+        state.history.unshift(text);
+        if (state.history.length > 50) state.history = state.history.slice(0, 50);
         this.renderHistory();
     }
 
     renderHistory() {
-        if (!this.historyList) return;
-        this.historyList.innerHTML = '';
-        this.history.forEach((item, idx) => {
+        const state = this.fields[this.activeField];
+        if (!state.historyList) return;
+        state.historyList.innerHTML = '';
+        state.history.forEach((item, idx) => {
             const li = document.createElement('li');
             li.textContent = item.length > 120 ? item.slice(0, 117) + '...' : item;
             li.title = item;
@@ -994,7 +743,7 @@ class LanguageToolEditor {
             icon.title = 'Restore to editor';
             icon.onclick = (e) => {
                 e.stopPropagation();
-                this.getActiveEditor().innerText = item;
+                state.editor.innerText = item;
             };
             li.appendChild(icon);
             // Remove item click/hover highlight
@@ -1002,7 +751,7 @@ class LanguageToolEditor {
             li.onmouseenter = null;
             li.onmouseleave = null;
             li.onclick = null;
-            this.historyList.appendChild(li);
+            state.historyList.appendChild(li);
         });
     }
 }
