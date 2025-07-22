@@ -361,7 +361,6 @@ body {
     flex-direction: column;
     gap: 18px;
     font-size: 0.95em;
-    margin: 0;
 }
 .rewrite-title {
     font-size: 1.08em;
