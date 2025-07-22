@@ -148,7 +148,7 @@ body {
 
 .status {
     position: absolute;
-    top: 12px;
+    top: 50%;
     right: 32px;
     padding: 8px 14px;
     color: white;
@@ -160,6 +160,7 @@ body {
     align-items: center;
     min-height: 28px;
     z-index: 20;
+    transform: translateY(-50%);
 }
 
 .status.show {
@@ -486,7 +487,7 @@ body {
     align-items: center;
     border-radius: 14px;
     margin-top: 24px;
-    margin-bottom: 16px;
+    margin-bottom: 4px;
 }
 .top-bar-content {
     display: flex;
@@ -524,7 +525,7 @@ body {
     margin: 0;
     min-height: 100vh;
     gap: 0;
-    margin-top: 8px;
+    margin-top: 0;
 }
 .left-column {
     flex: 1 1 60%;
