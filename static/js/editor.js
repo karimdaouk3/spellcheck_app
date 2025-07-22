@@ -116,12 +116,21 @@ class LanguageToolEditor {
         ['editor', 'editor2'].forEach(field => {
             const fieldObj = this.fields[field];
             const container = fieldObj.editor.closest('.editor-container');
-            // Allow clicking anywhere in the container to focus the editor
+            // Allow clicking anywhere in the container to focus the editor and place caret at pointer
             container.addEventListener('mousedown', (e) => {
-                // Only focus if not already focused and not clicking a button or inside the popup
-                if (!fieldObj.editor.contains(document.activeElement) && !e.target.closest('button') && !e.target.closest('.popup')) {
-                    fieldObj.editor.focus();
-                    e.preventDefault();
+                // Only focus if not clicking a button or inside the popup
+                if (!e.target.closest('button') && !e.target.closest('.popup')) {
+                    // If click is inside the editor, let browser handle caret
+                    if (!fieldObj.editor.contains(e.target)) {
+                        fieldObj.editor.focus();
+                        // Place caret at end if not clicking inside editor
+                        this.setCursorPosition(fieldObj.editor.innerText.length, field);
+                        e.preventDefault();
+                    } else {
+                        // Click inside editor: let browser handle caret
+                        // But ensure highlight is applied immediately
+                        setTimeout(() => this.updateActiveEditorHighlight(), 0);
+                    }
                 }
             });
             fieldObj.editor.addEventListener('focus', () => {
@@ -130,14 +139,6 @@ class LanguageToolEditor {
                 this.renderEvaluationAndRewrite(field);
                 this.updateHighlights(field);
                 this.updateActiveEditorHighlight();
-            });
-            fieldObj.editor.addEventListener('blur', () => {
-                // Remove highlight only if not switching to the other editor
-                setTimeout(() => {
-                    if (document.activeElement !== this.fields.editor.editor && document.activeElement !== this.fields.editor2.editor) {
-                        container.classList.remove('active-editor-container');
-                    }
-                }, 10);
             });
             fieldObj.editor.addEventListener('input', () => {
                 if (!fieldObj.overlayHidden) {
