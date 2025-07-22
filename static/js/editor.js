@@ -958,6 +958,17 @@ class LanguageToolEditor {
     renderHistory() {
         if (!this.historyList) return;
         this.historyList.innerHTML = '';
+        // Update the history label dynamically
+        const historyLabel = document.getElementById('history-label');
+        let label = '';
+        if (this.activeField === 'editor') {
+            label = 'Problem Statement History';
+        } else if (this.activeField === 'editor2') {
+            label = 'FSR Daily Notes History';
+        } else {
+            label = 'Input History';
+        }
+        if (historyLabel) historyLabel.textContent = label;
         const fieldObj = this.fields[this.activeField];
         fieldObj.history.forEach((item, idx) => {
             const li = document.createElement('li');
