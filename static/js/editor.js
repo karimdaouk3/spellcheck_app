@@ -610,12 +610,11 @@ class LanguageToolEditor {
     }
 
     displayLLMResult(result, showRewrite) {
-        // --- Side overlay with criteria evaluation (as before) ---
-        const overlay = document.getElementById('llm-result-overlay');
+        // --- Render evaluation/score as a box above rewrite questions ---
+        const evalBox = document.getElementById('llm-eval-box');
         let html = '';
         let valid = result && typeof result === 'object';
         let rulesObj = result && result.evaluation ? result.evaluation : result;
-        // Hide loading status as soon as overlay appears
         if (this.statusTimer) {
             clearTimeout(this.statusTimer);
             this.statusTimer = null;
@@ -694,10 +693,10 @@ class LanguageToolEditor {
                     `;
                 }
             }
-            overlay.innerHTML = html;
-            overlay.style.display = 'block';
+            evalBox.innerHTML = html;
+            evalBox.style.display = 'flex';
             // Dropdown logic (unchanged)
-            const dropdowns = overlay.querySelectorAll('.llm-dropdown');
+            const dropdowns = evalBox.querySelectorAll('.llm-dropdown');
             dropdowns.forEach(dropdown => {
                 const header = dropdown.querySelector('.llm-section-header');
                 const justification = dropdown.querySelector('.llm-section-justification');
@@ -726,13 +725,9 @@ class LanguageToolEditor {
                     }
                 });
             });
-
-            // Scroll the LLM result overlay to the top after it updates
-            requestAnimationFrame(() => {
-                overlay.scrollTop = 0;
-            });
         } else {
-            overlay.style.display = 'none';
+            evalBox.innerHTML = '';
+            evalBox.style.display = 'none';
         }
         // ... existing code ...
 
@@ -818,7 +813,7 @@ class LanguageToolEditor {
                 this.editor.innerText = rewrite;
                 // Hide the rewrite popup and overlay
                 rewritePopup.style.display = 'none';
-                overlay.style.display = 'none';
+                evalBox.style.display = 'none'; // Hide evaluation box as well
                 // Trigger a review (LLM evaluation) for the new text
                 this.submitToLLM(rewrite);
             } else {
@@ -827,7 +822,7 @@ class LanguageToolEditor {
         }
         // ... existing code ...
 
-        const feedbackBtns = overlay.querySelectorAll('.llm-feedback-btn');
+        const feedbackBtns = evalBox.querySelectorAll('.llm-feedback-btn'); // Changed to evalBox
         feedbackBtns.forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
