@@ -71,6 +71,7 @@ class LanguageToolEditor {
         this.renderHistory();
         
         this.initEventListeners();
+        this.updateActiveEditorHeader(); // Initialize the header
         this.createHighlightOverlay('editor');
         this.createHighlightOverlay('editor2');
     }
@@ -107,9 +108,32 @@ class LanguageToolEditor {
     
     // Utility to update the active editor highlight
     updateActiveEditorHighlight() {
-        document.querySelectorAll('.editor-container').forEach(c => c.classList.remove('active-editor-container'));
+        // Remove active class from all editor containers
+        document.querySelectorAll('.editor-container').forEach(container => {
+            container.classList.remove('active-editor-container');
+        });
+        // Add active class to the current active field's container
         const activeContainer = this.fields[this.activeField].editor.closest('.editor-container');
-        if (activeContainer) activeContainer.classList.add('active-editor-container');
+        if (activeContainer) {
+            activeContainer.classList.add('active-editor-container');
+        }
+        // Update the active editor header
+        this.updateActiveEditorHeader();
+    }
+
+    updateActiveEditorHeader() {
+        const header = document.getElementById('active-editor-header');
+        if (header) {
+            let headerText = '';
+            if (this.activeField === 'editor') {
+                headerText = 'Problem Statement';
+            } else if (this.activeField === 'editor2') {
+                headerText = 'FSR Daily Notes';
+            } else {
+                headerText = 'Active Editor';
+            }
+            header.textContent = headerText;
+        }
     }
 
     initEventListeners() {
