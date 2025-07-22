@@ -814,6 +814,8 @@ class LanguageToolEditor {
                 // Hide the rewrite popup and overlay
                 rewritePopup.style.display = 'none';
                 evalBox.style.display = 'none'; // Hide evaluation box as well
+                // Update overlay for new text
+                this.checkText();
                 // Trigger a review (LLM evaluation) for the new text
                 this.submitToLLM(rewrite);
             } else {
