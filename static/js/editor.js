@@ -1,7 +1,6 @@
 class LanguageToolEditor {
     constructor() {
         this.debounceTimer = null;
-        this.currentSuggestions = [];
         this.currentMention = null;
         this.highlightOverlay = null;
         this.ignoredSuggestions = new Set(); // Track ignored suggestions
@@ -20,6 +19,10 @@ class LanguageToolEditor {
                 submitBtn: document.getElementById('llm-submit'),
                 highlightOverlay: null,
                 ignoredSuggestions: new Set(),
+                currentSuggestions: [],
+                awaitingCheck: false,
+                overlayHidden: false,
+                llmInProgress: false,
                 history: [],
                 llmQuestions: [],
                 llmAnswers: {},
@@ -31,6 +34,10 @@ class LanguageToolEditor {
                 submitBtn: document.getElementById('llm-submit-2'),
                 highlightOverlay: null,
                 ignoredSuggestions: new Set(),
+                currentSuggestions: [],
+                awaitingCheck: false,
+                overlayHidden: false,
+                llmInProgress: false,
                 history: [],
                 llmQuestions: [],
                 llmAnswers: {},
@@ -103,7 +110,7 @@ class LanguageToolEditor {
             const fieldObj = this.fields[field];
             // Input event for checking text
             fieldObj.editor.addEventListener('input', () => {
-                if (!this.overlayHidden) {
+                if (!fieldObj.overlayHidden) {
                     this.updateHighlights(field); // Only update overlay if not hidden
                 }
                 this.debounceCheck(field);
@@ -287,8 +294,8 @@ class LanguageToolEditor {
                 acceptRewriteCheck.addEventListener('click', () => {
                     const rewriteContent = rewritePopup.querySelector('.rewrite-content').textContent;
                     fieldObj.editor.innerText = rewriteContent;
-                    this.awaitingCheck = true;
-                    this.overlayHidden = true;
+                    fieldObj.awaitingCheck = true;
+                    fieldObj.overlayHidden = true;
                     fieldObj.highlightOverlay.innerHTML = '';
                     rewritePopup.style.display = 'none';
                     // Wait for DOM update before running checkText
@@ -315,10 +322,11 @@ class LanguageToolEditor {
     
     async checkText(field) {
         const text = this.fields[field].editor.innerText;
+        const fieldObj = this.fields[field];
         
         if (!text.trim()) {
             this.clearSuggestions(field);
-            if (!this.llmInProgress) this.showStatus('Ready');
+            if (!fieldObj.llmInProgress) this.showStatus('Ready');
             return;
         }
         
@@ -334,16 +342,16 @@ class LanguageToolEditor {
             // Filter out ignored suggestions using robust key
             const suggestionsRaw = await response.json();
             const suggestions = suggestionsRaw.filter(
-                s => !this.fields[field].ignoredSuggestions.has(this.getSuggestionKey(s, text))
+                s => !fieldObj.ignoredSuggestions.has(this.getSuggestionKey(s, text))
             );
             
-            this.currentSuggestions = suggestions;
-            this.awaitingCheck = false;
-            this.overlayHidden = false;
+            fieldObj.currentSuggestions = suggestions;
+            fieldObj.awaitingCheck = false;
+            fieldObj.overlayHidden = false;
             this.updateHighlights(field);
             
             const count = suggestions.length;
-            if (!this.llmInProgress) {
+            if (!fieldObj.llmInProgress) {
                 if (count === 0) {
                     this.showStatus('No issues found');
                 } else {
@@ -352,29 +360,27 @@ class LanguageToolEditor {
             }
             
         } catch (error) {
-            if (!this.llmInProgress) this.showStatus('Error checking text', 'error');
+            if (!fieldObj.llmInProgress) this.showStatus('Error checking text', 'error');
             console.error('Error:', error);
         }
     }
     
     clearSuggestions(field) {
-        this.currentSuggestions = [];
+        this.fields[field].currentSuggestions = [];
         this.updateHighlights(field);
     }
     
     updateHighlights(field) {
         const fieldObj = this.fields[field];
-        if (this.awaitingCheck || this.overlayHidden) {
+        if (fieldObj.awaitingCheck || fieldObj.overlayHidden) {
             fieldObj.highlightOverlay.innerHTML = '';
-            // Scroll overlay and editor to top only when it is shown (even if empty)
             fieldObj.highlightOverlay.scrollTop = 0;
             fieldObj.editor.scrollTop = 0;
             return;
         }
         const text = fieldObj.editor.innerText;
-        if (this.currentSuggestions.length === 0) {
+        if (fieldObj.currentSuggestions.length === 0) {
             fieldObj.highlightOverlay.innerHTML = '';
-            // Scroll overlay and editor to top after DOM update
             requestAnimationFrame(() => {
                 fieldObj.highlightOverlay.scrollTop = 0;
                 fieldObj.editor.scrollTop = 0;
@@ -384,7 +390,7 @@ class LanguageToolEditor {
         // Create highlighted text
         let highlightedText = '';
         let lastIndex = 0;
-        this.currentSuggestions.forEach((suggestion, index) => {
+        fieldObj.currentSuggestions.forEach((suggestion, index) => {
             // Add text before the suggestion
             highlightedText += this.escapeHtml(text.substring(lastIndex, suggestion.offset));
             // Add the highlighted suggestion
@@ -418,7 +424,7 @@ class LanguageToolEditor {
                 e.preventDefault();
                 e.stopPropagation();
                 const suggestionIndex = parseInt(span.getAttribute('data-suggestion-index'));
-                const suggestion = this.currentSuggestions[suggestionIndex];
+                const suggestion = fieldObj.currentSuggestions[suggestionIndex];
                 this.showPopup(suggestion, e.clientX, e.clientY, field);
             });
         });
@@ -536,11 +542,11 @@ class LanguageToolEditor {
         // Remove the suggestion from currentSuggestions so highlight disappears immediately
         const newText = this.fields[field].editor.innerText;
         const key = this.getSuggestionKey(suggestion, newText);
-        this.currentSuggestions = this.currentSuggestions.filter(
+        this.fields[field].currentSuggestions = this.fields[field].currentSuggestions.filter(
             s => this.getSuggestionKey(s, newText) !== key
         );
-        this.overlayHidden = true;
-        this.awaitingCheck = true;
+        fieldObj.overlayHidden = true;
+        fieldObj.awaitingCheck = true;
         this.updateHighlights(field);
         requestAnimationFrame(() => this.syncOverlayScroll()); // Ensure overlay is synced after browser updates scroll
         this.hidePopup();
@@ -599,7 +605,7 @@ class LanguageToolEditor {
             const key = this.getSuggestionKey(this.currentMention, text);
             this.fields[field].ignoredSuggestions.add(key);
             // Remove from currentSuggestions and update highlights
-            this.currentSuggestions = this.currentSuggestions.filter(
+            this.fields[field].currentSuggestions = this.fields[field].currentSuggestions.filter(
                 s => this.getSuggestionKey(s, text) !== key
             );
             this.updateHighlights(field);
@@ -843,7 +849,7 @@ class LanguageToolEditor {
                 // Replace the editor content with the rewrite
                 this.fields[this.activeField].editor.innerText = rewrite;
                 // Hide overlay immediately to prevent flash of old highlights
-                this.overlayHidden = true;
+                this.fields[this.activeField].overlayHidden = true;
                 this.updateHighlights(this.activeField);
                 // Hide the rewrite popup and overlay
                 rewritePopup.style.display = 'none';
