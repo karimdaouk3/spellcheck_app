@@ -490,7 +490,7 @@ body {
     flex-direction: column;
     align-items: stretch;
     padding-right: 12px;
-    margin-top: 32px;
+    margin-top: 72px;
 }
 .right-column {
     flex: 1 1 60%;
@@ -500,7 +500,7 @@ body {
     flex-direction: column;
     align-items: flex-start;
     padding-left: 12px;
-    margin-top: 32px;
+    margin-top: 72px;
 }
 
 /* History box always visible below editor */
