@@ -928,7 +928,7 @@ class LanguageToolEditor {
         const fieldObj = this.fields[this.activeField];
         fieldObj.history.forEach((item, idx) => {
             const li = document.createElement('li');
-            li.textContent = item.length > 120 ? item.slice(0, 117) + '...' : item;
+            li.textContent = item; // Show full text, no truncation
             li.title = item;
             // Add history icon for restore
             const icon = document.createElement('span');

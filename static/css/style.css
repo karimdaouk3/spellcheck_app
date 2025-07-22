@@ -550,18 +550,35 @@ body {
 
 /* History box always visible below editor */
 .history-box {
-    background: #f9fafc;
-    border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(33,0,127,0.07);
-    border: 1.5px solid #e0e0e0;
-    margin-top: 32px;
+    max-height: 320px;
+    overflow-y: auto;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(33,0,127,0.07);
+    padding: 18px 20px 12px 20px;
+    margin-top: 24px;
+    margin-bottom: 0;
+    font-size: 1.04em;
+}
+#history-list {
+    list-style: none;
     padding: 0;
-    width: 100%;
-    max-width: 1200px;
-    display: flex;
-    flex-direction: column;
-    min-height: 120px;
-    margin: 32px 0 0 0;
+    margin: 0;
+}
+#history-list li {
+    white-space: pre-line;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    background: none;
+    border: none;
+    margin-bottom: 10px;
+    padding: 7px 0 7px 0;
+    font-size: 1em;
+    color: #222;
+    box-shadow: none;
+    text-overflow: unset;
+    overflow: visible;
+    max-width: 100%;
 }
 .history-header {
     display: flex;
@@ -854,11 +871,13 @@ body {
 }
 /* Highlight for active editor */
 .active-editor-container {
-    border: 2px solid #41007F;
-    border-radius: 10px;
+    outline: 2px solid #41007F;
+    outline-offset: 0px;
     box-shadow: 0 0 0 2px #e0e6f7;
     background: #fafaff;
     z-index: 2;
+    /* Remove border to prevent resizing */
+    border: none;
 }
 /* Remove extra spacing between the two editors */
 .editor-container + .editor-container {
