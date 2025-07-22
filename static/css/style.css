@@ -486,8 +486,8 @@ body {
     display: flex;
     align-items: center;
     border-radius: 14px;
-    margin-top: 24px;
-    margin-bottom: 4px;
+    margin-top: 8px;
+    margin-bottom: 0;
 }
 .top-bar-content {
     display: flex;
