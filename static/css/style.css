@@ -777,3 +777,18 @@ body {
 .llm-result-overlay {
     display: none !important;
 }
+
+.input-enhancer-box {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 6px 32px rgba(0,0,0,0.13);
+    padding: 24px 18px 24px 18px;
+    z-index: 1;
+    overflow-y: auto;
+    border: 1.5px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    font-size: 0.95em;
+    margin: 0 0 32px 0;
+}
