@@ -147,9 +147,9 @@ body {
 }
 
 .status {
-    position: fixed;
-    top: 20px;
-    right: 20px;
+    position: absolute;
+    top: 12px;
+    right: 32px;
     padding: 8px 14px;
     color: white;
     border-radius: 4px;
@@ -159,6 +159,7 @@ body {
     display: flex;
     align-items: center;
     min-height: 28px;
+    z-index: 20;
 }
 
 .status.show {
@@ -483,11 +484,15 @@ body {
     min-height: 56px;
     display: flex;
     align-items: center;
+    border-radius: 14px;
+    margin-top: 24px;
+    margin-bottom: 16px;
 }
 .top-bar-content {
     display: flex;
     align-items: center;
     height: 56px;
+    flex: 1 1 auto;
 }
 .top-bar-label {
     font-size: 1.05em;
@@ -519,7 +524,7 @@ body {
     margin: 0;
     min-height: 100vh;
     gap: 0;
-    margin-top: 72px;
+    margin-top: 8px;
 }
 .left-column {
     flex: 1 1 60%;
