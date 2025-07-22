@@ -439,6 +439,7 @@ class LanguageToolEditor {
     showPopup(suggestion, x, y, field) {
         const messageDiv = this.popup.querySelector('.popup-message');
         const suggestionsDiv = this.popup.querySelector('.suggestions-list');
+        this.popupField = field; // Track which field the popup is for
         
         // Set message
         messageDiv.textContent = suggestion.message;
@@ -501,9 +502,9 @@ class LanguageToolEditor {
         if (suggestion.errorType === 'spelling') {
             ignoreBtn.insertAdjacentElement('afterend', blueBtn);
             blueBtn.onclick = () => {
-                const text = this.fields[field].editor.innerText.substring(suggestion.offset, suggestion.offset + suggestion.length);
-                this.saveTerm(text, field);
-                this.ignoreCurrentSuggestion(field);
+                const text = this.fields[this.popupField].editor.innerText.substring(suggestion.offset, suggestion.offset + suggestion.length);
+                this.saveTerm(text, this.popupField);
+                this.ignoreCurrentSuggestion(this.popupField);
                 this.hidePopup();
                 this.showStatus(`"${text}" added to KLA term bank`, 'success');
             };
@@ -516,6 +517,10 @@ class LanguageToolEditor {
         ignoreBtn.style.fontSize = '14px';
         ignoreBtn.style.borderRadius = '4px';
         ignoreBtn.style.marginTop = '8px';
+        ignoreBtn.onclick = () => {
+            this.ignoreCurrentSuggestion(this.popupField);
+            this.hidePopup();
+        };
     }
     
     hidePopup() {
