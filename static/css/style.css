@@ -18,7 +18,7 @@ body {
     margin-left: 0;
     border-top: none;
     max-width: 1200px;
-    margin: 32px 0 0 0;
+    margin: 0;
 }
 
 .editor-wrapper {
@@ -491,6 +491,7 @@ body {
     flex-direction: column;
     align-items: stretch;
     padding-right: 12px;
+    margin-top: 32px;
 }
 .right-column {
     flex: 1 1 60%;
@@ -500,6 +501,7 @@ body {
     flex-direction: column;
     align-items: flex-start;
     padding-left: 12px;
+    margin-top: 32px;
 }
 
 /* History box always visible below editor */
