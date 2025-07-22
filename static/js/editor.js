@@ -108,11 +108,23 @@ class LanguageToolEditor {
     initEventListeners() {
         ['editor', 'editor2'].forEach(field => {
             const fieldObj = this.fields[field];
+            const container = fieldObj.editor.closest('.editor-container');
             fieldObj.editor.addEventListener('focus', () => {
                 this.activeField = field;
                 this.renderHistory();
                 this.renderEvaluationAndRewrite(field);
                 this.updateHighlights(field);
+                // Highlight active editor
+                document.querySelectorAll('.editor-container').forEach(c => c.classList.remove('active-editor-container'));
+                container.classList.add('active-editor-container');
+            });
+            fieldObj.editor.addEventListener('blur', () => {
+                // Remove highlight only if not switching to the other editor
+                setTimeout(() => {
+                    if (document.activeElement !== this.fields.editor.editor && document.activeElement !== this.fields.editor2.editor) {
+                        container.classList.remove('active-editor-container');
+                    }
+                }, 10);
             });
             fieldObj.editor.addEventListener('input', () => {
                 if (!fieldObj.overlayHidden) {

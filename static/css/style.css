@@ -830,6 +830,34 @@ body {
     margin-bottom: 8px;
     margin-left: 2px;
 }
+/* Remove background/border between editor containers */
+.editor-container-group {
+    background: none;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+}
+.editor-container {
+    background: none;
+    border: none;
+    box-shadow: none;
+    margin-bottom: 0;
+    margin-top: 0;
+    padding-bottom: 0;
+    padding-top: 0;
+    position: relative;
+    transition: box-shadow 0.2s, border 0.2s;
+}
+/* Highlight for active editor */
+.active-editor-container {
+    border: 2px solid #41007F;
+    border-radius: 10px;
+    box-shadow: 0 0 0 2px #e0e6f7;
+    background: #fafaff;
+    z-index: 2;
+}
+/* Remove extra spacing between the two editors */
 .editor-container + .editor-container {
-    margin-top: 32px;
+    margin-top: 18px;
 }
