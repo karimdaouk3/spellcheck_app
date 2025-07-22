@@ -17,6 +17,7 @@ body {
     margin-right: 0;
     margin-left: 0;
     border-top: none;
+    max-width: 900px;
 }
 
 .editor-wrapper {
@@ -345,7 +346,7 @@ body {
     position: static;
     margin: 32px auto 0 auto;
     width: 100%;
-    max-width: 700px;
+    max-width: 900px;
     background: #f9fafc;
     border-radius: 14px;
     box-shadow: 0 6px 32px rgba(0,0,0,0.13);
@@ -505,7 +506,7 @@ body {
     margin-top: 32px;
     padding: 0;
     width: 100%;
-    max-width: 700px;
+    max-width: 900px;
     display: flex;
     flex-direction: column;
     min-height: 120px;
@@ -733,7 +734,7 @@ body {
     position: static;
     margin: 0 auto 0 auto;
     width: 100%;
-    max-width: 700px;
+    max-width: 900px;
     background: #f9fafc;
     border-radius: 14px;
     box-shadow: 0 6px 32px rgba(0,0,0,0.13);
