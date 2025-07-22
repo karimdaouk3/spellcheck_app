@@ -585,14 +585,6 @@ body {
 #history-list li:last-child {
     border-bottom: none;
 }
-#history-list li span {
-    transition: background 0.15s;
-    border-radius: 6px;
-    padding: 2px 4px;
-}
-#history-list li span:hover {
-    background: #f0eaff;
-}
 .history-header {
     display: flex;
     align-items: center;
@@ -866,11 +858,10 @@ body {
     border-radius: 0 0 16px 16px;
     box-shadow: 0 2px 12px rgba(33,0,127,0.07);
     padding: 28px 32px 24px 32px;
-    margin: 0 auto;
+    margin: 0;
     display: flex;
     flex-direction: column;
     gap: 0;
-    max-width: 1160px;
 }
 .editor-container {
     background: none;
@@ -899,7 +890,7 @@ body {
 }
 .rewrite-popup-important {
     border: 2.5px solid #41007F;
-    background: #faf7ff;
+    background: #fafaff;
     border-radius: 10px;
     box-shadow: 0 2px 12px rgba(65,0,127,0.10);
     padding: 22px 28px 18px 28px;
@@ -909,6 +900,9 @@ body {
     position: relative;
     z-index: 3;
     animation: popupPulse 0.5s;
+    max-width: 1160px;
+    margin-left: auto;
+    margin-right: auto;
 }
 @keyframes popupPulse {
     0% { box-shadow: 0 0 0 0 #41007F33; }
@@ -924,5 +918,12 @@ body {
     transition: background 0.15s;
 }
 .llm-score button#eval-collapse-btn:hover {
+    background: #f0eaff;
+}
+#history-list li span {
+    border-radius: 6px;
+    transition: background 0.15s;
+}
+#history-list li span:hover {
     background: #f0eaff;
 }
