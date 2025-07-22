@@ -104,9 +104,9 @@ class LanguageToolEditor {
             // Input event for checking text
             fieldObj.editor.addEventListener('input', () => {
                 if (!this.overlayHidden) {
-                    this.updateHighlights(); // Only update overlay if not hidden
+                    this.updateHighlights(field); // Only update overlay if not hidden
                 }
-                this.debounceCheck();
+                this.debounceCheck(field);
             });
             // Force plain text paste (strip formatting)
             fieldObj.editor.addEventListener('paste', (e) => {
@@ -117,9 +117,9 @@ class LanguageToolEditor {
             });
             // Placeholder logic for contenteditable
             fieldObj.editor.addEventListener('focus', () => {
-                if (fieldObj.editor.innerText.trim() === '') {
-                    fieldObj.editor.classList.remove('empty');
-                }
+                this.activeField = field;
+                this.renderHistory();
+                this.updateHighlights(field);
             });
             fieldObj.editor.addEventListener('blur', () => {
                 if (fieldObj.editor.innerText.trim() === '') {
