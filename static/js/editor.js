@@ -838,7 +838,7 @@ class LanguageToolEditor {
                 }
             }
             if (fieldObj.llmQuestions.length > 0) {
-                let qHtml = '<div class="rewrite-title" style="display:flex;align-items:center;font-weight:700;font-size:1.13em;color:#b85c00;margin-bottom:8px;"><span style="margin-right:7px;display:inline-flex;align-items:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b85c00" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="1.2"/></svg></span>To improve your input, please answer the following questions:</div>';
+                let qHtml = '<div class="rewrite-title" style="display:flex;align-items:center;font-size:1.13em;color:#f78da7;margin-bottom:8px;">To improve your input, please answer the following questions:</div>';
                 qHtml += `<div class="rewrite-title" style="border: 2px solid #ffe0b2; background: #fff8e1; border-radius: 10px; padding: 18px 18px 10px 18px; margin-bottom: 10px; margin-top: 10px;">`;
                 fieldObj.llmQuestions.forEach((q, idx) => {
                     qHtml += `<div class="rewrite-question">${this.escapeHtml(q.question)}</div>`;
