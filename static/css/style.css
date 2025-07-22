@@ -585,13 +585,6 @@ body {
 #history-list li:last-child {
     border-bottom: none;
 }
-#history-list li span {
-    transition: background 0.15s;
-    border-radius: 5px;
-}
-#history-list li span:hover {
-    background: #e6f0fa;
-}
 .history-header {
     display: flex;
     align-items: center;
@@ -894,4 +887,12 @@ body {
 /* Remove extra spacing between the two editors */
 .editor-container + .editor-container {
     margin-top: 18px;
+}
+.history-revert-icon {
+    border-radius: 50%;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+.history-revert-icon-hover {
+    background: #e6e6fa;
+    box-shadow: 0 0 0 2px #b3b3e6;
 }

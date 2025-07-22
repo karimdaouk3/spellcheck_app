@@ -957,8 +957,9 @@ class LanguageToolEditor {
 
     renderHistory() {
         if (!this.historyList) return;
-        // Set the history header dynamically
-        const header = document.getElementById('history-header');
+        this.historyList.innerHTML = '';
+        // Update history header label
+        const headerLabel = document.getElementById('history-header-label');
         let inputType = '';
         if (this.activeField === 'editor') {
             inputType = 'Problem Statement';
@@ -967,12 +968,11 @@ class LanguageToolEditor {
         } else {
             inputType = 'Input';
         }
-        if (header) header.textContent = inputType + ' History';
-        this.historyList.innerHTML = '';
+        if (headerLabel) headerLabel.textContent = inputType + ' History';
         const fieldObj = this.fields[this.activeField];
         fieldObj.history.forEach((item, idx) => {
             const li = document.createElement('li');
-            li.textContent = item; // Show full text, no truncation
+            li.textContent = item;
             li.title = item;
             // Add history icon for restore
             const icon = document.createElement('span');
@@ -983,10 +983,14 @@ class LanguageToolEditor {
             icon.style.display = 'inline-flex';
             icon.style.alignItems = 'center';
             icon.title = 'Restore to editor';
+            icon.classList.add('history-revert-icon');
             icon.onclick = (e) => {
                 e.stopPropagation();
                 fieldObj.editor.innerText = item;
             };
+            // Add hover effect
+            icon.addEventListener('mouseenter', () => icon.classList.add('history-revert-icon-hover'));
+            icon.addEventListener('mouseleave', () => icon.classList.remove('history-revert-icon-hover'));
             li.appendChild(icon);
             // Remove item click/hover highlight
             li.style.cursor = 'default';
