@@ -826,6 +826,18 @@ body {
 }
 .llm-score {
     margin-bottom: 8px !important;
+    position: relative;
+}
+#eval-collapse-btn {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 100%;
+    z-index: 2;
+}
+.llm-score span.score-label {
+    margin-left: 32px;
 }
 .llm-eval-box .llm-section {
     margin-bottom: 8px;
@@ -888,44 +900,12 @@ body {
 .editor-container + .editor-container {
     margin-top: 18px;
 }
+/* Visually emphasize rewrite questions box */
 .rewrite-popup-important {
-    border: 2.5px solid #41007F;
-    background: #fafaff;
+    border: 2px solid #ffe0b2;
+    background: #fff8e1;
     border-radius: 10px;
-    box-shadow: 0 2px 12px rgba(65,0,127,0.10);
-    padding: 24px 18px 24px 18px;
-    margin-top: 0;
-    margin-bottom: 0;
-    font-size: 1.09em;
-    position: relative;
-    z-index: 3;
-    animation: popupPulse 0.5s;
-    max-width: 1200px;
-    width: 100%;
-    margin-left: 0;
-    margin-right: 0;
-    box-sizing: border-box;
-}
-@keyframes popupPulse {
-    0% { box-shadow: 0 0 0 0 #41007F33; }
-    70% { box-shadow: 0 0 0 8px #41007F22; }
-    100% { box-shadow: 0 2px 12px rgba(65,0,127,0.10); }
-}
-.llm-score button#eval-collapse-btn {
-    min-width: 44px;
-    min-height: 44px;
-    margin-right: 0;
-    margin-left: 0;
-    border-radius: 8px 0 0 8px;
-    transition: background 0.15s;
-}
-.llm-score button#eval-collapse-btn:hover {
-    background: #f0eaff;
-}
-#history-list li span {
-    border-radius: 6px;
-    transition: background 0.15s;
-}
-#history-list li span:hover {
-    background: #f0eaff;
+    padding: 18px 18px 10px 18px;
+    margin-bottom: 10px;
+    margin-top: 10px;
 }
