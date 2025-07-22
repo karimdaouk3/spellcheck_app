@@ -1013,7 +1013,16 @@ class LanguageToolEditor {
             icon.style.marginLeft = '12px';
             icon.style.display = 'inline-flex';
             icon.style.alignItems = 'center';
+            icon.style.padding = '4px';
+            icon.style.borderRadius = '4px';
+            icon.style.transition = 'background-color 0.2s';
             icon.title = 'Restore to editor';
+            icon.onmouseenter = () => {
+                icon.style.backgroundColor = '#e0e6f7';
+            };
+            icon.onmouseleave = () => {
+                icon.style.backgroundColor = 'transparent';
+            };
             icon.onclick = (e) => {
                 e.stopPropagation();
                 fieldObj.editor.innerText = item;
