@@ -657,12 +657,12 @@ class LanguageToolEditor {
             } else {
                 inputType = 'Input';
             }
-            // Collapsible toggle button (chevron on left)
-            html += `<div class="llm-score" style="font-size:1.35em;font-weight:700;margin-bottom:0;background:#fff;color:#41007F;padding:10px 0 10px 0;border-radius:8px;text-align:center;box-shadow:0 1px 4px rgba(33,0,127,0.07);letter-spacing:0.5px;display:flex;align-items:center;justify-content:center;gap:10px;">\n` +
-                `<button id="eval-collapse-btn" title="Click to expand for details" style="background:none;border:none;cursor:pointer;padding:0 6px;outline:none;display:inline-flex;align-items:center;justify-content:center;">\n` +
+            // Collapsible toggle button (chevron flush left)
+            html += `<div class="llm-score" style="font-size:1.35em;font-weight:700;margin-bottom:0;background:#fff;color:#41007F;padding:10px 0 10px 0;border-radius:8px;text-align:center;box-shadow:0 1px 4px rgba(33,0,127,0.07);letter-spacing:0.5px;display:flex;align-items:center;justify-content:flex-start;gap:0;">\n` +
+                `<button id="eval-collapse-btn" title="Click to expand for details" style="background:none;border:none;cursor:pointer;padding:0 16px 0 8px;outline:none;display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;">\n` +
                 `<span id="eval-chevron" style="font-size:1.3em;transition:transform 0.2s;${isCollapsed ? 'transform:rotate(-90deg);' : ''}\">&#9660;</span>\n` +
                 `</button>\n` +
-                `<span>${inputType} Score: <span style="color:#00A7E1;font-size:1.2em;">${passed}</span> <span style="color:#888;font-size:1.1em;">/</span> <span style="color:#00A7E1;">${total}</span></span>\n` +
+                `<span style="flex:1;text-align:center;">${inputType} Score: <span style="color:#00A7E1;font-size:1.2em;">${passed}</span> <span style="color:#888;font-size:1.1em;">/</span> <span style="color:#00A7E1;">${total}</span></span>\n` +
                 `</div>`;
             // Only show the rest if not collapsed
             if (!isCollapsed) {
@@ -846,6 +846,7 @@ class LanguageToolEditor {
                 qHtml += `<button id="submit-answers-btn" class="llm-submit-button" style="margin-top:10px;">Rewrite</button>`;
                 rewritePopup.innerHTML = qHtml;
                 rewritePopup.style.display = 'block';
+                rewritePopup.classList.add('rewrite-popup-important');
                 // Add event listener for submit answers
                 setTimeout(() => {
                     const btn = document.getElementById('submit-answers-btn');
@@ -887,6 +888,7 @@ class LanguageToolEditor {
                 }, 100);
             } else {
                 rewritePopup.style.display = 'none';
+                rewritePopup.classList.remove('rewrite-popup-important');
             }
         } else {
             // Show suggested rewrite (after answers submitted)
@@ -915,6 +917,7 @@ class LanguageToolEditor {
                 this.submitToLLM(rewrite, null, field);
             } else {
                 rewritePopup.style.display = 'none';
+                rewritePopup.classList.remove('rewrite-popup-important');
             }
         }
     }
@@ -1014,6 +1017,7 @@ class LanguageToolEditor {
         const rewritePopup = document.getElementById('rewrite-popup');
         if (rewritePopup) {
             rewritePopup.style.display = 'none';
+            rewritePopup.classList.remove('rewrite-popup-important');
         }
         // Now show the correct evaluation if it exists for this field
         const fieldObj = this.fields[field];

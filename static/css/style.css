@@ -888,3 +888,32 @@ body {
 .editor-container + .editor-container {
     margin-top: 18px;
 }
+.rewrite-popup-important {
+    border: 2.5px solid #41007F;
+    background: #f7f3ff;
+    border-radius: 10px;
+    box-shadow: 0 2px 12px rgba(65,0,127,0.10);
+    padding: 22px 28px 18px 28px;
+    margin-top: 18px;
+    margin-bottom: 0;
+    font-size: 1.09em;
+    position: relative;
+    z-index: 3;
+    animation: popupPulse 0.5s;
+}
+@keyframes popupPulse {
+    0% { box-shadow: 0 0 0 0 #41007F33; }
+    70% { box-shadow: 0 0 0 8px #41007F22; }
+    100% { box-shadow: 0 2px 12px rgba(65,0,127,0.10); }
+}
+.llm-score button#eval-collapse-btn {
+    min-width: 44px;
+    min-height: 44px;
+    margin-right: 0;
+    margin-left: 0;
+    border-radius: 8px 0 0 8px;
+    transition: background 0.15s;
+}
+.llm-score button#eval-collapse-btn:hover {
+    background: #f0eaff;
+}
