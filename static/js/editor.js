@@ -936,6 +936,25 @@ class LanguageToolEditor {
             this.historyList.appendChild(li);
         });
     }
+
+    // Add this method to ensure evaluation and rewrite UI updates on box switch
+    renderEvaluationAndRewrite(field) {
+        const fieldObj = this.fields[field];
+        if (fieldObj.llmLastResult) {
+            this.displayLLMResult(fieldObj.llmLastResult, false, field);
+        } else {
+            // Clear right side if no evaluation
+            const evalBox = document.getElementById('llm-eval-box');
+            if (evalBox) {
+                evalBox.innerHTML = '';
+                evalBox.style.display = 'none';
+            }
+            const rewritePopup = document.getElementById('rewrite-popup');
+            if (rewritePopup) {
+                rewritePopup.style.display = 'none';
+            }
+        }
+    }
 }
 
 // Initialize the editor when DOM is loaded
