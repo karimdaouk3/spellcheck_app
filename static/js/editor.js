@@ -643,7 +643,7 @@ class LanguageToolEditor {
         fieldObj.llmInProgress = false;
         // Collapsible state (per field)
         if (!this.evalCollapsed) this.evalCollapsed = {};
-        if (typeof this.evalCollapsed[field] === 'undefined') this.evalCollapsed[field] = false;
+        if (typeof this.evalCollapsed[field] === 'undefined') this.evalCollapsed[field] = true;
         const isCollapsed = this.evalCollapsed[field];
         if (valid && rulesObj && typeof rulesObj === 'object') {
             const keys = Object.keys(rulesObj);
@@ -659,7 +659,7 @@ class LanguageToolEditor {
             }
             // Collapsible toggle button
             html += `<div class="llm-score" style="font-size:1.35em;font-weight:700;margin-bottom:0;background:#fff;color:#41007F;padding:10px 0 10px 0;border-radius:8px;text-align:center;box-shadow:0 1px 4px rgba(33,0,127,0.07);letter-spacing:0.5px;display:flex;align-items:center;justify-content:center;gap:10px;">
-                <span>${inputType} Score: <span style=\"color:#00A7E1;font-size:1.2em;\">${passed}</span> <span style=\"color:#888;font-size:1.1em;\">/</span> <span style=\"color:#00A7E1;\">${total}</span></span>
+                <span>${inputType} Score: <span style="color:#00A7E1;font-size:1.2em;">${passed}</span> <span style="color:#888;font-size:1.1em;">/</span> <span style="color:#00A7E1;">${total}</span></span>
                 <button id="eval-collapse-btn" style="background:none;border:none;cursor:pointer;padding:0 6px;outline:none;display:inline-flex;align-items:center;justify-content:center;">
                     <span id="eval-chevron" style="font-size:1.3em;transition:transform 0.2s;${isCollapsed ? 'transform:rotate(-90deg);' : ''}">&#9660;</span>
                 </button>
@@ -822,6 +822,101 @@ class LanguageToolEditor {
                 }
             });
         });
+
+        // --- Questions and rewrite popup logic ---
+        const rewritePopup = document.getElementById('rewrite-popup');
+        if (!showRewrite) {
+            // Show questions for failed criteria
+            fieldObj.llmQuestions = [];
+            fieldObj.llmAnswers = {};
+            if (rulesObj) {
+                for (const key of Object.keys(rulesObj)) {
+                    const section = rulesObj[key];
+                    if (!section.passed && section.question) {
+                        fieldObj.llmQuestions.push({ criteria: key, question: section.question });
+                    }
+                }
+            }
+            if (fieldObj.llmQuestions.length > 0) {
+                let qHtml = '<div class="rewrite-title">To improve your input, please answer the following questions:</div>';
+                fieldObj.llmQuestions.forEach((q, idx) => {
+                    qHtml += `<div class="rewrite-question">${this.escapeHtml(q.question)}</div>`;
+                    qHtml += `<textarea class="rewrite-answer" data-criteria="${this.escapeHtml(q.criteria)}" rows="1" style="width:100%;margin-bottom:12px;resize:none;"></textarea>`;
+                });
+                qHtml += `<button id="submit-answers-btn" class="llm-submit-button" style="margin-top:10px;">Rewrite</button>`;
+                rewritePopup.innerHTML = qHtml;
+                rewritePopup.style.display = 'block';
+                // Add event listener for submit answers
+                setTimeout(() => {
+                    const btn = document.getElementById('submit-answers-btn');
+                    const answerEls = rewritePopup.querySelectorAll('.rewrite-answer');
+                    // Prevent newlines and blur on Enter in rewrite answer boxes
+                    answerEls.forEach(el => {
+                        el.addEventListener('keydown', (e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                el.blur();
+                            }
+                        });
+                    });
+                    if (btn) {
+                        btn.onclick = () => {
+                            // Collect answers
+                            answerEls.forEach(el => {
+                                const crit = el.getAttribute('data-criteria');
+                                fieldObj.llmAnswers[crit] = el.value;
+                            });
+                            // Log rewrite submission
+                            if (fieldObj.llmQuestions && fieldObj.llmQuestions.length > 0) {
+                                const logArr = fieldObj.llmQuestions.map(q => ({
+                                    original_text: fieldObj.editor.innerText,
+                                    criteria: q.criteria,
+                                    question: q.question,
+                                    user_answer: fieldObj.llmAnswers[q.criteria] || ''
+                                }));
+                                fetch('/rewrite-feedback', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(logArr)
+                                });
+                            }
+                            // Resubmit to LLM with answers
+                            this.submitToLLM(fieldObj.editor.innerText, fieldObj.llmAnswers, field);
+                        };
+                    }
+                }, 100);
+            } else {
+                rewritePopup.style.display = 'none';
+            }
+        } else {
+            // Show suggested rewrite (after answers submitted)
+            let rewrite = '';
+            if (result && typeof result === 'object') {
+                if (result.rewritten_problem_statement) {
+                    rewrite = result.rewritten_problem_statement;
+                } else if (result.rewrite) {
+                    rewrite = result.rewrite;
+                }
+            }
+            if (rewrite) {
+                // Add the version that was submitted (before rewrite) to history
+                this.addToHistory(fieldObj.editor.innerText, field);
+                // Replace the editor content with the rewrite
+                fieldObj.editor.innerText = rewrite;
+                // Hide overlay immediately to prevent flash of old highlights
+                fieldObj.overlayHidden = true;
+                this.updateHighlights(field);
+                // Hide the rewrite popup and overlay
+                rewritePopup.style.display = 'none';
+                evalBox.style.display = 'none'; // Hide evaluation box as well
+                // Update overlay for new text
+                this.checkText(field);
+                // Trigger a review (LLM evaluation) for the new text
+                this.submitToLLM(rewrite, null, field);
+            } else {
+                rewritePopup.style.display = 'none';
+            }
+        }
     }
 
     syncOverlayScroll() {
