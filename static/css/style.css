@@ -825,7 +825,7 @@ body {
     margin: 0;
 }
 .llm-score {
-    margin-bottom: 4px !important;
+    margin-bottom: 2px !important;
     position: relative;
 }
 #eval-collapse-btn {
@@ -897,14 +897,14 @@ body {
     border-radius: 10px 10px 10px 10px;
 }
 .active-editor-header {
-    max-width: 1200px;
+    max-width: 1236px;
     width: 100%;
     font-size: 1.35em;
     font-weight: 700;
     color: #41007F;
     margin-bottom: 16px;
     text-align: center;
-    padding: 16px 0;
+    padding: 16px 18px;
     border: 2px solid #e0e6f7;
     border-radius: 10px;
     background: #fff;
