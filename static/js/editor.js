@@ -105,6 +105,13 @@ class LanguageToolEditor {
         fieldObj.highlightOverlay.scrollTop = 0;
     }
     
+    // Utility to update the active editor highlight
+    updateActiveEditorHighlight() {
+        document.querySelectorAll('.editor-container').forEach(c => c.classList.remove('active-editor-container'));
+        const activeContainer = this.fields[this.activeField].editor.closest('.editor-container');
+        if (activeContainer) activeContainer.classList.add('active-editor-container');
+    }
+
     initEventListeners() {
         ['editor', 'editor2'].forEach(field => {
             const fieldObj = this.fields[field];
@@ -122,9 +129,7 @@ class LanguageToolEditor {
                 this.renderHistory();
                 this.renderEvaluationAndRewrite(field);
                 this.updateHighlights(field);
-                // Highlight active editor
-                document.querySelectorAll('.editor-container').forEach(c => c.classList.remove('active-editor-container'));
-                container.classList.add('active-editor-container');
+                this.updateActiveEditorHighlight();
             });
             fieldObj.editor.addEventListener('blur', () => {
                 // Remove highlight only if not switching to the other editor
@@ -580,7 +585,7 @@ class LanguageToolEditor {
         this.hidePopup();
     }
 
-    // Placeholder LLM call
+    // After LLM submit, always re-apply highlight
     async submitToLLM(text, answers = null, field = this.activeField) {
         const fieldObj = this.fields[field];
         fieldObj.llmInProgress = true;
@@ -604,17 +609,18 @@ class LanguageToolEditor {
                 body: JSON.stringify(body)
             });
             const data = await response.json();
-            // Always store the original text for staleness check
             if (typeof data.result === 'object') {
                 data.result.original_text = text;
             }
             fieldObj.llmLastResult = data.result;
             this.displayLLMResult(data.result, answers !== null, field);
+            this.updateActiveEditorHighlight(); // Ensure highlight remains
         } catch (e) {
             this.showStatus('LLM call failed', 'error');
             alert('LLM call failed: ' + e);
             this.status.classList.remove('loading');
             fieldObj.llmInProgress = false;
+            this.updateActiveEditorHighlight(); // Ensure highlight remains
         }
     }
 
@@ -994,6 +1000,7 @@ class LanguageToolEditor {
                 this.displayLLMResult(fieldObj.llmLastResult, false, field);
             }
         }
+        this.updateActiveEditorHighlight(); // Always re-apply highlight after UI update
     }
 }
 
