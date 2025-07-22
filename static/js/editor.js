@@ -627,7 +627,6 @@ class LanguageToolEditor {
 
     displayLLMResult(result, showRewrite, field = this.activeField) {
         const fieldObj = this.fields[field];
-        // --- Render evaluation/score as a box above rewrite questions ---
         const evalBox = document.getElementById('llm-eval-box');
         let html = '';
         let valid = result && typeof result === 'object';
@@ -640,12 +639,14 @@ class LanguageToolEditor {
         this.status.className = 'status';
         this.status.textContent = '';
         fieldObj.llmInProgress = false;
+        // Collapsible state (per field)
+        if (!this.evalCollapsed) this.evalCollapsed = {};
+        if (typeof this.evalCollapsed[field] === 'undefined') this.evalCollapsed[field] = false;
+        const isCollapsed = this.evalCollapsed[field];
         if (valid && rulesObj && typeof rulesObj === 'object') {
-            // Calculate score
             const keys = Object.keys(rulesObj);
             const total = keys.length;
             const passed = keys.filter(key => rulesObj[key].passed).length;
-            // Determine input type label
             let inputType = '';
             if (field === 'editor') {
                 inputType = 'Problem Statement';
@@ -654,205 +655,112 @@ class LanguageToolEditor {
             } else {
                 inputType = 'Input';
             }
-            // Log evaluation to backend
-            fetch('/llm-evaluation-log', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    text: fieldObj.editor.innerText,
-                    score: `${passed}/${total}`,
-                    criteria: keys.map(key => ({
-                        name: key,
-                        passed: !!rulesObj[key].passed
-                    })),
-                    timestamp: Date.now() / 1000
-                })
-            });
-            html += `<div class="llm-score" style="font-size:1.35em;font-weight:700;margin-bottom:18px;background:#fff;color:#41007F;padding:10px 0 10px 0;border-radius:8px;text-align:center;box-shadow:0 1px 4px rgba(33,0,127,0.07);letter-spacing:0.5px;">${inputType} Score: <span style="color:#00A7E1;font-size:1.2em;">${passed}</span> <span style="color:#888;font-size:1.1em;">/</span> <span style="color:#00A7E1;">${total}</span></div>`;
-            // Sort rules: passed first, then failed
-            const sortedKeys = keys.sort((a, b) => {
-                const aPassed = rulesObj[a].passed;
-                const bPassed = rulesObj[b].passed;
-                if (aPassed === bPassed) return 0;
-                return aPassed ? -1 : 1;
-            });
-            // Separate passed and failed
-            const passedKeys = sortedKeys.filter(key => rulesObj[key].passed);
-            const failedKeys = sortedKeys.filter(key => !rulesObj[key].passed);
-            // Show Needs Improvement first, then Completed
-            if (failedKeys.length > 0) {
-                html += `<div style="font-weight:600;font-size:1.08em;color:#f44336;margin:18px 0 8px 0;">Needs Improvement</div>`;
-                for (const key of failedKeys) {
-                    const section = rulesObj[key];
-                    html += `
-                        <div class="llm-section llm-dropdown open" data-passed="false">
-                            <div class="llm-section-header" tabindex="0">
-                                <span class="llm-dropdown-arrow open">&#9660;</span>
-                                <span class="llm-section-title" style="color:#111;"><strong>${this.escapeHtml(key)}</strong></span>
-                                <span class="llm-feedback-btn" title="Give feedback" data-criteria="${this.escapeHtml(key)}">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="thumbs-down-icon" viewBox="0 0 16 16">
-                                        <path d="M8.864 15.674c-.956.24-1.843-.484-1.908-1.42-.072-1.05-.23-2.015-.428-2.59-.125-.36-.479-1.012-1.04-1.638-.557-.624-1.282-1.179-2.131-1.41C2.685 8.432 2 7.85 2 7V3c0-.845.682-1.464 1.448-1.546 1.07-.113 1.564-.415 2.068-.723l.048-.029c.272-.166.578-.349.97-.484C6.931.08 7.395 0 8 0h3.5c.937 0 1.599.478 1.934 1.064.164.287.254.607.254.913 0 .152-.023.312-.077.464.201.262.38.577.488.9.11.33.172.762.004 1.15.069.13.12.268.159.403.077.27.113.567.113.856s-.036.586-.113.856c-.035.12-.08.244-.138.363.394.571.418 1.2.234 1.733-.206.592-.682 1.1-1.2 1.272-.847.283-1.803.276-2.516.211a10 10 0 0 1-.443-.05 9.36 9.36 0 0 1-.062 4.51c-.138.508-.55.848-1.012.964zM11.5 1H8c-.51 0-.863.068-1.14.163-.281.097-.506.229-.776.393l-.04.025c-.555.338-1.198.73-2.49.868-.333.035-.554.29-.554.55V7c0 .255.226.543.62.65 1.095.3 1.977.997 2.614 1.709.635.71 1.064 1.475 1.238 1.977.243.7.407 1.768.482 2.85.025.362.36.595.667.518l.262-.065c.16-.04.258-.144.288-.255a8.34 8.34 0 0 0-.145-4.726.5.5 0 0 1 .595-.643h.003l.014.004.058.013a9 9 0 0 0 1.036.157c.663.06 1.457.054 2.11-.163.175-.059.45-.301.57-.651.107-.308.087-.67-.266-1.021L12.793 7l.353-.354c.043-.042.105-.14.154-.315.048-.167.075-.37.075-.581s-.027-.414-.075-.581c-.05-.174-.111-.273-.154-.315l-.353-.354.353-.354c.047-.047.109-.176.005-.488a2.2 2.2 0 0 0-.505-.804l-.353-.354.353-.354c.006-.005.041-.05.041-.17a.9.9 0 0 0-.121-.415C12.4 1.272 12.063 1 11.5 1"/>
-                                    </svg>
-                                </span>
-                            </div>
-                            <div class="llm-section-justification" style="display:block;">${this.escapeHtml(section.justification || '')}</div>
-                        </div>
-                    `;
-                }
-            }
-            if (passedKeys.length > 0) {
-                html += `<div style="font-weight:600;font-size:1.08em;color:#4CAF50;margin-bottom:8px;">Completed</div>`;
-                for (const key of passedKeys) {
-                    const section = rulesObj[key];
-                    html += `
-                        <div class="llm-section llm-dropdown" data-passed="true">
-                            <div class="llm-section-header" tabindex="0">
-                                <span class="llm-dropdown-arrow">&#9654;</span>
-                                <span class="llm-section-title" style="color:#111;"><strong>${this.escapeHtml(key)}</strong></span>
-                                <span class="llm-feedback-btn" title="Give feedback" data-criteria="${this.escapeHtml(key)}">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="thumbs-down-icon" viewBox="0 0 16 16">
-                                        <path d="M8.864 15.674c-.956.24-1.843-.484-1.908-1.42-.072-1.05-.23-2.015-.428-2.59-.125-.36-.479-1.012-1.04-1.638-.557-.624-1.282-1.179-2.131-1.41C2.685 8.432 2 7.85 2 7V3c0-.845.682-1.464 1.448-1.546 1.07-.113 1.564-.415 2.068-.723l.048-.029c.272-.166.578-.349.97-.484C6.931.08 7.395 0 8 0h3.5c.937 0 1.599.478 1.934 1.064.164.287.254.607.254.913 0 .152-.023.312-.077.464.201.262.38.577.488.9.11.33.172.762.004 1.15.069.13.12.268.159.403.077.27.113.567.113.856s-.036.586-.113.856c-.035.12-.08.244-.138.363.394.571.418 1.2.234 1.733-.206.592-.682 1.1-1.2 1.272-.847.283-1.803.276-2.516.211a10 10 0 0 1-.443-.05 9.36 9.36 0 0 1-.062 4.51c-.138.508-.55.848-1.012.964zM11.5 1H8c-.51 0-.863.068-1.14.163-.281.097-.506.229-.776.393l-.04.025c-.555.338-1.198.73-2.49.868-.333.035-.554.29-.554.55V7c0 .255.226.543.62.65 1.095.3 1.977.997 2.614 1.709.635.71 1.064 1.475 1.238 1.977.243.7.407 1.768.482 2.85.025.362.36.595.667.518l.262-.065c.16-.04.258-.144.288-.255a8.34 8.34 0 0 0-.145-4.726.5.5 0 0 1 .595-.643h.003l.014.004.058.013a9 9 0 0 0 1.036.157c.663.06 1.457.054 2.11-.163.175-.059.45-.301.57-.651.107-.308.087-.67-.266-1.021L12.793 7l.353-.354c.043-.042.105-.14.154-.315.048-.167.075-.37.075-.581s-.027-.414-.075-.581c-.05-.174-.111-.273-.154-.315l-.353-.354.353-.354c.047-.047.109-.176.005-.488a2.2 2.2 0 0 0-.505-.804l-.353-.354.353-.354c.006-.005.041-.05.041-.17a.9.9 0 0 0-.121-.415C12.4 1.272 12.063 1 11.5 1"/>
-                                    </svg>
-                                </span>
-                            </div>
-                            <div class="llm-section-justification" style="display:none;">${this.escapeHtml(section.justification || '')}</div>
-                        </div>
-                    `;
-                }
-            }
-            evalBox.innerHTML = html;
-            evalBox.style.display = 'flex';
-            // Dropdown logic (unchanged)
-            const dropdowns = evalBox.querySelectorAll('.llm-dropdown');
-            dropdowns.forEach(dropdown => {
-                const header = dropdown.querySelector('.llm-section-header');
-                const justification = dropdown.querySelector('.llm-section-justification');
-                const arrow = dropdown.querySelector('.llm-dropdown-arrow');
-                // Set initial state
-                if (dropdown.classList.contains('open')) {
-                    justification.style.display = 'block';
-                    arrow.classList.add('open');
-                    arrow.innerHTML = '&#9660;';
-                } else {
-                    justification.style.display = 'none';
-                    arrow.classList.remove('open');
-                    arrow.innerHTML = '&#9654;';
-                }
-                // Toggle on click or enter/space
-                header.addEventListener('click', () => {
-                    dropdown.classList.toggle('open');
-                    const isOpen = dropdown.classList.contains('open');
-                    justification.style.display = isOpen ? 'block' : 'none';
-                    arrow.innerHTML = isOpen ? '&#9660;' : '&#9654;';
+            // Collapsible toggle button
+            html += `<div class="llm-score" style="font-size:1.35em;font-weight:700;margin-bottom:0;background:#fff;color:#41007F;padding:10px 0 10px 0;border-radius:8px;text-align:center;box-shadow:0 1px 4px rgba(33,0,127,0.07);letter-spacing:0.5px;display:flex;align-items:center;justify-content:center;gap:10px;">
+                <span>${inputType} Score: <span style=\"color:#00A7E1;font-size:1.2em;\">${passed}</span> <span style=\"color:#888;font-size:1.1em;\">/</span> <span style=\"color:#00A7E1;\">${total}</span></span>
+                <button id="eval-collapse-btn" style="background:none;border:none;cursor:pointer;padding:0 6px;outline:none;display:inline-flex;align-items:center;justify-content:center;">
+                    <span id="eval-chevron" style="font-size:1.3em;transition:transform 0.2s;${isCollapsed ? 'transform:rotate(-90deg);' : ''}">&#9660;</span>
+                </button>
+            </div>`;
+            // Only show the rest if not collapsed
+            if (!isCollapsed) {
+                // Sort rules: passed first, then failed
+                const sortedKeys = keys.sort((a, b) => {
+                    const aPassed = rulesObj[a].passed;
+                    const bPassed = rulesObj[b].passed;
+                    if (aPassed === bPassed) return 0;
+                    return aPassed ? -1 : 1;
                 });
-                header.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        header.click();
+                // Separate passed and failed
+                const passedKeys = sortedKeys.filter(key => rulesObj[key].passed);
+                const failedKeys = sortedKeys.filter(key => !rulesObj[key].passed);
+                // Show Needs Improvement first, then Completed
+                if (failedKeys.length > 0) {
+                    html += `<div style="font-weight:600;font-size:1.08em;color:#f44336;margin:18px 0 8px 0;">Needs Improvement</div>`;
+                    for (const key of failedKeys) {
+                        const section = rulesObj[key];
+                        html += `
+                            <div class="llm-section llm-dropdown open" data-passed="false">
+                                <div class="llm-section-header" tabindex="0">
+                                    <span class="llm-dropdown-arrow open">&#9660;</span>
+                                    <span class="llm-section-title" style="color:#111;"><strong>${this.escapeHtml(key)}</strong></span>
+                                    <span class="llm-feedback-btn" title="Give feedback" data-criteria="${this.escapeHtml(key)}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="thumbs-down-icon" viewBox="0 0 16 16">
+                                            <path d="M8.864 15.674c-.956.24-1.843-.484-1.908-1.42-.072-1.05-.23-2.015-.428-2.59-.125-.36-.479-1.012-1.04-1.638-.557-.624-1.282-1.179-2.131-1.41C2.685 8.432 2 7.85 2 7V3c0-.845.682-1.464 1.448-1.546 1.07-.113 1.564-.415 2.068-.723l.048-.029c.272-.166.578-.349.97-.484C6.931.08 7.395 0 8 0h3.5c.937 0 1.599.478 1.934 1.064.164.287.254.607.254.913 0 .152-.023.312-.077.464.201.262.38.577.488.9.11.33.172.762.004 1.15.069.13.12.268.159.403.077.27.113.567.113.856s-.036.586-.113.856c-.035.12-.08.244-.138.363.394.571.418 1.2.234 1.733-.206.592-.682 1.1-1.2 1.272-.847.283-1.803.276-2.516.211a10 10 0 0 1-.443-.05 9.36 9.36 0 0 1-.062 4.51c-.138.508-.55.848-1.012.964zM11.5 1H8c-.51 0-.863.068-1.14.163-.281.097-.506.229-.776.393l-.04.025c-.555.338-1.198.73-2.49.868-.333.035-.554.29-.554.55V7c0 .255.226.543.62.65 1.095.3 1.977.997 2.614 1.709.635.71 1.064 1.475 1.238 1.977.243.7.407 1.768.482 2.85.025.362.36.595.667.518l.262-.065c.16-.04.258-.144.288-.255a8.34 8.34 0 0 0-.145-4.726.5.5 0 0 1 .595-.643h.003l.014.004.058.013a9 9 0 0 0 1.036.157c.663.06 1.457.054 2.11-.163.175-.059.45-.301.57-.651.107-.308.087-.67-.266-1.021L12.793 7l.353-.354c.043-.042.105-.14.154-.315.048-.167.075-.37.075-.581s-.027-.414-.075-.581c-.05-.174-.111-.273-.154-.315l-.353-.354.353-.354c.047-.047.109-.176.005-.488a2.2 2.2 0 0 0-.505-.804l-.353-.354.353-.354c.006-.005.041-.05.041-.17a.9.9 0 0 0-.121-.415C12.4 1.272 12.063 1 11.5 1"/>
+                                        </svg>
+                                    </span>
+                                </div>
+                                <div class="llm-section-justification" style="display:block;">${this.escapeHtml(section.justification || '')}</div>
+                            </div>
+                        `;
                     }
-                });
-            });
+                }
+                if (passedKeys.length > 0) {
+                    html += `<div style="font-weight:600;font-size:1.08em;color:#4CAF50;margin-bottom:8px;">Completed</div>`;
+                    for (const key of passedKeys) {
+                        const section = rulesObj[key];
+                        html += `
+                            <div class="llm-section llm-dropdown" data-passed="true">
+                                <div class="llm-section-header" tabindex="0">
+                                    <span class="llm-dropdown-arrow">&#9654;</span>
+                                    <span class="llm-section-title" style="color:#111;"><strong>${this.escapeHtml(key)}</strong></span>
+                                    <span class="llm-feedback-btn" title="Give feedback" data-criteria="${this.escapeHtml(key)}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="thumbs-down-icon" viewBox="0 0 16 16">
+                                            <path d="M8.864 15.674c-.956.24-1.843-.484-1.908-1.42-.072-1.05-.23-2.015-.428-2.59-.125-.36-.479-1.012-1.04-1.638-.557-.624-1.282-1.179-2.131-1.41C2.685 8.432 2 7.85 2 7V3c0-.845.682-1.464 1.448-1.546 1.07-.113 1.564-.415 2.068-.723l.048-.029c.272-.166.578-.349.97-.484C6.931.08 7.395 0 8 0h3.5c.937 0 1.599.478 1.934 1.064.164.287.254.607.254.913 0 .152-.023.312-.077.464.201.262.38.577.488.9.11.33.172.762.004 1.15.069.13.12.268.159.403.077.27.113.567.113.856s-.036.586-.113.856c-.035.12-.08.244-.138.363.394.571.418 1.2.234 1.733-.206.592-.682 1.1-1.2 1.272-.847.283-1.803.276-2.516.211a10 10 0 0 1-.443-.05 9.36 9.36 0 0 1-.062 4.51c-.138.508-.55.848-1.012.964zM11.5 1H8c-.51 0-.863.068-1.14.163-.281.097-.506.229-.776.393l-.04.025c-.555.338-1.198.73-2.49.868-.333.035-.554.29-.554.55V7c0 .255.226.543.62.65 1.095.3 1.977.997 2.614 1.709.635.71 1.064 1.475 1.238 1.977.243.7.407 1.768.482 2.85.025.362.36.595.667.518l.262-.065c.16-.04.258-.144.288-.255a8.34 8.34 0 0 0-.145-4.726.5.5 0 0 1 .595-.643h.003l.014.004.058.013a9 9 0 0 0 1.036.157c.663.06 1.457.054 2.11-.163.175-.059.45-.301.57-.651.107-.308.087-.67-.266-1.021L12.793 7l.353-.354c.043-.042.105-.14.154-.315.048-.167.075-.37.075-.581s-.027-.414-.075-.581c-.05-.174-.111-.273-.154-.315l-.353-.354.353-.354c.047-.047.109-.176.005-.488a2.2 2.2 0 0 0-.505-.804l-.353-.354.353-.354c.006-.005.041-.05.041-.17a.9.9 0 0 0-.121-.415C12.4 1.272 12.063 1 11.5 1"/>
+                                        </svg>
+                                    </span>
+                                </div>
+                                <div class="llm-section-justification" style="display:none;">${this.escapeHtml(section.justification || '')}</div>
+                            </div>
+                        `;
+                    }
+                }
+            }
         } else {
             evalBox.innerHTML = '';
             evalBox.style.display = 'none';
+            return;
         }
-        // ... existing code ...
-
-        // --- Questions and rewrite popup logic ---
-        const rewritePopup = document.getElementById('rewrite-popup');
-        if (!showRewrite) {
-            // Show questions for failed criteria
-            fieldObj.llmQuestions = [];
-            fieldObj.llmAnswers = {};
-            if (rulesObj) {
-                for (const key of Object.keys(rulesObj)) {
-                    const section = rulesObj[key];
-                    if (!section.passed && section.question) {
-                        fieldObj.llmQuestions.push({ criteria: key, question: section.question });
-                    }
-                }
-            }
-            if (fieldObj.llmQuestions.length > 0) {
-                let qHtml = '<div class="rewrite-title">To improve your input, please answer the following questions:</div>';
-                fieldObj.llmQuestions.forEach((q, idx) => {
-                    qHtml += `<div class="rewrite-question">${this.escapeHtml(q.question)}</div>`;
-                    qHtml += `<textarea class="rewrite-answer" data-criteria="${this.escapeHtml(q.criteria)}" rows="1" style="width:100%;margin-bottom:12px;resize:none;"></textarea>`;
-                });
-                qHtml += `<button id="submit-answers-btn" class="llm-submit-button" style="margin-top:10px;">Rewrite</button>`;
-                rewritePopup.innerHTML = qHtml;
-                rewritePopup.style.display = 'block';
-                // Add event listener for submit answers
-                setTimeout(() => {
-                    const btn = document.getElementById('submit-answers-btn');
-                    const answerEls = rewritePopup.querySelectorAll('.rewrite-answer');
-                    // Prevent newlines and blur on Enter in rewrite answer boxes
-                    answerEls.forEach(el => {
-                        el.addEventListener('keydown', (e) => {
-                            if (e.key === 'Enter') {
-                                e.preventDefault();
-                                el.blur();
-                            }
-                        });
-                    });
-                    if (btn) {
-                        btn.onclick = () => {
-                            // Collect answers
-                            answerEls.forEach(el => {
-                                const crit = el.getAttribute('data-criteria');
-                                fieldObj.llmAnswers[crit] = el.value;
-                            });
-                            // Log rewrite submission
-                            if (fieldObj.llmQuestions && fieldObj.llmQuestions.length > 0) {
-                                const logArr = fieldObj.llmQuestions.map(q => ({
-                                    original_text: fieldObj.editor.innerText,
-                                    criteria: q.criteria,
-                                    question: q.question,
-                                    user_answer: fieldObj.llmAnswers[q.criteria] || ''
-                                }));
-                                fetch('/rewrite-feedback', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify(logArr)
-                                });
-                            }
-                            // Resubmit to LLM with answers
-                            this.submitToLLM(fieldObj.editor.innerText, fieldObj.llmAnswers, field);
-                        };
-                    }
-                }, 100);
-            } else {
-                rewritePopup.style.display = 'none';
-            }
-        } else {
-            // Show suggested rewrite (after answers submitted)
-            let rewrite = '';
-            if (result && typeof result === 'object') {
-                if (result.rewritten_problem_statement) {
-                    rewrite = result.rewritten_problem_statement;
-                } else if (result.rewrite) {
-                    rewrite = result.rewrite;
-                }
-            }
-            if (rewrite) {
-                // Add the version that was submitted (before rewrite) to history
-                this.addToHistory(fieldObj.editor.innerText, field);
-                // Replace the editor content with the rewrite
-                fieldObj.editor.innerText = rewrite;
-                // Hide overlay immediately to prevent flash of old highlights
-                fieldObj.overlayHidden = true;
-                this.updateHighlights(field);
-                // Hide the rewrite popup and overlay
-                rewritePopup.style.display = 'none';
-                evalBox.style.display = 'none'; // Hide evaluation box as well
-                // Update overlay for new text
-                this.checkText(field);
-                // Trigger a review (LLM evaluation) for the new text
-                this.submitToLLM(rewrite, null, field);
-            } else {
-                rewritePopup.style.display = 'none';
-            }
+        evalBox.innerHTML = html;
+        evalBox.style.display = 'flex';
+        // Add collapse/expand logic
+        const collapseBtn = document.getElementById('eval-collapse-btn');
+        if (collapseBtn) {
+            collapseBtn.onclick = () => {
+                this.evalCollapsed[field] = !this.evalCollapsed[field];
+                this.displayLLMResult(result, showRewrite, field);
+            };
         }
-        // ... existing code ...
+        // Dropdown logic (unchanged)
+        const dropdowns = evalBox.querySelectorAll('.llm-dropdown');
+        dropdowns.forEach(dropdown => {
+            const header = dropdown.querySelector('.llm-section-header');
+            const justification = dropdown.querySelector('.llm-section-justification');
+            const arrow = dropdown.querySelector('.llm-dropdown-arrow');
+            // Set initial state
+            if (dropdown.classList.contains('open')) {
+                justification.style.display = 'block';
+                arrow.classList.add('open');
+                arrow.innerHTML = '&#9660;';
+            } else {
+                justification.style.display = 'none';
+                arrow.classList.remove('open');
+                arrow.innerHTML = '&#9654;';
+            }
+            // Toggle on click or enter/space
+            header.addEventListener('click', () => {
+                dropdown.classList.toggle('open');
+                const isOpen = dropdown.classList.contains('open');
+                justification.style.display = isOpen ? 'block' : 'none';
+                arrow.innerHTML = isOpen ? '&#9660;' : '&#9654;';
+            });
+            header.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    header.click();
+                }
+            });
+        });
 
         const feedbackBtns = evalBox.querySelectorAll('.llm-feedback-btn'); // Changed to evalBox
         feedbackBtns.forEach(btn => {
