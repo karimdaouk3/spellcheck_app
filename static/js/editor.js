@@ -957,6 +957,17 @@ class LanguageToolEditor {
 
     renderHistory() {
         if (!this.historyList) return;
+        // Update the history label
+        const label = document.getElementById('history-label');
+        let inputType = '';
+        if (this.activeField === 'editor') {
+            inputType = 'Problem Statement';
+        } else if (this.activeField === 'editor2') {
+            inputType = 'FSR Daily Notes';
+        } else {
+            inputType = 'Input';
+        }
+        if (label) label.textContent = inputType + ' History';
         this.historyList.innerHTML = '';
         const fieldObj = this.fields[this.activeField];
         fieldObj.history.forEach((item, idx) => {
@@ -965,13 +976,14 @@ class LanguageToolEditor {
             li.title = item;
             // Add history icon for restore
             const icon = document.createElement('span');
-            icon.innerHTML = '<svg width="20" height="20" viewBox="0 0 512 512" fill="#41007F" style="display:inline-block;vertical-align:middle;"><path d="M256 64C150 64 64 150 64 256H16l80 96 80-96h-48c0-88.2 71.8-160 160-160s160 71.8 160 160-71.8 160-160 160c-39.7 0-76.1-14.3-104.2-37.9-6.9-5.7-17.1-4.7-22.8 2.2s-4.7 17.1 2.2 22.8C163.7 426.2 207.6 448 256 448c106 0 192-86 192-192S362 64 256 64z"/></svg>';
+            icon.innerHTML = '<svg width="20" height="20" viewBox="0 0 512 512" fill="#41007F" class="history-revert-icon" style="display:inline-block;vertical-align:middle;"><path d="M256 64C150 64 64 150 64 256H16l80 96 80-96h-48c0-88.2 71.8-160 160-160s160 71.8 160 160-71.8 160-160 160c-39.7 0-76.1-14.3-104.2-37.9-6.9-5.7-17.1-4.7-22.8 2.2s-4.7 17.1 2.2 22.8C163.7 426.2 207.6 448 256 448c106 0 192-86 192-192S362 64 256 64z"/></svg>';
             icon.style.float = 'right';
             icon.style.cursor = 'pointer';
             icon.style.marginLeft = '12px';
             icon.style.display = 'inline-flex';
             icon.style.alignItems = 'center';
             icon.title = 'Restore to editor';
+            icon.classList.add('history-revert-icon');
             icon.onclick = (e) => {
                 e.stopPropagation();
                 fieldObj.editor.innerText = item;
