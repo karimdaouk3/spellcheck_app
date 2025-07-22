@@ -940,10 +940,15 @@ class LanguageToolEditor {
     // Add this method to ensure evaluation and rewrite UI updates on box switch
     renderEvaluationAndRewrite(field) {
         const fieldObj = this.fields[field];
-        if (fieldObj.llmLastResult) {
+        // Only show evaluation if the text matches the last evaluated text
+        if (
+            fieldObj.llmLastResult &&
+            fieldObj.llmLastResult.original_text &&
+            fieldObj.editor.innerText.trim() === fieldObj.llmLastResult.original_text.trim()
+        ) {
             this.displayLLMResult(fieldObj.llmLastResult, false, field);
         } else {
-            // Clear right side if no evaluation
+            // Clear right side if no valid evaluation for current text
             const evalBox = document.getElementById('llm-eval-box');
             if (evalBox) {
                 evalBox.innerHTML = '';
