@@ -126,11 +126,11 @@ class LanguageToolEditor {
         if (header) {
             let headerText = '';
             if (this.activeField === 'editor') {
-                headerText = 'Problem Statement';
+                headerText = 'Problem Statement Feedback';
             } else if (this.activeField === 'editor2') {
-                headerText = 'FSR Daily Notes';
+                headerText = 'FSR Daily Notes Feedback';
             } else {
-                headerText = 'Active Editor';
+                headerText = 'Active Editor Feedback';
             }
             header.textContent = headerText;
         }
@@ -684,9 +684,9 @@ class LanguageToolEditor {
             // Collapsible toggle button (chevron absolutely positioned left)
             html += `<div class="llm-score" style="font-size:1.35em;font-weight:700;margin-bottom:0;background:#fff;color:#41007F;padding:10px 0 10px 0;border-radius:8px;text-align:center;box-shadow:0 1px 4px rgba(33,0,127,0.07);letter-spacing:0.5px;display:flex;align-items:center;justify-content:center;gap:10px;position:relative;">\n` +
                 `<button id="eval-collapse-btn" title="Click to expand for details" style="background:none;border:none;cursor:pointer;padding:0 6px;outline:none;display:inline-flex;align-items:center;justify-content:center;position:absolute;left:0;top:50%;transform:translateY(-50%) ${isCollapsed ? 'rotate(-90deg)' : ''};height:100%;z-index:2;">\n` +
-                `<span id="eval-chevron" style="font-size:1.3em;transition:transform 0.2s;\">&#9660;</span>\n` +
+                `<span id="eval-chevron" style="font-size:1.3em;transition:transform 0.2s;">&#9660;</span>\n` +
                 `</button>\n` +
-                `<span style="margin-left:32px;">${inputType} Score: <span style="color:#00A7E1;font-size:1.2em;">${passed}</span> <span style="color:#888;font-size:1.1em;">/</span> <span style="color:#00A7E1;">${total}</span></span>\n` +
+                `<span style="margin-left:32px;">Score: <span style="color:#00A7E1;font-size:1.4em;">${passed}</span> <span style="color:#888;font-size:1.2em;">/</span> <span style="color:#00A7E1;font-size:1.4em;">${total}</span></span>\n` +
                 `</div>`;
             // Only show the rest if not collapsed
             if (!isCollapsed) {
