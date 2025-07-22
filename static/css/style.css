@@ -298,6 +298,7 @@ body {
     font-weight: 500;
     cursor: pointer;
     transition: background 0.2s;
+    margin-bottom: 18px;
 }
 .llm-submit-button:hover {
     background: #41007F;
