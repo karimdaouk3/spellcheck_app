@@ -590,6 +590,8 @@ class LanguageToolEditor {
     async submitToLLM(text, answers = null, field = this.activeField) {
         const fieldObj = this.fields[field];
         fieldObj.llmInProgress = true;
+        if (!this.evalCollapsed) this.evalCollapsed = {};
+        this.evalCollapsed[field] = true; // Collapse by default after review/rewrite
         if (answers) {
             this.showStatus('Rewriting...', 'checking', true);
         } else {
