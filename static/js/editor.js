@@ -686,7 +686,7 @@ class LanguageToolEditor {
                 `<button id="eval-collapse-btn" title="Click to expand for details" style="background:none;border:none;cursor:pointer;padding:0 6px;outline:none;display:inline-flex;align-items:center;justify-content:center;position:absolute;left:0;top:50%;transform:translateY(-50%) ${isCollapsed ? 'rotate(-90deg)' : ''};height:100%;z-index:2;">\n` +
                 `<span id="eval-chevron" style="font-size:1.3em;transition:transform 0.2s;">&#9660;</span>\n` +
                 `</button>\n` +
-                `<span style="margin-left:32px;font-size:1.5em;">Score: <span style="color:#00A7E1;font-size:1.4em;">${passed}</span> <span style="color:#888;font-size:1.2em;">/</span> <span style="color:#00A7E1;font-size:1.4em;">${total}</span></span>\n` +
+                `<span style="margin-left:32px;font-size:1.5em;">Score: <span style="color:#00A7E1;">${passed}</span> <span style="color:#888;">/</span> <span style="color:#00A7E1;">${total}</span></span>\n` +
                 `</div>`;
             // Only show the rest if not collapsed
             if (!isCollapsed) {
