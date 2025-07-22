@@ -957,18 +957,18 @@ class LanguageToolEditor {
 
     renderHistory() {
         if (!this.historyList) return;
-        this.historyList.innerHTML = '';
-        // Update history header label
-        const headerLabel = document.getElementById('history-header-label');
-        if (headerLabel) {
-            if (this.activeField === 'editor') {
-                headerLabel.textContent = 'Problem Statement History';
-            } else if (this.activeField === 'editor2') {
-                headerLabel.textContent = 'FSR Daily Notes History';
-            } else {
-                headerLabel.textContent = 'History';
-            }
+        // Set the history header dynamically
+        const header = document.getElementById('history-header');
+        let inputType = '';
+        if (this.activeField === 'editor') {
+            inputType = 'Problem Statement';
+        } else if (this.activeField === 'editor2') {
+            inputType = 'FSR Daily Notes';
+        } else {
+            inputType = 'Input';
         }
+        if (header) header.textContent = inputType + ' History';
+        this.historyList.innerHTML = '';
         const fieldObj = this.fields[this.activeField];
         fieldObj.history.forEach((item, idx) => {
             const li = document.createElement('li');
@@ -983,14 +983,10 @@ class LanguageToolEditor {
             icon.style.display = 'inline-flex';
             icon.style.alignItems = 'center';
             icon.title = 'Restore to editor';
-            icon.classList.add('history-revert-icon');
             icon.onclick = (e) => {
                 e.stopPropagation();
                 fieldObj.editor.innerText = item;
             };
-            // Add hover effect
-            icon.addEventListener('mouseenter', () => icon.classList.add('history-revert-hover'));
-            icon.addEventListener('mouseleave', () => icon.classList.remove('history-revert-hover'));
             li.appendChild(icon);
             // Remove item click/hover highlight
             li.style.cursor = 'default';
