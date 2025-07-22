@@ -939,24 +939,22 @@ class LanguageToolEditor {
 
     // Add this method to ensure evaluation and rewrite UI updates on box switch
     renderEvaluationAndRewrite(field) {
+        // Defensive: clear right side first to avoid flicker of wrong data
+        const evalBox = document.getElementById('llm-eval-box');
+        if (evalBox) {
+            evalBox.innerHTML = '';
+            evalBox.style.display = 'none';
+        }
+        const rewritePopup = document.getElementById('rewrite-popup');
+        if (rewritePopup) {
+            rewritePopup.style.display = 'none';
+        }
+        // Now show the correct evaluation if it exists for this field
         const fieldObj = this.fields[field];
-        // Only show evaluation if the text matches the last evaluated text
-        if (
-            fieldObj.llmLastResult &&
-            fieldObj.llmLastResult.original_text &&
-            fieldObj.editor.innerText.trim() === fieldObj.llmLastResult.original_text.trim()
-        ) {
-            this.displayLLMResult(fieldObj.llmLastResult, false, field);
-        } else {
-            // Clear right side if no valid evaluation for current text
-            const evalBox = document.getElementById('llm-eval-box');
-            if (evalBox) {
-                evalBox.innerHTML = '';
-                evalBox.style.display = 'none';
-            }
-            const rewritePopup = document.getElementById('rewrite-popup');
-            if (rewritePopup) {
-                rewritePopup.style.display = 'none';
+        if (fieldObj.llmLastResult) {
+            // Only show if the result matches the current editor content (avoid showing stale result)
+            if (fieldObj.llmLastResult.original_text === undefined || fieldObj.llmLastResult.original_text === fieldObj.editor.innerText) {
+                this.displayLLMResult(fieldObj.llmLastResult, false, field);
             }
         }
     }
