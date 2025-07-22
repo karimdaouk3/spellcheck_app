@@ -12,12 +12,39 @@ class LanguageToolEditor {
         this.llmAnswers = {};
         this.llmLastResult = null;
         this.history = [];
+        this.activeField = 'editor'; // 'editor' or 'editor2'
+        this.fields = {
+            editor: {
+                editor: document.getElementById('editor'),
+                micBtn: document.getElementById('mic-btn'),
+                submitBtn: document.getElementById('llm-submit'),
+                highlightOverlay: null,
+                ignoredSuggestions: new Set(),
+                history: [],
+                llmQuestions: [],
+                llmAnswers: {},
+                llmLastResult: null
+            },
+            editor2: {
+                editor: document.getElementById('editor2'),
+                micBtn: document.getElementById('mic-btn-2'),
+                submitBtn: document.getElementById('llm-submit-2'),
+                highlightOverlay: null,
+                ignoredSuggestions: new Set(),
+                history: [],
+                llmQuestions: [],
+                llmAnswers: {},
+                llmLastResult: null
+            }
+        };
         this.historyPanel = document.getElementById('history-panel');
         this.historyList = document.getElementById('history-list');
         this.toggleHistoryBtn = document.getElementById('toggle-history');
         this.openHistoryBtn = document.getElementById('open-history-btn');
         this.historyMenuIcon = document.getElementById('history-menu-icon');
         this.historyCloseIcon = document.getElementById('history-close-icon');
+        this.popup = document.getElementById('popup');
+        this.status = document.getElementById('status');
         if (this.toggleHistoryBtn) {
             this.toggleHistoryBtn.addEventListener('click', () => {
                 this.historyPanel.classList.add('closed');
@@ -36,258 +63,261 @@ class LanguageToolEditor {
         }
         this.renderHistory();
         
-        this.editor = document.getElementById('editor');
-        this.popup = document.getElementById('popup');
-        this.status = document.getElementById('status');
-        
         this.initEventListeners();
-        this.createHighlightOverlay();
+        this.createHighlightOverlay('editor');
+        this.createHighlightOverlay('editor2');
     }
     
-    createHighlightOverlay() {
+    createHighlightOverlay(field) {
+        const fieldObj = this.fields[field];
         // Remove any existing overlay
-        if (this.highlightOverlay && this.highlightOverlay.parentElement) {
-            this.highlightOverlay.parentElement.removeChild(this.highlightOverlay);
+        if (fieldObj.highlightOverlay && fieldObj.highlightOverlay.parentElement) {
+            fieldObj.highlightOverlay.parentElement.removeChild(fieldObj.highlightOverlay);
         }
         // Create overlay container
-        this.highlightOverlay = document.createElement('div');
-        this.highlightOverlay.className = 'highlight-overlay';
-        this.highlightOverlay.style.position = 'absolute';
-        this.highlightOverlay.style.top = '0';
-        this.highlightOverlay.style.left = '0';
-        this.highlightOverlay.style.width = '100%';
-        this.highlightOverlay.style.height = '100%';
-        this.highlightOverlay.style.pointerEvents = 'none';
-        this.highlightOverlay.style.zIndex = '1';
-        this.highlightOverlay.style.fontFamily = this.editor.style.fontFamily || 'inherit';
-        this.highlightOverlay.style.fontSize = this.editor.style.fontSize || '16px';
-        this.highlightOverlay.style.lineHeight = this.editor.style.lineHeight || '1.5';
-        this.highlightOverlay.style.padding = '15px';
-        this.highlightOverlay.style.boxSizing = 'border-box';
-        this.highlightOverlay.style.whiteSpace = 'pre-wrap';
-        this.highlightOverlay.style.wordBreak = 'break-word';
-        this.highlightOverlay.style.background = 'transparent';
-        this.editor.parentElement.appendChild(this.highlightOverlay);
-        this.editor.parentElement.style.position = 'relative';
+        fieldObj.highlightOverlay = document.createElement('div');
+        fieldObj.highlightOverlay.className = 'highlight-overlay';
+        fieldObj.highlightOverlay.style.position = 'absolute';
+        fieldObj.highlightOverlay.style.top = '0';
+        fieldObj.highlightOverlay.style.left = '0';
+        fieldObj.highlightOverlay.style.width = '100%';
+        fieldObj.highlightOverlay.style.height = '100%';
+        fieldObj.highlightOverlay.style.pointerEvents = 'none';
+        fieldObj.highlightOverlay.style.zIndex = '1';
+        fieldObj.highlightOverlay.style.fontFamily = fieldObj.editor.style.fontFamily || 'inherit';
+        fieldObj.highlightOverlay.style.fontSize = fieldObj.editor.style.fontSize || '16px';
+        fieldObj.highlightOverlay.style.lineHeight = fieldObj.editor.style.lineHeight || '1.5';
+        fieldObj.highlightOverlay.style.padding = '15px';
+        fieldObj.highlightOverlay.style.boxSizing = 'border-box';
+        fieldObj.highlightOverlay.style.whiteSpace = 'pre-wrap';
+        fieldObj.highlightOverlay.style.wordBreak = 'break-word';
+        fieldObj.highlightOverlay.style.background = 'transparent';
+        fieldObj.editor.parentElement.appendChild(fieldObj.highlightOverlay);
+        fieldObj.editor.parentElement.style.position = 'relative';
         // Always scroll overlay to top when created
-        this.highlightOverlay.scrollTop = 0;
+        fieldObj.highlightOverlay.scrollTop = 0;
     }
     
     initEventListeners() {
-        // Input event for checking text
-        this.editor.addEventListener('input', () => {
-            if (!this.overlayHidden) {
-                this.updateHighlights(); // Only update overlay if not hidden
-            }
-            this.debounceCheck();
-        });
-        // Force plain text paste (strip formatting)
-        this.editor.addEventListener('paste', (e) => {
-            e.preventDefault();
-            const text = (e.clipboardData || window.clipboardData).getData('text');
-            // Insert plain text at cursor position
-            document.execCommand('insertText', false, text);
-        });
-        // Placeholder logic for contenteditable
-        this.editor.addEventListener('focus', () => {
-            if (this.editor.innerText.trim() === '') {
-                this.editor.classList.remove('empty');
-            }
-        });
-        this.editor.addEventListener('blur', () => {
-            if (this.editor.innerText.trim() === '') {
-                this.editor.classList.add('empty');
-            }
-        });
-        // Scroll synchronization (if needed)
-        this.editor.addEventListener('scroll', () => {
-            requestAnimationFrame(() => {
-                this.syncOverlayScroll();
-            });
-        });
-        // Hide popup when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!this.popup.contains(e.target) && !e.target.classList.contains('highlight-span')) {
-                this.hidePopup();
-            }
-        });
-        // Escape key to hide popup
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                this.hidePopup();
-            }
-        });
-        // Initial check if there's existing text
-        if (this.editor.innerText.trim()) {
-            this.checkText();
-        }
-
-        this.popup.querySelector('.ignore-button').addEventListener('click', () => {
-            this.ignoreCurrentSuggestion();
-        });
-
-        // LLM submit button event
-        const llmButton = document.getElementById('llm-submit');
-        if (llmButton) {
-            llmButton.addEventListener('click', () => {
-                const text = this.editor.innerText;
-                if (text.replace(/\s/g, '').length < 20) {
-                    alert('Please make sure your problem statement is meaningful and comprehensive (at least 20 characters)');
-                    return;
+        ['editor', 'editor2'].forEach(field => {
+            const fieldObj = this.fields[field];
+            // Input event for checking text
+            fieldObj.editor.addEventListener('input', () => {
+                if (!this.overlayHidden) {
+                    this.updateHighlights(); // Only update overlay if not hidden
                 }
-                this.submitToLLM(text); // Only text on first submit
+                this.debounceCheck();
             });
-        }
-
-        // Microphone button logic
-        const micBtn = document.getElementById('mic-btn');
-        let isRecording = false;
-        let mediaRecorder = null;
-        let audioChunks = [];
-        if (micBtn) {
-            micBtn.addEventListener('click', async () => {
-                if (!isRecording) {
-                    // Always clear editor and show status immediately
-                    this.editor.innerText = '';
-                    this.highlightOverlay.innerHTML = '';
-                    // Set placeholder to 'Listening...'
-                    this.editor.setAttribute('data-placeholder', 'Listening...');
-                    this.editor.classList.add('empty');
-                    this.editor.setAttribute('contenteditable', 'false');
-                    try {
-                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                        // Try to use 'audio/wav' for MediaRecorder if supported
-                        let mimeType = '';
-                        if (MediaRecorder.isTypeSupported('audio/wav')) {
-                            mimeType = 'audio/wav';
-                        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
-                            mimeType = 'audio/webm';
-                        } else {
-                            mimeType = '';
-                        }
-                        mediaRecorder = new window.MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-                        audioChunks = [];
-                        mediaRecorder.ondataavailable = (e) => {
-                            if (e.data.size > 0) audioChunks.push(e.data);
-                        };
-                        mediaRecorder.onstop = async () => {
-                            micBtn.style.background = '';
-                            micBtn.style.color = '';
-                            micBtn.disabled = true;
-                            this.showStatus('Processing audio...', 'checking', true);
-                            // Combine audio chunks
-                            let audioBlob = new Blob(audioChunks, { type: mimeType || 'audio/webm' });
-                            // If not wav, try to convert to wav (placeholder)
-                            if (audioBlob.type !== 'audio/wav') {
-                                // Placeholder: conversion to wav (requires external library or server-side)
-                                // For now, just use the original blob
-                                // TODO: Implement client-side wav conversion if needed
-                            }
-                            // Save audio file locally (optional, placeholder)
-                            // Example: download the audio as .wav
-                            // const url = URL.createObjectURL(audioBlob);
-                            // const a = document.createElement('a');
-                            // a.style.display = 'none';
-                            // a.href = url;
-                            // a.download = 'recording.wav';
-                            // document.body.appendChild(a);
-                            // a.click();
-                            // setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 100);
-                            // Send audio to backend
-                            const formData = new FormData();
-                            formData.append('audio', audioBlob, 'recording.wav');
-                            setTimeout(async () => {
-                                try {
-                                    const response = await fetch('/speech-to-text', {
-                                        method: 'POST',
-                                        body: formData
-                                    });
-                                    const data = await response.json();
-                                    this.editor.innerText = data.transcription || '';
-                                    // Restore placeholder
-                                    this.editor.setAttribute('data-placeholder', 'Start typing your text here...');
-                                    if (this.editor.innerText.trim() === '') {
-                                        this.editor.classList.add('empty');
-                                    } else {
-                                        this.editor.classList.remove('empty');
-                                    }
-                                    this.checkText();
-                                    // --- Placeholder: Call LLM with transcription ---
-                                    // Replace this with your actual LLM call logic
-                                    this.llmPlaceholderCall(data.transcription || '');
-                                } catch (e) {
-                                    this.editor.innerText = 'Error: Could not transcribe.';
-                                    this.showStatus('Transcription failed', 'error');
-                                    this.editor.setAttribute('data-placeholder', 'Start typing your text here...');
-                                    this.editor.classList.remove('empty');
-                                }
-                                micBtn.disabled = false;
-                                this.editor.setAttribute('contenteditable', 'true');
-                            }, 1000);
-                        };
-                        mediaRecorder.start();
-                        isRecording = true;
-                        micBtn.style.background = '#ffebee';
-                        micBtn.style.color = '#d32f2f';
-                        // Only show 'Listening...' alert with icon
-                        this.showStatus('Listening...', 'recording', true); // red with icon
-                    } catch (err) {
-                        this.editor.innerText = '';
-                        this.editor.setAttribute('contenteditable', 'true');
-                        this.showStatus('Could not access microphone.', 'error');
-                        alert('Could not access microphone.');
-                        // Restore placeholder
-                        this.editor.setAttribute('data-placeholder', 'Start typing your text here...');
-                        this.editor.classList.add('empty');
-                    }
-                } else {
-                    // Stop recording
-                    if (mediaRecorder && mediaRecorder.state === 'recording') {
-                        mediaRecorder.stop();
-                        isRecording = false;
-                    }
+            // Force plain text paste (strip formatting)
+            fieldObj.editor.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const text = (e.clipboardData || window.clipboardData).getData('text');
+                // Insert plain text at cursor position
+                document.execCommand('insertText', false, text);
+            });
+            // Placeholder logic for contenteditable
+            fieldObj.editor.addEventListener('focus', () => {
+                if (fieldObj.editor.innerText.trim() === '') {
+                    fieldObj.editor.classList.remove('empty');
                 }
             });
-        }
-
-        // Accept Rewrite check and dismiss (X) events
-        const acceptRewriteCheck = document.getElementById('accept-rewrite-check');
-        const dismissRewriteX = document.getElementById('dismiss-rewrite-x');
-        const rewritePopup = document.getElementById('rewrite-popup');
-        if (acceptRewriteCheck) {
-            acceptRewriteCheck.addEventListener('click', () => {
-                const rewriteContent = rewritePopup.querySelector('.rewrite-content').textContent;
-                this.editor.innerText = rewriteContent;
-                this.awaitingCheck = true;
-                this.overlayHidden = true;
-                this.highlightOverlay.innerHTML = '';
-                rewritePopup.style.display = 'none';
-                // Wait for DOM update before running checkText
+            fieldObj.editor.addEventListener('blur', () => {
+                if (fieldObj.editor.innerText.trim() === '') {
+                    fieldObj.editor.classList.add('empty');
+                }
+            });
+            // Scroll synchronization (if needed)
+            fieldObj.editor.addEventListener('scroll', () => {
                 requestAnimationFrame(() => {
-                    this.checkText();
+                    this.syncOverlayScroll();
                 });
             });
-        }
-        if (dismissRewriteX) {
-            dismissRewriteX.addEventListener('click', () => {
-                rewritePopup.style.display = 'none';
+            // Hide popup when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!this.popup.contains(e.target) && !e.target.classList.contains('highlight-span')) {
+                    this.hidePopup();
+                }
             });
-        }
+            // Escape key to hide popup
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    this.hidePopup();
+                }
+            });
+            // Initial check if there's existing text
+            if (fieldObj.editor.innerText.trim()) {
+                this.checkText(field);
+            }
+
+            this.popup.querySelector('.ignore-button').addEventListener('click', () => {
+                this.ignoreCurrentSuggestion(field);
+            });
+
+            // LLM submit button event
+            const llmButton = fieldObj.submitBtn;
+            if (llmButton) {
+                llmButton.addEventListener('click', () => {
+                    this.activeField = field;
+                    const text = fieldObj.editor.innerText;
+                    if (text.replace(/\s/g, '').length < 20) {
+                        alert('Please make sure your problem statement is meaningful and comprehensive (at least 20 characters)');
+                        return;
+                    }
+                    this.submitToLLM(text); // Only text on first submit
+                });
+            }
+
+            // Microphone button logic
+            const micBtn = fieldObj.micBtn;
+            let isRecording = false;
+            let mediaRecorder = null;
+            let audioChunks = [];
+            if (micBtn) {
+                micBtn.addEventListener('click', async () => {
+                    this.activeField = field;
+                    if (!isRecording) {
+                        // Always clear editor and show status immediately
+                        fieldObj.editor.innerText = '';
+                        fieldObj.highlightOverlay.innerHTML = '';
+                        // Set placeholder to 'Listening...'
+                        fieldObj.editor.setAttribute('data-placeholder', 'Listening...');
+                        fieldObj.editor.classList.add('empty');
+                        fieldObj.editor.setAttribute('contenteditable', 'false');
+                        try {
+                            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                            // Try to use 'audio/wav' for MediaRecorder if supported
+                            let mimeType = '';
+                            if (MediaRecorder.isTypeSupported('audio/wav')) {
+                                mimeType = 'audio/wav';
+                            } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+                                mimeType = 'audio/webm';
+                            } else {
+                                mimeType = '';
+                            }
+                            mediaRecorder = new window.MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+                            audioChunks = [];
+                            mediaRecorder.ondataavailable = (e) => {
+                                if (e.data.size > 0) audioChunks.push(e.data);
+                            };
+                            mediaRecorder.onstop = async () => {
+                                micBtn.style.background = '';
+                                micBtn.style.color = '';
+                                micBtn.disabled = true;
+                                this.showStatus('Processing audio...', 'checking', true);
+                                // Combine audio chunks
+                                let audioBlob = new Blob(audioChunks, { type: mimeType || 'audio/webm' });
+                                // If not wav, try to convert to wav (placeholder)
+                                if (audioBlob.type !== 'audio/wav') {
+                                    // Placeholder: conversion to wav (requires external library or server-side)
+                                    // For now, just use the original blob
+                                    // TODO: Implement client-side wav conversion if needed
+                                }
+                                // Save audio file locally (optional, placeholder)
+                                // Example: download the audio as .wav
+                                // const url = URL.createObjectURL(audioBlob);
+                                // const a = document.createElement('a');
+                                // a.style.display = 'none';
+                                // a.href = url;
+                                // a.download = 'recording.wav';
+                                // document.body.appendChild(a);
+                                // a.click();
+                                // setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 100);
+                                // Send audio to backend
+                                const formData = new FormData();
+                                formData.append('audio', audioBlob, 'recording.wav');
+                                setTimeout(async () => {
+                                    try {
+                                        const response = await fetch('/speech-to-text', {
+                                            method: 'POST',
+                                            body: formData
+                                        });
+                                        const data = await response.json();
+                                        fieldObj.editor.innerText = data.transcription || '';
+                                        // Restore placeholder
+                                        fieldObj.editor.setAttribute('data-placeholder', 'Start typing your text here...');
+                                        if (fieldObj.editor.innerText.trim() === '') {
+                                            fieldObj.editor.classList.add('empty');
+                                        } else {
+                                            fieldObj.editor.classList.remove('empty');
+                                        }
+                                        this.checkText(field);
+                                        // --- Placeholder: Call LLM with transcription ---
+                                        // Replace this with your actual LLM call logic
+                                        this.llmPlaceholderCall(data.transcription || '');
+                                    } catch (e) {
+                                        fieldObj.editor.innerText = 'Error: Could not transcribe.';
+                                        this.showStatus('Transcription failed', 'error');
+                                        fieldObj.editor.setAttribute('data-placeholder', 'Start typing your text here...');
+                                        fieldObj.editor.classList.remove('empty');
+                                    }
+                                    micBtn.disabled = false;
+                                    fieldObj.editor.setAttribute('contenteditable', 'true');
+                                }, 1000);
+                            };
+                            mediaRecorder.start();
+                            isRecording = true;
+                            micBtn.style.background = '#ffebee';
+                            micBtn.style.color = '#d32f2f';
+                            // Only show 'Listening...' alert with icon
+                            this.showStatus('Listening...', 'recording', true); // red with icon
+                        } catch (err) {
+                            fieldObj.editor.innerText = '';
+                            fieldObj.editor.setAttribute('contenteditable', 'true');
+                            this.showStatus('Could not access microphone.', 'error');
+                            alert('Could not access microphone.');
+                            // Restore placeholder
+                            fieldObj.editor.setAttribute('data-placeholder', 'Start typing your text here...');
+                            fieldObj.editor.classList.add('empty');
+                        }
+                    } else {
+                        // Stop recording
+                        if (mediaRecorder && mediaRecorder.state === 'recording') {
+                            mediaRecorder.stop();
+                            isRecording = false;
+                        }
+                    }
+                });
+            }
+
+            // Accept Rewrite check and dismiss (X) events
+            const acceptRewriteCheck = document.getElementById('accept-rewrite-check');
+            const dismissRewriteX = document.getElementById('dismiss-rewrite-x');
+            const rewritePopup = document.getElementById('rewrite-popup');
+            if (acceptRewriteCheck) {
+                acceptRewriteCheck.addEventListener('click', () => {
+                    const rewriteContent = rewritePopup.querySelector('.rewrite-content').textContent;
+                    fieldObj.editor.innerText = rewriteContent;
+                    this.awaitingCheck = true;
+                    this.overlayHidden = true;
+                    fieldObj.highlightOverlay.innerHTML = '';
+                    rewritePopup.style.display = 'none';
+                    // Wait for DOM update before running checkText
+                    requestAnimationFrame(() => {
+                        this.checkText(field);
+                    });
+                });
+            }
+            if (dismissRewriteX) {
+                dismissRewriteX.addEventListener('click', () => {
+                    rewritePopup.style.display = 'none';
+                });
+            }
+        });
     }
     
-    debounceCheck() {
+    debounceCheck(field) {
         this.showStatus('Checking...', 'checking');
         clearTimeout(this.debounceTimer);
         this.debounceTimer = setTimeout(() => {
-            this.checkText();
+            this.checkText(field);
         }, 1000);
     }
     
-    async checkText() {
-        const text = this.editor.innerText;
+    async checkText(field) {
+        const text = this.fields[field].editor.innerText;
         
         if (!text.trim()) {
-            this.clearSuggestions();
+            this.clearSuggestions(field);
             if (!this.llmInProgress) this.showStatus('Ready');
             return;
         }
@@ -304,13 +334,13 @@ class LanguageToolEditor {
             // Filter out ignored suggestions using robust key
             const suggestionsRaw = await response.json();
             const suggestions = suggestionsRaw.filter(
-                s => !this.ignoredSuggestions.has(this.getSuggestionKey(s, text))
+                s => !this.fields[field].ignoredSuggestions.has(this.getSuggestionKey(s, text))
             );
             
             this.currentSuggestions = suggestions;
             this.awaitingCheck = false;
             this.overlayHidden = false;
-            this.updateHighlights();
+            this.updateHighlights(field);
             
             const count = suggestions.length;
             if (!this.llmInProgress) {
@@ -327,26 +357,27 @@ class LanguageToolEditor {
         }
     }
     
-    clearSuggestions() {
+    clearSuggestions(field) {
         this.currentSuggestions = [];
-        this.updateHighlights();
+        this.updateHighlights(field);
     }
     
-    updateHighlights() {
+    updateHighlights(field) {
+        const fieldObj = this.fields[field];
         if (this.awaitingCheck || this.overlayHidden) {
-            this.highlightOverlay.innerHTML = '';
+            fieldObj.highlightOverlay.innerHTML = '';
             // Scroll overlay and editor to top only when it is shown (even if empty)
-            this.highlightOverlay.scrollTop = 0;
-            this.editor.scrollTop = 0;
+            fieldObj.highlightOverlay.scrollTop = 0;
+            fieldObj.editor.scrollTop = 0;
             return;
         }
-        const text = this.editor.innerText;
+        const text = fieldObj.editor.innerText;
         if (this.currentSuggestions.length === 0) {
-            this.highlightOverlay.innerHTML = '';
+            fieldObj.highlightOverlay.innerHTML = '';
             // Scroll overlay and editor to top after DOM update
             requestAnimationFrame(() => {
-                this.highlightOverlay.scrollTop = 0;
-                this.editor.scrollTop = 0;
+                fieldObj.highlightOverlay.scrollTop = 0;
+                fieldObj.editor.scrollTop = 0;
             });
             return;
         }
@@ -371,14 +402,14 @@ class LanguageToolEditor {
         });
         // Add any remaining text after the last suggestion
         highlightedText += this.escapeHtml(text.substring(lastIndex));
-        this.highlightOverlay.innerHTML = highlightedText;
+        fieldObj.highlightOverlay.innerHTML = highlightedText;
         // Scroll overlay and editor to top after DOM update
         requestAnimationFrame(() => {
-            this.highlightOverlay.scrollTop = 0;
-            this.editor.scrollTop = 0;
+            fieldObj.highlightOverlay.scrollTop = 0;
+            fieldObj.editor.scrollTop = 0;
         });
         // Attach click handlers to highlights
-        const spans = this.highlightOverlay.querySelectorAll('.highlight-span');
+        const spans = fieldObj.highlightOverlay.querySelectorAll('.highlight-span');
         spans.forEach(span => {
             span.style.borderRadius = '2px';
             span.style.cursor = 'pointer';
@@ -388,7 +419,7 @@ class LanguageToolEditor {
                 e.stopPropagation();
                 const suggestionIndex = parseInt(span.getAttribute('data-suggestion-index'));
                 const suggestion = this.currentSuggestions[suggestionIndex];
-                this.showPopup(suggestion, e.clientX, e.clientY);
+                this.showPopup(suggestion, e.clientX, e.clientY, field);
             });
         });
     }
@@ -399,7 +430,7 @@ class LanguageToolEditor {
         return div.innerHTML;
     }
     
-    showPopup(suggestion, x, y) {
+    showPopup(suggestion, x, y, field) {
         const messageDiv = this.popup.querySelector('.popup-message');
         const suggestionsDiv = this.popup.querySelector('.suggestions-list');
         
@@ -415,7 +446,7 @@ class LanguageToolEditor {
                 const item = document.createElement('div');
                 item.className = 'suggestion-item';
                 item.textContent = replacement;
-                item.onclick = () => this.applySuggestion(suggestion, replacement);
+                item.onclick = () => this.applySuggestion(suggestion, replacement, field);
                 suggestionsDiv.appendChild(item);
             });
         } else {
@@ -464,9 +495,9 @@ class LanguageToolEditor {
         if (suggestion.errorType === 'spelling') {
             ignoreBtn.insertAdjacentElement('afterend', blueBtn);
             blueBtn.onclick = () => {
-                const text = this.editor.innerText.substring(suggestion.offset, suggestion.offset + suggestion.length);
-                this.saveTerm(text);
-                this.ignoreCurrentSuggestion();
+                const text = this.fields[field].editor.innerText.substring(suggestion.offset, suggestion.offset + suggestion.length);
+                this.saveTerm(text, field);
+                this.ignoreCurrentSuggestion(field);
                 this.hidePopup();
                 this.showStatus(`"${text}" added to KLA term bank`, 'success');
             };
@@ -486,36 +517,36 @@ class LanguageToolEditor {
         this.currentMention = null;
     }
     
-    applySuggestion(suggestion, replacement) {
+    applySuggestion(suggestion, replacement, field) {
         // Save selection position and scroll position
         const selection = window.getSelection();
         const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
-        const scrollTop = this.editor.scrollTop;
-        const scrollLeft = this.editor.scrollLeft;
-        const text = this.editor.innerText;
+        const scrollTop = this.fields[field].editor.scrollTop;
+        const scrollLeft = this.fields[field].editor.scrollLeft;
+        const text = this.fields[field].editor.innerText;
         const before = text.substring(0, suggestion.offset);
         const after = text.substring(suggestion.offset + suggestion.length);
-        this.editor.innerText = before + replacement + after;
+        this.fields[field].editor.innerText = before + replacement + after;
         // Restore cursor position after replacement
         const newPosition = suggestion.offset + replacement.length;
-        this.setCursorPosition(newPosition);
+        this.setCursorPosition(newPosition, field);
         // Restore scroll position
-        this.editor.scrollTop = scrollTop;
-        this.editor.scrollLeft = scrollLeft;
+        this.fields[field].editor.scrollTop = scrollTop;
+        this.fields[field].editor.scrollLeft = scrollLeft;
         // Remove the suggestion from currentSuggestions so highlight disappears immediately
-        const newText = this.editor.innerText;
+        const newText = this.fields[field].editor.innerText;
         const key = this.getSuggestionKey(suggestion, newText);
         this.currentSuggestions = this.currentSuggestions.filter(
             s => this.getSuggestionKey(s, newText) !== key
         );
         this.overlayHidden = true;
         this.awaitingCheck = true;
-        this.updateHighlights();
+        this.updateHighlights(field);
         requestAnimationFrame(() => this.syncOverlayScroll()); // Ensure overlay is synced after browser updates scroll
         this.hidePopup();
         this.showStatus('Suggestion applied');
-        this.editor.focus();
-        this.debounceCheck();
+        this.fields[field].editor.focus();
+        this.debounceCheck(field);
     }
     
     showStatus(message, type = 'success', persist = false, removeLoading = false) {
@@ -542,10 +573,10 @@ class LanguageToolEditor {
         }
     }
 
-    setCursorPosition(pos) {
+    setCursorPosition(pos, field) {
         // Set cursor at character offset 'pos' in the contenteditable div
-        this.editor.focus();
-        const textNode = this.editor.firstChild;
+        this.fields[field].editor.focus();
+        const textNode = this.fields[field].editor.firstChild;
         if (textNode && textNode.nodeType === Node.TEXT_NODE) {
             const range = document.createRange();
             range.setStart(textNode, Math.min(pos, textNode.length));
@@ -562,16 +593,16 @@ class LanguageToolEditor {
         return `${errorText}:${suggestion.ruleId}:${suggestion.message}`;
     }
 
-    ignoreCurrentSuggestion() {
+    ignoreCurrentSuggestion(field) {
         if (this.currentMention) {
-            const text = this.editor.innerText;
+            const text = this.fields[field].editor.innerText;
             const key = this.getSuggestionKey(this.currentMention, text);
-            this.ignoredSuggestions.add(key);
+            this.fields[field].ignoredSuggestions.add(key);
             // Remove from currentSuggestions and update highlights
             this.currentSuggestions = this.currentSuggestions.filter(
                 s => this.getSuggestionKey(s, text) !== key
             );
-            this.updateHighlights();
+            this.updateHighlights(field);
         }
         this.hidePopup();
     }
@@ -633,7 +664,7 @@ class LanguageToolEditor {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    text: this.editor.innerText,
+                    text: this.fields[this.activeField].editor.innerText,
                     score: `${passed}/${total}`,
                     criteria: keys.map(key => ({
                         name: key,
@@ -777,7 +808,7 @@ class LanguageToolEditor {
                             // Log rewrite submission
                             if (this.llmQuestions && this.llmQuestions.length > 0) {
                                 const logArr = this.llmQuestions.map(q => ({
-                                    original_text: this.editor.innerText,
+                                    original_text: this.fields[this.activeField].editor.innerText,
                                     criteria: q.criteria,
                                     question: q.question,
                                     user_answer: this.llmAnswers[q.criteria] || ''
@@ -789,7 +820,7 @@ class LanguageToolEditor {
                                 });
                             }
                             // Resubmit to LLM with answers
-                            this.submitToLLM(this.editor.innerText, this.llmAnswers);
+                            this.submitToLLM(this.fields[this.activeField].editor.innerText, this.llmAnswers);
                         };
                     }
                 }, 100);
@@ -808,17 +839,17 @@ class LanguageToolEditor {
             }
             if (rewrite) {
                 // Add the version that was submitted (before rewrite) to history
-                this.addToHistory(this.editor.innerText);
+                this.addToHistory(this.fields[this.activeField].editor.innerText);
                 // Replace the editor content with the rewrite
-                this.editor.innerText = rewrite;
+                this.fields[this.activeField].editor.innerText = rewrite;
                 // Hide overlay immediately to prevent flash of old highlights
                 this.overlayHidden = true;
-                this.highlightOverlay.innerHTML = '';
+                this.updateHighlights(this.activeField);
                 // Hide the rewrite popup and overlay
                 rewritePopup.style.display = 'none';
                 evalBox.style.display = 'none'; // Hide evaluation box as well
                 // Update overlay for new text
-                this.checkText();
+                this.checkText(this.activeField);
                 // Trigger a review (LLM evaluation) for the new text
                 this.submitToLLM(rewrite);
             } else {
@@ -832,7 +863,7 @@ class LanguageToolEditor {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const criteria = btn.getAttribute('data-criteria');
-                const text = this.editor.innerText;
+                const text = this.fields[this.activeField].editor.innerText;
                 // Show feedback box if not already present
                 let card = btn.closest('.llm-section');
                 if (!card) return;
@@ -902,7 +933,7 @@ class LanguageToolEditor {
         // Example: this.submitToLLM(transcription);
     }
 
-    saveTerm(term) {
+    saveTerm(term, field) {
         // Send the term to the backend
         fetch('/terms', {
             method: 'POST',
@@ -943,7 +974,7 @@ class LanguageToolEditor {
             icon.title = 'Restore to editor';
             icon.onclick = (e) => {
                 e.stopPropagation();
-                this.editor.innerText = item;
+                this.fields[this.activeField].editor.innerText = item;
             };
             li.appendChild(icon);
             // Remove item click/hover highlight
