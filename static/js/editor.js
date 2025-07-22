@@ -886,6 +886,9 @@ class LanguageToolEditor {
         .then(res => {
             if (!res.ok) throw new Error('Failed to add term');
             // No need to check for data.terms anymore
+            // Rerun spellcheck for both boxes so new terms are no longer highlighted
+            this.checkText('editor');
+            this.checkText('editor2');
         })
         .catch(() => {
             this.showStatus('Failed to add term', 'error');
