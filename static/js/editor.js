@@ -575,6 +575,10 @@ class LanguageToolEditor {
                 body: JSON.stringify(body)
             });
             const data = await response.json();
+            // Always store the original text for staleness check
+            if (typeof data.result === 'object') {
+                data.result.original_text = text;
+            }
             fieldObj.llmLastResult = data.result;
             this.displayLLMResult(data.result, answers !== null, field);
         } catch (e) {
@@ -937,7 +941,7 @@ class LanguageToolEditor {
         });
     }
 
-    // Add this method to ensure evaluation and rewrite UI updates on box switch
+    // When switching boxes, always clear rewrite result if it was just shown
     renderEvaluationAndRewrite(field) {
         // Defensive: clear right side first to avoid flicker of wrong data
         const evalBox = document.getElementById('llm-eval-box');
@@ -951,6 +955,10 @@ class LanguageToolEditor {
         }
         // Now show the correct evaluation if it exists for this field
         const fieldObj = this.fields[field];
+        // If the last result was a rewrite, and the editor content doesn't match, clear it
+        if (fieldObj.llmLastResult && fieldObj.llmLastResult.rewrite && fieldObj.llmLastResult.original_text !== fieldObj.editor.innerText) {
+            fieldObj.llmLastResult = null;
+        }
         if (fieldObj.llmLastResult) {
             // Only show if the result matches the current editor content (avoid showing stale result)
             if (fieldObj.llmLastResult.original_text === undefined || fieldObj.llmLastResult.original_text === fieldObj.editor.innerText) {
