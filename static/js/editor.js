@@ -62,6 +62,10 @@ class LanguageToolEditor {
                     const text = (e.clipboardData || window.clipboardData).getData('text');
                     document.execCommand('insertText', false, text);
                 });
+                // Scroll synchronization for overlay
+                ed.addEventListener('scroll', () => {
+                    this.syncOverlayScroll(field);
+                });
             }
         });
         // Submit buttons
@@ -73,7 +77,21 @@ class LanguageToolEditor {
             this.switchField('fsr');
             this.submitToLLM('fsr', this.fields['fsr'].editor.innerText);
         });
-        // History click/restore logic will be handled in renderHistory
+        // Microphone buttons
+        this.initMicButton('problem');
+        this.initMicButton('fsr');
+        // Hide popup when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!this.fields[this.activeField].popup.contains(e.target) && !e.target.classList.contains('highlight-span')) {
+                this.hidePopup(this.activeField);
+            }
+        });
+        // Escape key to hide popup
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.hidePopup(this.activeField);
+            }
+        });
     }
 
     debounceCheck(field) {
@@ -304,7 +322,7 @@ class LanguageToolEditor {
         state.overlayHidden = true;
         state.awaitingCheck = true;
         this.updateHighlights(field);
-        requestAnimationFrame(() => this.syncOverlayScroll()); // Ensure overlay is synced after browser updates scroll
+        requestAnimationFrame(() => this.syncOverlayScroll(field)); // Ensure overlay is synced after browser updates scroll
         this.hidePopup(field);
         this.showStatus(field, 'Suggestion applied');
         state.editor.focus();
@@ -684,8 +702,94 @@ class LanguageToolEditor {
         });
     }
 
-    syncOverlayScroll() {
-        const state = this.fields[this.activeField];
+    initMicButton(field) {
+        const micBtn = document.getElementById(`mic-btn-${field}`);
+        const state = this.fields[field];
+        if (!micBtn) return;
+        let isRecording = false;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        micBtn.addEventListener('click', async () => {
+            if (!isRecording) {
+                // Always clear editor and show status immediately
+                state.editor.innerText = '';
+                if (state.highlightOverlay) state.highlightOverlay.innerHTML = '';
+                state.editor.setAttribute('data-placeholder', 'Listening...');
+                state.editor.classList.add('empty');
+                state.editor.setAttribute('contenteditable', 'false');
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    let mimeType = '';
+                    if (MediaRecorder.isTypeSupported('audio/wav')) {
+                        mimeType = 'audio/wav';
+                    } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+                        mimeType = 'audio/webm';
+                    } else {
+                        mimeType = '';
+                    }
+                    mediaRecorder = new window.MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+                    audioChunks = [];
+                    mediaRecorder.ondataavailable = (e) => {
+                        if (e.data.size > 0) audioChunks.push(e.data);
+                    };
+                    mediaRecorder.onstop = async () => {
+                        micBtn.style.background = '';
+                        micBtn.style.color = '';
+                        micBtn.disabled = true;
+                        this.showStatus(field, 'Processing audio...', 'checking', true);
+                        let audioBlob = new Blob(audioChunks, { type: mimeType || 'audio/webm' });
+                        const formData = new FormData();
+                        formData.append('audio', audioBlob, 'recording.wav');
+                        setTimeout(async () => {
+                            try {
+                                const response = await fetch('/speech-to-text', {
+                                    method: 'POST',
+                                    body: formData
+                                });
+                                const data = await response.json();
+                                state.editor.innerText = data.transcription || '';
+                                state.editor.setAttribute('data-placeholder', 'Start typing your text here...');
+                                if (state.editor.innerText.trim() === '') {
+                                    state.editor.classList.add('empty');
+                                } else {
+                                    state.editor.classList.remove('empty');
+                                }
+                                this.checkText(field);
+                                this.llmPlaceholderCall(data.transcription || '');
+                            } catch (e) {
+                                state.editor.innerText = 'Error: Could not transcribe.';
+                                this.showStatus(field, 'Transcription failed', 'error');
+                                state.editor.setAttribute('data-placeholder', 'Start typing your text here...');
+                                state.editor.classList.remove('empty');
+                            }
+                            micBtn.disabled = false;
+                            state.editor.setAttribute('contenteditable', 'true');
+                        }, 1000);
+                    };
+                    mediaRecorder.start();
+                    isRecording = true;
+                    micBtn.style.background = '#ffebee';
+                    micBtn.style.color = '#d32f2f';
+                    this.showStatus(field, 'Listening...', 'recording', true);
+                } catch (err) {
+                    state.editor.innerText = '';
+                    state.editor.setAttribute('contenteditable', 'true');
+                    this.showStatus(field, 'Could not access microphone.', 'error');
+                    alert('Could not access microphone.');
+                    state.editor.setAttribute('data-placeholder', 'Start typing your text here...');
+                    state.editor.classList.add('empty');
+                }
+            } else {
+                if (mediaRecorder && mediaRecorder.state === 'recording') {
+                    mediaRecorder.stop();
+                    isRecording = false;
+                }
+            }
+        });
+    }
+
+    syncOverlayScroll(field) {
+        const state = this.fields[field];
         if (state.highlightOverlay && state.editor) {
             state.highlightOverlay.scrollTop = state.editor.scrollTop;
             state.highlightOverlay.scrollLeft = state.editor.scrollLeft;
