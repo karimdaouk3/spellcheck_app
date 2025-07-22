@@ -1,5 +1,22 @@
 class LanguageToolEditor {
     constructor() {
+        this.fields = {
+            problem: {
+                editor: document.getElementById('editor-problem'),
+                text: '',
+                history: [],
+                evaluation: null,
+                rewrite: null
+            },
+            fsr: {
+                editor: document.getElementById('editor-fsr'),
+                text: '',
+                history: [],
+                evaluation: null,
+                rewrite: null
+            }
+        };
+        this.activeField = 'problem';
         this.debounceTimer = null;
         this.currentSuggestions = [];
         this.currentMention = null;
@@ -18,6 +35,8 @@ class LanguageToolEditor {
         this.openHistoryBtn = document.getElementById('open-history-btn');
         this.historyMenuIcon = document.getElementById('history-menu-icon');
         this.historyCloseIcon = document.getElementById('history-close-icon');
+        this.popup = document.getElementById('popup');
+        this.status = document.getElementById('status');
         if (this.toggleHistoryBtn) {
             this.toggleHistoryBtn.addEventListener('click', () => {
                 this.historyPanel.classList.add('closed');
@@ -36,14 +55,38 @@ class LanguageToolEditor {
         }
         this.renderHistory();
         
-        this.editor = document.getElementById('editor');
-        this.popup = document.getElementById('popup');
-        this.status = document.getElementById('status');
-        
         this.initEventListeners();
-        this.createHighlightOverlay();
+        this.setActiveField('problem');
     }
     
+    setActiveField(field) {
+        this.activeField = field;
+        // Highlight active editor
+        Object.entries(this.fields).forEach(([key, val]) => {
+            if (val.editor) {
+                val.editor.classList.toggle('active-editor', key === field);
+            }
+        });
+        // Set editor text
+        const fieldObj = this.fields[field];
+        if (fieldObj.editor) {
+            fieldObj.editor.innerText = fieldObj.text;
+        }
+        // Render history for this field
+        this.renderHistory();
+        // Render evaluation/rewrite for this field
+        if (fieldObj.evaluation) {
+            this.displayLLMResult(fieldObj.evaluation, false);
+        } else {
+            document.getElementById('llm-eval-box').innerHTML = '';
+            document.getElementById('llm-eval-box').style.display = 'none';
+            document.getElementById('rewrite-popup').style.display = 'none';
+        }
+        // Update highlights for this field
+        this.createHighlightOverlay();
+        this.updateHighlights();
+    }
+
     createHighlightOverlay() {
         // Remove any existing overlay
         if (this.highlightOverlay && this.highlightOverlay.parentElement) {
@@ -59,52 +102,60 @@ class LanguageToolEditor {
         this.highlightOverlay.style.height = '100%';
         this.highlightOverlay.style.pointerEvents = 'none';
         this.highlightOverlay.style.zIndex = '1';
-        this.highlightOverlay.style.fontFamily = this.editor.style.fontFamily || 'inherit';
-        this.highlightOverlay.style.fontSize = this.editor.style.fontSize || '16px';
-        this.highlightOverlay.style.lineHeight = this.editor.style.lineHeight || '1.5';
+        this.highlightOverlay.style.fontFamily = this.getActiveEditor().style.fontFamily || 'inherit';
+        this.highlightOverlay.style.fontSize = this.getActiveEditor().style.fontSize || '16px';
+        this.highlightOverlay.style.lineHeight = this.getActiveEditor().style.lineHeight || '1.5';
         this.highlightOverlay.style.padding = '15px';
         this.highlightOverlay.style.boxSizing = 'border-box';
         this.highlightOverlay.style.whiteSpace = 'pre-wrap';
         this.highlightOverlay.style.wordBreak = 'break-word';
         this.highlightOverlay.style.background = 'transparent';
-        this.editor.parentElement.appendChild(this.highlightOverlay);
-        this.editor.parentElement.style.position = 'relative';
+        this.getActiveEditor().parentElement.appendChild(this.highlightOverlay);
+        this.getActiveEditor().parentElement.style.position = 'relative';
         // Always scroll overlay to top when created
         this.highlightOverlay.scrollTop = 0;
     }
     
     initEventListeners() {
+        // Editor focus/click switches active field
+        this.fields.problem.editor.addEventListener('focus', () => this.setActiveField('problem'));
+        this.fields.fsr.editor.addEventListener('focus', () => this.setActiveField('fsr'));
+        this.fields.problem.editor.addEventListener('click', () => this.setActiveField('problem'));
+        this.fields.fsr.editor.addEventListener('click', () => this.setActiveField('fsr'));
         // Input event for checking text
-        this.editor.addEventListener('input', () => {
-            if (!this.overlayHidden) {
-                this.updateHighlights(); // Only update overlay if not hidden
-            }
-            this.debounceCheck();
-        });
-        // Force plain text paste (strip formatting)
-        this.editor.addEventListener('paste', (e) => {
-            e.preventDefault();
-            const text = (e.clipboardData || window.clipboardData).getData('text');
-            // Insert plain text at cursor position
-            document.execCommand('insertText', false, text);
-        });
-        // Placeholder logic for contenteditable
-        this.editor.addEventListener('focus', () => {
-            if (this.editor.innerText.trim() === '') {
-                this.editor.classList.remove('empty');
-            }
-        });
-        this.editor.addEventListener('blur', () => {
-            if (this.editor.innerText.trim() === '') {
-                this.editor.classList.add('empty');
-            }
-        });
-        // Scroll synchronization (if needed)
-        this.editor.addEventListener('scroll', () => {
-            requestAnimationFrame(() => {
-                this.syncOverlayScroll();
+        Object.entries(this.fields).forEach(([key, val]) => {
+            val.editor.addEventListener('input', () => {
+                if (this.activeField !== key) return;
+                this.fields[key].text = val.editor.innerText;
+                if (!this.overlayHidden) {
+                    this.updateHighlights();
+                }
+                this.debounceCheck();
+            });
+            val.editor.addEventListener('paste', (e) => {
+                if (this.activeField !== key) return;
+                e.preventDefault();
+                const text = (e.clipboardData || window.clipboardData).getData('text');
+                document.execCommand('insertText', false, text);
+            });
+            val.editor.addEventListener('focus', () => {
+                if (val.editor.innerText.trim() === '') {
+                    val.editor.classList.remove('empty');
+                }
+            });
+            val.editor.addEventListener('blur', () => {
+                if (val.editor.innerText.trim() === '') {
+                    val.editor.classList.add('empty');
+                }
+            });
+            val.editor.addEventListener('scroll', () => {
+                requestAnimationFrame(() => {
+                    this.syncOverlayScroll();
+                });
             });
         });
+        // Force plain text paste (strip formatting)
+        // Placeholder logic for contenteditable
         // Hide popup when clicking outside
         document.addEventListener('click', (e) => {
             if (!this.popup.contains(e.target) && !e.target.classList.contains('highlight-span')) {
@@ -118,7 +169,7 @@ class LanguageToolEditor {
             }
         });
         // Initial check if there's existing text
-        if (this.editor.innerText.trim()) {
+        if (this.getActiveEditor().innerText.trim()) {
             this.checkText();
         }
 
@@ -130,7 +181,7 @@ class LanguageToolEditor {
         const llmButton = document.getElementById('llm-submit');
         if (llmButton) {
             llmButton.addEventListener('click', () => {
-                const text = this.editor.innerText;
+                const text = this.getActiveEditor().innerText;
                 if (text.replace(/\s/g, '').length < 20) {
                     alert('Please make sure your problem statement is meaningful and comprehensive (at least 20 characters)');
                     return;
@@ -148,12 +199,12 @@ class LanguageToolEditor {
             micBtn.addEventListener('click', async () => {
                 if (!isRecording) {
                     // Always clear editor and show status immediately
-                    this.editor.innerText = '';
+                    this.getActiveEditor().innerText = '';
                     this.highlightOverlay.innerHTML = '';
                     // Set placeholder to 'Listening...'
-                    this.editor.setAttribute('data-placeholder', 'Listening...');
-                    this.editor.classList.add('empty');
-                    this.editor.setAttribute('contenteditable', 'false');
+                    this.getActiveEditor().setAttribute('data-placeholder', 'Listening...');
+                    this.getActiveEditor().classList.add('empty');
+                    this.getActiveEditor().setAttribute('contenteditable', 'false');
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                         // Try to use 'audio/wav' for MediaRecorder if supported
@@ -203,26 +254,26 @@ class LanguageToolEditor {
                                         body: formData
                                     });
                                     const data = await response.json();
-                                    this.editor.innerText = data.transcription || '';
+                                    this.getActiveEditor().innerText = data.transcription || '';
                                     // Restore placeholder
-                                    this.editor.setAttribute('data-placeholder', 'Start typing your text here...');
-                                    if (this.editor.innerText.trim() === '') {
-                                        this.editor.classList.add('empty');
+                                    this.getActiveEditor().setAttribute('data-placeholder', 'Start typing your text here...');
+                                    if (this.getActiveEditor().innerText.trim() === '') {
+                                        this.getActiveEditor().classList.add('empty');
                                     } else {
-                                        this.editor.classList.remove('empty');
+                                        this.getActiveEditor().classList.remove('empty');
                                     }
                                     this.checkText();
                                     // --- Placeholder: Call LLM with transcription ---
                                     // Replace this with your actual LLM call logic
                                     this.llmPlaceholderCall(data.transcription || '');
                                 } catch (e) {
-                                    this.editor.innerText = 'Error: Could not transcribe.';
+                                    this.getActiveEditor().innerText = 'Error: Could not transcribe.';
                                     this.showStatus('Transcription failed', 'error');
-                                    this.editor.setAttribute('data-placeholder', 'Start typing your text here...');
-                                    this.editor.classList.remove('empty');
+                                    this.getActiveEditor().setAttribute('data-placeholder', 'Start typing your text here...');
+                                    this.getActiveEditor().classList.remove('empty');
                                 }
                                 micBtn.disabled = false;
-                                this.editor.setAttribute('contenteditable', 'true');
+                                this.getActiveEditor().setAttribute('contenteditable', 'true');
                             }, 1000);
                         };
                         mediaRecorder.start();
@@ -232,13 +283,13 @@ class LanguageToolEditor {
                         // Only show 'Listening...' alert with icon
                         this.showStatus('Listening...', 'recording', true); // red with icon
                     } catch (err) {
-                        this.editor.innerText = '';
-                        this.editor.setAttribute('contenteditable', 'true');
+                        this.getActiveEditor().innerText = '';
+                        this.getActiveEditor().setAttribute('contenteditable', 'true');
                         this.showStatus('Could not access microphone.', 'error');
                         alert('Could not access microphone.');
                         // Restore placeholder
-                        this.editor.setAttribute('data-placeholder', 'Start typing your text here...');
-                        this.editor.classList.add('empty');
+                        this.getActiveEditor().setAttribute('data-placeholder', 'Start typing your text here...');
+                        this.getActiveEditor().classList.add('empty');
                     }
                 } else {
                     // Stop recording
@@ -257,7 +308,7 @@ class LanguageToolEditor {
         if (acceptRewriteCheck) {
             acceptRewriteCheck.addEventListener('click', () => {
                 const rewriteContent = rewritePopup.querySelector('.rewrite-content').textContent;
-                this.editor.innerText = rewriteContent;
+                this.getActiveEditor().innerText = rewriteContent;
                 this.awaitingCheck = true;
                 this.overlayHidden = true;
                 this.highlightOverlay.innerHTML = '';
@@ -284,7 +335,7 @@ class LanguageToolEditor {
     }
     
     async checkText() {
-        const text = this.editor.innerText;
+        const text = this.getActiveEditor().innerText;
         
         if (!text.trim()) {
             this.clearSuggestions();
@@ -337,16 +388,16 @@ class LanguageToolEditor {
             this.highlightOverlay.innerHTML = '';
             // Scroll overlay and editor to top only when it is shown (even if empty)
             this.highlightOverlay.scrollTop = 0;
-            this.editor.scrollTop = 0;
+            this.getActiveEditor().scrollTop = 0;
             return;
         }
-        const text = this.editor.innerText;
+        const text = this.getActiveEditor().innerText;
         if (this.currentSuggestions.length === 0) {
             this.highlightOverlay.innerHTML = '';
             // Scroll overlay and editor to top after DOM update
             requestAnimationFrame(() => {
                 this.highlightOverlay.scrollTop = 0;
-                this.editor.scrollTop = 0;
+                this.getActiveEditor().scrollTop = 0;
             });
             return;
         }
@@ -375,7 +426,7 @@ class LanguageToolEditor {
         // Scroll overlay and editor to top after DOM update
         requestAnimationFrame(() => {
             this.highlightOverlay.scrollTop = 0;
-            this.editor.scrollTop = 0;
+            this.getActiveEditor().scrollTop = 0;
         });
         // Attach click handlers to highlights
         const spans = this.highlightOverlay.querySelectorAll('.highlight-span');
@@ -464,7 +515,7 @@ class LanguageToolEditor {
         if (suggestion.errorType === 'spelling') {
             ignoreBtn.insertAdjacentElement('afterend', blueBtn);
             blueBtn.onclick = () => {
-                const text = this.editor.innerText.substring(suggestion.offset, suggestion.offset + suggestion.length);
+                const text = this.getActiveEditor().innerText.substring(suggestion.offset, suggestion.offset + suggestion.length);
                 this.saveTerm(text);
                 this.ignoreCurrentSuggestion();
                 this.hidePopup();
@@ -490,20 +541,20 @@ class LanguageToolEditor {
         // Save selection position and scroll position
         const selection = window.getSelection();
         const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
-        const scrollTop = this.editor.scrollTop;
-        const scrollLeft = this.editor.scrollLeft;
-        const text = this.editor.innerText;
+        const scrollTop = this.getActiveEditor().scrollTop;
+        const scrollLeft = this.getActiveEditor().scrollLeft;
+        const text = this.getActiveEditor().innerText;
         const before = text.substring(0, suggestion.offset);
         const after = text.substring(suggestion.offset + suggestion.length);
-        this.editor.innerText = before + replacement + after;
+        this.getActiveEditor().innerText = before + replacement + after;
         // Restore cursor position after replacement
         const newPosition = suggestion.offset + replacement.length;
         this.setCursorPosition(newPosition);
         // Restore scroll position
-        this.editor.scrollTop = scrollTop;
-        this.editor.scrollLeft = scrollLeft;
+        this.getActiveEditor().scrollTop = scrollTop;
+        this.getActiveEditor().scrollLeft = scrollLeft;
         // Remove the suggestion from currentSuggestions so highlight disappears immediately
-        const newText = this.editor.innerText;
+        const newText = this.getActiveEditor().innerText;
         const key = this.getSuggestionKey(suggestion, newText);
         this.currentSuggestions = this.currentSuggestions.filter(
             s => this.getSuggestionKey(s, newText) !== key
@@ -514,7 +565,7 @@ class LanguageToolEditor {
         requestAnimationFrame(() => this.syncOverlayScroll()); // Ensure overlay is synced after browser updates scroll
         this.hidePopup();
         this.showStatus('Suggestion applied');
-        this.editor.focus();
+        this.getActiveEditor().focus();
         this.debounceCheck();
     }
     
@@ -544,8 +595,8 @@ class LanguageToolEditor {
 
     setCursorPosition(pos) {
         // Set cursor at character offset 'pos' in the contenteditable div
-        this.editor.focus();
-        const textNode = this.editor.firstChild;
+        this.getActiveEditor().focus();
+        const textNode = this.getActiveEditor().firstChild;
         if (textNode && textNode.nodeType === Node.TEXT_NODE) {
             const range = document.createRange();
             range.setStart(textNode, Math.min(pos, textNode.length));
@@ -564,7 +615,7 @@ class LanguageToolEditor {
 
     ignoreCurrentSuggestion() {
         if (this.currentMention) {
-            const text = this.editor.innerText;
+            const text = this.getActiveEditor().innerText;
             const key = this.getSuggestionKey(this.currentMention, text);
             this.ignoredSuggestions.add(key);
             // Remove from currentSuggestions and update highlights
@@ -633,7 +684,7 @@ class LanguageToolEditor {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    text: this.editor.innerText,
+                    text: this.getActiveEditor().innerText,
                     score: `${passed}/${total}`,
                     criteria: keys.map(key => ({
                         name: key,
@@ -777,7 +828,7 @@ class LanguageToolEditor {
                             // Log rewrite submission
                             if (this.llmQuestions && this.llmQuestions.length > 0) {
                                 const logArr = this.llmQuestions.map(q => ({
-                                    original_text: this.editor.innerText,
+                                    original_text: this.getActiveEditor().innerText,
                                     criteria: q.criteria,
                                     question: q.question,
                                     user_answer: this.llmAnswers[q.criteria] || ''
@@ -789,7 +840,7 @@ class LanguageToolEditor {
                                 });
                             }
                             // Resubmit to LLM with answers
-                            this.submitToLLM(this.editor.innerText, this.llmAnswers);
+                            this.submitToLLM(this.getActiveEditor().innerText, this.llmAnswers);
                         };
                     }
                 }, 100);
@@ -808,9 +859,9 @@ class LanguageToolEditor {
             }
             if (rewrite) {
                 // Add the version that was submitted (before rewrite) to history
-                this.addToHistory(this.editor.innerText);
+                this.addToHistory(this.getActiveEditor().innerText);
                 // Replace the editor content with the rewrite
-                this.editor.innerText = rewrite;
+                this.getActiveEditor().innerText = rewrite;
                 // Hide overlay immediately to prevent flash of old highlights
                 this.overlayHidden = true;
                 this.highlightOverlay.innerHTML = '';
@@ -832,7 +883,7 @@ class LanguageToolEditor {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const criteria = btn.getAttribute('data-criteria');
-                const text = this.editor.innerText;
+                const text = this.getActiveEditor().innerText;
                 // Show feedback box if not already present
                 let card = btn.closest('.llm-section');
                 if (!card) return;
@@ -888,9 +939,9 @@ class LanguageToolEditor {
     }
 
     syncOverlayScroll() {
-        if (this.highlightOverlay && this.editor) {
-            this.highlightOverlay.scrollTop = this.editor.scrollTop;
-            this.highlightOverlay.scrollLeft = this.editor.scrollLeft;
+        if (this.highlightOverlay && this.getActiveEditor()) {
+            this.highlightOverlay.scrollTop = this.getActiveEditor().scrollTop;
+            this.highlightOverlay.scrollLeft = this.getActiveEditor().scrollLeft;
         }
     }
 
@@ -943,7 +994,7 @@ class LanguageToolEditor {
             icon.title = 'Restore to editor';
             icon.onclick = (e) => {
                 e.stopPropagation();
-                this.editor.innerText = item;
+                this.getActiveEditor().innerText = item;
             };
             li.appendChild(icon);
             // Remove item click/hover highlight
