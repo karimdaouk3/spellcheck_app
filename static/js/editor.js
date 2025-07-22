@@ -108,58 +108,36 @@ class LanguageToolEditor {
     initEventListeners() {
         ['editor', 'editor2'].forEach(field => {
             const fieldObj = this.fields[field];
-            // Input event for checking text
+            fieldObj.editor.addEventListener('focus', () => {
+                this.activeField = field;
+                this.renderHistory();
+                this.updateHighlights(field);
+            });
             fieldObj.editor.addEventListener('input', () => {
                 if (!fieldObj.overlayHidden) {
                     this.updateHighlights(field); // Only update overlay if not hidden
                 }
                 this.debounceCheck(field);
             });
-            // Force plain text paste (strip formatting)
             fieldObj.editor.addEventListener('paste', (e) => {
                 e.preventDefault();
                 const text = (e.clipboardData || window.clipboardData).getData('text');
-                // Insert plain text at cursor position
                 document.execCommand('insertText', false, text);
-            });
-            // Placeholder logic for contenteditable
-            fieldObj.editor.addEventListener('focus', () => {
-                this.activeField = field;
-                this.renderHistory();
-                this.updateHighlights(field);
             });
             fieldObj.editor.addEventListener('blur', () => {
                 if (fieldObj.editor.innerText.trim() === '') {
                     fieldObj.editor.classList.add('empty');
                 }
             });
-            // Scroll synchronization (if needed)
             fieldObj.editor.addEventListener('scroll', () => {
                 requestAnimationFrame(() => {
                     this.syncOverlayScroll();
                 });
             });
-            // Hide popup when clicking outside
-            document.addEventListener('click', (e) => {
-                if (!this.popup.contains(e.target) && !e.target.classList.contains('highlight-span')) {
-                    this.hidePopup();
-                }
-            });
-            // Escape key to hide popup
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') {
-                    this.hidePopup();
-                }
-            });
             // Initial check if there's existing text
             if (fieldObj.editor.innerText.trim()) {
                 this.checkText(field);
             }
-
-            this.popup.querySelector('.ignore-button').addEventListener('click', () => {
-                this.ignoreCurrentSuggestion(field);
-            });
-
             // LLM submit button event
             const llmButton = fieldObj.submitBtn;
             if (llmButton) {
@@ -173,7 +151,6 @@ class LanguageToolEditor {
                     this.submitToLLM(text); // Only text on first submit
                 });
             }
-
             // Microphone button logic
             const micBtn = fieldObj.micBtn;
             let isRecording = false;
@@ -183,16 +160,13 @@ class LanguageToolEditor {
                 micBtn.addEventListener('click', async () => {
                     this.activeField = field;
                     if (!isRecording) {
-                        // Always clear editor and show status immediately
                         fieldObj.editor.innerText = '';
                         fieldObj.highlightOverlay.innerHTML = '';
-                        // Set placeholder to 'Listening...'
                         fieldObj.editor.setAttribute('data-placeholder', 'Listening...');
                         fieldObj.editor.classList.add('empty');
                         fieldObj.editor.setAttribute('contenteditable', 'false');
                         try {
                             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                            // Try to use 'audio/wav' for MediaRecorder if supported
                             let mimeType = '';
                             if (MediaRecorder.isTypeSupported('audio/wav')) {
                                 mimeType = 'audio/wav';
@@ -211,25 +185,7 @@ class LanguageToolEditor {
                                 micBtn.style.color = '';
                                 micBtn.disabled = true;
                                 this.showStatus('Processing audio...', 'checking', true);
-                                // Combine audio chunks
                                 let audioBlob = new Blob(audioChunks, { type: mimeType || 'audio/webm' });
-                                // If not wav, try to convert to wav (placeholder)
-                                if (audioBlob.type !== 'audio/wav') {
-                                    // Placeholder: conversion to wav (requires external library or server-side)
-                                    // For now, just use the original blob
-                                    // TODO: Implement client-side wav conversion if needed
-                                }
-                                // Save audio file locally (optional, placeholder)
-                                // Example: download the audio as .wav
-                                // const url = URL.createObjectURL(audioBlob);
-                                // const a = document.createElement('a');
-                                // a.style.display = 'none';
-                                // a.href = url;
-                                // a.download = 'recording.wav';
-                                // document.body.appendChild(a);
-                                // a.click();
-                                // setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 100);
-                                // Send audio to backend
                                 const formData = new FormData();
                                 formData.append('audio', audioBlob, 'recording.wav');
                                 setTimeout(async () => {
@@ -240,7 +196,6 @@ class LanguageToolEditor {
                                         });
                                         const data = await response.json();
                                         fieldObj.editor.innerText = data.transcription || '';
-                                        // Restore placeholder
                                         fieldObj.editor.setAttribute('data-placeholder', 'Start typing your text here...');
                                         if (fieldObj.editor.innerText.trim() === '') {
                                             fieldObj.editor.classList.add('empty');
@@ -248,8 +203,6 @@ class LanguageToolEditor {
                                             fieldObj.editor.classList.remove('empty');
                                         }
                                         this.checkText(field);
-                                        // --- Placeholder: Call LLM with transcription ---
-                                        // Replace this with your actual LLM call logic
                                         this.llmPlaceholderCall(data.transcription || '');
                                     } catch (e) {
                                         fieldObj.editor.innerText = 'Error: Could not transcribe.';
@@ -265,19 +218,16 @@ class LanguageToolEditor {
                             isRecording = true;
                             micBtn.style.background = '#ffebee';
                             micBtn.style.color = '#d32f2f';
-                            // Only show 'Listening...' alert with icon
-                            this.showStatus('Listening...', 'recording', true); // red with icon
+                            this.showStatus('Listening...', 'recording', true);
                         } catch (err) {
                             fieldObj.editor.innerText = '';
                             fieldObj.editor.setAttribute('contenteditable', 'true');
                             this.showStatus('Could not access microphone.', 'error');
                             alert('Could not access microphone.');
-                            // Restore placeholder
                             fieldObj.editor.setAttribute('data-placeholder', 'Start typing your text here...');
                             fieldObj.editor.classList.add('empty');
                         }
                     } else {
-                        // Stop recording
                         if (mediaRecorder && mediaRecorder.state === 'recording') {
                             mediaRecorder.stop();
                             isRecording = false;
@@ -285,31 +235,13 @@ class LanguageToolEditor {
                     }
                 });
             }
-
-            // Accept Rewrite check and dismiss (X) events
-            const acceptRewriteCheck = document.getElementById('accept-rewrite-check');
-            const dismissRewriteX = document.getElementById('dismiss-rewrite-x');
-            const rewritePopup = document.getElementById('rewrite-popup');
-            if (acceptRewriteCheck) {
-                acceptRewriteCheck.addEventListener('click', () => {
-                    const rewriteContent = rewritePopup.querySelector('.rewrite-content').textContent;
-                    fieldObj.editor.innerText = rewriteContent;
-                    fieldObj.awaitingCheck = true;
-                    fieldObj.overlayHidden = true;
-                    fieldObj.highlightOverlay.innerHTML = '';
-                    rewritePopup.style.display = 'none';
-                    // Wait for DOM update before running checkText
-                    requestAnimationFrame(() => {
-                        this.checkText(field);
-                    });
-                });
-            }
-            if (dismissRewriteX) {
-                dismissRewriteX.addEventListener('click', () => {
-                    rewritePopup.style.display = 'none';
-                });
-            }
         });
+        // Attach popup button handlers only once
+        const ignoreBtn = this.popup.querySelector('.ignore-button');
+        ignoreBtn.onclick = () => {
+            this.ignoreCurrentSuggestion(this.popupField);
+            this.hidePopup();
+        };
     }
     
     debounceCheck(field) {
