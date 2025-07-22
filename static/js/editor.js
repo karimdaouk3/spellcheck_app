@@ -482,11 +482,11 @@ class LanguageToolEditor {
         this.fields[field].currentSuggestions = this.fields[field].currentSuggestions.filter(
             s => this.getSuggestionKey(s, newText) !== key
         );
-        fieldObj.overlayHidden = true;
-        fieldObj.awaitingCheck = true;
+        this.fields[field].overlayHidden = true;
+        this.fields[field].awaitingCheck = true;
         this.updateHighlights(field);
-        requestAnimationFrame(() => this.syncOverlayScroll()); // Ensure overlay is synced after browser updates scroll
         this.hidePopup();
+        requestAnimationFrame(() => this.syncOverlayScroll()); // Ensure overlay is synced after browser updates scroll
         this.showStatus('Suggestion applied');
         this.fields[field].editor.focus();
         this.debounceCheck(field);
