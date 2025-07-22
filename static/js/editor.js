@@ -645,6 +645,15 @@ class LanguageToolEditor {
             const keys = Object.keys(rulesObj);
             const total = keys.length;
             const passed = keys.filter(key => rulesObj[key].passed).length;
+            // Determine input type label
+            let inputType = '';
+            if (field === 'editor') {
+                inputType = 'Problem Statement';
+            } else if (field === 'editor2') {
+                inputType = 'FSR Daily Notes';
+            } else {
+                inputType = 'Input';
+            }
             // Log evaluation to backend
             fetch('/llm-evaluation-log', {
                 method: 'POST',
@@ -659,7 +668,7 @@ class LanguageToolEditor {
                     timestamp: Date.now() / 1000
                 })
             });
-            html += `<div class="llm-score" style="font-size:1.35em;font-weight:700;margin-bottom:18px;background:#fff;color:#41007F;padding:10px 0 10px 0;border-radius:8px;text-align:center;box-shadow:0 1px 4px rgba(33,0,127,0.07);letter-spacing:0.5px;">Score: <span style="color:#00A7E1;font-size:1.2em;">${passed}</span> <span style="color:#888;font-size:1.1em;">/</span> <span style="color:#00A7E1;">${total}</span></div>`;
+            html += `<div class="llm-score" style="font-size:1.35em;font-weight:700;margin-bottom:18px;background:#fff;color:#41007F;padding:10px 0 10px 0;border-radius:8px;text-align:center;box-shadow:0 1px 4px rgba(33,0,127,0.07);letter-spacing:0.5px;">${inputType} Score: <span style="color:#00A7E1;font-size:1.2em;">${passed}</span> <span style="color:#888;font-size:1.1em;">/</span> <span style="color:#00A7E1;">${total}</span></div>`;
             // Sort rules: passed first, then failed
             const sortedKeys = keys.sort((a, b) => {
                 const aPassed = rulesObj[a].passed;
