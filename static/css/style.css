@@ -571,14 +571,18 @@ body {
     overflow-wrap: break-word;
     background: none;
     border: none;
-    margin-bottom: 10px;
-    padding: 7px 0 7px 0;
+    margin-bottom: 0;
+    padding: 14px 0 14px 0;
     font-size: 1em;
     color: #222;
     box-shadow: none;
     text-overflow: unset;
     overflow: visible;
     max-width: 100%;
+    border-bottom: 1px solid #e0e0e0;
+}
+#history-list li:last-child {
+    border-bottom: none;
 }
 .history-header {
     display: flex;
@@ -876,8 +880,8 @@ body {
     box-shadow: 0 0 0 2px #e0e6f7;
     background: #fafaff;
     z-index: 2;
-    /* Remove border to prevent resizing */
     border: none;
+    border-radius: 10px 10px 10px 10px;
 }
 /* Remove extra spacing between the two editors */
 .editor-container + .editor-container {

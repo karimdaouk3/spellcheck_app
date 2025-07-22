@@ -109,6 +109,14 @@ class LanguageToolEditor {
         ['editor', 'editor2'].forEach(field => {
             const fieldObj = this.fields[field];
             const container = fieldObj.editor.closest('.editor-container');
+            // Allow clicking anywhere in the container to focus the editor
+            container.addEventListener('mousedown', (e) => {
+                // Only focus if not already focused and not clicking a button or inside the popup
+                if (!fieldObj.editor.contains(document.activeElement) && !e.target.closest('button') && !e.target.closest('.popup')) {
+                    fieldObj.editor.focus();
+                    e.preventDefault();
+                }
+            });
             fieldObj.editor.addEventListener('focus', () => {
                 this.activeField = field;
                 this.renderHistory();
@@ -247,6 +255,15 @@ class LanguageToolEditor {
                         }
                     }
                 });
+            }
+        });
+        // Hide popup when clicking outside
+        document.addEventListener('mousedown', (e) => {
+            const popup = this.popup;
+            if (popup && popup.style.display === 'block') {
+                if (!popup.contains(e.target)) {
+                    this.hidePopup();
+                }
             }
         });
         // Attach popup button handlers only once
