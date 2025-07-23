@@ -350,7 +350,7 @@ body {
 
 .rewrite-popup {
     position: static;
-    margin-top: 32px;
+    margin-top: 16px;
     width: 100%;
     max-width: 1200px;
     background: #f9fafc;
@@ -873,8 +873,9 @@ body {
     font-weight: 600;
     padding: 4px 8px;
     border-radius: 4px;
-    min-width: 60px;
+    min-width: 140px;
     text-align: center;
+    margin-top: 8px;
 }
 /* Remove background/border between editor containers */
 .editor-container-group {

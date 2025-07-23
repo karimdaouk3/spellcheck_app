@@ -1014,7 +1014,7 @@ class LanguageToolEditor {
             const passed = keys.filter(k => r1.evaluation[k].passed).length;
             const percentage = total > 0 ? (passed / total) : 0;
             
-            score1.textContent = `${passed}/${total}`;
+            score1.textContent = `Current Score: ${passed}/${total}`;
             score1.className = 'editor-score';
             
             // Color coding based on performance
@@ -1042,7 +1042,7 @@ class LanguageToolEditor {
             const passed = keys.filter(k => r2.evaluation[k].passed).length;
             const percentage = total > 0 ? (passed / total) : 0;
             
-            score2.textContent = `${passed}/${total}`;
+            score2.textContent = `Current Score: ${passed}/${total}`;
             score2.className = 'editor-score';
             
             // Color coding based on performance
