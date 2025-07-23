@@ -660,9 +660,6 @@ body {
     .editor-wrapper {
         min-height: 180px;
     }
-    #editor {
-        height: 180px !important;
-    }
 }
 @media (max-width: 900px) {
     .llm-result-overlay {
