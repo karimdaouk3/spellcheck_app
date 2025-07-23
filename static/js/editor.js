@@ -373,21 +373,30 @@ class LanguageToolEditor {
     
     updateHighlights(field) {
         const fieldObj = this.fields[field];
+        
+        // Save current scroll position
+        const currentScrollTop = fieldObj.editor.scrollTop;
+        const currentScrollLeft = fieldObj.editor.scrollLeft;
+        
         if (fieldObj.awaitingCheck || fieldObj.overlayHidden) {
             fieldObj.highlightOverlay.innerHTML = '';
-            fieldObj.highlightOverlay.scrollTop = 0;
-            fieldObj.editor.scrollTop = 0;
+            // Restore scroll position instead of resetting to top
+            fieldObj.highlightOverlay.scrollTop = currentScrollTop;
+            fieldObj.highlightOverlay.scrollLeft = currentScrollLeft;
             return;
         }
+        
         const text = fieldObj.editor.innerText;
         if (fieldObj.currentSuggestions.length === 0) {
             fieldObj.highlightOverlay.innerHTML = '';
+            // Restore scroll position instead of resetting to top
             requestAnimationFrame(() => {
-                fieldObj.highlightOverlay.scrollTop = 0;
-                fieldObj.editor.scrollTop = 0;
+                fieldObj.highlightOverlay.scrollTop = currentScrollTop;
+                fieldObj.highlightOverlay.scrollLeft = currentScrollLeft;
             });
             return;
         }
+        
         // Create highlighted text
         let highlightedText = '';
         let lastIndex = 0;
@@ -410,11 +419,13 @@ class LanguageToolEditor {
         // Add any remaining text after the last suggestion
         highlightedText += this.escapeHtml(text.substring(lastIndex));
         fieldObj.highlightOverlay.innerHTML = highlightedText;
-        // Scroll overlay and editor to top after DOM update
+        
+        // Restore scroll position instead of resetting to top
         requestAnimationFrame(() => {
-            fieldObj.highlightOverlay.scrollTop = 0;
-            fieldObj.editor.scrollTop = 0;
+            fieldObj.highlightOverlay.scrollTop = currentScrollTop;
+            fieldObj.highlightOverlay.scrollLeft = currentScrollLeft;
         });
+        
         // Attach click handlers to highlights
         const spans = fieldObj.highlightOverlay.querySelectorAll('.highlight-span');
         spans.forEach(span => {
@@ -964,13 +975,27 @@ class LanguageToolEditor {
         ['editor', 'editor2'].forEach(field => {
             const fieldObj = this.fields[field];
             if (!fieldObj.highlightOverlay || !fieldObj.editor) return;
+            
+            let isScrolling = false;
+            
             // Sync overlay scroll to editor
             fieldObj.editor.onscroll = () => {
-                fieldObj.highlightOverlay.scrollTop = fieldObj.editor.scrollTop;
+                if (!isScrolling) {
+                    isScrolling = true;
+                    fieldObj.highlightOverlay.scrollTop = fieldObj.editor.scrollTop;
+                    fieldObj.highlightOverlay.scrollLeft = fieldObj.editor.scrollLeft;
+                    setTimeout(() => { isScrolling = false; }, 10);
+                }
             };
+            
             // Sync editor scroll to overlay
             fieldObj.highlightOverlay.onscroll = () => {
-                fieldObj.editor.scrollTop = fieldObj.highlightOverlay.scrollTop;
+                if (!isScrolling) {
+                    isScrolling = true;
+                    fieldObj.editor.scrollTop = fieldObj.highlightOverlay.scrollTop;
+                    fieldObj.editor.scrollLeft = fieldObj.highlightOverlay.scrollLeft;
+                    setTimeout(() => { isScrolling = false; }, 10);
+                }
             };
         });
     }
