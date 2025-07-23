@@ -436,6 +436,12 @@ body {
     font-size: 1.05em;
     color: #41007F;
     margin-bottom: 0;
+    cursor: pointer;
+    transition: text-decoration 0.2s;
+}
+
+.llm-section-title:hover {
+    text-decoration: underline;
 }
 .llm-section-justification {
     font-size: 0.97em;
