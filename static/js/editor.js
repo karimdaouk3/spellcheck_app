@@ -859,6 +859,18 @@ class LanguageToolEditor {
                             btn.title = "Feedback received!";
                             feedbackBox.remove();
                             feedbackSpace.remove();
+                            
+                            // Move evaluation to completed and update score
+                            if (fieldObj.llmLastResult && fieldObj.llmLastResult.evaluation && fieldObj.llmLastResult.evaluation[criteria]) {
+                                // Mark this criteria as passed
+                                fieldObj.llmLastResult.evaluation[criteria].passed = true;
+                                
+                                // Update the score display
+                                this.updateEditorLabelsWithScore();
+                                
+                                // Re-render the evaluation display to move it to "Completed" section
+                                this.displayLLMResult(fieldObj.llmLastResult, false, field);
+                            }
                         });
                     });
                     // Prevent newlines in feedback box
