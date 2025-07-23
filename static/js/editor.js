@@ -888,8 +888,13 @@ class LanguageToolEditor {
                 }
             }
             if (fieldObj.llmQuestions.length > 0) {
+                // Determine color based on active editor
+                const isProblemStatement = field === 'editor';
+                const borderColor = isProblemStatement ? '#41007F' : '#00A7E1';
+                const backgroundColor = isProblemStatement ? '#f0f0ff' : '#f0f8ff';
+                
                 let qHtml = '<div class="rewrite-title" style="display:flex;align-items:center;font-weight:700;font-size:1.13em;color:#41007F;margin-bottom:8px;">To improve your input, please answer the following questions:</div>';
-                qHtml += `<div class="rewrite-title" style="border: 2px solid #f78da7; background: #fef2f2; border-radius: 10px; padding: 18px 18px 10px 18px; margin-bottom: 10px; margin-top: 10px;">`;
+                qHtml += `<div class="rewrite-title" style="border: 2px solid ${borderColor}; background: ${backgroundColor}; border-radius: 10px; padding: 18px 18px 10px 18px; margin-bottom: 10px; margin-top: 10px;">`;
                 fieldObj.llmQuestions.forEach((q, idx) => {
                     qHtml += `<div class="rewrite-question">${this.escapeHtml(q.question)}</div>`;
                     qHtml += `<textarea class="rewrite-answer" data-criteria="${this.escapeHtml(q.criteria)}" rows="1" style="width:100%;margin-bottom:12px;resize:none;"></textarea>`;
