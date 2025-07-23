@@ -24,7 +24,7 @@ body {
 .editor-wrapper {
     font-family: 'Open Sans', sans-serif;
     position: relative;
-    min-height: 400px;
+    min-height: 180px;
     border: 2px solid #ddd;
     border-radius: 6px;
     background: white;
@@ -926,14 +926,20 @@ body {
     overflow-y: auto;
 }
 /* Problem Statement editor - shorter height */
-#editor, .editor-container:first-child .editor-div {
+#editor {
     height: 180px !important;
     min-height: 180px !important;
     max-height: 180px !important;
 }
+.editor-container:first-child .editor-wrapper {
+    min-height: 180px !important;
+}
 /* FSR Daily Notes editor - taller height */
-#editor2, .editor-container:nth-child(2) .editor-div {
+#editor2 {
     height: 400px !important;
     min-height: 400px !important;
     max-height: 400px !important;
+}
+.editor-container:nth-child(2) .editor-wrapper {
+    min-height: 400px !important;
 }
