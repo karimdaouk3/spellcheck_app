@@ -853,13 +853,28 @@ body {
 .llm-result-overlay {
     display: none !important;
 }
+.editor-label-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
 .editor-label {
-    display: block;
     font-size: 1.08em;
     font-weight: 600;
     color: #41007F;
-    margin-bottom: 8px;
     margin-left: 2px;
+    margin-bottom: 0;
+}
+
+.editor-score {
+    font-size: 1.08em;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 4px;
+    min-width: 60px;
+    text-align: center;
 }
 /* Remove background/border between editor containers */
 .editor-container-group {

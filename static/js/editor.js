@@ -170,7 +170,7 @@ class LanguageToolEditor {
                 this.activeField = field;
                 this.renderHistory();
                 this.renderEvaluationAndRewrite(field);
-                this.updateHighlights(field);
+                // Don't call updateHighlights here to preserve scroll position
                 this.updateActiveEditorHighlight();
             });
             fieldObj.editor.addEventListener('input', () => {
@@ -1002,25 +1002,66 @@ class LanguageToolEditor {
 
     // Update the label/title of each text box to include the score
     updateEditorLabelsWithScore() {
-        const label1 = document.querySelector('label[for="editor"]');
-        const label2 = document.querySelector('label[for="editor2"]');
-        let score1 = '', score2 = '';
+        const score1 = document.getElementById('score-editor');
+        const score2 = document.getElementById('score-editor2');
         const r1 = this.fields['editor'].llmLastResult;
         const r2 = this.fields['editor2'].llmLastResult;
+        
+        // Update Problem Statement score
         if (r1 && r1.evaluation) {
             const keys = Object.keys(r1.evaluation);
             const total = keys.length;
             const passed = keys.filter(k => r1.evaluation[k].passed).length;
-            score1 = ` (${passed}/${total})`;
+            const percentage = total > 0 ? (passed / total) : 0;
+            
+            score1.textContent = `${passed}/${total}`;
+            score1.className = 'editor-score';
+            
+            // Color coding based on performance
+            if (percentage >= 2/3) {
+                score1.style.backgroundColor = '#4CAF50';
+                score1.style.color = 'white';
+            } else if (percentage >= 1/3) {
+                score1.style.backgroundColor = '#FFC107';
+                score1.style.color = 'black';
+            } else {
+                score1.style.backgroundColor = '#F44336';
+                score1.style.color = 'white';
+            }
+        } else {
+            score1.textContent = '';
+            score1.className = 'editor-score';
+            score1.style.backgroundColor = '';
+            score1.style.color = '';
         }
+        
+        // Update FSR Daily Notes score
         if (r2 && r2.evaluation) {
             const keys = Object.keys(r2.evaluation);
             const total = keys.length;
             const passed = keys.filter(k => r2.evaluation[k].passed).length;
-            score2 = ` (${passed}/${total})`;
+            const percentage = total > 0 ? (passed / total) : 0;
+            
+            score2.textContent = `${passed}/${total}`;
+            score2.className = 'editor-score';
+            
+            // Color coding based on performance
+            if (percentage >= 2/3) {
+                score2.style.backgroundColor = '#4CAF50';
+                score2.style.color = 'white';
+            } else if (percentage >= 1/3) {
+                score2.style.backgroundColor = '#FFC107';
+                score2.style.color = 'black';
+            } else {
+                score2.style.backgroundColor = '#F44336';
+                score2.style.color = 'white';
+            }
+        } else {
+            score2.textContent = '';
+            score2.className = 'editor-score';
+            score2.style.backgroundColor = '';
+            score2.style.color = '';
         }
-        if (label1) label1.textContent = 'Problem Statement' + score1;
-        if (label2) label2.textContent = 'FSR Daily Notes' + score2;
     }
 
     // --- Placeholder for LLM call after transcription ---

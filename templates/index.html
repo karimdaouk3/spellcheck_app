@@ -27,7 +27,10 @@
             </div>
             <div class="editor-container-group">
                 <div class="editor-container">
-                    <label for="editor" class="editor-label">Problem Statement</label>
+                    <div class="editor-label-container">
+                        <label for="editor" class="editor-label">Problem Statement</label>
+                        <span id="score-editor" class="editor-score"></span>
+                    </div>
                     <div class="editor-wrapper" style="position:relative;">
                         <div id="editor" contenteditable="true" class="editor-div" data-placeholder="Start typing your problem statement here..." spellcheck="false"></div>
                         <button id="mic-btn" title="Record speech" style="position:absolute; bottom:10px; right:10px; background:none; border:none; cursor:pointer; font-size:1.7em; padding:6px 8px; border-radius:50%; display:flex; align-items:center; justify-content:center;">
@@ -41,7 +44,10 @@
                     <button id="llm-submit" class="llm-submit-button">Submit for Review</button>
                 </div>
                 <div class="editor-container">
-                    <label for="editor2" class="editor-label">FSR Daily Notes</label>
+                    <div class="editor-label-container">
+                        <label for="editor2" class="editor-label">FSR Daily Notes</label>
+                        <span id="score-editor2" class="editor-score"></span>
+                    </div>
                     <div class="editor-wrapper" style="position:relative;">
                         <div id="editor2" contenteditable="true" class="editor-div" data-placeholder="Start typing your FSR notes here..." spellcheck="false"></div>
                         <button id="mic-btn-2" title="Record speech" style="position:absolute; bottom:10px; right:10px; background:none; border:none; cursor:pointer; font-size:1.7em; padding:6px 8px; border-radius:50%; display:flex; align-items:center; justify-content:center;">
