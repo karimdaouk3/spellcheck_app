@@ -907,10 +907,19 @@ body {
 }
 /* Highlight for active editor */
 .active-editor-container {
+    outline: 2px solid #41007F;
+    outline-offset: 0px;
+    box-shadow: 0 0 0 2px #e0e6f7;
     background: #fafaff;
     z-index: 2;
     border: none;
     border-radius: 10px 10px 10px 10px;
+}
+
+/* FSR Daily Notes active container - blue outline */
+.editor-container:nth-child(2).active-editor-container {
+    outline: 2px solid #00A7E1;
+    box-shadow: 0 0 0 2px #e0f7ff;
 }
 .inactive-editor-container {
     background: #f3f3f7 !important;
