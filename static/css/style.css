@@ -350,7 +350,7 @@ body {
 
 .rewrite-popup {
     position: static;
-    margin-top: 16px;
+    margin-top: 8px;
     width: 100%;
     max-width: 1200px;
     background: #f9fafc;
@@ -817,9 +817,10 @@ body {
     border: 1.5px solid #e0e0e0;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
     font-size: 0.95em;
     margin: 0;
+    margin-bottom: 0;
 }
 .llm-score {
     margin-bottom: -4px !important;
@@ -856,8 +857,9 @@ body {
 .editor-label-container {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     margin-bottom: 8px;
+    min-height: 40px;
 }
 
 .editor-label {
