@@ -896,9 +896,13 @@ body {
     border: none;
     border-radius: 10px 10px 10px 10px;
 }
+.inactive-editor-container {
+    background: #f3f3f7 !important;
+    opacity: 0.7;
+    filter: grayscale(0.2);
+    transition: background 0.2s, opacity 0.2s;
+}
 .active-editor-header {
-    max-width: 1230px;
-    width: 100%;
     font-size: 1.35em;
     font-weight: 700;
     color: #41007F;

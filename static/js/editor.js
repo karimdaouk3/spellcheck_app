@@ -108,17 +108,26 @@ class LanguageToolEditor {
     
     // Utility to update the active editor highlight
     updateActiveEditorHighlight() {
-        // Remove active class from all editor containers
-        document.querySelectorAll('.editor-container').forEach(container => {
+        // Remove active/inactive classes from all editor containers
+        document.querySelectorAll('.editor-container').forEach((container, idx) => {
             container.classList.remove('active-editor-container');
+            container.classList.remove('inactive-editor-container');
         });
-        // Add active class to the current active field's container
+        // Add active class to the current active field's container, inactive to the other
         const activeContainer = this.fields[this.activeField].editor.closest('.editor-container');
         if (activeContainer) {
             activeContainer.classList.add('active-editor-container');
         }
+        // Add inactive to the other
+        const inactiveField = this.activeField === 'editor' ? 'editor2' : 'editor';
+        const inactiveContainer = this.fields[inactiveField].editor.closest('.editor-container');
+        if (inactiveContainer) {
+            inactiveContainer.classList.add('inactive-editor-container');
+        }
         // Update the active editor header
         this.updateActiveEditorHeader();
+        // Update the score in the label
+        this.updateEditorLabelsWithScore();
     }
 
     updateActiveEditorHeader() {
@@ -950,11 +959,43 @@ class LanguageToolEditor {
         }
     }
 
+    // Synchronize scrolling between overlay and editor
     syncOverlayScroll() {
-        if (this.highlightOverlay && this.editor) {
-            this.highlightOverlay.scrollTop = this.editor.scrollTop;
-            this.highlightOverlay.scrollLeft = this.editor.scrollLeft;
+        ['editor', 'editor2'].forEach(field => {
+            const fieldObj = this.fields[field];
+            if (!fieldObj.highlightOverlay || !fieldObj.editor) return;
+            // Sync overlay scroll to editor
+            fieldObj.editor.onscroll = () => {
+                fieldObj.highlightOverlay.scrollTop = fieldObj.editor.scrollTop;
+            };
+            // Sync editor scroll to overlay
+            fieldObj.highlightOverlay.onscroll = () => {
+                fieldObj.editor.scrollTop = fieldObj.highlightOverlay.scrollTop;
+            };
+        });
+    }
+
+    // Update the label/title of each text box to include the score
+    updateEditorLabelsWithScore() {
+        const label1 = document.querySelector('label[for="editor"]');
+        const label2 = document.querySelector('label[for="editor2"]');
+        let score1 = '', score2 = '';
+        const r1 = this.fields['editor'].llmLastResult;
+        const r2 = this.fields['editor2'].llmLastResult;
+        if (r1 && r1.evaluation) {
+            const keys = Object.keys(r1.evaluation);
+            const total = keys.length;
+            const passed = keys.filter(k => r1.evaluation[k].passed).length;
+            score1 = ` (${passed}/${total})`;
         }
+        if (r2 && r2.evaluation) {
+            const keys = Object.keys(r2.evaluation);
+            const total = keys.length;
+            const passed = keys.filter(k => r2.evaluation[k].passed).length;
+            score2 = ` (${passed}/${total})`;
+        }
+        if (label1) label1.textContent = 'Problem Statement' + score1;
+        if (label2) label2.textContent = 'FSR Daily Notes' + score2;
     }
 
     // --- Placeholder for LLM call after transcription ---
