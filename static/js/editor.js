@@ -814,9 +814,9 @@ class LanguageToolEditor {
             });
         });
 
-        // Add click handlers for evaluation titles to navigate to rewrite box
-        const titleElements = evalBox.querySelectorAll('.llm-section-title');
-        titleElements.forEach(title => {
+        // Add click handlers for evaluation titles to navigate to rewrite box (only for failed evaluations)
+        const failedTitleElements = evalBox.querySelectorAll('.llm-dropdown[data-passed="false"] .llm-section-title');
+        failedTitleElements.forEach(title => {
             title.addEventListener('click', (e) => {
                 e.stopPropagation(); // Prevent dropdown toggle
                 const criteria = title.getAttribute('data-criteria');

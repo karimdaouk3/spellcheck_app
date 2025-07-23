@@ -440,8 +440,14 @@ body {
     transition: text-decoration 0.2s;
 }
 
-.llm-section-title:hover {
+/* Only show hover underline for failed evaluations (those with questions) */
+.llm-dropdown[data-passed="false"] .llm-section-title:hover {
     text-decoration: underline;
+}
+
+/* Remove cursor pointer for completed evaluations */
+.llm-dropdown[data-passed="true"] .llm-section-title {
+    cursor: default;
 }
 .llm-section-justification {
     font-size: 0.97em;
