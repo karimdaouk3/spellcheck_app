@@ -630,6 +630,12 @@ class LanguageToolEditor {
             } else {
                 body.step = 1;
             }
+            // Add ruleset parameter
+            if (field === 'editor2') {
+                body.ruleset = 'fsr';
+            } else {
+                body.ruleset = 'problem_statement';
+            }
             const response = await fetch('/llm', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

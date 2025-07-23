@@ -4,6 +4,22 @@ import language_tool_python as lt
 import litellm
 import json
 import time
+import os
+
+TERMS_FILE = 'terms.json'
+
+def load_terms():
+    if os.path.exists(TERMS_FILE):
+        with open(TERMS_FILE, 'r') as f:
+            try:
+                return json.load(f)
+            except Exception:
+                return []
+    return []
+
+def save_terms(terms):
+    with open(TERMS_FILE, 'w') as f:
+        json.dump(terms, f, indent=2)
 
 # --- Start / connect to your running LanguageTool server ---------------
 # Make sure the server is already running:
@@ -11,18 +27,26 @@ import time
 tool = lt.LanguageTool('en-US', remote_server='http://localhost:8081')
 # -----------------------------------------------------------------------
 
-app = Flask(__name__)
+# --- Ruleset definitions ---
+PROBLEM_STATEMENT_RULESET = {
+    "common_characteristics": [
+        "clearly_states_problem",
+        "includes_relevant_context",
+        "is_concise_and_specific",
+        "uses_professional_language"
+    ]
+}
+FSR_RULESET = {
+    "common_characteristics": [
+        "documents_daily_activities",
+        "notes_any_issues_encountered",
+        "lists_action_items",
+        "is_clear_and_complete"
+    ]
+}
+# -----------------------------------------------------------------------
 
-def filter_acronym_matches(text, matches):
-    """Drop spelling-only alerts when the token is an ALL-CAPS acronym."""
-    filtered = []
-    for m in matches:
-        token = text[m.offset : m.offset + m.errorLength]
-        # LanguageTool marks pure spelling errors with ruleId starting with 'MORFOLOGIK'
-        if m.ruleId.startswith("MORFOLOGIK") and token.isupper() and len(token) > 1:
-            continue  # ignore acronym
-        filtered.append(m)
-    return filtered
+app = Flask(__name__)
 
 def get_error_type(ruleId):
     if ruleId.startswith("MORFOLOGIK"):
@@ -47,37 +71,90 @@ def check():
         return jsonify([])
     
     try:
-        matches = filter_acronym_matches(text, tool.check(text))
+        matches = tool.check(text)
         
-        # Send compact data back to the browser
-        response = [
-            {
+        # Load KLA term bank
+        terms = []
+        if os.path.exists('terms.json'):
+            try:
+                with open('terms.json', 'r') as f:
+                    terms = json.load(f)
+            except Exception:
+                terms = []
+        # Filter out spelling errors for words in the term bank
+        response = []
+        for m in matches:
+            token = text[m.offset : m.offset + m.errorLength]
+            error_type = get_error_type(m.ruleId)
+            if error_type == 'spelling' and token in terms:
+                continue  # Ignore this error
+            response.append({
                 "offset": m.offset,
                 "length": m.errorLength,
                 "message": m.message,
                 "replacements": m.replacements,   # list[str]
                 "ruleId": m.ruleId,
-                "errorType": get_error_type(m.ruleId),
-            }
-            for m in matches
-        ]
+                "errorType": error_type,
+            })
         return jsonify(response)
     except Exception as e:
         print(f"Error checking text: {e}")
         return jsonify([])
+
+@app.route('/terms', methods=['GET', 'POST'])
+def terms_route():
+    TERMS_FILE = 'terms.json'
+    import os
+    import json
+    if request.method == 'POST':
+        data = request.get_json()
+        term = data.get('term', '').strip()
+        if not term:
+            return jsonify({'error': 'No term provided'}), 400
+        # Load terms
+        if os.path.exists(TERMS_FILE):
+            try:
+                with open(TERMS_FILE, 'r') as f:
+                    terms = json.load(f)
+            except Exception:
+                terms = []
+        else:
+            terms = []
+        if term not in terms:
+            terms.append(term)
+            with open(TERMS_FILE, 'w') as f:
+                json.dump(terms, f, indent=2)
+        # Only return confirmation, not the full list
+        return jsonify({'status': 'ok', 'added': term})
+    else:  # GET
+        if os.path.exists(TERMS_FILE):
+            try:
+                with open(TERMS_FILE, 'r') as f:
+                    terms = json.load(f)
+            except Exception:
+                terms = []
+        else:
+            terms = []
+        return jsonify({'terms': terms})
 
 @app.route("/llm", methods=["POST"])
 def llm():
     data = request.get_json()
     text = data.get("text", "")
     answers = data.get("answers")
+    step = data.get("step", 1)
+    ruleset_name = data.get("ruleset", "problem_statement")
+    if ruleset_name == "fsr":
+        RULESET = FSR_RULESET
+    else:
+        RULESET = PROBLEM_STATEMENT_RULESET
     if not text.strip():
         return jsonify({"result": "No text provided."})
 
     # Format the ruleset into a readable string
     rules = "\n".join(f"- {rule.replace('_', ' ').capitalize()}" for rule in RULESET["common_characteristics"])
 
-    if not answers:
+    if step == 1:
         # Step 1: Evaluation and questions
         user_prompt = f"""
 Evaluate the following technical note against these criteria:\n{rules}\n\nFor each criterion, return a JSON object with the rule name as the key, and an object with:\n- 'passed': true or false\n- 'justification': a short explanation\n- If failed, 'question': a question that would help the user improve their input to pass this criterion\nReturn only the JSON. No extra text.\n\nTechnical Note:{{text}}
@@ -103,7 +180,7 @@ Evaluate the following technical note against these criteria:\n{rules}\n\nFor ea
         except Exception as e:
             print(f"Error calling LLM: {e}")
             return jsonify({"result": f"LLM error: {e}"})
-    else:
+    elif step == 2:
         # Step 2: Generate rewrite using answers
         answers_str = "\n".join(f"- {k}: {v}" for k, v in answers.items())
         user_prompt = f"""
@@ -130,6 +207,8 @@ Given the original technical note and the user's answers to the following questi
         except Exception as e:
             print(f"Error calling LLM: {e}")
             return jsonify({"result": f"LLM error: {e}"})
+    else:
+        return jsonify({"result": "Invalid step value."})
 
 @app.route("/speech-to-text", methods=["POST"])
 def speech_to_text():
@@ -141,6 +220,61 @@ def speech_to_text():
     time.sleep(1)
     # In the real implementation, you would process the audio here
     return jsonify({"transcription": "Transcribed text will appear here. (Placeholder: 'This is a sample transcription.')"})
+
+@app.route("/feedback", methods=["POST"])
+def feedback():
+    data = request.get_json()
+    # Expecting: { "criteria": ..., "text": ..., "feedback": ..., "explanation": ..., "passed": ... }
+    if not data or "criteria" not in data or "text" not in data or "feedback" not in data:
+        return jsonify({"status": "error", "message": "Invalid data"}), 400
+
+    # Load existing feedback
+    if os.path.exists(EVALUATION_FEEDBACK_FILE):
+        with open(EVALUATION_FEEDBACK_FILE, "r") as f:
+            feedback_data = json.load(f)
+    else:
+        feedback_data = []
+
+    entry = {
+        "criteria": data["criteria"],
+        "text": data["text"],
+        "feedback": data["feedback"],
+        "timestamp": time.time()
+    }
+    if "explanation" in data:
+        entry["explanation"] = data["explanation"]
+    if "passed" in data:
+        entry["passed"] = data["passed"]
+    feedback_data.append(entry)
+
+    with open(EVALUATION_FEEDBACK_FILE, "w") as f:
+        json.dump(feedback_data, f)
+
+    return jsonify({"status": "ok"})
+
+REWRITE_FEEDBACK_FILE = 'rewrite_feedback.json'
+
+@app.route("/rewrite-feedback", methods=["POST"])
+def rewrite_feedback():
+    data = request.get_json()
+    # Expecting a list of entries, each with original_text, criteria, question, user_answer
+    if not isinstance(data, list):
+        return jsonify({"status": "error", "message": "Invalid data format (expected list)"}), 400
+    for entry in data:
+        if not all(k in entry for k in ("original_text", "criteria", "question", "user_answer")):
+            return jsonify({"status": "error", "message": "Missing required fields in entry"}), 400
+    # Load existing rewrite feedback
+    if os.path.exists(REWRITE_FEEDBACK_FILE):
+        with open(REWRITE_FEEDBACK_FILE, "r") as f:
+            feedback_data = json.load(f)
+    else:
+        feedback_data = []
+    # Add new entries
+    feedback_data.extend(data)
+    with open(REWRITE_FEEDBACK_FILE, "w") as f:
+        json.dump(feedback_data, f)
+    return jsonify({"status": "ok"})
+
 
 if __name__ == "__main__":
     print("Starting LanguageTool Flask App...")
