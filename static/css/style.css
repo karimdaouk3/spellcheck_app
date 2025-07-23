@@ -936,10 +936,10 @@ body {
 }
 /* FSR Daily Notes editor - taller height */
 #editor2 {
-    height: 400px !important;
-    min-height: 400px !important;
-    max-height: 400px !important;
+    height: 300px !important;
+    min-height: 300px !important;
+    max-height: 300px !important;
 }
 .editor-container:nth-child(2) .editor-wrapper {
-    min-height: 400px !important;
+    min-height: 300px !important;
 }
