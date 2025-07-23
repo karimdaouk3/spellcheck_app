@@ -444,11 +444,6 @@ body {
 .llm-dropdown[data-passed="false"] .llm-section-title:hover {
     text-decoration: underline;
 }
-
-/* Remove cursor pointer for completed evaluations */
-.llm-dropdown[data-passed="true"] .llm-section-title {
-    cursor: default;
-}
 .llm-section-justification {
     font-size: 0.97em;
     color: #444;
