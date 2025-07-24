@@ -219,6 +219,11 @@ class LanguageToolEditor {
                 llmButton.addEventListener('click', () => {
                     this.activeField = field;
                     const text = fieldObj.editor.innerText;
+                    const limit = charLimits[field];
+                    if (text.length > limit) {
+                        alert(`Over the character limit. The limit is ${limit} characters.`);
+                        return;
+                    }
                     if (text.replace(/\s/g, '').length < 20) {
                         alert('Please make sure your problem statement is meaningful and comprehensive (at least 20 characters)');
                         return;
