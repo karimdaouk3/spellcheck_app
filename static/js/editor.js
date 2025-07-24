@@ -146,6 +146,10 @@ class LanguageToolEditor {
     }
 
     initEventListeners() {
+        const charLimits = {
+            editor: 1000,
+            editor2: 10000
+        };
         ['editor', 'editor2'].forEach(field => {
             const fieldObj = this.fields[field];
             const container = fieldObj.editor.closest('.editor-container');
@@ -173,16 +177,27 @@ class LanguageToolEditor {
                 // Don't call updateHighlights here to preserve scroll position
                 this.updateActiveEditorHighlight();
             });
-            fieldObj.editor.addEventListener('input', () => {
-                if (!fieldObj.overlayHidden) {
-                    this.updateHighlights(field); // Only update overlay if not hidden
+            // Character limit enforcement
+            const enforceCharLimit = (e) => {
+                const limit = charLimits[field];
+                let text = fieldObj.editor.innerText;
+                if (text.length > limit) {
+                    fieldObj.editor.innerText = text.slice(0, limit);
+                    this.setCursorPosition(limit, field);
+                    alert(`Over the character limit. The limit is ${limit} characters.`);
                 }
-                this.debounceCheck(field);
-            });
+            };
+            fieldObj.editor.addEventListener('input', enforceCharLimit);
             fieldObj.editor.addEventListener('paste', (e) => {
                 e.preventDefault();
+                const limit = charLimits[field];
                 const text = (e.clipboardData || window.clipboardData).getData('text');
-                document.execCommand('insertText', false, text);
+                let current = fieldObj.editor.innerText;
+                let allowed = text.slice(0, Math.max(0, limit - current.length));
+                document.execCommand('insertText', false, allowed);
+                if ((current.length + text.length) > limit) {
+                    alert(`Over the character limit. The limit is ${limit} characters.`);
+                }
             });
             fieldObj.editor.addEventListener('blur', () => {
                 if (fieldObj.editor.innerText.trim() === '') {
