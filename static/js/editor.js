@@ -146,10 +146,6 @@ class LanguageToolEditor {
     }
 
     initEventListeners() {
-        const charLimits = {
-            editor: 1000,
-            editor2: 10000
-        };
         ['editor', 'editor2'].forEach(field => {
             const fieldObj = this.fields[field];
             const container = fieldObj.editor.closest('.editor-container');
@@ -177,27 +173,16 @@ class LanguageToolEditor {
                 // Don't call updateHighlights here to preserve scroll position
                 this.updateActiveEditorHighlight();
             });
-            // Character limit enforcement
-            const enforceCharLimit = (e) => {
-                const limit = charLimits[field];
-                let text = fieldObj.editor.innerText;
-                if (text.length > limit) {
-                    fieldObj.editor.innerText = text.slice(0, limit);
-                    this.setCursorPosition(limit, field);
-                    alert(`Over the character limit. The limit is ${limit} characters.`);
+            fieldObj.editor.addEventListener('input', () => {
+                if (!fieldObj.overlayHidden) {
+                    this.updateHighlights(field); // Only update overlay if not hidden
                 }
-            };
-            fieldObj.editor.addEventListener('input', enforceCharLimit);
+                this.debounceCheck(field);
+            });
             fieldObj.editor.addEventListener('paste', (e) => {
                 e.preventDefault();
-                const limit = charLimits[field];
                 const text = (e.clipboardData || window.clipboardData).getData('text');
-                let current = fieldObj.editor.innerText;
-                let allowed = text.slice(0, Math.max(0, limit - current.length));
-                document.execCommand('insertText', false, allowed);
-                if ((current.length + text.length) > limit) {
-                    alert(`Over the character limit. The limit is ${limit} characters.`);
-                }
+                document.execCommand('insertText', false, text);
             });
             fieldObj.editor.addEventListener('blur', () => {
                 if (fieldObj.editor.innerText.trim() === '') {
@@ -219,9 +204,10 @@ class LanguageToolEditor {
                 llmButton.addEventListener('click', () => {
                     this.activeField = field;
                     const text = fieldObj.editor.innerText;
-                    const limit = charLimits[field];
-                    if (text.length > limit) {
-                        alert(`Over the character limit. The limit is ${limit} characters.`);
+                    // Character limit logic
+                    const charLimit = field === 'editor' ? 1000 : 10000;
+                    if (text.length > charLimit) {
+                        alert(`Over the character limit. The limit is ${charLimit} characters.`);
                         return;
                     }
                     if (text.replace(/\s/g, '').length < 20) {
