@@ -690,6 +690,9 @@ class LanguageToolEditor {
             fieldObj.llmLastResult = data.result;
             this.displayLLMResult(data.result, answers !== null, field);
             this.updateActiveEditorHighlight(); // Ensure highlight remains
+            
+            // Add to history when evaluation is completed
+            this.addToHistory(text, field);
         } catch (e) {
             this.showStatus('LLM call failed', 'error');
             alert('LLM call failed: ' + e);
@@ -1192,9 +1195,52 @@ class LanguageToolEditor {
     addToHistory(text, field = this.activeField) {
         if (!text || !text.trim()) return;
         const fieldObj = this.fields[field];
-        fieldObj.history.unshift(text);
+        
+        // Create history entry with complete state
+        const historyEntry = {
+            text: text,
+            llmLastResult: fieldObj.llmLastResult ? JSON.parse(JSON.stringify(fieldObj.llmLastResult)) : null,
+            timestamp: new Date().toISOString()
+        };
+        
+        fieldObj.history.unshift(historyEntry);
         if (fieldObj.history.length > 50) fieldObj.history = fieldObj.history.slice(0, 50);
         this.renderHistory();
+    }
+
+    restoreFromHistory(historyItem, field = this.activeField) {
+        const fieldObj = this.fields[field];
+        
+        // Handle both old format (string) and new format (object)
+        const text = typeof historyItem === 'string' ? historyItem : historyItem.text;
+        const llmResult = typeof historyItem === 'object' ? historyItem.llmLastResult : null;
+        
+        // Restore the text
+        fieldObj.editor.innerText = text;
+        
+        // Restore the evaluation and feedback if available
+        if (llmResult) {
+            fieldObj.llmLastResult = llmResult;
+            this.displayLLMResult(llmResult, false, field);
+        } else {
+            // Clear any existing evaluation
+            fieldObj.llmLastResult = null;
+            const evalBox = document.getElementById('llm-eval-box');
+            if (evalBox) {
+                evalBox.innerHTML = '';
+                evalBox.style.display = 'none';
+            }
+            const rewritePopup = document.getElementById('rewrite-popup');
+            if (rewritePopup) {
+                rewritePopup.style.display = 'none';
+            }
+        }
+        
+        // Update scores
+        this.updateEditorLabelsWithScore();
+        
+        // Update highlights
+        this.updateActiveEditorHighlight();
     }
 
     renderHistory() {
@@ -1214,8 +1260,14 @@ class LanguageToolEditor {
         const fieldObj = this.fields[this.activeField];
         fieldObj.history.forEach((item, idx) => {
             const li = document.createElement('li');
-            li.textContent = item; // Show full text, no truncation
-            li.title = item;
+            
+            // Handle both old format (string) and new format (object)
+            const text = typeof item === 'string' ? item : item.text;
+            const hasEvaluation = typeof item === 'object' && item.llmLastResult;
+            
+            li.textContent = text; // Show full text, no truncation
+            li.title = text;
+            
             // Add history icon for restore
             const icon = document.createElement('span');
             icon.innerHTML = '<svg width="20" height="20" viewBox="0 0 512 512" fill="#41007F" style="display:inline-block;vertical-align:middle;"><path d="M256 64C150 64 64 150 64 256H16l80 96 80-96h-48c0-88.2 71.8-160 160-160s160 71.8 160 160-71.8 160-160 160c-39.7 0-76.1-14.3-104.2-37.9-6.9-5.7-17.1-4.7-22.8 2.2s-4.7 17.1 2.2 22.8C163.7 426.2 207.6 448 256 448c106 0 192-86 192-192S362 64 256 64z"/></svg>';
@@ -1227,7 +1279,7 @@ class LanguageToolEditor {
             icon.style.padding = '4px';
             icon.style.borderRadius = '4px';
             icon.style.transition = 'background-color 0.2s';
-            icon.title = 'Restore to editor';
+            icon.title = hasEvaluation ? 'Restore text and feedback' : 'Restore to editor';
             icon.onmouseenter = () => {
                 icon.style.backgroundColor = '#e0e6f7';
             };
@@ -1236,7 +1288,7 @@ class LanguageToolEditor {
             };
             icon.onclick = (e) => {
                 e.stopPropagation();
-                fieldObj.editor.innerText = item;
+                this.restoreFromHistory(item, field);
             };
             li.appendChild(icon);
             // Remove item click/hover highlight
