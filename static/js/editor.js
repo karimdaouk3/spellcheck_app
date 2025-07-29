@@ -33,7 +33,8 @@ class LanguageToolEditor {
                 history: [],
                 llmQuestions: [],
                 llmAnswers: {},
-                llmLastResult: null
+                llmLastResult: null,
+                rewriteContent: ''
             },
             editor2: {
                 editor: document.getElementById('editor2'),
@@ -48,7 +49,8 @@ class LanguageToolEditor {
                 history: [],
                 llmQuestions: [],
                 llmAnswers: {},
-                llmLastResult: null
+                llmLastResult: null,
+                rewriteContent: ''
             }
         };
         this.historyPanel = document.getElementById('history-panel');
@@ -174,18 +176,6 @@ class LanguageToolEditor {
                 }
             });
             fieldObj.editor.addEventListener('focus', () => {
-                // Save current rewrite answers before switching
-                this.saveCurrentRewriteAnswers();
-                
-                // Cancel any in-progress LLM calls for other fields
-                ['editor', 'editor2'].forEach(otherField => {
-                    if (otherField !== field && this.fields[otherField].llmInProgress) {
-                        this.fields[otherField].llmInProgress = false;
-                        this.status.classList.remove('loading');
-                        // Don't clear status when switching fields - let existing status persist
-                    }
-                });
-                
                 this.activeField = field;
                 this.renderHistory();
                 this.renderEvaluationAndRewrite(field);
@@ -714,12 +704,6 @@ class LanguageToolEditor {
     }
 
     displayLLMResult(result, showRewrite, field = this.activeField) {
-        // Only display result if it corresponds to the currently active field
-        if (field !== this.activeField) {
-            console.log(`Ignoring LLM result for field ${field} as active field is now ${this.activeField}`);
-            return;
-        }
-        
         const fieldObj = this.fields[field];
         const evalBox = document.getElementById('llm-eval-box');
         let html = '';
@@ -979,19 +963,21 @@ class LanguageToolEditor {
                 qHtml += `<button id="submit-answers-btn" class="llm-submit-button" style="margin-top:10px;">Rewrite</button>`;
                 rewritePopup.innerHTML = qHtml;
                 rewritePopup.style.display = 'block';
+                
+                // Restore saved rewrite content if available
+                if (fieldObj.rewriteContent) {
+                    const answerEls = rewritePopup.querySelectorAll('.rewrite-answer');
+                    answerEls.forEach(el => {
+                        const crit = el.getAttribute('data-criteria');
+                        if (fieldObj.llmAnswers[crit]) {
+                            el.value = fieldObj.llmAnswers[crit];
+                        }
+                    });
+                }
                 // Add event listener for submit answers
                 setTimeout(() => {
                     const btn = document.getElementById('submit-answers-btn');
                     const answerEls = rewritePopup.querySelectorAll('.rewrite-answer');
-                    
-                    // Restore saved answers
-                    answerEls.forEach(el => {
-                        const crit = el.getAttribute('data-criteria');
-                        if (crit && fieldObj.llmAnswers[crit]) {
-                            el.value = fieldObj.llmAnswers[crit];
-                        }
-                    });
-                    
                     // Prevent newlines and blur on Enter in rewrite answer boxes
                     answerEls.forEach(el => {
                         el.addEventListener('keydown', (e) => {
@@ -999,6 +985,12 @@ class LanguageToolEditor {
                                 e.preventDefault();
                                 el.blur();
                             }
+                        });
+                        
+                        // Save content when user types
+                        el.addEventListener('input', () => {
+                            const crit = el.getAttribute('data-criteria');
+                            fieldObj.llmAnswers[crit] = el.value;
                         });
                     });
                     if (btn) {
@@ -1222,15 +1214,10 @@ class LanguageToolEditor {
         if (!text || !text.trim()) return;
         const fieldObj = this.fields[field];
         
-        // Save current rewrite answers before creating history entry
-        this.saveCurrentRewriteAnswers();
-        
         // Create history entry with complete state
         const historyEntry = {
             text: text,
             llmLastResult: fieldObj.llmLastResult ? JSON.parse(JSON.stringify(fieldObj.llmLastResult)) : null,
-            llmQuestions: fieldObj.llmQuestions ? JSON.parse(JSON.stringify(fieldObj.llmQuestions)) : null,
-            llmAnswers: fieldObj.llmAnswers ? JSON.parse(JSON.stringify(fieldObj.llmAnswers)) : null,
             timestamp: new Date().toISOString()
         };
         
@@ -1245,8 +1232,6 @@ class LanguageToolEditor {
         // Handle both old format (string) and new format (object)
         const text = typeof historyItem === 'string' ? historyItem : historyItem.text;
         const llmResult = typeof historyItem === 'object' ? historyItem.llmLastResult : null;
-        const llmQuestions = typeof historyItem === 'object' ? historyItem.llmQuestions : null;
-        const llmAnswers = typeof historyItem === 'object' ? historyItem.llmAnswers : null;
         
         // Restore the text
         fieldObj.editor.innerText = text;
@@ -1255,18 +1240,9 @@ class LanguageToolEditor {
         if (llmResult) {
             fieldObj.llmLastResult = llmResult;
             this.displayLLMResult(llmResult, false, field);
-        }
-        
-        // Restore rewrite questions if available (can be in addition to llmResult)
-        if (llmQuestions && llmQuestions.length > 0) {
-            fieldObj.llmQuestions = llmQuestions;
-            fieldObj.llmAnswers = llmAnswers || {};
-            this.displayRewriteQuestions(llmQuestions, llmAnswers || {}, field);
-        } else if (!llmResult) {
-            // Only clear if there's no result and no questions
+        } else {
+            // Clear any existing evaluation
             fieldObj.llmLastResult = null;
-            fieldObj.llmQuestions = null;
-            fieldObj.llmAnswers = {};
             const evalBox = document.getElementById('llm-eval-box');
             if (evalBox) {
                 evalBox.innerHTML = '';
@@ -1343,10 +1319,17 @@ class LanguageToolEditor {
         });
     }
 
-    // When switching boxes, always clear rewrite result if it was just shown
+    // When switching boxes, save current rewrite content and restore the target field's content
     renderEvaluationAndRewrite(field) {
-        // Save current rewrite answers before clearing
-        this.saveCurrentRewriteAnswers();
+        // Save current rewrite content before switching
+        const currentFieldObj = this.fields[this.activeField];
+        const rewritePopup = document.getElementById('rewrite-popup');
+        if (rewritePopup && rewritePopup.style.display !== 'none') {
+            const rewriteTextarea = rewritePopup.querySelector('textarea');
+            if (rewriteTextarea) {
+                currentFieldObj.rewriteContent = rewriteTextarea.value;
+            }
+        }
         
         // Defensive: clear right side first to avoid flicker of wrong data
         const evalBox = document.getElementById('llm-eval-box');
@@ -1354,137 +1337,23 @@ class LanguageToolEditor {
             evalBox.innerHTML = '';
             evalBox.style.display = 'none';
         }
-        const rewritePopup = document.getElementById('rewrite-popup');
         if (rewritePopup) {
             rewritePopup.style.display = 'none';
         }
+        
         // Now show the correct evaluation if it exists for this field
         const fieldObj = this.fields[field];
-        
-        // Check if we should show the result
-        let shouldShowResult = false;
-        let shouldShowRewriteQuestions = false;
-        
+        // If the last result was a rewrite, and the editor content doesn't match, clear it
+        if (fieldObj.llmLastResult && fieldObj.llmLastResult.rewrite && fieldObj.llmLastResult.original_text !== fieldObj.editor.innerText) {
+            fieldObj.llmLastResult = null;
+        }
         if (fieldObj.llmLastResult) {
-            // For rewrites, we need to check if the current editor content matches either the original or rewritten text
-            if (fieldObj.llmLastResult.rewrite) {
-                const currentText = fieldObj.editor.innerText;
-                const originalText = fieldObj.llmLastResult.original_text;
-                const rewrittenText = fieldObj.llmLastResult.rewritten_problem_statement || fieldObj.llmLastResult.rewrite;
-                
-                // Show if current text matches either original or rewritten version
-                if (currentText === originalText || currentText === rewrittenText) {
-                    shouldShowResult = true;
-                }
-            } else {
-                // For regular evaluations, check if original text matches current text
-                if (fieldObj.llmLastResult.original_text === undefined || fieldObj.llmLastResult.original_text === fieldObj.editor.innerText) {
-                    shouldShowResult = true;
-                }
+            // Only show if the result matches the current editor content (avoid showing stale result)
+            if (fieldObj.llmLastResult.original_text === undefined || fieldObj.llmLastResult.original_text === fieldObj.editor.innerText) {
+                this.displayLLMResult(fieldObj.llmLastResult, false, field);
             }
-        }
-        
-        // Check if there are rewrite questions in progress for this field
-        if (fieldObj.llmQuestions && fieldObj.llmQuestions.length > 0) {
-            shouldShowRewriteQuestions = true;
-        }
-        
-        if (shouldShowResult) {
-            this.displayLLMResult(fieldObj.llmLastResult, false, field);
-        } else if (shouldShowRewriteQuestions) {
-            // Show rewrite questions without a result (in-progress state)
-            this.displayRewriteQuestions(fieldObj.llmQuestions, fieldObj.llmAnswers, field);
         }
         this.updateActiveEditorHighlight(); // Always re-apply highlight after UI update
-    }
-
-    displayRewriteQuestions(questions, answers, field) {
-        const rewritePopup = document.getElementById('rewrite-popup');
-        if (!rewritePopup) return;
-        
-        const fieldObj = this.fields[field];
-        
-        // Determine color based on active editor
-        const isProblemStatement = field === 'editor';
-        const borderColor = isProblemStatement ? '#41007F' : '#00A7E1';
-        const backgroundColor = isProblemStatement ? 'rgba(240, 240, 255, 0.3)' : 'rgba(240, 248, 255, 0.3)';
-        
-        let qHtml = '<div class="rewrite-title" style="display:flex;align-items:center;font-weight:700;font-size:1.13em;color:#41007F;margin-bottom:8px;">To improve your input, please answer the following questions:</div>';
-        qHtml += `<div class="rewrite-title" style="border: 2px solid ${borderColor}; background: ${backgroundColor}; border-radius: 10px; padding: 18px 18px 10px 18px; margin-bottom: 10px; margin-top: 10px;">`;
-        questions.forEach((q, idx) => {
-            qHtml += `<div class="rewrite-question">${this.escapeHtml(q.question)}</div>`;
-            qHtml += `<textarea class="rewrite-answer" data-criteria="${this.escapeHtml(q.criteria)}" rows="1" style="width:100%;margin-bottom:12px;resize:none;"></textarea>`;
-        });
-        qHtml += `<button id="submit-answers-btn" class="llm-submit-button" style="margin-top:10px;">Rewrite</button>`;
-        rewritePopup.innerHTML = qHtml;
-        rewritePopup.style.display = 'block';
-        
-        // Add event listener for submit answers
-        setTimeout(() => {
-            const btn = document.getElementById('submit-answers-btn');
-            const answerEls = rewritePopup.querySelectorAll('.rewrite-answer');
-            
-            // Restore saved answers
-            answerEls.forEach(el => {
-                const crit = el.getAttribute('data-criteria');
-                if (crit && answers && answers[crit] !== undefined) {
-                    el.value = answers[crit];
-                }
-            });
-            
-            // Prevent newlines and blur on Enter in rewrite answer boxes
-            answerEls.forEach(el => {
-                el.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        el.blur();
-                    }
-                });
-            });
-            if (btn) {
-                btn.onclick = () => {
-                    // Collect answers
-                    answerEls.forEach(el => {
-                        const crit = el.getAttribute('data-criteria');
-                        fieldObj.llmAnswers[crit] = el.value;
-                    });
-                    // Log rewrite submission
-                    if (questions && questions.length > 0) {
-                        const logArr = questions.map(q => ({
-                            original_text: fieldObj.editor.innerText,
-                            criteria: q.criteria,
-                            question: q.question,
-                            user_answer: fieldObj.llmAnswers[q.criteria] || ''
-                        }));
-                        fetch('/rewrite-feedback', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(logArr)
-                        });
-                    }
-                    // Resubmit to LLM with answers
-                    this.submitToLLM(fieldObj.editor.innerText, fieldObj.llmAnswers, field);
-                };
-            }
-        }, 100);
-    }
-
-    saveCurrentRewriteAnswers() {
-        const rewritePopup = document.getElementById('rewrite-popup');
-        if (!rewritePopup || rewritePopup.style.display === 'none') return;
-        
-        const answerEls = rewritePopup.querySelectorAll('.rewrite-answer');
-        const currentAnswers = {};
-        
-        answerEls.forEach(el => {
-            const crit = el.getAttribute('data-criteria');
-            if (crit) {
-                currentAnswers[crit] = el.value;
-            }
-        });
-        
-        // Save to the current active field (always save, even if empty)
-        this.fields[this.activeField].llmAnswers = currentAnswers;
     }
 }
 
