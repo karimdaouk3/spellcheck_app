@@ -254,9 +254,11 @@ class LanguageToolEditor {
                                 if (e.data.size > 0) audioChunks.push(e.data);
                             };
                             mediaRecorder.onstop = async () => {
+                                micBtn.classList.remove('recording-pulse');
                                 micBtn.style.background = '';
                                 micBtn.style.color = '';
                                 micBtn.disabled = true;
+                                micBtn.title = 'Record speech';
                                 this.showStatus('Processing audio...', 'checking', true);
                                 let audioBlob = new Blob(audioChunks, { type: mimeType || 'audio/webm' });
                                 const formData = new FormData();
@@ -289,12 +291,13 @@ class LanguageToolEditor {
                             };
                             mediaRecorder.start();
                             isRecording = true;
-                            micBtn.style.background = '#ffebee';
-                            micBtn.style.color = '#d32f2f';
-                            this.showStatus('Listening...', 'recording', true);
+                            micBtn.classList.add('recording-pulse');
+                            micBtn.title = 'Recording... Click to stop';
                         } catch (err) {
                             fieldObj.editor.innerText = '';
                             fieldObj.editor.setAttribute('contenteditable', 'true');
+                            micBtn.classList.remove('recording-pulse');
+                            micBtn.title = 'Record speech';
                             this.showStatus('Could not access microphone.', 'error');
                             alert('Could not access microphone.');
                             fieldObj.editor.setAttribute('data-placeholder', 'Start typing your text here...');
