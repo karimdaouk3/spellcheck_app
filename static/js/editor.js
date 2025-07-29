@@ -1341,15 +1341,30 @@ class LanguageToolEditor {
         }
         // Now show the correct evaluation if it exists for this field
         const fieldObj = this.fields[field];
-        // If the last result was a rewrite, and the editor content doesn't match, clear it
-        if (fieldObj.llmLastResult && fieldObj.llmLastResult.rewrite && fieldObj.llmLastResult.original_text !== fieldObj.editor.innerText) {
-            fieldObj.llmLastResult = null;
-        }
+        
+        // Check if we should show the result
+        let shouldShowResult = false;
         if (fieldObj.llmLastResult) {
-            // Only show if the result matches the current editor content (avoid showing stale result)
-            if (fieldObj.llmLastResult.original_text === undefined || fieldObj.llmLastResult.original_text === fieldObj.editor.innerText) {
-                this.displayLLMResult(fieldObj.llmLastResult, false, field);
+            // For rewrites, we need to check if the current editor content matches either the original or rewritten text
+            if (fieldObj.llmLastResult.rewrite) {
+                const currentText = fieldObj.editor.innerText;
+                const originalText = fieldObj.llmLastResult.original_text;
+                const rewrittenText = fieldObj.llmLastResult.rewritten_problem_statement || fieldObj.llmLastResult.rewrite;
+                
+                // Show if current text matches either original or rewritten version
+                if (currentText === originalText || currentText === rewrittenText) {
+                    shouldShowResult = true;
+                }
+            } else {
+                // For regular evaluations, check if original text matches current text
+                if (fieldObj.llmLastResult.original_text === undefined || fieldObj.llmLastResult.original_text === fieldObj.editor.innerText) {
+                    shouldShowResult = true;
+                }
             }
+        }
+        
+        if (shouldShowResult) {
+            this.displayLLMResult(fieldObj.llmLastResult, false, field);
         }
         this.updateActiveEditorHighlight(); // Always re-apply highlight after UI update
     }
