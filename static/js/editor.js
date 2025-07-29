@@ -1425,10 +1425,12 @@ class LanguageToolEditor {
             const answerEls = rewritePopup.querySelectorAll('.rewrite-answer');
             
             // Restore saved answers
+            console.log(`Restoring answers for field ${field}:`, answers);
             answerEls.forEach(el => {
                 const crit = el.getAttribute('data-criteria');
                 if (crit && answers && answers[crit] !== undefined) {
                     el.value = answers[crit];
+                    console.log(`Restored answer for ${crit}:`, answers[crit]);
                 }
             });
             
@@ -1485,6 +1487,9 @@ class LanguageToolEditor {
         
         // Save to the current active field (always save, even if empty)
         this.fields[this.activeField].llmAnswers = currentAnswers;
+        
+        // Debug logging
+        console.log(`Saved answers for field ${this.activeField}:`, currentAnswers);
     }
 }
 
