@@ -1282,21 +1282,35 @@ class LanguageToolEditor {
             const historyItem = document.createElement('div');
             historyItem.className = 'history-item';
             historyItem.style.cssText = 'padding:10px;margin:5px 0;background:#f9f9f9;border-radius:5px;cursor:pointer;border-left:3px solid #41007F;';
+            historyItem.title = 'Click to revert to this version';
             
             const text = typeof item === 'string' ? item : item.text;
             const llmResult = typeof item === 'object' ? item.llmLastResult : null;
             
             // Calculate score if available
             let scoreDisplay = '';
+            let scoreColor = '';
             if (llmResult && llmResult.evaluation) {
                 const score = this.calculateWeightedScore(this.activeField, llmResult.evaluation);
                 const percentage = Math.round(score);
                 scoreDisplay = `Score: ${percentage}%`;
+                
+                // Color coding based on performance (same as current score box)
+                if (percentage >= 75) {
+                    scoreColor = '#4CAF50'; // Green
+                } else if (percentage >= 50) {
+                    scoreColor = '#FFC107'; // Yellow
+                } else {
+                    scoreColor = '#F44336'; // Red
+                }
             }
             
+            // Replace newlines with <br> tags for proper rendering
+            const textWithNewlines = text.replace(/\n/g, '<br>');
+            
             historyItem.innerHTML = `
-                <div style="margin-bottom:5px;">${text}</div>
-                ${scoreDisplay ? `<div style="font-size:0.8em;color:#666;">${scoreDisplay}</div>` : ''}
+                <div style="margin-bottom:5px;white-space:pre-wrap;">${textWithNewlines}</div>
+                ${scoreDisplay ? `<div style="font-size:0.8em;color:${scoreColor};font-weight:bold;">${scoreDisplay}</div>` : ''}
             `;
             
             historyItem.onclick = () => {
