@@ -1014,8 +1014,11 @@ class LanguageToolEditor {
                 }
             }
             if (rewrite) {
+                // Store the original evaluation result before it gets replaced
+                const originalResult = fieldObj.llmLastResult;
+                
                 // Add the version that was submitted (before rewrite) to history
-                this.addToHistory(fieldObj.editor.innerText, field);
+                this.addToHistory(fieldObj.editor.innerText, field, originalResult);
                 // Replace the editor content with the rewrite
                 fieldObj.editor.innerText = rewrite;
                 // Hide overlay immediately to prevent flash of old highlights
@@ -1191,14 +1194,17 @@ class LanguageToolEditor {
         });
     }
 
-    addToHistory(text, field = this.activeField) {
+    addToHistory(text, field = this.activeField, evaluationResult = null) {
         if (!text || !text.trim()) return;
         const fieldObj = this.fields[field];
+        
+        // Use provided evaluation result or current one
+        const resultToStore = evaluationResult || fieldObj.llmLastResult;
         
         // Create history entry with complete state
         const historyEntry = {
             text: text,
-            llmLastResult: fieldObj.llmLastResult ? JSON.parse(JSON.stringify(fieldObj.llmLastResult)) : null,
+            llmLastResult: resultToStore ? JSON.parse(JSON.stringify(resultToStore)) : null,
             timestamp: new Date().toISOString()
         };
         
@@ -1220,7 +1226,9 @@ class LanguageToolEditor {
         // Restore the evaluation and feedback if available
         if (llmResult) {
             fieldObj.llmLastResult = llmResult;
-            this.displayLLMResult(llmResult, false, field);
+            // Check if this result has rewrite data and show rewrite popup if it does
+            const hasRewrite = llmResult.rewrite || llmResult.rewritten_problem_statement;
+            this.displayLLMResult(llmResult, hasRewrite, field);
         } else {
             // Clear any existing evaluation
             fieldObj.llmLastResult = null;
