@@ -29,19 +29,31 @@ tool = lt.LanguageTool('en-US', remote_server='http://localhost:8081')
 
 # --- Ruleset definitions ---
 PROBLEM_STATEMENT_RULESET = {
-    "common_characteristics": [
-        "clearly_states_problem",
-        "includes_relevant_context",
-        "is_concise_and_specific",
-        "uses_professional_language"
+    "rules": [
+        {"name": "clearly_states_problem", "weight": 30},
+        {"name": "includes_relevant_context", "weight": 25},
+        {"name": "is_concise_and_specific", "weight": 25},
+        {"name": "uses_professional_language", "weight": 20}
+    ],
+    "advice": [
+        "Focus on clearly articulating the core problem or issue",
+        "Include relevant technical context and background information",
+        "Be specific and avoid vague language",
+        "Use professional and technical terminology appropriately"
     ]
 }
 FSR_RULESET = {
-    "common_characteristics": [
-        "documents_daily_activities",
-        "notes_any_issues_encountered",
-        "lists_action_items",
-        "is_clear_and_complete"
+    "rules": [
+        {"name": "documents_daily_activities", "weight": 30},
+        {"name": "notes_any_issues_encountered", "weight": 25},
+        {"name": "lists_action_items", "weight": 25},
+        {"name": "is_clear_and_complete", "weight": 20}
+    ],
+    "advice": [
+        "Document all daily activities and tasks performed",
+        "Note any issues, problems, or challenges encountered",
+        "List specific action items and next steps",
+        "Ensure the notes are clear, complete, and well-organized"
     ]
 }
 # -----------------------------------------------------------------------
@@ -137,6 +149,13 @@ def terms_route():
             terms = []
         return jsonify({'terms': terms})
 
+@app.route("/ruleset/<ruleset_name>", methods=["GET"])
+def get_ruleset(ruleset_name):
+    if ruleset_name == "fsr":
+        return jsonify(FSR_RULESET)
+    else:
+        return jsonify(PROBLEM_STATEMENT_RULESET)
+
 @app.route("/llm", methods=["POST"])
 def llm():
     data = request.get_json()
@@ -152,7 +171,7 @@ def llm():
         return jsonify({"result": "No text provided."})
 
     # Format the ruleset into a readable string
-    rules = "\n".join(f"- {rule.replace('_', ' ').capitalize()}" for rule in RULESET["common_characteristics"])
+    rules = "\n".join(f"- {rule['name'].replace('_', ' ').capitalize()}" for rule in RULESET["rules"])
 
     if step == 1:
         # Step 1: Evaluation and questions

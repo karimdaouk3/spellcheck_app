@@ -13,21 +13,12 @@ class LanguageToolEditor {
         this.history = [];
         this.activeField = 'editor'; // 'editor' or 'editor2'
         
-        // Define weighted criteria for scoring
-        this.criteriaWeights = {
-            editor: { // Problem Statement weights
-                "clearly_states_problem": 30,
-                "includes_relevant_context": 25,
-                "is_concise_and_specific": 25,
-                "uses_professional_language": 20
-            },
-            editor2: { // FSR Daily Notes weights
-                "documents_daily_activities": 30,
-                "notes_any_issues_encountered": 25,
-                "lists_action_items": 25,
-                "is_clear_and_complete": 20
-            }
-        };
+        // Load rulesets from backend
+        this.rulesets = {};
+        this.loadRulesets().then(() => {
+            // Update scores after rulesets are loaded
+            this.updateEditorLabelsWithScore();
+        });
         this.fields = {
             editor: {
                 editor: document.getElementById('editor'),
@@ -1122,15 +1113,39 @@ class LanguageToolEditor {
         }
     }
 
-    // Calculate weighted score based on criteria weights
+    // Load rulesets from backend
+    async loadRulesets() {
+        try {
+            const [problemStatementRuleset, fsrRuleset] = await Promise.all([
+                fetch('/ruleset/problem_statement').then(res => res.json()),
+                fetch('/ruleset/fsr').then(res => res.json())
+            ]);
+            
+            this.rulesets = {
+                editor: problemStatementRuleset,
+                editor2: fsrRuleset
+            };
+        } catch (error) {
+            console.error('Error loading rulesets:', error);
+        }
+    }
+
+    // Calculate weighted score based on criteria weights from backend
     calculateWeightedScore(field, evaluation) {
-        const weights = this.criteriaWeights[field];
+        const ruleset = this.rulesets[field];
+        if (!ruleset || !ruleset.rules) {
+            return 0;
+        }
+        
         let totalScore = 0;
         let totalWeight = 0;
         
-        for (const [criteria, weight] of Object.entries(weights)) {
-            if (evaluation[criteria]) {
-                totalScore += evaluation[criteria].passed ? weight : 0;
+        for (const rule of ruleset.rules) {
+            const criteriaName = rule.name;
+            const weight = rule.weight;
+            
+            if (evaluation[criteriaName]) {
+                totalScore += evaluation[criteriaName].passed ? weight : 0;
                 totalWeight += weight;
             }
         }
