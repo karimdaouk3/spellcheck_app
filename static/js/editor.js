@@ -1284,20 +1284,19 @@ class LanguageToolEditor {
             historyItem.style.cssText = 'padding:10px;margin:5px 0;background:#f9f9f9;border-radius:5px;cursor:pointer;border-left:3px solid #41007F;';
             
             const text = typeof item === 'string' ? item : item.text;
-            const timestamp = typeof item === 'object' ? item.timestamp : null;
+            const llmResult = typeof item === 'object' ? item.llmLastResult : null;
             
-            // Truncate text for display
-            const displayText = text.length > 100 ? text.substring(0, 100) + '...' : text;
-            
-            let timeDisplay = '';
-            if (timestamp) {
-                const date = new Date(timestamp);
-                timeDisplay = date.toLocaleTimeString();
+            // Calculate score if available
+            let scoreDisplay = '';
+            if (llmResult && llmResult.evaluation) {
+                const score = this.calculateWeightedScore(this.activeField, llmResult.evaluation);
+                const percentage = Math.round(score);
+                scoreDisplay = `Score: ${percentage}%`;
             }
             
             historyItem.innerHTML = `
-                <div style="font-weight:bold;margin-bottom:5px;">${displayText}</div>
-                <div style="font-size:0.8em;color:#666;">${timeDisplay}</div>
+                <div style="margin-bottom:5px;">${text}</div>
+                ${scoreDisplay ? `<div style="font-size:0.8em;color:#666;">${scoreDisplay}</div>` : ''}
             `;
             
             historyItem.onclick = () => {
