@@ -715,7 +715,8 @@ class LanguageToolEditor {
         fieldObj.llmInProgress = false;
         
         // Only display the result if this field is currently active
-        if (field !== this.activeField) {
+        // Exception: Always show rewrite results (follow-up questions) even if in different box
+        if (field !== this.activeField && !showRewrite) {
             return;
         }
         
