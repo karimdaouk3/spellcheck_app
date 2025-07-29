@@ -1231,6 +1231,11 @@ class LanguageToolEditor {
         
         // Restore the text
         console.log('Restoring text:', text); // Debug log
+        
+        // First, ensure the element is not considered empty by CSS
+        fieldObj.editor.innerHTML = '&nbsp;';
+        
+        // Then set the actual text
         fieldObj.editor.innerText = text;
         fieldObj.editor.classList.remove('empty');
         
