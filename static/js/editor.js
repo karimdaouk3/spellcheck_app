@@ -174,6 +174,15 @@ class LanguageToolEditor {
                 }
             });
             fieldObj.editor.addEventListener('focus', () => {
+                // Cancel any in-progress LLM calls for other fields
+                ['editor', 'editor2'].forEach(otherField => {
+                    if (otherField !== field && this.fields[otherField].llmInProgress) {
+                        this.fields[otherField].llmInProgress = false;
+                        this.status.classList.remove('loading');
+                        this.showStatus('', 'success', false);
+                    }
+                });
+                
                 this.activeField = field;
                 this.renderHistory();
                 this.renderEvaluationAndRewrite(field);
@@ -702,6 +711,12 @@ class LanguageToolEditor {
     }
 
     displayLLMResult(result, showRewrite, field = this.activeField) {
+        // Only display result if it corresponds to the currently active field
+        if (field !== this.activeField) {
+            console.log(`Ignoring LLM result for field ${field} as active field is now ${this.activeField}`);
+            return;
+        }
+        
         const fieldObj = this.fields[field];
         const evalBox = document.getElementById('llm-eval-box');
         let html = '';
