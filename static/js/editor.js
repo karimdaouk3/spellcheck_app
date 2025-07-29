@@ -1344,6 +1344,8 @@ class LanguageToolEditor {
         
         // Check if we should show the result
         let shouldShowResult = false;
+        let shouldShowRewriteQuestions = false;
+        
         if (fieldObj.llmLastResult) {
             // For rewrites, we need to check if the current editor content matches either the original or rewritten text
             if (fieldObj.llmLastResult.rewrite) {
@@ -1363,10 +1365,89 @@ class LanguageToolEditor {
             }
         }
         
+        // Check if there are rewrite questions in progress for this field
+        if (fieldObj.llmQuestions && fieldObj.llmQuestions.length > 0) {
+            shouldShowRewriteQuestions = true;
+        }
+        
         if (shouldShowResult) {
             this.displayLLMResult(fieldObj.llmLastResult, false, field);
+        } else if (shouldShowRewriteQuestions) {
+            // Show rewrite questions without a result (in-progress state)
+            this.displayRewriteQuestions(fieldObj.llmQuestions, fieldObj.llmAnswers, field);
         }
         this.updateActiveEditorHighlight(); // Always re-apply highlight after UI update
+    }
+
+    displayRewriteQuestions(questions, answers, field) {
+        const rewritePopup = document.getElementById('rewrite-popup');
+        if (!rewritePopup) return;
+        
+        const fieldObj = this.fields[field];
+        
+        // Determine color based on active editor
+        const isProblemStatement = field === 'editor';
+        const borderColor = isProblemStatement ? '#41007F' : '#00A7E1';
+        const backgroundColor = isProblemStatement ? 'rgba(240, 240, 255, 0.3)' : 'rgba(240, 248, 255, 0.3)';
+        
+        let qHtml = '<div class="rewrite-title" style="display:flex;align-items:center;font-weight:700;font-size:1.13em;color:#41007F;margin-bottom:8px;">To improve your input, please answer the following questions:</div>';
+        qHtml += `<div class="rewrite-title" style="border: 2px solid ${borderColor}; background: ${backgroundColor}; border-radius: 10px; padding: 18px 18px 10px 18px; margin-bottom: 10px; margin-top: 10px;">`;
+        questions.forEach((q, idx) => {
+            qHtml += `<div class="rewrite-question">${this.escapeHtml(q.question)}</div>`;
+            qHtml += `<textarea class="rewrite-answer" data-criteria="${this.escapeHtml(q.criteria)}" rows="1" style="width:100%;margin-bottom:12px;resize:none;"></textarea>`;
+        });
+        qHtml += `<button id="submit-answers-btn" class="llm-submit-button" style="margin-top:10px;">Rewrite</button>`;
+        rewritePopup.innerHTML = qHtml;
+        rewritePopup.style.display = 'block';
+        
+        // Add event listener for submit answers
+        setTimeout(() => {
+            const btn = document.getElementById('submit-answers-btn');
+            const answerEls = rewritePopup.querySelectorAll('.rewrite-answer');
+            
+            // Restore saved answers
+            answerEls.forEach(el => {
+                const crit = el.getAttribute('data-criteria');
+                if (crit && answers[crit]) {
+                    el.value = answers[crit];
+                }
+            });
+            
+            // Prevent newlines and blur on Enter in rewrite answer boxes
+            answerEls.forEach(el => {
+                el.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        el.blur();
+                    }
+                });
+            });
+            if (btn) {
+                btn.onclick = () => {
+                    // Collect answers
+                    answerEls.forEach(el => {
+                        const crit = el.getAttribute('data-criteria');
+                        fieldObj.llmAnswers[crit] = el.value;
+                    });
+                    // Log rewrite submission
+                    if (questions && questions.length > 0) {
+                        const logArr = questions.map(q => ({
+                            original_text: fieldObj.editor.innerText,
+                            criteria: q.criteria,
+                            question: q.question,
+                            user_answer: fieldObj.llmAnswers[q.criteria] || ''
+                        }));
+                        fetch('/rewrite-feedback', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(logArr)
+                        });
+                    }
+                    // Resubmit to LLM with answers
+                    this.submitToLLM(fieldObj.editor.innerText, fieldObj.llmAnswers, field);
+                };
+            }
+        }, 100);
     }
 
     saveCurrentRewriteAnswers() {
