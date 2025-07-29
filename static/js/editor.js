@@ -1219,10 +1219,15 @@ class LanguageToolEditor {
         if (!text || !text.trim()) return;
         const fieldObj = this.fields[field];
         
+        // Save current rewrite answers before creating history entry
+        this.saveCurrentRewriteAnswers();
+        
         // Create history entry with complete state
         const historyEntry = {
             text: text,
             llmLastResult: fieldObj.llmLastResult ? JSON.parse(JSON.stringify(fieldObj.llmLastResult)) : null,
+            llmQuestions: fieldObj.llmQuestions ? JSON.parse(JSON.stringify(fieldObj.llmQuestions)) : null,
+            llmAnswers: fieldObj.llmAnswers ? JSON.parse(JSON.stringify(fieldObj.llmAnswers)) : null,
             timestamp: new Date().toISOString()
         };
         
@@ -1237,6 +1242,8 @@ class LanguageToolEditor {
         // Handle both old format (string) and new format (object)
         const text = typeof historyItem === 'string' ? historyItem : historyItem.text;
         const llmResult = typeof historyItem === 'object' ? historyItem.llmLastResult : null;
+        const llmQuestions = typeof historyItem === 'object' ? historyItem.llmQuestions : null;
+        const llmAnswers = typeof historyItem === 'object' ? historyItem.llmAnswers : null;
         
         // Restore the text
         fieldObj.editor.innerText = text;
@@ -1245,9 +1252,16 @@ class LanguageToolEditor {
         if (llmResult) {
             fieldObj.llmLastResult = llmResult;
             this.displayLLMResult(llmResult, false, field);
+        } else if (llmQuestions && llmQuestions.length > 0) {
+            // Restore rewrite questions if available
+            fieldObj.llmQuestions = llmQuestions;
+            fieldObj.llmAnswers = llmAnswers || {};
+            this.displayRewriteQuestions(llmQuestions, llmAnswers || {}, field);
         } else {
             // Clear any existing evaluation
             fieldObj.llmLastResult = null;
+            fieldObj.llmQuestions = null;
+            fieldObj.llmAnswers = {};
             const evalBox = document.getElementById('llm-eval-box');
             if (evalBox) {
                 evalBox.innerHTML = '';
@@ -1464,10 +1478,8 @@ class LanguageToolEditor {
             }
         });
         
-        // Save to the current active field
-        if (Object.keys(currentAnswers).length > 0) {
-            this.fields[this.activeField].llmAnswers = currentAnswers;
-        }
+        // Save to the current active field (always save, even if empty)
+        this.fields[this.activeField].llmAnswers = currentAnswers;
     }
 }
 
