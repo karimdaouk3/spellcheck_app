@@ -965,6 +965,15 @@ class LanguageToolEditor {
                 setTimeout(() => {
                     const btn = document.getElementById('submit-answers-btn');
                     const answerEls = rewritePopup.querySelectorAll('.rewrite-answer');
+                    
+                    // Restore saved answers
+                    answerEls.forEach(el => {
+                        const crit = el.getAttribute('data-criteria');
+                        if (crit && fieldObj.llmAnswers[crit]) {
+                            el.value = fieldObj.llmAnswers[crit];
+                        }
+                    });
+                    
                     // Prevent newlines and blur on Enter in rewrite answer boxes
                     answerEls.forEach(el => {
                         el.addEventListener('keydown', (e) => {
@@ -1302,6 +1311,9 @@ class LanguageToolEditor {
 
     // When switching boxes, always clear rewrite result if it was just shown
     renderEvaluationAndRewrite(field) {
+        // Save current rewrite answers before clearing
+        this.saveCurrentRewriteAnswers();
+        
         // Defensive: clear right side first to avoid flicker of wrong data
         const evalBox = document.getElementById('llm-eval-box');
         if (evalBox) {
@@ -1325,6 +1337,26 @@ class LanguageToolEditor {
             }
         }
         this.updateActiveEditorHighlight(); // Always re-apply highlight after UI update
+    }
+
+    saveCurrentRewriteAnswers() {
+        const rewritePopup = document.getElementById('rewrite-popup');
+        if (!rewritePopup || rewritePopup.style.display === 'none') return;
+        
+        const answerEls = rewritePopup.querySelectorAll('.rewrite-answer');
+        const currentAnswers = {};
+        
+        answerEls.forEach(el => {
+            const crit = el.getAttribute('data-criteria');
+            if (crit) {
+                currentAnswers[crit] = el.value;
+            }
+        });
+        
+        // Save to the current active field
+        if (Object.keys(currentAnswers).length > 0) {
+            this.fields[this.activeField].llmAnswers = currentAnswers;
+        }
     }
 }
 
