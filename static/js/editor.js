@@ -1230,11 +1230,25 @@ class LanguageToolEditor {
         const llmResult = typeof historyItem === 'object' ? historyItem.llmLastResult : null;
         
         // Restore the text
+        console.log('Restoring text:', text); // Debug log
         fieldObj.editor.innerText = text;
         fieldObj.editor.classList.remove('empty');
         
+        // Force the text to be visible by setting textContent as well
+        fieldObj.editor.textContent = text;
+        
+        // Remove any CSS pseudo-elements that might be hiding the text
+        fieldObj.editor.style.setProperty('--placeholder-content', 'none');
+        
+        // Force a reflow to ensure the text is visible
+        fieldObj.editor.offsetHeight;
+        
         // Ensure the editor is focused and text is visible
         fieldObj.editor.focus();
+        
+        // Debug: check if text was actually set
+        console.log('Text after restoration:', fieldObj.editor.innerText);
+        console.log('TextContent after restoration:', fieldObj.editor.textContent);
         
         // Restore the evaluation and feedback if available
         if (llmResult) {
