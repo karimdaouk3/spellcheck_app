@@ -1069,10 +1069,10 @@ class LanguageToolEditor {
             score1.className = 'editor-score';
             
             // Color coding based on performance
-            if (percentage >= 80) {
+            if (percentage >= 75) {
                 score1.style.backgroundColor = '#4CAF50';
                 score1.style.color = 'white';
-            } else if (percentage >= 60) {
+            } else if (percentage >= 50) {
                 score1.style.backgroundColor = '#FFC107';
                 score1.style.color = 'black';
             } else {
@@ -1095,10 +1095,10 @@ class LanguageToolEditor {
             score2.className = 'editor-score';
             
             // Color coding based on performance
-            if (percentage >= 80) {
+            if (percentage >= 75) {
                 score2.style.backgroundColor = '#4CAF50';
                 score2.style.color = 'white';
-            } else if (percentage >= 60) {
+            } else if (percentage >= 50) {
                 score2.style.backgroundColor = '#FFC107';
                 score2.style.color = 'black';
             } else {
