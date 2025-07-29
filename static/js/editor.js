@@ -702,6 +702,11 @@ class LanguageToolEditor {
     }
 
     displayLLMResult(result, showRewrite, field = this.activeField) {
+        // Only display the result if this field is currently active
+        if (field !== this.activeField) {
+            return;
+        }
+        
         const fieldObj = this.fields[field];
         const evalBox = document.getElementById('llm-eval-box');
         let html = '';
