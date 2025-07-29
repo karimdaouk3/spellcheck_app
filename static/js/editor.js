@@ -260,6 +260,11 @@ class LanguageToolEditor {
                                 micBtn.disabled = true;
                                 micBtn.title = 'Record speech';
                                 this.showStatus('Processing audio...', 'checking', true);
+                                
+                                // Update editor text to show transcription in progress
+                                fieldObj.editor.innerText = 'Transcribing audio...';
+                                fieldObj.editor.classList.remove('empty');
+                                
                                 let audioBlob = new Blob(audioChunks, { type: mimeType || 'audio/webm' });
                                 const formData = new FormData();
                                 formData.append('audio', audioBlob, 'recording.wav');

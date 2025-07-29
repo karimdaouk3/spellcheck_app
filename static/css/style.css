@@ -964,7 +964,7 @@ body {
 /* Recording animation for microphone button */
 .recording-pulse {
     animation: recordingPulse 1.5s ease-in-out infinite;
-    background: #d32f2f !important;
+    background: rgba(211, 47, 47, 0.7) !important;
     color: white !important;
 }
 
