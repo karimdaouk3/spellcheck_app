@@ -690,6 +690,12 @@ class LanguageToolEditor {
                 data.result.original_text = text;
             }
             fieldObj.llmLastResult = data.result;
+            
+            // Add to history when submitting for evaluation (not rewrite)
+            if (!answers) {
+                this.addToHistory(text, field, data.result);
+            }
+            
             this.displayLLMResult(data.result, answers !== null, field);
             this.updateActiveEditorHighlight(); // Ensure highlight remains
         } catch (e) {
@@ -956,9 +962,6 @@ class LanguageToolEditor {
                 }
             }
             if (fieldObj.llmQuestions.length > 0) {
-                // Store the original text that was submitted for rewrite
-                fieldObj.originalTextForRewrite = fieldObj.editor.innerText;
-                
                 // Determine color based on active editor
                 const isProblemStatement = field === 'editor';
                 const borderColor = isProblemStatement ? '#41007F' : '#00A7E1';
@@ -1026,14 +1029,6 @@ class LanguageToolEditor {
                 }
             }
             if (rewrite) {
-                // Store the original evaluation result before it gets replaced
-                const originalResult = fieldObj.llmLastResult;
-                
-                // Use the stored original text that was submitted for rewrite
-                const originalText = fieldObj.originalTextForRewrite || fieldObj.editor.innerText;
-                
-                // Add the version that was submitted (before rewrite) to history
-                this.addToHistory(originalText, field, originalResult);
                 // Replace the editor content with the rewrite
                 fieldObj.editor.innerText = rewrite;
                 // Hide overlay immediately to prevent flash of old highlights
@@ -1236,59 +1231,28 @@ class LanguageToolEditor {
         const llmResult = typeof historyItem === 'object' ? historyItem.llmLastResult : null;
         
         // Restore the text
-        console.log('Restoring text:', text); // Debug log
-        
-        // First, ensure the element is not considered empty by CSS
-        fieldObj.editor.innerHTML = '&nbsp;';
-        
-        // Then set the actual text
+        fieldObj.editor.innerHTML = '&nbsp;'; // Force not empty for CSS
         fieldObj.editor.innerText = text;
         fieldObj.editor.classList.remove('empty');
-        
-        // Force the text to be visible by setting textContent as well
-        fieldObj.editor.textContent = text;
-        
-        // Remove any CSS pseudo-elements that might be hiding the text
-        fieldObj.editor.style.setProperty('--placeholder-content', 'none');
-        
-        // Force a reflow to ensure the text is visible
-        fieldObj.editor.offsetHeight;
-        
-        // Ensure the editor is focused and text is visible
+        fieldObj.editor.textContent = text; // Redundant but for robustness
+        fieldObj.editor.offsetHeight; // Force reflow
         fieldObj.editor.focus();
-        
-        // Debug: check if text was actually set
-        console.log('Text after restoration:', fieldObj.editor.innerText);
-        console.log('TextContent after restoration:', fieldObj.editor.textContent);
-        
+
         // Restore the evaluation and feedback if available
         if (llmResult) {
             fieldObj.llmLastResult = llmResult;
-            // Check if this result has rewrite data and show rewrite popup if it does
             const hasRewrite = llmResult.rewrite || llmResult.rewritten_problem_statement;
             this.displayLLMResult(llmResult, hasRewrite, field);
         } else {
-            // Clear any existing evaluation
             fieldObj.llmLastResult = null;
             const evalBox = document.getElementById('llm-eval-box');
-            if (evalBox) {
-                evalBox.innerHTML = '';
-                evalBox.style.display = 'none';
-            }
+            if (evalBox) { evalBox.innerHTML = ''; evalBox.style.display = 'none'; }
             const rewritePopup = document.getElementById('rewrite-popup');
-            if (rewritePopup) {
-                rewritePopup.style.display = 'none';
-            }
+            if (rewritePopup) { rewritePopup.style.display = 'none'; }
         }
-        
-        // Update scores
         this.updateEditorLabelsWithScore();
-        
-        // Update highlights and check text for spell-checking
         this.updateActiveEditorHighlight();
         this.checkText(field);
-        
-        // Ensure overlay is visible and properly positioned
         fieldObj.overlayHidden = false;
         this.updateHighlights(field);
     }
@@ -1307,46 +1271,40 @@ class LanguageToolEditor {
             label = 'Input History';
         }
         if (historyLabel) historyLabel.textContent = label;
+        
         const fieldObj = this.fields[this.activeField];
-        fieldObj.history.forEach((item, idx) => {
-            const li = document.createElement('li');
+        if (!fieldObj.history || fieldObj.history.length === 0) {
+            this.historyList.innerHTML = '<div style="text-align:center;color:#666;padding:20px;">No history yet</div>';
+            return;
+        }
+        
+        fieldObj.history.forEach((item, index) => {
+            const historyItem = document.createElement('div');
+            historyItem.className = 'history-item';
+            historyItem.style.cssText = 'padding:10px;margin:5px 0;background:#f9f9f9;border-radius:5px;cursor:pointer;border-left:3px solid #41007F;';
             
-            // Handle both old format (string) and new format (object)
             const text = typeof item === 'string' ? item : item.text;
-            const hasEvaluation = typeof item === 'object' && item.llmLastResult;
+            const timestamp = typeof item === 'object' ? item.timestamp : null;
             
-            li.textContent = text; // Show full text, no truncation
-            li.title = text;
+            // Truncate text for display
+            const displayText = text.length > 100 ? text.substring(0, 100) + '...' : text;
             
-            // Add history icon for restore
-            const icon = document.createElement('span');
-            icon.innerHTML = '<svg width="20" height="20" viewBox="0 0 512 512" fill="#41007F" style="display:inline-block;vertical-align:middle;"><path d="M256 64C150 64 64 150 64 256H16l80 96 80-96h-48c0-88.2 71.8-160 160-160s160 71.8 160 160-71.8 160-160 160c-39.7 0-76.1-14.3-104.2-37.9-6.9-5.7-17.1-4.7-22.8 2.2s-4.7 17.1 2.2 22.8C163.7 426.2 207.6 448 256 448c106 0 192-86 192-192S362 64 256 64z"/></svg>';
-            icon.style.float = 'right';
-            icon.style.cursor = 'pointer';
-            icon.style.marginLeft = '12px';
-            icon.style.display = 'inline-flex';
-            icon.style.alignItems = 'center';
-            icon.style.padding = '4px';
-            icon.style.borderRadius = '4px';
-            icon.style.transition = 'background-color 0.2s';
-            icon.title = hasEvaluation ? 'Restore text and feedback' : 'Restore to editor';
-            icon.onmouseenter = () => {
-                icon.style.backgroundColor = '#e0e6f7';
-            };
-            icon.onmouseleave = () => {
-                icon.style.backgroundColor = 'transparent';
-            };
-            icon.onclick = (e) => {
-                e.stopPropagation();
+            let timeDisplay = '';
+            if (timestamp) {
+                const date = new Date(timestamp);
+                timeDisplay = date.toLocaleTimeString();
+            }
+            
+            historyItem.innerHTML = `
+                <div style="font-weight:bold;margin-bottom:5px;">${displayText}</div>
+                <div style="font-size:0.8em;color:#666;">${timeDisplay}</div>
+            `;
+            
+            historyItem.onclick = () => {
                 this.restoreFromHistory(item, this.activeField);
             };
-            li.appendChild(icon);
-            // Remove item click/hover highlight
-            li.style.cursor = 'default';
-            li.onmouseenter = null;
-            li.onmouseleave = null;
-            li.onclick = null;
-            this.historyList.appendChild(li);
+            
+            this.historyList.appendChild(historyItem);
         });
     }
 
