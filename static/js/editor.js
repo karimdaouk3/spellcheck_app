@@ -1320,18 +1320,22 @@ class LanguageToolEditor {
         if (rewritePopup) {
             rewritePopup.style.display = 'none';
         }
-        // Now show the correct evaluation if it exists for this field
-        const fieldObj = this.fields[field];
-        // If the last result was a rewrite, and the editor content doesn't match, clear it
-        if (fieldObj.llmLastResult && fieldObj.llmLastResult.rewrite && fieldObj.llmLastResult.original_text !== fieldObj.editor.innerText) {
-            fieldObj.llmLastResult = null;
-        }
-        if (fieldObj.llmLastResult) {
-            // Only show if the result matches the current editor content (avoid showing stale result)
-            if (fieldObj.llmLastResult.original_text === undefined || fieldObj.llmLastResult.original_text === fieldObj.editor.innerText) {
-                this.displayLLMResult(fieldObj.llmLastResult, false, field);
+        
+        // Only show evaluation if this is the active field
+        if (field === this.activeField) {
+            const fieldObj = this.fields[field];
+            // If the last result was a rewrite, and the editor content doesn't match, clear it
+            if (fieldObj.llmLastResult && fieldObj.llmLastResult.rewrite && fieldObj.llmLastResult.original_text !== fieldObj.editor.innerText) {
+                fieldObj.llmLastResult = null;
+            }
+            if (fieldObj.llmLastResult) {
+                // Only show if the result matches the current editor content (avoid showing stale result)
+                if (fieldObj.llmLastResult.original_text === undefined || fieldObj.llmLastResult.original_text === fieldObj.editor.innerText) {
+                    this.displayLLMResult(fieldObj.llmLastResult, false, field);
+                }
             }
         }
+        
         this.updateActiveEditorHighlight(); // Always re-apply highlight after UI update
     }
 }
