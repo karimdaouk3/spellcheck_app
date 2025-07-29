@@ -702,16 +702,9 @@ class LanguageToolEditor {
     }
 
     displayLLMResult(result, showRewrite, field = this.activeField) {
-        // Only display the result if this field is currently active
-        if (field !== this.activeField) {
-            return;
-        }
-        
         const fieldObj = this.fields[field];
-        const evalBox = document.getElementById('llm-eval-box');
-        let html = '';
-        let valid = result && typeof result === 'object';
-        let rulesObj = result && result.evaluation ? result.evaluation : result;
+        
+        // Always clear status and update field state, regardless of active field
         if (this.statusTimer) {
             clearTimeout(this.statusTimer);
             this.statusTimer = null;
@@ -720,6 +713,16 @@ class LanguageToolEditor {
         this.status.className = 'status';
         this.status.textContent = '';
         fieldObj.llmInProgress = false;
+        
+        // Only display the result if this field is currently active
+        if (field !== this.activeField) {
+            return;
+        }
+        
+        const evalBox = document.getElementById('llm-eval-box');
+        let html = '';
+        let valid = result && typeof result === 'object';
+        let rulesObj = result && result.evaluation ? result.evaluation : result;
         // Collapsible state (per field)
         if (!this.evalCollapsed) this.evalCollapsed = {};
         if (typeof this.evalCollapsed[field] === 'undefined') this.evalCollapsed[field] = true;
