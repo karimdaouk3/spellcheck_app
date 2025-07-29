@@ -971,6 +971,17 @@ body {
     background: rgba(187, 187, 187, 0.3) !important;
 }
 
+/* Disable hover effects for inactive buttons */
+.editor-container:not(.active-editor-container) #mic-btn:hover,
+.editor-container:not(.active-editor-container) #mic-btn-2:hover {
+    background: rgba(187, 187, 187, 0.2) !important;
+}
+
+.editor-container:not(.active-editor-container) .llm-submit-button:hover {
+    background: #41007F !important;
+    color: white !important;
+}
+
 /* Recording animation for microphone button */
 #mic-btn.recording-pulse, #mic-btn-2.recording-pulse {
     animation: recordingPulse 1.5s ease-in-out infinite;

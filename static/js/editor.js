@@ -210,6 +210,7 @@ class LanguageToolEditor {
             if (llmButton) {
                 llmButton.addEventListener('click', () => {
                     this.activeField = field;
+                    this.updateActiveEditorHighlight();
                     const text = fieldObj.editor.innerText;
                     // Character limit logic
                     const charLimit = field === 'editor' ? 1000 : 10000;
@@ -232,6 +233,7 @@ class LanguageToolEditor {
             if (micBtn) {
                 micBtn.addEventListener('click', async () => {
                     this.activeField = field;
+                    this.updateActiveEditorHighlight();
                     if (!isRecording) {
                         fieldObj.editor.innerText = '';
                         fieldObj.highlightOverlay.innerHTML = '';
