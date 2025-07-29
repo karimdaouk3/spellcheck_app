@@ -1026,8 +1026,11 @@ class LanguageToolEditor {
                 // Store the original evaluation result before it gets replaced
                 const originalResult = fieldObj.llmLastResult;
                 
+                // Store the original text before it gets replaced
+                const originalText = fieldObj.editor.innerText;
+                
                 // Add the version that was submitted (before rewrite) to history
-                this.addToHistory(fieldObj.editor.innerText, field, originalResult);
+                this.addToHistory(originalText, field, originalResult);
                 // Replace the editor content with the rewrite
                 fieldObj.editor.innerText = rewrite;
                 // Hide overlay immediately to prevent flash of old highlights
