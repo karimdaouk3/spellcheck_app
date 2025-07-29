@@ -174,6 +174,9 @@ class LanguageToolEditor {
                 }
             });
             fieldObj.editor.addEventListener('focus', () => {
+                // Save current rewrite answers before switching
+                this.saveCurrentRewriteAnswers();
+                
                 // Cancel any in-progress LLM calls for other fields
                 ['editor', 'editor2'].forEach(otherField => {
                     if (otherField !== field && this.fields[otherField].llmInProgress) {
@@ -1252,13 +1255,15 @@ class LanguageToolEditor {
         if (llmResult) {
             fieldObj.llmLastResult = llmResult;
             this.displayLLMResult(llmResult, false, field);
-        } else if (llmQuestions && llmQuestions.length > 0) {
-            // Restore rewrite questions if available
+        }
+        
+        // Restore rewrite questions if available (can be in addition to llmResult)
+        if (llmQuestions && llmQuestions.length > 0) {
             fieldObj.llmQuestions = llmQuestions;
             fieldObj.llmAnswers = llmAnswers || {};
             this.displayRewriteQuestions(llmQuestions, llmAnswers || {}, field);
-        } else {
-            // Clear any existing evaluation
+        } else if (!llmResult) {
+            // Only clear if there's no result and no questions
             fieldObj.llmLastResult = null;
             fieldObj.llmQuestions = null;
             fieldObj.llmAnswers = {};
@@ -1422,7 +1427,7 @@ class LanguageToolEditor {
             // Restore saved answers
             answerEls.forEach(el => {
                 const crit = el.getAttribute('data-criteria');
-                if (crit && answers[crit]) {
+                if (crit && answers && answers[crit] !== undefined) {
                     el.value = answers[crit];
                 }
             });
