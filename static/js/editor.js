@@ -33,8 +33,7 @@ class LanguageToolEditor {
                 history: [],
                 llmQuestions: [],
                 llmAnswers: {},
-                llmLastResult: null,
-                rewriteContent: ''
+                llmLastResult: null
             },
             editor2: {
                 editor: document.getElementById('editor2'),
@@ -49,8 +48,7 @@ class LanguageToolEditor {
                 history: [],
                 llmQuestions: [],
                 llmAnswers: {},
-                llmLastResult: null,
-                rewriteContent: ''
+                llmLastResult: null
             }
         };
         this.historyPanel = document.getElementById('history-panel');
@@ -963,17 +961,6 @@ class LanguageToolEditor {
                 qHtml += `<button id="submit-answers-btn" class="llm-submit-button" style="margin-top:10px;">Rewrite</button>`;
                 rewritePopup.innerHTML = qHtml;
                 rewritePopup.style.display = 'block';
-                
-                // Restore saved rewrite content if available
-                if (fieldObj.rewriteContent) {
-                    const answerEls = rewritePopup.querySelectorAll('.rewrite-answer');
-                    answerEls.forEach(el => {
-                        const crit = el.getAttribute('data-criteria');
-                        if (fieldObj.llmAnswers[crit]) {
-                            el.value = fieldObj.llmAnswers[crit];
-                        }
-                    });
-                }
                 // Add event listener for submit answers
                 setTimeout(() => {
                     const btn = document.getElementById('submit-answers-btn');
@@ -985,12 +972,6 @@ class LanguageToolEditor {
                                 e.preventDefault();
                                 el.blur();
                             }
-                        });
-                        
-                        // Save content when user types
-                        el.addEventListener('input', () => {
-                            const crit = el.getAttribute('data-criteria');
-                            fieldObj.llmAnswers[crit] = el.value;
                         });
                     });
                     if (btn) {
@@ -1319,28 +1300,18 @@ class LanguageToolEditor {
         });
     }
 
-    // When switching boxes, save current rewrite content and restore the target field's content
+    // When switching boxes, always clear rewrite result if it was just shown
     renderEvaluationAndRewrite(field) {
-        // Save current rewrite content before switching
-        const currentFieldObj = this.fields[this.activeField];
-        const rewritePopup = document.getElementById('rewrite-popup');
-        if (rewritePopup && rewritePopup.style.display !== 'none') {
-            const rewriteTextarea = rewritePopup.querySelector('textarea');
-            if (rewriteTextarea) {
-                currentFieldObj.rewriteContent = rewriteTextarea.value;
-            }
-        }
-        
         // Defensive: clear right side first to avoid flicker of wrong data
         const evalBox = document.getElementById('llm-eval-box');
         if (evalBox) {
             evalBox.innerHTML = '';
             evalBox.style.display = 'none';
         }
+        const rewritePopup = document.getElementById('rewrite-popup');
         if (rewritePopup) {
             rewritePopup.style.display = 'none';
         }
-        
         // Now show the correct evaluation if it exists for this field
         const fieldObj = this.fields[field];
         // If the last result was a rewrite, and the editor content doesn't match, clear it
