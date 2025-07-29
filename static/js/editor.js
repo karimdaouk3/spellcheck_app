@@ -956,6 +956,9 @@ class LanguageToolEditor {
                 }
             }
             if (fieldObj.llmQuestions.length > 0) {
+                // Store the original text that was submitted for rewrite
+                fieldObj.originalTextForRewrite = fieldObj.editor.innerText;
+                
                 // Determine color based on active editor
                 const isProblemStatement = field === 'editor';
                 const borderColor = isProblemStatement ? '#41007F' : '#00A7E1';
@@ -1026,8 +1029,8 @@ class LanguageToolEditor {
                 // Store the original evaluation result before it gets replaced
                 const originalResult = fieldObj.llmLastResult;
                 
-                // Store the original text before it gets replaced
-                const originalText = fieldObj.editor.innerText;
+                // Use the stored original text that was submitted for rewrite
+                const originalText = fieldObj.originalTextForRewrite || fieldObj.editor.innerText;
                 
                 // Add the version that was submitted (before rewrite) to history
                 this.addToHistory(originalText, field, originalResult);
