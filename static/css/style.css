@@ -972,14 +972,14 @@ body {
 }
 
 /* Recording animation for microphone button */
-.recording-pulse {
+#mic-btn.recording-pulse, #mic-btn-2.recording-pulse {
     animation: recordingPulse 1.5s ease-in-out infinite;
     background: rgba(211, 47, 47, 0.7) !important;
     color: white !important;
 }
 
 /* Override hover effect when recording */
-.recording-pulse:hover {
+#mic-btn.recording-pulse:hover, #mic-btn-2.recording-pulse:hover {
     background: rgba(211, 47, 47, 0.7) !important;
 }
 
