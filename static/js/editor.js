@@ -12,6 +12,22 @@ class LanguageToolEditor {
         this.llmLastResult = null;
         this.history = [];
         this.activeField = 'editor'; // 'editor' or 'editor2'
+        
+        // Define weighted criteria for scoring
+        this.criteriaWeights = {
+            editor: { // Problem Statement weights
+                "clearly_states_problem": 30,
+                "includes_relevant_context": 25,
+                "is_concise_and_specific": 25,
+                "uses_professional_language": 20
+            },
+            editor2: { // FSR Daily Notes weights
+                "documents_daily_activities": 30,
+                "notes_any_issues_encountered": 25,
+                "lists_action_items": 25,
+                "is_clear_and_complete": 20
+            }
+        };
         this.fields = {
             editor: {
                 editor: document.getElementById('editor'),
@@ -1055,19 +1071,17 @@ class LanguageToolEditor {
         
         // Update Problem Statement score
         if (r1 && r1.evaluation) {
-            const keys = Object.keys(r1.evaluation);
-            const total = keys.length;
-            const passed = keys.filter(k => r1.evaluation[k].passed).length;
-            const percentage = total > 0 ? (passed / total) : 0;
+            const weightedScore = this.calculateWeightedScore('editor', r1.evaluation);
+            const percentage = Math.round(weightedScore);
             
-            score1.textContent = `Current Score: ${passed}/${total}`;
+            score1.textContent = `Current Score: ${percentage}%`;
             score1.className = 'editor-score';
             
             // Color coding based on performance
-            if (percentage >= 2/3) {
+            if (percentage >= 80) {
                 score1.style.backgroundColor = '#4CAF50';
                 score1.style.color = 'white';
-            } else if (percentage >= 1/3) {
+            } else if (percentage >= 60) {
                 score1.style.backgroundColor = '#FFC107';
                 score1.style.color = 'black';
             } else {
@@ -1083,19 +1097,17 @@ class LanguageToolEditor {
         
         // Update FSR Daily Notes score
         if (r2 && r2.evaluation) {
-            const keys = Object.keys(r2.evaluation);
-            const total = keys.length;
-            const passed = keys.filter(k => r2.evaluation[k].passed).length;
-            const percentage = total > 0 ? (passed / total) : 0;
+            const weightedScore = this.calculateWeightedScore('editor2', r2.evaluation);
+            const percentage = Math.round(weightedScore);
             
-            score2.textContent = `Current Score: ${passed}/${total}`;
+            score2.textContent = `Current Score: ${percentage}%`;
             score2.className = 'editor-score';
             
             // Color coding based on performance
-            if (percentage >= 2/3) {
+            if (percentage >= 80) {
                 score2.style.backgroundColor = '#4CAF50';
                 score2.style.color = 'white';
-            } else if (percentage >= 1/3) {
+            } else if (percentage >= 60) {
                 score2.style.backgroundColor = '#FFC107';
                 score2.style.color = 'black';
             } else {
@@ -1108,6 +1120,22 @@ class LanguageToolEditor {
             score2.style.backgroundColor = '';
             score2.style.color = '';
         }
+    }
+
+    // Calculate weighted score based on criteria weights
+    calculateWeightedScore(field, evaluation) {
+        const weights = this.criteriaWeights[field];
+        let totalScore = 0;
+        let totalWeight = 0;
+        
+        for (const [criteria, weight] of Object.entries(weights)) {
+            if (evaluation[criteria]) {
+                totalScore += evaluation[criteria].passed ? weight : 0;
+                totalWeight += weight;
+            }
+        }
+        
+        return totalWeight > 0 ? (totalScore / totalWeight) * 100 : 0;
     }
 
     // --- Placeholder for LLM call after transcription ---
