@@ -186,11 +186,17 @@ class LanguageToolEditor {
                     }
                 });
                 
-                this.activeField = field;
-                this.renderHistory();
-                this.renderEvaluationAndRewrite(field);
+                // Only render evaluation and rewrite if switching to a different field
+                if (this.activeField !== field) {
+                    this.activeField = field;
+                    this.renderHistory();
+                    this.renderEvaluationAndRewrite(field);
+                } else {
+                    // Just update the active field highlight if it's the same field
+                    this.activeField = field;
+                    this.updateActiveEditorHighlight();
+                }
                 // Don't call updateHighlights here to preserve scroll position
-                this.updateActiveEditorHighlight();
             });
             fieldObj.editor.addEventListener('input', () => {
                 if (!fieldObj.overlayHidden) {
