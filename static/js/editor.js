@@ -1231,6 +1231,10 @@ class LanguageToolEditor {
         
         // Restore the text
         fieldObj.editor.innerText = text;
+        fieldObj.editor.classList.remove('empty');
+        
+        // Ensure the editor is focused and text is visible
+        fieldObj.editor.focus();
         
         // Restore the evaluation and feedback if available
         if (llmResult) {
@@ -1258,6 +1262,10 @@ class LanguageToolEditor {
         // Update highlights and check text for spell-checking
         this.updateActiveEditorHighlight();
         this.checkText(field);
+        
+        // Ensure overlay is visible and properly positioned
+        fieldObj.overlayHidden = false;
+        this.updateHighlights(field);
     }
 
     renderHistory() {
