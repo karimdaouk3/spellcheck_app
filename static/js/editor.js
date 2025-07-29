@@ -1015,8 +1015,6 @@ class LanguageToolEditor {
                 }
             }
             if (rewrite) {
-                // Add the version that was submitted (before rewrite) to history
-                this.addToHistory(fieldObj.editor.innerText, field);
                 // Replace the editor content with the rewrite
                 fieldObj.editor.innerText = rewrite;
                 // Hide overlay immediately to prevent flash of old highlights
@@ -1288,7 +1286,7 @@ class LanguageToolEditor {
             };
             icon.onclick = (e) => {
                 e.stopPropagation();
-                this.restoreFromHistory(item, field);
+                this.restoreFromHistory(item, this.activeField);
             };
             li.appendChild(icon);
             // Remove item click/hover highlight
