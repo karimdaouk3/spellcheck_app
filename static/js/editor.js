@@ -713,7 +713,7 @@ class LanguageToolEditor {
         }
     }
 
-    displayLLMResult(result, showRewrite, field = this.activeField) {
+    displayLLMResult(result, showRewrite, field = this.activeField, isRestore = false) {
         // Only display result if it corresponds to the currently active field
         if (field !== this.activeField) {
             console.log(`Ignoring LLM result for field ${field} as active field is now ${this.activeField}`);
@@ -729,9 +729,12 @@ class LanguageToolEditor {
             clearTimeout(this.statusTimer);
             this.statusTimer = null;
         }
-        this.status.classList.remove('loading');
-        this.status.className = 'status';
-        this.status.textContent = '';
+        // Only clear status if this is not a restore operation
+        if (!isRestore) {
+            this.status.classList.remove('loading');
+            this.status.className = 'status';
+            this.status.textContent = '';
+        }
         fieldObj.llmInProgress = false;
         // Collapsible state (per field)
         if (!this.evalCollapsed) this.evalCollapsed = {};
@@ -1248,13 +1251,17 @@ class LanguageToolEditor {
         const llmQuestions = typeof historyItem === 'object' ? historyItem.llmQuestions : null;
         const llmAnswers = typeof historyItem === 'object' ? historyItem.llmAnswers : null;
         
-        // Restore the text
+        // Restore the text first
         fieldObj.editor.innerText = text;
+        
+        // Update highlights and check text for spell-checking BEFORE showing evaluation/rewrite
+        this.updateActiveEditorHighlight();
+        this.checkText(field);
         
         // Restore the evaluation and feedback if available
         if (llmResult) {
             fieldObj.llmLastResult = llmResult;
-            this.displayLLMResult(llmResult, false, field);
+            this.displayLLMResult(llmResult, false, field, true);
         }
         
         // Restore rewrite questions if available (can be in addition to llmResult)
@@ -1280,10 +1287,6 @@ class LanguageToolEditor {
         
         // Update scores
         this.updateEditorLabelsWithScore();
-        
-        // Update highlights and check text for spell-checking
-        this.updateActiveEditorHighlight();
-        this.checkText(field);
     }
 
     renderHistory() {
@@ -1390,7 +1393,7 @@ class LanguageToolEditor {
         }
         
         if (shouldShowResult) {
-            this.displayLLMResult(fieldObj.llmLastResult, false, field);
+            this.displayLLMResult(fieldObj.llmLastResult, false, field, true);
         } else if (shouldShowRewriteQuestions) {
             // Show rewrite questions without a result (in-progress state)
             this.displayRewriteQuestions(fieldObj.llmQuestions, fieldObj.llmAnswers, field);
@@ -1419,18 +1422,16 @@ class LanguageToolEditor {
         rewritePopup.innerHTML = qHtml;
         rewritePopup.style.display = 'block';
         
-        // Add event listener for submit answers
+        // Add event listener for submit answers (reduced timeout for faster restoration)
         setTimeout(() => {
             const btn = document.getElementById('submit-answers-btn');
             const answerEls = rewritePopup.querySelectorAll('.rewrite-answer');
             
             // Restore saved answers
-            console.log(`Restoring answers for field ${field}:`, answers);
             answerEls.forEach(el => {
                 const crit = el.getAttribute('data-criteria');
                 if (crit && answers && answers[crit] !== undefined) {
                     el.value = answers[crit];
-                    console.log(`Restored answer for ${crit}:`, answers[crit]);
                 }
             });
             
@@ -1468,7 +1469,7 @@ class LanguageToolEditor {
                     this.submitToLLM(fieldObj.editor.innerText, fieldObj.llmAnswers, field);
                 };
             }
-        }, 100);
+        }, 10);
     }
 
     saveCurrentRewriteAnswers() {
@@ -1487,9 +1488,6 @@ class LanguageToolEditor {
         
         // Save to the current active field (always save, even if empty)
         this.fields[this.activeField].llmAnswers = currentAnswers;
-        
-        // Debug logging
-        console.log(`Saved answers for field ${this.activeField}:`, currentAnswers);
     }
 }
 
