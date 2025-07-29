@@ -690,9 +690,6 @@ class LanguageToolEditor {
             fieldObj.llmLastResult = data.result;
             this.displayLLMResult(data.result, answers !== null, field);
             this.updateActiveEditorHighlight(); // Ensure highlight remains
-            
-            // Add to history when evaluation is completed
-            this.addToHistory(text, field);
         } catch (e) {
             this.showStatus('LLM call failed', 'error');
             alert('LLM call failed: ' + e);
@@ -1015,6 +1012,8 @@ class LanguageToolEditor {
                 }
             }
             if (rewrite) {
+                // Add the version that was submitted (before rewrite) to history
+                this.addToHistory(fieldObj.editor.innerText, field);
                 // Replace the editor content with the rewrite
                 fieldObj.editor.innerText = rewrite;
                 // Hide overlay immediately to prevent flash of old highlights
@@ -1237,8 +1236,9 @@ class LanguageToolEditor {
         // Update scores
         this.updateEditorLabelsWithScore();
         
-        // Update highlights
+        // Update highlights and check text for spell-checking
         this.updateActiveEditorHighlight();
+        this.checkText(field);
     }
 
     renderHistory() {
