@@ -815,8 +815,10 @@ class LanguageToolEditor {
         evalBox.innerHTML = html;
         evalBox.style.display = 'flex';
         
-        // Add all event listeners for evaluation elements
-        this.addEvaluationEventListeners(field);
+        // Add all event listeners for evaluation elements after HTML is set
+        setTimeout(() => {
+            this.addEvaluationEventListeners(field);
+        }, 0);
 
         // --- Questions and rewrite popup logic ---
         const rewritePopup = document.getElementById('rewrite-popup');
