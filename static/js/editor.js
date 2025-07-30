@@ -659,7 +659,7 @@ class LanguageToolEditor {
         const fieldObj = this.fields[field];
         fieldObj.llmInProgress = true;
         if (!this.evalCollapsed) this.evalCollapsed = {};
-        this.evalCollapsed[field] = true; // Collapse by default after review/rewrite
+        this.evalCollapsed[field] = false; // Expand by default after review/rewrite
         if (answers) {
             this.showStatus('Rewriting...', 'checking', true);
         } else {
@@ -732,7 +732,7 @@ class LanguageToolEditor {
         let rulesObj = result && result.evaluation ? result.evaluation : result;
         // Collapsible state (per field)
         if (!this.evalCollapsed) this.evalCollapsed = {};
-        if (typeof this.evalCollapsed[field] === 'undefined') this.evalCollapsed[field] = true;
+        if (typeof this.evalCollapsed[field] === 'undefined') this.evalCollapsed[field] = false;
         const isCollapsed = this.evalCollapsed[field];
         if (valid && rulesObj && typeof rulesObj === 'object') {
             const keys = Object.keys(rulesObj);
@@ -815,10 +815,7 @@ class LanguageToolEditor {
         evalBox.innerHTML = html;
         evalBox.style.display = 'flex';
         
-        // Debug: Check what HTML was generated
-        console.log('Generated HTML:', html);
-        console.log('evalBox innerHTML after setting:', evalBox.innerHTML);
-        console.log('Looking for .llm-dropdown elements:', evalBox.querySelectorAll('.llm-dropdown').length);
+
         
         // Add all event listeners for evaluation elements after HTML is set
         setTimeout(() => {
@@ -1243,7 +1240,7 @@ class LanguageToolEditor {
         
         // Collapsible state (per field)
         if (!this.evalCollapsed) this.evalCollapsed = {};
-        if (typeof this.evalCollapsed[field] === 'undefined') this.evalCollapsed[field] = true;
+        if (typeof this.evalCollapsed[field] === 'undefined') this.evalCollapsed[field] = false;
         const isCollapsed = this.evalCollapsed[field];
         
         if (valid && rulesObj && typeof rulesObj === 'object') {
@@ -1325,19 +1322,12 @@ class LanguageToolEditor {
         const evalBox = document.getElementById('llm-eval-box');
         if (!evalBox) return;
         
-        console.log('addEvaluationEventListeners called for field:', field);
-        
         // Dropdown logic
         const dropdowns = evalBox.querySelectorAll('.llm-dropdown');
-        console.log('Found dropdowns:', dropdowns.length);
         dropdowns.forEach((dropdown, index) => {
-            console.log(`Setting up dropdown ${index}:`, dropdown);
             const header = dropdown.querySelector('.llm-section-header');
             const justification = dropdown.querySelector('.llm-section-justification');
             const arrow = dropdown.querySelector('.llm-dropdown-arrow');
-            
-            console.log('Header element:', header);
-            console.log('Arrow element:', arrow);
             
             // Set initial state
             if (dropdown.classList.contains('open')) {
@@ -1351,7 +1341,6 @@ class LanguageToolEditor {
             }
             // Toggle on click or enter/space
             header.addEventListener('click', (e) => {
-                console.log('Header clicked!', e.target);
                 dropdown.classList.toggle('open');
                 const isOpen = dropdown.classList.contains('open');
                 justification.style.display = isOpen ? 'block' : 'none';
