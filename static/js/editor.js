@@ -234,6 +234,8 @@ class LanguageToolEditor {
                 micBtn.addEventListener('click', async () => {
                     this.activeField = field;
                     this.updateActiveEditorHighlight();
+                    this.renderHistory();
+                    this.renderEvaluationAndRewrite(field);
                     if (!isRecording) {
                         fieldObj.editor.innerText = '';
                         fieldObj.highlightOverlay.innerHTML = '';
