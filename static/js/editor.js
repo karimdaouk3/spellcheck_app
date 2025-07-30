@@ -952,7 +952,10 @@ class LanguageToolEditor {
         if (!showRewrite) {
             // Show questions for failed criteria
             fieldObj.llmQuestions = [];
-            fieldObj.llmAnswers = {};
+            // Preserve existing answers instead of clearing them
+            if (!fieldObj.llmAnswers) {
+                fieldObj.llmAnswers = {};
+            }
             if (rulesObj) {
                 for (const key of Object.keys(rulesObj)) {
                     const section = rulesObj[key];
@@ -1332,10 +1335,6 @@ class LanguageToolEditor {
         if (evalBox) {
             evalBox.innerHTML = '';
             evalBox.style.display = 'none';
-        }
-        const rewritePopup = document.getElementById('rewrite-popup');
-        if (rewritePopup) {
-            rewritePopup.style.display = 'none';
         }
         
         // Only show evaluation if this is the active field
