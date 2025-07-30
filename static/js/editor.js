@@ -24,6 +24,7 @@ class LanguageToolEditor {
                 editor: document.getElementById('editor'),
                 micBtn: document.getElementById('mic-btn'),
                 submitBtn: document.getElementById('llm-submit'),
+                copyBtn: document.getElementById('copy-btn'),
                 highlightOverlay: null,
                 ignoredSuggestions: new Set(),
                 currentSuggestions: [],
@@ -39,6 +40,7 @@ class LanguageToolEditor {
                 editor: document.getElementById('editor2'),
                 micBtn: document.getElementById('mic-btn-2'),
                 submitBtn: document.getElementById('llm-submit-2'),
+                copyBtn: document.getElementById('copy-btn-2'),
                 highlightOverlay: null,
                 ignoredSuggestions: new Set(),
                 currentSuggestions: [],
@@ -348,6 +350,36 @@ class LanguageToolEditor {
                             mediaRecorder.stop();
                             isRecording = false;
                         }
+                    }
+                });
+            }
+            
+            // Copy to clipboard button logic
+            const copyBtn = fieldObj.copyBtn;
+            if (copyBtn) {
+                copyBtn.addEventListener('click', async () => {
+                    const text = fieldObj.editor.innerText;
+                    if (text.trim() === '') {
+                        this.showStatus('Nothing to copy', 'error');
+                        return;
+                    }
+                    
+                    try {
+                        await navigator.clipboard.writeText(text);
+                        this.showStatus('Copied to clipboard!', 'success');
+                        
+                        // Visual feedback - briefly change the button appearance
+                        const originalHTML = copyBtn.innerHTML;
+                        copyBtn.innerHTML = `
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4CAF50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="20,6 9,17 4,12"></polyline>
+                            </svg>
+                        `;
+                        setTimeout(() => {
+                            copyBtn.innerHTML = originalHTML;
+                        }, 1000);
+                    } catch (err) {
+                        this.showStatus('Failed to copy to clipboard', 'error');
                     }
                 });
             }
