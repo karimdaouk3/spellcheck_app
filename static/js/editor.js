@@ -814,138 +814,9 @@ class LanguageToolEditor {
         }
         evalBox.innerHTML = html;
         evalBox.style.display = 'flex';
-        // Add collapse/expand logic
-        const collapseBtn = document.getElementById('eval-collapse-btn');
-        if (collapseBtn) {
-            collapseBtn.onclick = () => {
-                this.evalCollapsed[field] = !this.evalCollapsed[field];
-                this.displayLLMResult(result, showRewrite, field);
-            };
-        }
-        // Dropdown logic (unchanged)
-        const dropdowns = evalBox.querySelectorAll('.llm-dropdown');
-        dropdowns.forEach(dropdown => {
-            const header = dropdown.querySelector('.llm-section-header');
-            const justification = dropdown.querySelector('.llm-section-justification');
-            const arrow = dropdown.querySelector('.llm-dropdown-arrow');
-            // Set initial state
-            if (dropdown.classList.contains('open')) {
-                justification.style.display = 'block';
-                arrow.classList.add('open');
-                arrow.innerHTML = '&#9660;';
-            } else {
-                justification.style.display = 'none';
-                arrow.classList.remove('open');
-                arrow.innerHTML = '&#9654;';
-            }
-            // Toggle on click or enter/space
-            header.addEventListener('click', () => {
-                dropdown.classList.toggle('open');
-                const isOpen = dropdown.classList.contains('open');
-                justification.style.display = isOpen ? 'block' : 'none';
-                arrow.innerHTML = isOpen ? '&#9660;' : '&#9654;';
-            });
-            header.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    header.click();
-                }
-            });
-        });
-
-        // Add click handlers for evaluation titles to navigate to rewrite box (only for failed evaluations)
-        const failedTitleElements = evalBox.querySelectorAll('.llm-dropdown[data-passed="false"] .llm-section-title');
-        failedTitleElements.forEach(title => {
-            title.addEventListener('click', (e) => {
-                e.stopPropagation(); // Prevent dropdown toggle
-                const criteria = title.getAttribute('data-criteria');
-                const rewritePopup = document.getElementById('rewrite-popup');
-                
-                // Check if rewrite popup is visible and has questions
-                if (rewritePopup && rewritePopup.style.display !== 'none') {
-                    // Find the corresponding textarea for this criteria
-                    const textarea = rewritePopup.querySelector(`textarea[data-criteria="${criteria}"]`);
-                    if (textarea) {
-                        // Scroll to the textarea and focus it
-                        textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        setTimeout(() => {
-                            textarea.focus();
-                        }, 300);
-                    }
-                }
-            });
-        });
-
-        const feedbackBtns = evalBox.querySelectorAll('.llm-feedback-btn'); // Changed to evalBox
-        feedbackBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const criteria = btn.getAttribute('data-criteria');
-                const text = fieldObj.editor.innerText;
-                // Show feedback box if not already present
-                let card = btn.closest('.llm-section');
-                if (!card) return;
-                let feedbackBox = card.querySelector('.llm-feedback-box');
-                btn.classList.add('selected');
-                if (!feedbackBox) {
-                    feedbackBox = document.createElement('div');
-                    feedbackBox.className = 'llm-feedback-box';
-                    feedbackBox.style.marginTop = '0px';
-                    feedbackBox.innerHTML = `<textarea class="llm-feedback-text" rows="1" placeholder="Please Give Feedback"></textarea><button class="llm-feedback-submit" title="Send Feedback"> <svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><line x1='22' y1='2' x2='11' y2='13'/><polygon points='22 2 15 22 11 13 2 9 22 2'/></svg></button>`;
-                    card.appendChild(feedbackBox);
-                    // Add vertical space below feedback box
-                    const feedbackSpace = document.createElement('div');
-                    feedbackSpace.style.height = '12px';
-                    card.appendChild(feedbackSpace);
-                    const submitBtn = feedbackBox.querySelector('.llm-feedback-submit');
-                    submitBtn.addEventListener('click', () => {
-                        const feedbackText = feedbackBox.querySelector('.llm-feedback-text').value;
-                        // Find pass/fail for this criteria
-                        let passed = null;
-                        if (fieldObj.llmLastResult && fieldObj.llmLastResult.evaluation && fieldObj.llmLastResult.evaluation[criteria]) {
-                            passed = fieldObj.llmLastResult.evaluation[criteria].passed;
-                        }
-                        // Log feedback (console.log for now, or send to backend)
-                        fetch('/feedback', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                criteria,
-                                text,
-                                feedback: 'thumbs_down',
-                                explanation: feedbackText,
-                                passed
-                            })
-                        }).then(res => res.json()).then(data => {
-                            btn.classList.add('selected');
-                            btn.title = "Feedback received!";
-                            feedbackBox.remove();
-                            feedbackSpace.remove();
-                            
-                            // Move evaluation to completed and update score
-                            if (fieldObj.llmLastResult && fieldObj.llmLastResult.evaluation && fieldObj.llmLastResult.evaluation[criteria]) {
-                                // Mark this criteria as passed
-                                fieldObj.llmLastResult.evaluation[criteria].passed = true;
-                                
-                                // Update the score display
-                                this.updateEditorLabelsWithScore();
-                                
-                                // Re-render the evaluation display to move it to "Completed" section
-                                this.displayLLMResult(fieldObj.llmLastResult, false, field);
-                            }
-                        });
-                    });
-                    // Prevent newlines in feedback box
-                    const feedbackTextarea = feedbackBox.querySelector('.llm-feedback-text');
-                    feedbackTextarea.addEventListener('keydown', (e) => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            feedbackTextarea.blur();
-                        }
-                    });
-                }
-            });
-        });
+        
+        // Add all event listeners for evaluation elements
+        this.addEvaluationEventListeners(field);
 
         // --- Questions and rewrite popup logic ---
         const rewritePopup = document.getElementById('rewrite-popup');
@@ -1336,6 +1207,10 @@ class LanguageToolEditor {
             evalBox.innerHTML = '';
             evalBox.style.display = 'none';
         }
+        const rewritePopup = document.getElementById('rewrite-popup');
+        if (rewritePopup) {
+            rewritePopup.style.display = 'none';
+        }
         
         // Only show evaluation if this is the active field
         if (field === this.activeField) {
@@ -1353,6 +1228,226 @@ class LanguageToolEditor {
         }
         
         this.updateActiveEditorHighlight(); // Always re-apply highlight after UI update
+    }
+
+    // Render only the evaluation part without affecting the rewrite popup
+    renderEvaluationOnly(result, field = this.activeField) {
+        const fieldObj = this.fields[field];
+        const evalBox = document.getElementById('llm-eval-box');
+        if (!evalBox) return;
+        
+        let html = '';
+        let valid = result && typeof result === 'object';
+        let rulesObj = result && result.evaluation ? result.evaluation : result;
+        
+        // Collapsible state (per field)
+        if (!this.evalCollapsed) this.evalCollapsed = {};
+        if (typeof this.evalCollapsed[field] === 'undefined') this.evalCollapsed[field] = true;
+        const isCollapsed = this.evalCollapsed[field];
+        
+        if (valid && rulesObj && typeof rulesObj === 'object') {
+            const keys = Object.keys(rulesObj);
+            const total = keys.length;
+            const passed = keys.filter(key => rulesObj[key].passed).length;
+            let inputType = '';
+            if (field === 'editor') {
+                inputType = 'Problem Statement Feedback';
+            } else if (field === 'editor2') {
+                inputType = 'FSR Daily Notes Feedback';
+            } else {
+                inputType = 'Input Feedback';
+            }
+            
+            // Replace score box with feedback title
+            html += `<div class="llm-score" style="font-size:1.35em;font-weight:700;margin-bottom:0;background:#fff;color:#41007F;padding:10px 0 10px 0;border-radius:8px;text-align:center;box-shadow:0 1px 4px rgba(33,0,127,0.07);letter-spacing:0.5px;display:flex;align-items:center;justify-content:center;gap:10px;position:relative;">\n` +
+                `<button id="eval-collapse-btn" title="Click to expand for details" style="background:none;border:none;cursor:pointer;padding:0 6px;outline:none;display:inline-flex;align-items:center;justify-content:center;position:absolute;left:0;top:50%;transform:translateY(-50%) ${isCollapsed ? 'rotate(-90deg)' : ''};height:100%;z-index:2;">\n` +
+                `<span id="eval-chevron" style="font-size:1.3em;transition:transform 0.2s;">&#9660;</span>\n` +
+                `</button>\n` +
+                `<span style="margin-left:32px;font-size:1.5em;">${inputType}</span>\n` +
+                `</div>`;
+            
+            // Only show the rest if not collapsed
+            if (!isCollapsed) {
+                // Sort rules: passed first, then failed
+                const sortedKeys = keys.sort((a, b) => {
+                    const aPassed = rulesObj[a].passed;
+                    const bPassed = rulesObj[b].passed;
+                    if (aPassed === bPassed) return 0;
+                    return aPassed ? -1 : 1;
+                });
+                
+                sortedKeys.forEach(key => {
+                    const section = rulesObj[key];
+                    const isPassed = section.passed;
+                    const passedClass = isPassed ? 'passed' : 'failed';
+                    const passedText = isPassed ? 'Completed' : 'Needs Improvement';
+                    const passedColor = isPassed ? '#4CAF50' : '#F44336';
+                    
+                    html += `<div class="llm-section ${passedClass}" data-passed="${isPassed}">\n`;
+                    html += `<div class="llm-section-header">\n`;
+                    html += `<div class="llm-section-title" data-criteria="${key}" style="cursor:pointer;font-weight:600;font-size:1.1em;color:#333;margin-bottom:4px;display:flex;align-items:center;gap:8px;">\n`;
+                    html += `<span style="color:${passedColor};font-weight:700;">${passedText}</span>\n`;
+                    html += `<span style="color:#666;font-weight:400;">${this.escapeHtml(section.name || key)}</span>\n`;
+                    html += `</div>\n`;
+                    html += `<div class="llm-dropdown-arrow" style="color:#666;font-size:0.9em;transition:transform 0.2s;">&#9654;</div>\n`;
+                    html += `</div>\n`;
+                    html += `<div class="llm-section-justification" style="display:none;margin-top:8px;padding:8px;background:#f9f9f9;border-radius:4px;font-size:0.9em;color:#666;line-height:1.4;">\n`;
+                    html += `${this.escapeHtml(section.justification || 'No justification provided.')}\n`;
+                    html += `</div>\n`;
+                    if (!isPassed) {
+                        html += `<button class="llm-feedback-btn" data-criteria="${key}" style="margin-top:8px;background:#41007F;color:white;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:0.8em;">Give Feedback</button>\n`;
+                    }
+                    html += `</div>\n`;
+                });
+            }
+        }
+        
+        evalBox.innerHTML = html;
+        evalBox.style.display = 'flex';
+        
+        // Re-add collapse/expand logic
+        const collapseBtn = document.getElementById('eval-collapse-btn');
+        if (collapseBtn) {
+            collapseBtn.onclick = () => {
+                this.evalCollapsed[field] = !this.evalCollapsed[field];
+                this.renderEvaluationOnly(result, field);
+            };
+        }
+        
+        // Re-add all the other event listeners (dropdowns, feedback buttons, etc.)
+        this.addEvaluationEventListeners(field);
+    }
+
+    // Add event listeners for evaluation elements
+    addEvaluationEventListeners(field) {
+        const fieldObj = this.fields[field];
+        const evalBox = document.getElementById('llm-eval-box');
+        if (!evalBox) return;
+        
+        // Dropdown logic
+        const dropdowns = evalBox.querySelectorAll('.llm-dropdown');
+        dropdowns.forEach(dropdown => {
+            const header = dropdown.querySelector('.llm-section-header');
+            const justification = dropdown.querySelector('.llm-section-justification');
+            const arrow = dropdown.querySelector('.llm-dropdown-arrow');
+            // Set initial state
+            if (dropdown.classList.contains('open')) {
+                justification.style.display = 'block';
+                arrow.classList.add('open');
+                arrow.innerHTML = '&#9660;';
+            } else {
+                justification.style.display = 'none';
+                arrow.classList.remove('open');
+                arrow.innerHTML = '&#9654;';
+            }
+            // Toggle on click or enter/space
+            header.addEventListener('click', () => {
+                dropdown.classList.toggle('open');
+                const isOpen = dropdown.classList.contains('open');
+                justification.style.display = isOpen ? 'block' : 'none';
+                arrow.innerHTML = isOpen ? '&#9660;' : '&#9654;';
+            });
+            header.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    header.click();
+                }
+            });
+        });
+
+        // Add click handlers for evaluation titles to navigate to rewrite box (only for failed evaluations)
+        const failedTitleElements = evalBox.querySelectorAll('.llm-dropdown[data-passed="false"] .llm-section-title');
+        failedTitleElements.forEach(title => {
+            title.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent dropdown toggle
+                const criteria = title.getAttribute('data-criteria');
+                const rewritePopup = document.getElementById('rewrite-popup');
+                
+                // Check if rewrite popup is visible and has questions
+                if (rewritePopup && rewritePopup.style.display !== 'none') {
+                    // Find the corresponding textarea for this criteria
+                    const textarea = rewritePopup.querySelector(`textarea[data-criteria="${criteria}"]`);
+                    if (textarea) {
+                        // Scroll to the textarea and focus it
+                        textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        setTimeout(() => {
+                            textarea.focus();
+                        }, 300);
+                    }
+                }
+            });
+        });
+
+        const feedbackBtns = evalBox.querySelectorAll('.llm-feedback-btn');
+        feedbackBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const criteria = btn.getAttribute('data-criteria');
+                const text = fieldObj.editor.innerText;
+                // Show feedback box if not already present
+                let card = btn.closest('.llm-section');
+                if (!card) return;
+                let feedbackBox = card.querySelector('.llm-feedback-box');
+                btn.classList.add('selected');
+                if (!feedbackBox) {
+                    feedbackBox = document.createElement('div');
+                    feedbackBox.className = 'llm-feedback-box';
+                    feedbackBox.style.marginTop = '0px';
+                    feedbackBox.innerHTML = `<textarea class="llm-feedback-text" rows="1" placeholder="Please Give Feedback"></textarea><button class="llm-feedback-submit" title="Send Feedback"> <svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><line x1='22' y1='2' x2='11' y2='13'/><polygon points='22 2 15 22 11 13 2 9 22 2'/></svg></button>`;
+                    card.appendChild(feedbackBox);
+                    // Add vertical space below feedback box
+                    const feedbackSpace = document.createElement('div');
+                    feedbackSpace.style.height = '12px';
+                    card.appendChild(feedbackSpace);
+                    const submitBtn = feedbackBox.querySelector('.llm-feedback-submit');
+                    submitBtn.addEventListener('click', () => {
+                        const feedbackText = feedbackBox.querySelector('.llm-feedback-text').value;
+                        // Find pass/fail for this criteria
+                        let passed = null;
+                        if (fieldObj.llmLastResult && fieldObj.llmLastResult.evaluation && fieldObj.llmLastResult.evaluation[criteria]) {
+                            passed = fieldObj.llmLastResult.evaluation[criteria].passed;
+                        }
+                        // Log feedback (console.log for now, or send to backend)
+                        fetch('/feedback', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                criteria,
+                                text,
+                                feedback: 'thumbs_down',
+                                explanation: feedbackText,
+                                passed
+                            })
+                        }).then(res => res.json()).then(data => {
+                            btn.classList.add('selected');
+                            btn.title = "Feedback received!";
+                            feedbackBox.remove();
+                            feedbackSpace.remove();
+                            
+                            // Move evaluation to completed and update score
+                            if (fieldObj.llmLastResult && fieldObj.llmLastResult.evaluation && fieldObj.llmLastResult.evaluation[criteria]) {
+                                // Mark this criteria as passed
+                                fieldObj.llmLastResult.evaluation[criteria].passed = true;
+                                
+                                // Update the score display
+                                this.updateEditorLabelsWithScore();
+                                
+                                // Re-render the evaluation display to move it to "Completed" section
+                                this.displayLLMResult(fieldObj.llmLastResult, false, field);
+                            }
+                        });
+                    });
+                    // Prevent newlines in feedback box
+                    const feedbackTextarea = feedbackBox.querySelector('.llm-feedback-text');
+                    feedbackTextarea.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            feedbackTextarea.blur();
+                        }
+                    });
+                }
+            });
+        });
     }
 }
 
