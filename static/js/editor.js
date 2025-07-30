@@ -971,7 +971,8 @@ class LanguageToolEditor {
                 qHtml += `<div class="rewrite-title" style="border: 2px solid ${borderColor}; background: ${backgroundColor}; border-radius: 10px; padding: 18px 18px 10px 18px; margin-bottom: 10px; margin-top: 10px;">`;
                 fieldObj.llmQuestions.forEach((q, idx) => {
                     qHtml += `<div class="rewrite-question">${this.escapeHtml(q.question)}</div>`;
-                    qHtml += `<textarea class="rewrite-answer" data-criteria="${this.escapeHtml(q.criteria)}" rows="1" style="width:100%;margin-bottom:12px;resize:none;"></textarea>`;
+                    const existingAnswer = fieldObj.llmAnswers[q.criteria] || '';
+                    qHtml += `<textarea class="rewrite-answer" data-criteria="${this.escapeHtml(q.criteria)}" rows="1" style="width:100%;margin-bottom:12px;resize:none;">${this.escapeHtml(existingAnswer)}</textarea>`;
                 });
                 qHtml += `<button id="submit-answers-btn" class="llm-submit-button" style="margin-top:10px;">Rewrite</button>`;
                 rewritePopup.innerHTML = qHtml;
@@ -1208,12 +1209,15 @@ class LanguageToolEditor {
         if (!text || !text.trim()) return;
         const fieldObj = this.fields[field];
         
+        // Trim newlines from the ends before adding to history
+        const trimmedText = text.trim();
+        
         // Use provided evaluation result or current one
         const resultToStore = evaluationResult || fieldObj.llmLastResult;
         
         // Create history entry with complete state
         const historyEntry = {
-            text: text,
+            text: trimmedText,
             llmLastResult: resultToStore ? JSON.parse(JSON.stringify(resultToStore)) : null,
             timestamp: new Date().toISOString()
         };
