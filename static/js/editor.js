@@ -815,6 +815,11 @@ class LanguageToolEditor {
         evalBox.innerHTML = html;
         evalBox.style.display = 'flex';
         
+        // Debug: Check what HTML was generated
+        console.log('Generated HTML:', html);
+        console.log('evalBox innerHTML after setting:', evalBox.innerHTML);
+        console.log('Looking for .llm-dropdown elements:', evalBox.querySelectorAll('.llm-dropdown').length);
+        
         // Add all event listeners for evaluation elements after HTML is set
         setTimeout(() => {
             this.addEvaluationEventListeners(field);
