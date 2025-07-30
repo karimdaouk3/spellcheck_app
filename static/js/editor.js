@@ -742,8 +742,8 @@ class LanguageToolEditor {
     displayLLMResult(result, showRewrite, field = this.activeField) {
         const fieldObj = this.fields[field];
         
-        // Only clear status if this field is not currently being reviewed
-        if (!fieldObj.llmInProgress) {
+        // If we have a result, the review finished, so clear the loading status
+        if (result) {
             if (this.statusTimer) {
                 clearTimeout(this.statusTimer);
                 this.statusTimer = null;
@@ -752,6 +752,12 @@ class LanguageToolEditor {
             this.status.className = 'status';
             this.status.textContent = '';
         }
+        // If no result but field is being reviewed, preserve loading state
+        else if (fieldObj.llmInProgress) {
+            // Keep the loading state when switching between boxes during active review
+            return;
+        }
+        
         fieldObj.llmInProgress = false;
         
         // Only display the result if this field is currently active
