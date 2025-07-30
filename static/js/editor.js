@@ -211,6 +211,8 @@ class LanguageToolEditor {
                 llmButton.addEventListener('click', () => {
                     this.activeField = field;
                     this.updateActiveEditorHighlight();
+                    this.renderHistory();
+                    this.renderEvaluationAndRewrite(field);
                     const text = fieldObj.editor.innerText;
                     // Character limit logic
                     const charLimit = field === 'editor' ? 1000 : 10000;
@@ -268,6 +270,10 @@ class LanguageToolEditor {
                                 const micIcon = micBtn.querySelector('svg');
                                 if (micIcon) {
                                     micIcon.innerHTML = '<rect x="9" y="2" width="6" height="12" rx="3" fill="#bbb"/><line x1="12" y1="16" x2="12" y2="22" /><path d="M5 11v1a7 7 0 0 0 14 0v-1" />';
+                                    micIcon.setAttribute('stroke', '#bbb');
+                                    micIcon.setAttribute('stroke-width', '2');
+                                    micIcon.setAttribute('stroke-linecap', 'round');
+                                    micIcon.setAttribute('stroke-linejoin', 'round');
                                 }
                                 this.showStatus('Processing audio...', 'checking', true);
                                 
@@ -314,6 +320,7 @@ class LanguageToolEditor {
                             const micIcon = micBtn.querySelector('svg');
                             if (micIcon) {
                                 micIcon.innerHTML = '<rect x="6" y="6" width="12" height="12" fill="white"/>';
+                                micIcon.removeAttribute('stroke');
                             }
                         } catch (err) {
                             fieldObj.editor.innerText = '';
@@ -325,6 +332,10 @@ class LanguageToolEditor {
                             const micIcon = micBtn.querySelector('svg');
                             if (micIcon) {
                                 micIcon.innerHTML = '<rect x="9" y="2" width="6" height="12" rx="3" fill="#bbb"/><line x1="12" y1="16" x2="12" y2="22" /><path d="M5 11v1a7 7 0 0 0 14 0v-1" />';
+                                micIcon.setAttribute('stroke', '#bbb');
+                                micIcon.setAttribute('stroke-width', '2');
+                                micIcon.setAttribute('stroke-linecap', 'round');
+                                micIcon.setAttribute('stroke-linejoin', 'round');
                             }
                             
                             this.showStatus('Could not access microphone.', 'error');
