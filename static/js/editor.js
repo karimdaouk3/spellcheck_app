@@ -742,14 +742,16 @@ class LanguageToolEditor {
     displayLLMResult(result, showRewrite, field = this.activeField) {
         const fieldObj = this.fields[field];
         
-        // Always clear status and update field state, regardless of active field
-        if (this.statusTimer) {
-            clearTimeout(this.statusTimer);
-            this.statusTimer = null;
+        // Only clear status if this field is not currently being reviewed
+        if (!fieldObj.llmInProgress) {
+            if (this.statusTimer) {
+                clearTimeout(this.statusTimer);
+                this.statusTimer = null;
+            }
+            this.status.classList.remove('loading');
+            this.status.className = 'status';
+            this.status.textContent = '';
         }
-        this.status.classList.remove('loading');
-        this.status.className = 'status';
-        this.status.textContent = '';
         fieldObj.llmInProgress = false;
         
         // Only display the result if this field is currently active
