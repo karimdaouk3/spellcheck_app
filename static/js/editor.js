@@ -1270,6 +1270,10 @@ class LanguageToolEditor {
             if (fieldObj.llmLastResult && fieldObj.llmLastResult.rewrite && fieldObj.llmLastResult.original_text !== fieldObj.editor.innerText) {
                 fieldObj.llmLastResult = null;
             }
+            // Don't show evaluation if the field is currently being reviewed
+            if (fieldObj.llmInProgress) {
+                return;
+            }
             if (fieldObj.llmLastResult) {
                 // Only show if the result matches the current editor content (avoid showing stale result)
                 if (fieldObj.llmLastResult.original_text === undefined || fieldObj.llmLastResult.original_text === fieldObj.editor.innerText) {
