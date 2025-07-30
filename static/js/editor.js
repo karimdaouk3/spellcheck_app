@@ -1203,7 +1203,7 @@ class LanguageToolEditor {
         
         const fieldObj = this.fields[this.activeField];
         if (!fieldObj.history || fieldObj.history.length === 0) {
-            this.historyList.innerHTML = '<div style="text-align:center;color:#666;padding:20px;">No history yet</div>';
+            this.historyList.innerHTML = '<div style="text-align:center;color:#666;padding:20px;">Previous versions will appear here after submission</div>';
             return;
         }
         
