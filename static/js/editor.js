@@ -81,12 +81,6 @@ class LanguageToolEditor {
         this.updateActiveEditorHeader(); // Initialize the header
         this.createHighlightOverlay('editor');
         this.createHighlightOverlay('editor2');
-        
-        // Debug: Check if button exists on page load
-        setTimeout(() => {
-            const btnOnLoad = document.getElementById('eval-collapse-btn');
-            console.log('Button check on page load:', !!btnOnLoad);
-        }, 1000);
     }
     
     createHighlightOverlay(field) {
@@ -714,7 +708,6 @@ class LanguageToolEditor {
     }
 
     displayLLMResult(result, showRewrite, field = this.activeField) {
-        console.log('displayLLMResult called with field:', field);
         const fieldObj = this.fields[field];
         
         // Always clear status and update field state, regardless of active field
@@ -730,20 +723,21 @@ class LanguageToolEditor {
         // Only display the result if this field is currently active
         // Exception: Always show rewrite results (follow-up questions) even if in different box
         if (field !== this.activeField && !showRewrite) {
-            console.log('Field not active, returning early');
             return;
         }
         
         const evalBox = document.getElementById('llm-eval-box');
-        console.log('Found evalBox:', !!evalBox);
         let html = '';
         let valid = result && typeof result === 'object';
         let rulesObj = result && result.evaluation ? result.evaluation : result;
         // Collapsible state (per field)
         if (!this.evalCollapsed) this.evalCollapsed = {};
         if (typeof this.evalCollapsed[field] === 'undefined') this.evalCollapsed[field] = true; // Collapsed by default
+        // After rewrite, always close the feedback dropdown
+        if (showRewrite) {
+            this.evalCollapsed[field] = true;
+        }
         const isCollapsed = this.evalCollapsed[field];
-        console.log('displayLLMResult - isCollapsed state:', isCollapsed);
         
         if (valid && rulesObj && typeof rulesObj === 'object') {
             const keys = Object.keys(rulesObj);
@@ -764,7 +758,6 @@ class LanguageToolEditor {
                 `</button>\n` +
                 `<span style="margin-left:32px;font-size:1.5em;">${inputType}</span>\n` +
                 `</div>`;
-            console.log('Generated HTML for collapse button, isCollapsed:', isCollapsed);
             // Only show the rest if not collapsed
             if (!isCollapsed) {
                 // Sort rules: passed first, then failed
@@ -826,28 +819,20 @@ class LanguageToolEditor {
         }
         evalBox.innerHTML = html;
         evalBox.style.display = 'flex';
-        console.log('HTML set, evalBox display set to flex');
         
         // Check if button exists immediately after setting HTML
         setTimeout(() => {
             const btnCheck = document.getElementById('eval-collapse-btn');
-            console.log('Button check after HTML set:', !!btnCheck);
             if (btnCheck) {
-                console.log('Button found, adding click listener');
                 btnCheck.onclick = () => {
-                    console.log('Button clicked from displayLLMResult!');
                     this.evalCollapsed[field] = !this.evalCollapsed[field];
-                    console.log('New collapsed state:', this.evalCollapsed[field]);
                     this.displayLLMResult(result, showRewrite, field);
                 };
-            } else {
-                console.log('Button NOT found after HTML set');
             }
         }, 0);
         
         // Add all event listeners for evaluation elements after HTML is set
         setTimeout(() => {
-            console.log('Calling addEvaluationEventListeners');
             this.addEvaluationEventListeners(field);
         }, 0);
 
@@ -1083,7 +1068,6 @@ class LanguageToolEditor {
     llmPlaceholderCall(transcription) {
         if (!transcription || transcription.trim() === '') return;
         // TODO: Replace this with your actual LLM call logic
-        console.log('LLM placeholder: would process transcription:', transcription);
         // Example: this.submitToLLM(transcription);
     }
 
@@ -1259,7 +1243,6 @@ class LanguageToolEditor {
 
     // Render only the evaluation part without affecting the rewrite popup
     renderEvaluationOnly(result, field = this.activeField) {
-        console.log('renderEvaluationOnly called with field:', field);
         const fieldObj = this.fields[field];
         const evalBox = document.getElementById('llm-eval-box');
         if (!evalBox) return;
@@ -1272,7 +1255,6 @@ class LanguageToolEditor {
         if (!this.evalCollapsed) this.evalCollapsed = {};
         if (typeof this.evalCollapsed[field] === 'undefined') this.evalCollapsed[field] = true; // Collapsed by default
         const isCollapsed = this.evalCollapsed[field];
-        console.log('isCollapsed state in renderEvaluationOnly:', isCollapsed);
         
         if (valid && rulesObj && typeof rulesObj === 'object') {
             const keys = Object.keys(rulesObj);
@@ -1294,7 +1276,6 @@ class LanguageToolEditor {
                 `</button>\n` +
                 `<span style="margin-left:32px;font-size:1.5em;">${inputType}</span>\n` +
                 `</div>`;
-            console.log('renderEvaluationOnly - Generated HTML for collapse button, isCollapsed:', isCollapsed);
             // Only show the rest if not collapsed
             if (!isCollapsed) {
                 // Sort rules: passed first, then failed
@@ -1333,31 +1314,18 @@ class LanguageToolEditor {
         
         evalBox.innerHTML = html;
         evalBox.style.display = 'flex';
-        console.log('renderEvaluationOnly - HTML set, evalBox display set to flex');
         
         // Re-add collapse/expand logic
         const collapseBtn = document.getElementById('eval-collapse-btn');
-        console.log('renderEvaluationOnly - Found collapse button:', !!collapseBtn);
         if (collapseBtn) {
-            console.log('renderEvaluationOnly - Adding click listener to button');
             collapseBtn.onclick = () => {
-                console.log('Chevron button clicked for field:', field);
-                console.log('Current evalCollapsed state:', this.evalCollapsed[field]);
                 this.evalCollapsed[field] = !this.evalCollapsed[field];
-                console.log('New evalCollapsed state:', this.evalCollapsed[field]);
                 // Use the last result for this field if available
                 const lastResult = this.fields[field].llmLastResult;
-                console.log('Last result available:', !!lastResult);
                 if (lastResult) {
-                    console.log('Calling renderEvaluationOnly with last result');
                     this.renderEvaluationOnly(lastResult, field);
-                } else {
-                    console.log('No last result available, cannot re-render');
                 }
             };
-            console.log('renderEvaluationOnly - Click listener attached successfully');
-        } else {
-            console.log('renderEvaluationOnly - Button NOT found, cannot attach listener');
         }
         
         // Re-add all the other event listeners (dropdowns, feedback buttons, etc.)
