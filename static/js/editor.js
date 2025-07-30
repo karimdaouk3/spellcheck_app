@@ -1275,10 +1275,9 @@ class LanguageToolEditor {
                 return;
             }
             if (fieldObj.llmLastResult) {
-                // Only show if the result matches the current editor content (avoid showing stale result)
-                if (fieldObj.llmLastResult.original_text === undefined || fieldObj.llmLastResult.original_text === fieldObj.editor.innerText) {
-                    this.displayLLMResult(fieldObj.llmLastResult, false, field);
-                }
+                // Always show evaluation if there's a result, regardless of original_text matching
+                // This ensures restored history items always show their evaluation
+                this.displayLLMResult(fieldObj.llmLastResult, false, field);
             }
         }
         
