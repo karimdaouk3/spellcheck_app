@@ -659,7 +659,7 @@ class LanguageToolEditor {
         const fieldObj = this.fields[field];
         fieldObj.llmInProgress = true;
         if (!this.evalCollapsed) this.evalCollapsed = {};
-        this.evalCollapsed[field] = false; // Expand by default after review/rewrite
+        // this.evalCollapsed[field] = false; // Expand by default after review/rewrite (REMOVE THIS LINE)
         if (answers) {
             this.showStatus('Rewriting...', 'checking', true);
         } else {
@@ -732,7 +732,7 @@ class LanguageToolEditor {
         let rulesObj = result && result.evaluation ? result.evaluation : result;
         // Collapsible state (per field)
         if (!this.evalCollapsed) this.evalCollapsed = {};
-        if (typeof this.evalCollapsed[field] === 'undefined') this.evalCollapsed[field] = false;
+        if (typeof this.evalCollapsed[field] === 'undefined') this.evalCollapsed[field] = true; // Collapsed by default
         const isCollapsed = this.evalCollapsed[field];
         if (valid && rulesObj && typeof rulesObj === 'object') {
             const keys = Object.keys(rulesObj);
@@ -1240,7 +1240,7 @@ class LanguageToolEditor {
         
         // Collapsible state (per field)
         if (!this.evalCollapsed) this.evalCollapsed = {};
-        if (typeof this.evalCollapsed[field] === 'undefined') this.evalCollapsed[field] = false;
+        if (typeof this.evalCollapsed[field] === 'undefined') this.evalCollapsed[field] = true; // Collapsed by default
         const isCollapsed = this.evalCollapsed[field];
         
         if (valid && rulesObj && typeof rulesObj === 'object') {
