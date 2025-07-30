@@ -1318,12 +1318,20 @@ class LanguageToolEditor {
         const evalBox = document.getElementById('llm-eval-box');
         if (!evalBox) return;
         
+        console.log('addEvaluationEventListeners called for field:', field);
+        
         // Dropdown logic
         const dropdowns = evalBox.querySelectorAll('.llm-dropdown');
-        dropdowns.forEach(dropdown => {
+        console.log('Found dropdowns:', dropdowns.length);
+        dropdowns.forEach((dropdown, index) => {
+            console.log(`Setting up dropdown ${index}:`, dropdown);
             const header = dropdown.querySelector('.llm-section-header');
             const justification = dropdown.querySelector('.llm-section-justification');
             const arrow = dropdown.querySelector('.llm-dropdown-arrow');
+            
+            console.log('Header element:', header);
+            console.log('Arrow element:', arrow);
+            
             // Set initial state
             if (dropdown.classList.contains('open')) {
                 justification.style.display = 'block';
