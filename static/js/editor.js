@@ -1335,7 +1335,8 @@ class LanguageToolEditor {
                 arrow.innerHTML = '&#9654;';
             }
             // Toggle on click or enter/space
-            header.addEventListener('click', () => {
+            header.addEventListener('click', (e) => {
+                console.log('Header clicked!', e.target);
                 dropdown.classList.toggle('open');
                 const isOpen = dropdown.classList.contains('open');
                 justification.style.display = isOpen ? 'block' : 'none';
