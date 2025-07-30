@@ -1308,8 +1308,19 @@ class LanguageToolEditor {
         if (collapseBtn) {
             collapseBtn.onclick = () => {
                 this.evalCollapsed[field] = !this.evalCollapsed[field];
-                this.renderEvaluationOnly(result, field);
+                // Use the last result for this field if available
+                const lastResult = this.fields[field].llmLastResult;
+                if (lastResult) {
+                    this.renderEvaluationOnly(lastResult, field);
+                }
             };
+            // Keyboard accessibility
+            collapseBtn.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    collapseBtn.click();
+                }
+            });
         }
         
         // Re-add all the other event listeners (dropdowns, feedback buttons, etc.)
