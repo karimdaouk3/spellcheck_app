@@ -823,10 +823,7 @@ class LanguageToolEditor {
         if (!showRewrite) {
             // Show questions for failed criteria
             fieldObj.llmQuestions = [];
-            // Preserve existing answers instead of clearing them
-            if (!fieldObj.llmAnswers) {
-                fieldObj.llmAnswers = {};
-            }
+            if (!fieldObj.llmAnswers) fieldObj.llmAnswers = {};
             if (rulesObj) {
                 for (const key of Object.keys(rulesObj)) {
                     const section = rulesObj[key];
@@ -840,7 +837,6 @@ class LanguageToolEditor {
                 const isProblemStatement = field === 'editor';
                 const borderColor = isProblemStatement ? '#41007F' : '#00A7E1';
                 const backgroundColor = isProblemStatement ? 'rgba(240, 240, 255, 0.3)' : 'rgba(240, 248, 255, 0.3)';
-                
                 let qHtml = '<div class="rewrite-title" style="display:flex;align-items:center;font-weight:700;font-size:1.13em;color:#41007F;margin-bottom:8px;">To improve your input, please answer the following questions:</div>';
                 qHtml += `<div class="rewrite-title" style="border: 2px solid ${borderColor}; background: ${backgroundColor}; border-radius: 10px; padding: 18px 18px 10px 18px; margin-bottom: 10px; margin-top: 10px;">`;
                 fieldObj.llmQuestions.forEach((q, idx) => {
@@ -851,12 +847,15 @@ class LanguageToolEditor {
                 qHtml += `<button id="submit-answers-btn" class="llm-submit-button" style="margin-top:10px;">Rewrite</button>`;
                 rewritePopup.innerHTML = qHtml;
                 rewritePopup.style.display = 'block';
-                // Add event listener for submit answers
                 setTimeout(() => {
                     const btn = document.getElementById('submit-answers-btn');
                     const answerEls = rewritePopup.querySelectorAll('.rewrite-answer');
-                    // Prevent newlines and blur on Enter in rewrite answer boxes
+                    // Save answer on input
                     answerEls.forEach(el => {
+                        el.addEventListener('input', () => {
+                            const crit = el.getAttribute('data-criteria');
+                            fieldObj.llmAnswers[crit] = el.value;
+                        });
                         el.addEventListener('keydown', (e) => {
                             if (e.key === 'Enter') {
                                 e.preventDefault();
@@ -866,7 +865,7 @@ class LanguageToolEditor {
                     });
                     if (btn) {
                         btn.onclick = () => {
-                            // Collect answers
+                            // Collect answers (redundant, but ensures latest values)
                             answerEls.forEach(el => {
                                 const crit = el.getAttribute('data-criteria');
                                 fieldObj.llmAnswers[crit] = el.value;
@@ -904,17 +903,12 @@ class LanguageToolEditor {
                 }
             }
             if (rewrite) {
-                // Replace the editor content with the rewrite
                 fieldObj.editor.innerText = rewrite;
-                // Hide overlay immediately to prevent flash of old highlights
                 fieldObj.overlayHidden = true;
                 this.updateHighlights(field);
-                // Hide the rewrite popup and overlay
                 rewritePopup.style.display = 'none';
-                evalBox.style.display = 'none'; // Hide evaluation box as well
-                // Update overlay for new text
+                evalBox.style.display = 'none';
                 this.checkText(field);
-                // Trigger a review (LLM evaluation) for the new text
                 this.submitToLLM(rewrite, null, field);
             } else {
                 rewritePopup.style.display = 'none';
