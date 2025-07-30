@@ -261,6 +261,12 @@ class LanguageToolEditor {
                                 micBtn.style.color = '';
                                 micBtn.disabled = true;
                                 micBtn.title = 'Record speech';
+                                
+                                // Restore original microphone icon
+                                const micIcon = micBtn.querySelector('svg');
+                                if (micIcon) {
+                                    micIcon.innerHTML = '<rect x="9" y="2" width="6" height="12" rx="3" fill="#bbb"/><line x1="12" y1="16" x2="12" y2="22" /><path d="M5 11v1a7 7 0 0 0 14 0v-1" />';
+                                }
                                 this.showStatus('Processing audio...', 'checking', true);
                                 
                                 // Update editor placeholder to show transcription in progress
@@ -301,11 +307,24 @@ class LanguageToolEditor {
                             isRecording = true;
                             micBtn.classList.add('recording-pulse');
                             micBtn.title = 'Recording... Click to stop';
+                            
+                            // Change icon to white square when recording
+                            const micIcon = micBtn.querySelector('svg');
+                            if (micIcon) {
+                                micIcon.innerHTML = '<rect x="6" y="6" width="12" height="12" fill="white"/>';
+                            }
                         } catch (err) {
                             fieldObj.editor.innerText = '';
                             fieldObj.editor.setAttribute('contenteditable', 'true');
                             micBtn.classList.remove('recording-pulse');
                             micBtn.title = 'Record speech';
+                            
+                            // Restore original microphone icon in case of error
+                            const micIcon = micBtn.querySelector('svg');
+                            if (micIcon) {
+                                micIcon.innerHTML = '<rect x="9" y="2" width="6" height="12" rx="3" fill="#bbb"/><line x1="12" y1="16" x2="12" y2="22" /><path d="M5 11v1a7 7 0 0 0 14 0v-1" />';
+                            }
+                            
                             this.showStatus('Could not access microphone.', 'error');
                             alert('Could not access microphone.');
                             fieldObj.editor.setAttribute('data-placeholder', 'Start typing your text here...');
