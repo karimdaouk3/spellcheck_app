@@ -1353,10 +1353,9 @@ class LanguageToolEditor {
         const failedTitleElements = evalBox.querySelectorAll('.llm-dropdown[data-passed="false"] .llm-section-title');
         failedTitleElements.forEach(title => {
             title.addEventListener('click', (e) => {
-                e.stopPropagation(); // Prevent dropdown toggle
                 const criteria = title.getAttribute('data-criteria');
                 const rewritePopup = document.getElementById('rewrite-popup');
-                
+                let handled = false;
                 // Check if rewrite popup is visible and has questions
                 if (rewritePopup && rewritePopup.style.display !== 'none') {
                     // Find the corresponding textarea for this criteria
@@ -1367,8 +1366,10 @@ class LanguageToolEditor {
                         setTimeout(() => {
                             textarea.focus();
                         }, 300);
+                        handled = true;
                     }
                 }
+                if (handled) e.stopPropagation();
             });
         });
 
