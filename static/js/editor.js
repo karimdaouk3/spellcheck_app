@@ -1230,6 +1230,7 @@ class LanguageToolEditor {
 
     // Render only the evaluation part without affecting the rewrite popup
     renderEvaluationOnly(result, field = this.activeField) {
+        console.log('renderEvaluationOnly called with field:', field);
         const fieldObj = this.fields[field];
         const evalBox = document.getElementById('llm-eval-box');
         if (!evalBox) return;
@@ -1242,6 +1243,7 @@ class LanguageToolEditor {
         if (!this.evalCollapsed) this.evalCollapsed = {};
         if (typeof this.evalCollapsed[field] === 'undefined') this.evalCollapsed[field] = true; // Collapsed by default
         const isCollapsed = this.evalCollapsed[field];
+        console.log('isCollapsed state in renderEvaluationOnly:', isCollapsed);
         
         if (valid && rulesObj && typeof rulesObj === 'object') {
             const keys = Object.keys(rulesObj);
@@ -1305,22 +1307,23 @@ class LanguageToolEditor {
         
         // Re-add collapse/expand logic
         const collapseBtn = document.getElementById('eval-collapse-btn');
+        console.log('Found collapse button:', !!collapseBtn);
         if (collapseBtn) {
             collapseBtn.onclick = () => {
+                console.log('Chevron button clicked for field:', field);
+                console.log('Current evalCollapsed state:', this.evalCollapsed[field]);
                 this.evalCollapsed[field] = !this.evalCollapsed[field];
+                console.log('New evalCollapsed state:', this.evalCollapsed[field]);
                 // Use the last result for this field if available
                 const lastResult = this.fields[field].llmLastResult;
+                console.log('Last result available:', !!lastResult);
                 if (lastResult) {
+                    console.log('Calling renderEvaluationOnly with last result');
                     this.renderEvaluationOnly(lastResult, field);
+                } else {
+                    console.log('No last result available, cannot re-render');
                 }
             };
-            // Keyboard accessibility
-            collapseBtn.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    collapseBtn.click();
-                }
-            });
         }
         
         // Re-add all the other event listeners (dropdowns, feedback buttons, etc.)
