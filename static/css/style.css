@@ -864,8 +864,8 @@ body {
 .editor-label-container {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0;
+    align-items: flex-start;
+    margin-bottom: 8px;
     min-height: 40px;
 }
 
