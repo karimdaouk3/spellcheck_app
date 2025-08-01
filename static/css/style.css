@@ -1023,10 +1023,10 @@ body {
     font-size: 1.13em;
     font-weight: 600;
     color: #41007F;
-    padding: 0 20px 0 20px;
+    padding: 8px 20px 8px 20px;
     margin: -18px -20px 0 -20px;
     border-bottom: 1px solid #eee;
-    height: 32px;
+    height: auto;
     display: flex;
     align-items: center;
 }
