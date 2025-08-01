@@ -1033,4 +1033,7 @@ body {
     padding: 18px 20px 8px 20px;
     margin: -18px -20px 8px -20px;
     border-bottom: 1px solid #eee;
+    width: calc(100% + 40px);
+    left: -20px;
+    right: -20px;
 }
