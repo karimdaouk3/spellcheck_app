@@ -1187,6 +1187,10 @@ class LanguageToolEditor {
     restoreFromHistory(historyItem, field = this.activeField) {
         const fieldObj = this.fields[field];
         
+        // Hide overlay immediately when restoring from history
+        fieldObj.overlayHidden = true;
+        this.updateHighlights(field);
+        
         // Handle both old format (string) and new format (object)
         const text = typeof historyItem === 'string' ? historyItem : historyItem.text;
         const llmResult = typeof historyItem === 'object' ? historyItem.llmLastResult : null;
@@ -1214,8 +1218,7 @@ class LanguageToolEditor {
         this.updateEditorLabelsWithScore();
         this.updateActiveEditorHighlight();
         this.checkText(field);
-        fieldObj.overlayHidden = false;
-        this.updateHighlights(field);
+        // Overlay will be shown again when checkText completes and calls updateHighlights
     }
 
     renderHistory() {
