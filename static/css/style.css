@@ -913,7 +913,7 @@ body {
     border-radius: 10px 10px 10px 10px;
 }
 
-/* FSR Daily Notes active container - blue outline */
+/* Daily FSR Notes active container - blue outline */
 .editor-container:nth-child(2).active-editor-container {
     outline: 2px solid #00A7E1;
     box-shadow: 0 0 0 2px rgba(224, 247, 255, 0.3);
@@ -996,7 +996,7 @@ body {
     }
 }
 
-/* Problem Statement editor - shorter height */
+/* Current Problem Statement editor - shorter height */
 #editor {
     height: 180px !important;
     min-height: 180px !important;
@@ -1005,7 +1005,7 @@ body {
 .editor-container:first-child .editor-wrapper {
     min-height: 180px !important;
 }
-/* FSR Daily Notes editor - taller height */
+/* Daily FSR Notes editor - taller height */
 #editor2 {
     height: 300px !important;
     min-height: 300px !important;

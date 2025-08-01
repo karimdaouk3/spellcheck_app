@@ -144,9 +144,9 @@ class LanguageToolEditor {
         if (header) {
             let headerText = '';
             if (this.activeField === 'editor') {
-                headerText = 'Problem Statement Feedback';
+                headerText = 'Current Problem Statement Feedback';
             } else if (this.activeField === 'editor2') {
-                headerText = 'FSR Daily Notes Feedback';
+                headerText = 'Daily FSR Notes Feedback';
             } else {
                 headerText = 'Active Editor Feedback';
             }
@@ -223,7 +223,7 @@ class LanguageToolEditor {
                         return;
                     }
                     if (text.replace(/\s/g, '').length < 20) {
-                        alert('Please make sure your problem statement is meaningful and comprehensive (at least 20 characters)');
+                        alert('Please make sure your current problem statement is meaningful and comprehensive (at least 20 characters)');
                         return;
                     }
                     this.submitToLLM(text, null, field); // Only text on first submit, pass field
@@ -817,9 +817,9 @@ class LanguageToolEditor {
             const passed = keys.filter(key => rulesObj[key].passed).length;
             let inputType = '';
             if (field === 'editor') {
-                inputType = 'Problem Statement Feedback';
+                inputType = 'Current Problem Statement Feedback';
             } else if (field === 'editor2') {
-                inputType = 'FSR Daily Notes Feedback';
+                inputType = 'Daily FSR Notes Feedback';
             } else {
                 inputType = 'Input Feedback';
             }
@@ -1043,7 +1043,7 @@ class LanguageToolEditor {
         const r1 = this.fields['editor'].llmLastResult;
         const r2 = this.fields['editor2'].llmLastResult;
         
-        // Update Problem Statement score
+        // Update Current Problem Statement score
         if (r1 && r1.evaluation) {
             const weightedScore = this.calculateWeightedScore('editor', r1.evaluation);
             const percentage = Math.round(weightedScore);
@@ -1069,7 +1069,7 @@ class LanguageToolEditor {
             score1.style.color = '';
         }
         
-        // Update FSR Daily Notes score
+        // Update Daily FSR Notes score
         if (r2 && r2.evaluation) {
             const weightedScore = this.calculateWeightedScore('editor2', r2.evaluation);
             const percentage = Math.round(weightedScore);
@@ -1225,9 +1225,9 @@ class LanguageToolEditor {
         const historyHeader = document.querySelector('.history-header');
         let label = '';
         if (this.activeField === 'editor') {
-            label = 'Problem Statement History';
+            label = 'Current Problem Statement History';
         } else if (this.activeField === 'editor2') {
-            label = 'FSR Daily Notes History';
+            label = 'Daily FSR Notes History';
         } else {
             label = 'Input History';
         }
@@ -1337,9 +1337,9 @@ class LanguageToolEditor {
             const passed = keys.filter(key => rulesObj[key].passed).length;
             let inputType = '';
             if (field === 'editor') {
-                inputType = 'Problem Statement Feedback';
+                inputType = 'Current Problem Statement Feedback';
             } else if (field === 'editor2') {
-                inputType = 'FSR Daily Notes Feedback';
+                inputType = 'Daily FSR Notes Feedback';
             } else {
                 inputType = 'Input Feedback';
             }
@@ -1547,6 +1547,6 @@ document.addEventListener('DOMContentLoaded', () => {
     new LanguageToolEditor();
     const editor = document.getElementById('editor');
     if (editor) {
-        editor.setAttribute('data-placeholder', 'Start typing your problem statement here');
+                    editor.setAttribute('data-placeholder', 'Start typing your current problem statement here');
     }
 });
