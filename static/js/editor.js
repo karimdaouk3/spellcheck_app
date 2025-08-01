@@ -1221,8 +1221,8 @@ class LanguageToolEditor {
     renderHistory() {
         if (!this.historyList) return;
         this.historyList.innerHTML = '';
-        // Update the history label dynamically
-        const historyLabel = document.getElementById('history-label');
+        // Update the history header dynamically
+        const historyHeader = document.querySelector('.history-header');
         let label = '';
         if (this.activeField === 'editor') {
             label = 'Problem Statement History';
@@ -1231,7 +1231,7 @@ class LanguageToolEditor {
         } else {
             label = 'Input History';
         }
-        if (historyLabel) historyLabel.textContent = label;
+        if (historyHeader) historyHeader.textContent = label;
         
         const fieldObj = this.fields[this.activeField];
         if (!fieldObj.history || fieldObj.history.length === 0) {
