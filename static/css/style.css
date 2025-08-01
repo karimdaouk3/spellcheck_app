@@ -1030,7 +1030,7 @@ body {
     top: 0;
     background: #fff;
     z-index: 10;
-    padding-bottom: 8px;
-    margin-bottom: 8px;
+    padding: 0 20px 8px 20px;
+    margin: -20px -20px 8px -20px;
     border-bottom: 1px solid #eee;
 }
