@@ -7,19 +7,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <div class="top-bar">
-        <div class="top-bar-content">
-            <label for="product-model" class="top-bar-label">Product Model</label>
-            <select id="product-model" class="top-bar-select">
-                <option selected disabled>Choose model</option>
-            </select>
-            <label for="case-number" class="top-bar-label" style="margin-left:24px;">Case Number</label>
-            <select id="case-number" class="top-bar-select">
-                <option selected disabled>Choose case</option>
-            </select>
-        </div>
-        <div id="status" class="status"></div>
-    </div>
+    <div id="status" class="status"></div>
     <div class="main-flex">
         <div class="left-column">
             <div class="header">
