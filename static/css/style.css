@@ -490,7 +490,7 @@ body {
 
 .top-bar-title {
     color: white;
-    font-size: 1.4em; /* Bigger text */
+    font-size: 1.6em; /* Even bigger text for all screen sizes */
     font-weight: 700; /* Bold */
     text-align: center;
 }
