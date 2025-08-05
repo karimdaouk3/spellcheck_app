@@ -633,11 +633,18 @@ body {
         max-width: 100vw;
     }
     
+    /* Mobile optimizations for all screens under 900px */
+    body {
+        padding: 0 16px 0 16px;
+    }
+    
     /* 1. Make submit buttons less wide on mobile to prevent overlap with copy buttons */
     .llm-submit-button {
-        width: 200px;
-        max-width: 60%;
+        width: 180px;
+        max-width: 70%;
         margin: 20px auto 0 auto;
+        font-size: 14px;
+        padding: 10px 20px;
     }
     
     /* 2. Make editor label container wider on mobile to prevent text overflow */
@@ -653,16 +660,19 @@ body {
         width: 100%;
         word-wrap: break-word;
         overflow-wrap: break-word;
+        font-size: 1em;
     }
     
     .editor-score {
         align-self: flex-end;
         margin-top: 0;
+        font-size: 1em;
+        min-width: 120px;
     }
     
     /* 3. Make top bar content responsive and ensure space for status */
     .top-bar {
-        padding: 0 8px 0 16px;
+        padding: 0 4px 0 12px;
         flex-wrap: wrap;
         min-height: auto;
         padding-bottom: 8px;
@@ -670,23 +680,23 @@ body {
     
     .top-bar-content {
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 4px;
         height: auto;
         min-height: 56px;
         align-items: center;
         width: 100%;
-        padding-right: 120px; /* Leave space for status */
+        padding-right: 100px; /* Leave space for status */
     }
     
     .top-bar-label {
-        font-size: 0.95em;
+        font-size: 0.9em;
         margin-right: 4px;
     }
     
     .top-bar-select {
-        font-size: 0.9em;
-        padding: 6px 12px 6px 8px;
-        min-width: 120px;
+        font-size: 0.85em;
+        padding: 5px 8px 5px 6px;
+        min-width: 100px;
         margin-right: 4px;
     }
     
@@ -696,51 +706,9 @@ body {
         padding: 6px 10px;
         min-height: 24px;
     }
-}
-
-/* Additional mobile improvements for very small screens */
-@media (max-width: 600px) {
-    body {
-        padding: 0 16px 0 16px;
-    }
-    
-    .top-bar {
-        padding: 0 4px 0 12px;
-    }
-    
-    .top-bar-content {
-        padding-right: 100px;
-        gap: 4px;
-    }
-    
-    .top-bar-label {
-        font-size: 0.9em;
-    }
-    
-    .top-bar-select {
-        font-size: 0.85em;
-        min-width: 100px;
-        padding: 5px 8px 5px 6px;
-    }
     
     .editor-container-group {
         padding: 20px 20px 16px 20px;
-    }
-    
-    .llm-submit-button {
-        width: 180px;
-        max-width: 70%;
-        font-size: 14px;
-        padding: 10px 20px;
-    }
-    
-    .editor-label {
-        font-size: 1em;
-    }
-    
-    .editor-score {
-        font-size: 1em;
-        min-width: 120px;
     }
 }
 @media (min-width: 900px) and (max-width: 1600px) {
