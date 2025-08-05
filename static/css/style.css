@@ -678,7 +678,7 @@ body {
     
     /* 3. Make top bar content responsive and ensure space for status */
     .top-bar {
-        padding: 0 4px 0 12px;
+        padding: 0 20px 0 20px; /* Match the left/right padding of other boxes */
         flex-wrap: wrap;
         min-height: auto;
         padding-bottom: 8px;
