@@ -712,12 +712,13 @@ body {
     .top-bar-label {
         font-size: 0.9em;
         margin-right: 4px;
+        margin-left: 8px; /* Add left margin to label text */
         white-space: nowrap; /* Keep label and dropdown together */
     }
     
     .top-bar-select {
         font-size: 0.9em;
-        padding: 6px 12px 6px 14px; /* Increased left padding for better text spacing */
+        padding: 6px 12px 6px 10px; /* Reset to original padding */
         min-width: 120px;
         margin-right: 0; /* Remove right margin since group handles spacing */
         height: 32px; /* Set consistent height */
