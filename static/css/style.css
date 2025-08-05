@@ -717,7 +717,7 @@ body {
     
     .top-bar-select {
         font-size: 0.9em;
-        padding: 6px 12px 6px 10px;
+        padding: 6px 12px 6px 14px; /* Increased left padding for better text spacing */
         min-width: 120px;
         margin-right: 0; /* Remove right margin since group handles spacing */
         height: 32px; /* Set consistent height */
