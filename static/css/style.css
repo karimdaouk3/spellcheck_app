@@ -649,7 +649,8 @@ body {
     
     /* 2. Make editor label container match text box width and remove vertical margins */
     .editor-label-container {
-        flex-direction: column;
+        flex-direction: row; /* Keep side by side like desktop */
+        justify-content: space-between;
         align-items: flex-start;
         gap: 8px;
         width: 100%;
@@ -659,15 +660,17 @@ body {
     .editor-label {
         height: auto;
         min-height: 40px;
-        width: 100%;
+        flex: 1; /* Take up available space until score box */
         word-wrap: break-word;
         overflow-wrap: break-word;
         font-size: 1em;
         margin-bottom: 0; /* Ensure no margin */
+        display: flex;
+        align-items: center;
     }
     
     .editor-score {
-        align-self: flex-end;
+        flex-shrink: 0; /* Don't shrink the score box */
         margin-top: 0;
         font-size: 1em;
         min-width: 120px;
