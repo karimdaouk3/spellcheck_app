@@ -277,7 +277,7 @@ class LanguageToolEditor {
                                     micIcon.setAttribute('stroke-linecap', 'round');
                                     micIcon.setAttribute('stroke-linejoin', 'round');
                                 }
-                                this.showStatus('Processing audio...', 'checking', true);
+
                                 
                                 // Update editor placeholder to show transcription in progress
                                 fieldObj.editor.setAttribute('data-placeholder', 'Transcribing audio...');
