@@ -709,22 +709,41 @@ body {
     }
     
     .top-bar-select {
-        font-size: 0.85em;
-        padding: 5px 8px 5px 6px;
-        min-width: 100px;
+        font-size: 0.9em;
+        padding: 6px 12px 6px 10px;
+        min-width: 120px;
         margin-right: 0; /* Remove right margin since group handles spacing */
         height: 32px; /* Set consistent height */
         box-sizing: border-box;
+        border: 1.5px solid #e0e0e0;
+        border-radius: 6px;
+        background: #f9fafc;
+        color: #222;
+        outline: none;
+        transition: border-color 0.18s, box-shadow 0.18s;
+        cursor: pointer;
+        font-family: 'Open Sans', sans-serif;
+    }
+    
+    .top-bar-select:focus {
+        border-color: #41007F;
+        box-shadow: 0 0 0 2px rgba(65, 0, 127, 0.1);
+    }
+    
+    .top-bar-select:hover {
+        border-color: #41007F;
     }
     
     .status {
         right: 8px;
         font-size: 12px;
         padding: 6px 10px;
-        min-height: 32px; /* Match dropdown height */
+        height: 32px; /* Exact height to match dropdowns */
         display: flex;
         align-items: center; /* Vertically center content */
         box-sizing: border-box;
+        top: 50%;
+        transform: translateY(-50%); /* Perfect vertical centering */
     }
     
     .editor-container-group {
