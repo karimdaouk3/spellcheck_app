@@ -193,7 +193,7 @@ body {
 }
 
 .status.success {
-    background: #41007F;
+    background: #00A7E1; /* Always blue instead of purple */
 }
 
 .status.recording {
@@ -490,8 +490,8 @@ body {
 
 .top-bar-title {
     color: white;
-    font-size: 1.2em;
-    font-weight: 600;
+    font-size: 1.4em; /* Bigger text */
+    font-weight: 700; /* Bold */
     text-align: center;
 }
 .top-bar-label {
@@ -680,6 +680,10 @@ body {
         flex-wrap: wrap;
         min-height: auto;
         width: 100%;
+    }
+    
+    .top-bar-title {
+        margin-left: 16px; /* Add left spacing on mobile */
     }
     
     .top-bar-content {
