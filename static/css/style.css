@@ -642,16 +642,18 @@ body {
     .llm-submit-button {
         width: 180px;
         max-width: 70%;
-        margin: 20px auto 0 auto;
+        margin: 20px auto 18px auto; /* Keep same vertical centering as desktop */
         font-size: 14px;
         padding: 10px 20px;
     }
     
-    /* 2. Make editor label container wider on mobile to prevent text overflow */
+    /* 2. Make editor label container match text box width and remove vertical margins */
     .editor-label-container {
         flex-direction: column;
         align-items: flex-start;
         gap: 8px;
+        width: 100%;
+        margin-bottom: 0; /* Remove vertical margin between header and text box */
     }
     
     .editor-label {
@@ -661,6 +663,7 @@ body {
         word-wrap: break-word;
         overflow-wrap: break-word;
         font-size: 1em;
+        margin-bottom: 0; /* Ensure no margin */
     }
     
     .editor-score {
