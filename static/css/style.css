@@ -678,7 +678,7 @@ body {
     
     /* 3. Make top bar content responsive and ensure space for status */
     .top-bar {
-        padding: 8px 20px 8px 20px; /* Match the left/right padding of other boxes with even top/bottom */
+        padding: 8px 16px 8px 16px; /* Match body padding for perfect alignment */
         flex-wrap: wrap;
         min-height: auto;
     }
@@ -746,7 +746,7 @@ body {
     }
     
     .editor-container-group {
-        padding: 20px 20px 16px 20px;
+        padding: 20px 16px 16px 16px; /* Match body padding for perfect alignment */
     }
     
     /* Make rewrite and feedback boxes match FSR coach and history box width */
@@ -757,7 +757,7 @@ body {
         margin-right: 0;
         margin-top: 16px; /* Equal top margin */
         margin-bottom: 16px; /* Equal bottom margin */
-        padding: 20px 20px 20px 20px; /* Even padding to match other boxes */
+        padding: 20px 16px 20px 16px; /* Match body padding for perfect alignment */
         box-sizing: border-box;
     }
 }
