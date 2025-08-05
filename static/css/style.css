@@ -692,18 +692,27 @@ body {
         align-items: center;
         width: 100%;
         padding-right: 100px; /* Leave space for status */
+        justify-content: flex-start; /* Left justify when wrapping */
+    }
+    
+    .top-bar-group {
+        display: flex;
+        align-items: center;
+        margin-right: 24px; /* Space between groups */
+        flex-shrink: 0; /* Prevent groups from shrinking */
     }
     
     .top-bar-label {
         font-size: 0.9em;
         margin-right: 4px;
+        white-space: nowrap; /* Keep label and dropdown together */
     }
     
     .top-bar-select {
         font-size: 0.85em;
         padding: 5px 8px 5px 6px;
         min-width: 100px;
-        margin-right: 4px;
+        margin-right: 0; /* Remove right margin since group handles spacing */
     }
     
     .status {
