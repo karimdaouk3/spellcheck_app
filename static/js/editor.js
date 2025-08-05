@@ -294,15 +294,27 @@ class LanguageToolEditor {
                                             body: formData
                                         });
                                         const data = await response.json();
-                                        fieldObj.editor.innerText = data.transcription || '';
-                                        fieldObj.editor.setAttribute('data-placeholder', 'Start typing your text here...');
-                                        if (fieldObj.editor.innerText.trim() === '') {
+                                        const transcription = data.transcription || '';
+                                        
+                                        // Check if the transcription indicates insufficient audio content
+                                        if (transcription.startsWith("I'm sorry, but I can't transcribe audio.")) {
+                                            // Show alert for insufficient audio content
+                                            alert('The recorded audio does not contain enough content.');
+                                            fieldObj.editor.innerText = '';
                                             fieldObj.editor.classList.add('empty');
                                         } else {
-                                            fieldObj.editor.classList.remove('empty');
+                                            // Normal transcription - put text in editor
+                                            fieldObj.editor.innerText = transcription;
+                                            if (fieldObj.editor.innerText.trim() === '') {
+                                                fieldObj.editor.classList.add('empty');
+                                            } else {
+                                                fieldObj.editor.classList.remove('empty');
+                                            }
+                                            this.checkText(field);
+                                            this.llmPlaceholderCall(transcription);
                                         }
-                                        this.checkText(field);
-                                        this.llmPlaceholderCall(data.transcription || '');
+                                        
+                                        fieldObj.editor.setAttribute('data-placeholder', 'Start typing your text here...');
                                     } catch (e) {
                                         fieldObj.editor.innerText = 'Error: Could not transcribe.';
                                         this.showStatus('Transcription failed', 'error');
