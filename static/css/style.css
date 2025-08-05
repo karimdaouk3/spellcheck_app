@@ -527,7 +527,7 @@ body {
 
 .main-flex {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     width: 100%;
     max-width: 100vw;
     margin: 0;
@@ -535,6 +535,13 @@ body {
     gap: 0;
     margin-top: 0;
 }
+.content-flex {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    flex: 1;
+}
+
 .left-column {
     flex: 1 1 60%;
     max-width: none;
@@ -620,7 +627,7 @@ body {
 }
 
 @media (max-width: 900px) {
-    .main-flex {
+    .content-flex {
         flex-direction: column;
     }
     .left-column, .right-column {
@@ -678,9 +685,10 @@ body {
     
     /* 3. Make top bar content responsive and ensure space for status */
     .top-bar {
-        padding: 8px 16px 8px 16px; /* Match body padding for perfect alignment */
+        padding: 8px 0 8px 0; /* Remove horizontal padding since it's now in main-flex */
         flex-wrap: wrap;
         min-height: auto;
+        width: 100%;
     }
     
     .top-bar-content {
