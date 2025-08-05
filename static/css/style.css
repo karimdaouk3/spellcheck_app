@@ -678,10 +678,9 @@ body {
     
     /* 3. Make top bar content responsive and ensure space for status */
     .top-bar {
-        padding: 0 20px 0 20px; /* Match the left/right padding of other boxes */
+        padding: 8px 20px 8px 20px; /* Match the left/right padding of other boxes with even top/bottom */
         flex-wrap: wrap;
         min-height: auto;
-        padding-bottom: 8px;
     }
     
     .top-bar-content {
@@ -758,6 +757,7 @@ body {
         margin-right: 0;
         margin-top: 16px; /* Equal top margin */
         margin-bottom: 16px; /* Equal bottom margin */
+        padding: 20px 20px 20px 20px; /* Even padding to match other boxes */
         box-sizing: border-box;
     }
 }
