@@ -297,9 +297,9 @@ class LanguageToolEditor {
                                         const transcription = data.transcription || '';
                                         
                                         // Check if the transcription indicates insufficient audio content
-                                        if (transcription.startsWith("I'm sorry, but I can't transcribe audio.")) {
+                                        if (transcription.startsWith("I'm sorry")) {
                                             // Show alert for insufficient audio content
-                                            alert('The recorded audio does not contain enough content.');
+                                            alert('The recorded audio does not contain enough content for transcription. Please try recording again with a longer message.');
                                             fieldObj.editor.innerText = '';
                                             fieldObj.editor.classList.add('empty');
                                         } else {
