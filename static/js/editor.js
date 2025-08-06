@@ -1577,14 +1577,16 @@ class LanguageToolEditor {
             if (submitBtn) {
                 submitBtn.textContent = 'Reviewing...';
                 submitBtn.disabled = true;
-                submitBtn.style.opacity = '0.7';
+                submitBtn.style.backgroundColor = '#41007F';
+                submitBtn.style.color = 'white';
                 submitBtn.style.cursor = 'not-allowed';
             }
         } else if (state === 'rewriting') {
             if (rewriteBtn) {
                 rewriteBtn.textContent = 'Rewriting...';
                 rewriteBtn.disabled = true;
-                rewriteBtn.style.opacity = '0.7';
+                rewriteBtn.style.backgroundColor = '#41007F';
+                rewriteBtn.style.color = 'white';
                 rewriteBtn.style.cursor = 'not-allowed';
             }
         }
@@ -1599,14 +1601,16 @@ class LanguageToolEditor {
         if (submitBtn) {
             submitBtn.textContent = 'Submit for Review';
             submitBtn.disabled = false;
-            submitBtn.style.opacity = '1';
+            submitBtn.style.backgroundColor = '';
+            submitBtn.style.color = '';
             submitBtn.style.cursor = 'pointer';
         }
         
         if (rewriteBtn) {
             rewriteBtn.textContent = 'Rewrite';
             rewriteBtn.disabled = false;
-            rewriteBtn.style.opacity = '1';
+            rewriteBtn.style.backgroundColor = '';
+            rewriteBtn.style.color = '';
             rewriteBtn.style.cursor = 'pointer';
         }
     }
