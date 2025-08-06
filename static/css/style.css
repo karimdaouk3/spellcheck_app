@@ -1133,7 +1133,7 @@ body {
         opacity: 1;
     }
     50% {
-        opacity: 0.7;
+        opacity: 0.85;
     }
     100% {
         opacity: 1;
@@ -1141,7 +1141,7 @@ body {
 }
 
 .button-processing {
-    animation: buttonPulse 1.5s ease-in-out infinite;
+    animation: buttonPulse 2.5s ease-in-out infinite;
 }
 
 /* Current Problem Statement editor - shorter height */
