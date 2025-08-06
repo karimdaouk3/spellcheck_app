@@ -775,6 +775,8 @@ class LanguageToolEditor {
             // Add to history when submitting for evaluation (not rewrite)
             if (!answers) {
                 this.addToHistory(text, field, data.result);
+                // Log evaluation data
+                this.logEvaluationData(text, data.result, field);
             }
             
             this.displayLLMResult(data.result, answers !== null, field);
@@ -1616,6 +1618,40 @@ class LanguageToolEditor {
             rewriteBtn.style.color = '';
             rewriteBtn.style.cursor = 'pointer';
             rewriteBtn.classList.remove('button-processing');
+        }
+    }
+    
+    // Log evaluation data to backend
+    async logEvaluationData(text, result, field) {
+        try {
+            // Calculate score
+            const evaluation = result && result.evaluation ? result.evaluation : result;
+            const score = this.calculateWeightedScore(field, evaluation);
+            
+            // Extract criteria (all evaluation keys)
+            const criteria = evaluation ? Object.keys(evaluation) : [];
+            
+            // Create timestamp
+            const timestamp = new Date().toISOString();
+            
+            // Prepare data for backend
+            const logData = {
+                text: text,
+                score: score,
+                criteria: criteria,
+                timestamp: timestamp
+            };
+            
+            // Send to backend
+            await fetch('/llm-evaluation-log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(logData)
+            });
+            
+        } catch (error) {
+            console.error('Failed to log evaluation data:', error);
+            // Don't show error to user as this is just logging
         }
     }
 }
