@@ -838,14 +838,7 @@ class LanguageToolEditor {
             const keys = Object.keys(rulesObj);
             const total = keys.length;
             const passed = keys.filter(key => rulesObj[key].passed).length;
-            let inputType = '';
-            if (field === 'editor') {
-                inputType = 'Current Problem Statement Feedback';
-            } else if (field === 'editor2') {
-                inputType = 'Daily FSR Notes Feedback';
-            } else {
-                inputType = 'Input Feedback';
-            }
+            let inputType = 'How Your Score was Calculated';
             // Replace score box with feedback title
             html += `<div class="llm-score" style="font-size:1.35em;font-weight:700;margin-bottom:0;background:#fff;color:#41007F;padding:10px 0 10px 0;border-radius:8px;text-align:center;box-shadow:0 1px 4px rgba(33,0,127,0.07);letter-spacing:0.5px;display:flex;align-items:center;justify-content:center;gap:10px;position:relative;">\n` +
                 `<button id="eval-collapse-btn" title="Click to expand for details" style="background:none;border:none;cursor:pointer;padding:0 6px;outline:none;display:inline-flex;align-items:center;justify-content:center;position:absolute;left:0;top:50%;transform:translateY(-50%) ${isCollapsed ? 'rotate(-90deg)' : ''};height:100%;z-index:2;">\n` +
@@ -1363,14 +1356,7 @@ class LanguageToolEditor {
             const keys = Object.keys(rulesObj);
             const total = keys.length;
             const passed = keys.filter(key => rulesObj[key].passed).length;
-            let inputType = '';
-            if (field === 'editor') {
-                inputType = 'Current Problem Statement Feedback';
-            } else if (field === 'editor2') {
-                inputType = 'Daily FSR Notes Feedback';
-            } else {
-                inputType = 'Input Feedback';
-            }
+            let inputType = 'How Your Score was Calculated';
             
             // Replace score box with feedback title
             html += `<div class="llm-score" style="font-size:1.35em;font-weight:700;margin-bottom:0;background:#fff;color:#41007F;padding:10px 0 10px 0;border-radius:8px;text-align:center;box-shadow:0 1px 4px rgba(33,0,127,0.07);letter-spacing:0.5px;display:flex;align-items:center;justify-content:center;gap:10px;position:relative;">\n` +
