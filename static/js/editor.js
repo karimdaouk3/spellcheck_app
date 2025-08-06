@@ -737,6 +737,10 @@ class LanguageToolEditor {
         fieldObj.isRestoringFromHistory = false; // Reset flag for new submissions
         if (!this.evalCollapsed) this.evalCollapsed = {};
         // this.evalCollapsed[field] = false; // Expand by default after review/rewrite (REMOVE THIS LINE)
+        
+        // Update button states
+        this.updateButtonState(field, answers ? 'rewriting' : 'reviewing');
+        
         if (answers) {
             this.showStatus('Rewriting...', 'checking', true);
         } else {
@@ -780,6 +784,7 @@ class LanguageToolEditor {
             alert('LLM call failed: ' + e);
             this.status.classList.remove('loading');
             fieldObj.llmInProgress = false;
+            this.resetButtonState(field);
             this.updateActiveEditorHighlight(); // Ensure highlight remains
         }
     }
@@ -804,6 +809,9 @@ class LanguageToolEditor {
         }
         
         fieldObj.llmInProgress = false;
+        
+        // Reset button states when LLM call completes
+        this.resetButtonState(field);
         
         // Only display the result if this field is currently active
         // Exception: Always show rewrite results (follow-up questions) even if in different box
@@ -1557,6 +1565,50 @@ class LanguageToolEditor {
                 }
             });
         });
+    }
+    
+    // Update button state to show progress
+    updateButtonState(field, state) {
+        const fieldObj = this.fields[field];
+        const submitBtn = fieldObj.submitBtn;
+        const rewriteBtn = document.getElementById('submit-answers-btn');
+        
+        if (state === 'reviewing') {
+            if (submitBtn) {
+                submitBtn.textContent = 'Reviewing...';
+                submitBtn.disabled = true;
+                submitBtn.style.opacity = '0.7';
+                submitBtn.style.cursor = 'not-allowed';
+            }
+        } else if (state === 'rewriting') {
+            if (rewriteBtn) {
+                rewriteBtn.textContent = 'Rewriting...';
+                rewriteBtn.disabled = true;
+                rewriteBtn.style.opacity = '0.7';
+                rewriteBtn.style.cursor = 'not-allowed';
+            }
+        }
+    }
+    
+    // Reset button state to normal
+    resetButtonState(field) {
+        const fieldObj = this.fields[field];
+        const submitBtn = fieldObj.submitBtn;
+        const rewriteBtn = document.getElementById('submit-answers-btn');
+        
+        if (submitBtn) {
+            submitBtn.textContent = 'Submit for Review';
+            submitBtn.disabled = false;
+            submitBtn.style.opacity = '1';
+            submitBtn.style.cursor = 'pointer';
+        }
+        
+        if (rewriteBtn) {
+            rewriteBtn.textContent = 'Rewrite';
+            rewriteBtn.disabled = false;
+            rewriteBtn.style.opacity = '1';
+            rewriteBtn.style.cursor = 'pointer';
+        }
     }
 }
 
