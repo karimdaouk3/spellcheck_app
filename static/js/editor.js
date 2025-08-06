@@ -943,7 +943,8 @@ class LanguageToolEditor {
                 qHtml += `<div class="rewrite-title" style="border: 2px solid ${borderColor}; background: ${backgroundColor}; border-radius: 10px; padding: 18px 18px 10px 18px; margin-bottom: 10px; margin-top: 10px;">`;
                 fieldObj.llmQuestions.forEach((q, idx) => {
                     qHtml += `<div class="rewrite-question">${this.escapeHtml(q.question)}</div>`;
-                    const existingAnswer = fieldObj.llmAnswers[q.criteria] || '';
+                    // Only prepopulate answer if we're restoring from history (llmLastResult exists)
+                    const existingAnswer = (fieldObj.llmLastResult && fieldObj.llmAnswers[q.criteria]) ? fieldObj.llmAnswers[q.criteria] : '';
                     qHtml += `<textarea class="rewrite-answer" data-criteria="${this.escapeHtml(q.criteria)}" rows="1" style="width:100%;margin-bottom:12px;resize:none;">${this.escapeHtml(existingAnswer)}</textarea>`;
                 });
                 qHtml += `<button id="submit-answers-btn" class="llm-submit-button" style="margin-top:10px;">Rewrite</button>`;
