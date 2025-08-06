@@ -1128,6 +1128,22 @@ body {
     }
 }
 
+@keyframes buttonPulse {
+    0% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+.button-processing {
+    animation: buttonPulse 1.5s ease-in-out infinite;
+}
+
 /* Current Problem Statement editor - shorter height */
 #editor {
     height: 180px !important;

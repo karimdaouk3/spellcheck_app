@@ -1580,6 +1580,7 @@ class LanguageToolEditor {
                 submitBtn.style.backgroundColor = '#41007F';
                 submitBtn.style.color = 'white';
                 submitBtn.style.cursor = 'not-allowed';
+                submitBtn.classList.add('button-processing');
             }
         } else if (state === 'rewriting') {
             if (rewriteBtn) {
@@ -1588,6 +1589,7 @@ class LanguageToolEditor {
                 rewriteBtn.style.backgroundColor = '#41007F';
                 rewriteBtn.style.color = 'white';
                 rewriteBtn.style.cursor = 'not-allowed';
+                rewriteBtn.classList.add('button-processing');
             }
         }
     }
@@ -1604,6 +1606,7 @@ class LanguageToolEditor {
             submitBtn.style.backgroundColor = '';
             submitBtn.style.color = '';
             submitBtn.style.cursor = 'pointer';
+            submitBtn.classList.remove('button-processing');
         }
         
         if (rewriteBtn) {
@@ -1612,6 +1615,7 @@ class LanguageToolEditor {
             rewriteBtn.style.backgroundColor = '';
             rewriteBtn.style.color = '';
             rewriteBtn.style.cursor = 'pointer';
+            rewriteBtn.classList.remove('button-processing');
         }
     }
 }
