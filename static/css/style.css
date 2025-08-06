@@ -473,7 +473,7 @@ body {
     padding: 0 12px 0 32px;
     position: relative;
     z-index: 10;
-    min-height: 56px;
+    min-height: 72px;
     display: flex;
     align-items: center;
     border-radius: 14px;
@@ -484,13 +484,13 @@ body {
     display: flex;
     align-items: center;
     justify-content: center; /* Center the title */
-    height: 56px;
+    height: 72px;
     flex: 1 1 auto;
 }
 
 .top-bar-title {
     color: white;
-    font-size: 1.6em; /* Even bigger text for all screen sizes */
+    font-size: 1.8em; /* Bigger text for taller bar */
     font-weight: 700; /* Bold */
     text-align: center;
 }
@@ -690,7 +690,7 @@ body {
         flex-wrap: wrap;
         gap: 4px;
         height: auto;
-        min-height: 56px;
+        min-height: 72px;
         align-items: center;
         width: 100%;
         padding-right: 100px; /* Leave space for status */
