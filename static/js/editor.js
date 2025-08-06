@@ -734,6 +734,7 @@ class LanguageToolEditor {
     async submitToLLM(text, answers = null, field = this.activeField) {
         const fieldObj = this.fields[field];
         fieldObj.llmInProgress = true;
+        fieldObj.isRestoringFromHistory = false; // Reset flag for new submissions
         if (!this.evalCollapsed) this.evalCollapsed = {};
         // this.evalCollapsed[field] = false; // Expand by default after review/rewrite (REMOVE THIS LINE)
         if (answers) {
@@ -943,8 +944,8 @@ class LanguageToolEditor {
                 qHtml += `<div class="rewrite-title" style="border: 2px solid ${borderColor}; background: ${backgroundColor}; border-radius: 10px; padding: 18px 18px 10px 18px; margin-bottom: 10px; margin-top: 10px;">`;
                 fieldObj.llmQuestions.forEach((q, idx) => {
                     qHtml += `<div class="rewrite-question">${this.escapeHtml(q.question)}</div>`;
-                    // Only prepopulate answer if we're restoring from history (llmLastResult exists)
-                    const existingAnswer = (fieldObj.llmLastResult && fieldObj.llmAnswers[q.criteria]) ? fieldObj.llmAnswers[q.criteria] : '';
+                    // Only prepopulate answer if we're restoring from history
+                    const existingAnswer = (fieldObj.isRestoringFromHistory && fieldObj.llmAnswers[q.criteria]) ? fieldObj.llmAnswers[q.criteria] : '';
                     qHtml += `<textarea class="rewrite-answer" data-criteria="${this.escapeHtml(q.criteria)}" rows="1" style="width:100%;margin-bottom:12px;resize:none;">${this.escapeHtml(existingAnswer)}</textarea>`;
                 });
                 qHtml += `<button id="submit-answers-btn" class="llm-submit-button" style="margin-top:10px;">Rewrite</button>`;
@@ -1219,6 +1220,7 @@ class LanguageToolEditor {
         // Restore the evaluation and feedback if available
         if (llmResult) {
             fieldObj.llmLastResult = llmResult;
+            fieldObj.isRestoringFromHistory = true; // Flag to indicate history restoration
             const hasRewrite = llmResult.rewrite || llmResult.rewritten_problem_statement;
             this.displayLLMResult(llmResult, hasRewrite, field);
         } else {
