@@ -240,12 +240,12 @@ def speech_to_text():
     # In the real implementation, you would process the audio here
     return jsonify({"transcription": "Transcribed text will appear here. (Placeholder: 'This is a sample transcription.')"})
 
-@app.route("/feedback", methods=["GET", "POST"])
-def feedback():
+@app.route("/overall-feedback", methods=["GET", "POST"])
+def overall_feedback():
     if request.method == "GET":
         return render_template("feedback.html")
     
-    # Handle POST request for general feedback form
+    # Handle POST request for overall feedback form
     experience_rating = request.form.get('experience_rating')
     use_in_field = request.form.get('use_in_field')
     feedback_text = request.form.get('feedback_text', '')
@@ -264,24 +264,24 @@ def feedback():
     }
     
     # Load existing feedback
-    GENERAL_FEEDBACK_FILE = 'general_feedback.json'
-    if os.path.exists(GENERAL_FEEDBACK_FILE):
-        with open(GENERAL_FEEDBACK_FILE, "r") as f:
+    OVERALL_FEEDBACK_FILE = 'overall_feedback.json'
+    if os.path.exists(OVERALL_FEEDBACK_FILE):
+        with open(OVERALL_FEEDBACK_FILE, "r") as f:
             all_feedback = json.load(f)
     else:
         all_feedback = []
     
     all_feedback.append(feedback_data)
     
-    with open(GENERAL_FEEDBACK_FILE, "w") as f:
+    with open(OVERALL_FEEDBACK_FILE, "w") as f:
         json.dump(all_feedback, f, indent=2)
     
     return render_template("feedback.html", 
                          message="Thank you for your feedback! It has been submitted successfully.", 
                          message_type="success")
 
-@app.route("/evaluation-feedback", methods=["POST"])
-def evaluation_feedback():
+@app.route("/feedback", methods=["POST"])
+def feedback():
     data = request.get_json()
     # Expecting: { "criteria": ..., "text": ..., "feedback": ..., "explanation": ..., "passed": ... }
     if not data or "criteria" not in data or "text" not in data or "feedback" not in data:

@@ -1559,7 +1559,7 @@ class LanguageToolEditor {
                             passed = fieldObj.llmLastResult.evaluation[criteria].passed;
                         }
                         // Log feedback (console.log for now, or send to backend)
-                        fetch('/evaluation-feedback', {
+                        fetch('/feedback', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
