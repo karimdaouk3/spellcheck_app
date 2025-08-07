@@ -1158,6 +1158,8 @@ class LanguageToolEditor {
             }
         }
         
+        // Normalize to 100 based on the actual weights from backend
+        // This ensures the score is always 0-100 regardless of weight distribution
         return totalWeight > 0 ? (totalScore / totalWeight) * 100 : 0;
     }
 
