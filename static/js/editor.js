@@ -919,7 +919,8 @@ class LanguageToolEditor {
         if (!showRewrite) {
             // Show questions for failed criteria
             fieldObj.llmQuestions = [];
-            if (!fieldObj.llmAnswers) fieldObj.llmAnswers = {};
+            // Clear previous answers when new questions are generated
+            fieldObj.llmAnswers = {};
             if (rulesObj) {
                 for (const key of Object.keys(rulesObj)) {
                     const section = rulesObj[key];
