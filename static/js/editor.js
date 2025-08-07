@@ -60,7 +60,7 @@ class LanguageToolEditor {
         this.historyMenuIcon = document.getElementById('history-menu-icon');
         this.historyCloseIcon = document.getElementById('history-close-icon');
         this.popup = document.getElementById('popup');
-        this.status = document.getElementById('status');
+
         if (this.toggleHistoryBtn) {
             this.toggleHistoryBtn.addEventListener('click', () => {
                 this.historyPanel.classList.add('closed');
@@ -317,7 +317,7 @@ class LanguageToolEditor {
                                         fieldObj.editor.setAttribute('data-placeholder', 'Start typing your text here...');
                                     } catch (e) {
                                         fieldObj.editor.innerText = 'Error: Could not transcribe.';
-                                        this.showStatus('Transcription failed', 'error');
+                                        // Status removed - status box no longer used
                                         fieldObj.editor.setAttribute('data-placeholder', 'Start typing your text here...');
                                         fieldObj.editor.classList.remove('empty');
                                     }
@@ -352,7 +352,7 @@ class LanguageToolEditor {
                                 micIcon.setAttribute('stroke-linejoin', 'round');
                             }
                             
-                            this.showStatus('Could not access microphone.', 'error');
+                            // Status removed - status box no longer used
                             alert('Could not access microphone.');
                             fieldObj.editor.setAttribute('data-placeholder', 'Start typing your text here...');
                             fieldObj.editor.classList.add('empty');
@@ -437,7 +437,7 @@ class LanguageToolEditor {
     }
     
     debounceCheck(field) {
-        this.showStatus('Checking...', 'checking');
+        // Status removed - status box no longer used
         clearTimeout(this.debounceTimer);
         this.debounceTimer = setTimeout(() => {
             this.checkText(field);
@@ -450,7 +450,7 @@ class LanguageToolEditor {
         
         if (!text.trim()) {
             this.clearSuggestions(field);
-            if (!fieldObj.llmInProgress) this.showStatus('Ready');
+            // Status removed - status box no longer used
             return;
         }
         
@@ -477,14 +477,14 @@ class LanguageToolEditor {
             const count = suggestions.length;
             if (!fieldObj.llmInProgress) {
                 if (count === 0) {
-                    this.showStatus('No issues found');
+                    // Status removed - status box no longer used
                 } else {
-                    this.showStatus(`${count} issue${count > 1 ? 's' : ''} found`);
+                    // Status removed - status box no longer used
                 }
             }
             
         } catch (error) {
-            if (!fieldObj.llmInProgress) this.showStatus('Error checking text', 'error');
+                            // Status removed - status box no longer used
             console.error('Error:', error);
         }
     }
@@ -643,7 +643,7 @@ class LanguageToolEditor {
                 this.saveTerm(text, this.popupField, currentMention);
                 this.hidePopup();
                 // Don't call ignoreCurrentSuggestion here - let saveTerm handle the timing
-                this.showStatus(`"${text}" added to KLA term bank`, 'success');
+                // Status removed - status box no longer used
             };
         } else if (blueBtn.parentElement) {
             blueBtn.parentElement.removeChild(blueBtn);
@@ -692,34 +692,12 @@ class LanguageToolEditor {
         this.updateHighlights(field);
         this.hidePopup();
         requestAnimationFrame(() => this.syncOverlayScroll()); // Ensure overlay is synced after browser updates scroll
-        this.showStatus('Suggestion applied');
+        // Status removed - status box no longer used
         this.fields[field].editor.focus();
         this.debounceCheck(field);
     }
     
-    showStatus(message, type = 'success', persist = false, removeLoading = false) {
-        // Add support for a 'recording' type with icon
-        let icon = '';
-        if (type === 'recording') {
-            icon = '<span style="display:inline-flex;align-items:center;margin-right:8px;"><svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="none" stroke="#fff" stroke-width="2"/><circle cx="10" cy="10" r="5" fill="#fff"/></svg></span>';
-        }
-        this.status.innerHTML = icon + message;
-        this.status.className = `status show ${type}`;
-        if (removeLoading) {
-            this.status.classList.remove('loading');
-        }
-        // Clear any previous timer so only the latest message can clear the status
-        if (this.statusTimer) {
-            clearTimeout(this.statusTimer);
-            this.statusTimer = null;
-        }
-        if (!persist) {
-            this.statusTimer = setTimeout(() => {
-                this.status.className = 'status';
-                this.statusTimer = null;
-            }, 3000);
-        }
-    }
+
 
     setCursorPosition(pos, field) {
         // Set cursor at character offset 'pos' in the contenteditable div
@@ -767,11 +745,10 @@ class LanguageToolEditor {
         this.updateButtonState(field, answers ? 'rewriting' : 'reviewing');
         
         if (answers) {
-            this.showStatus('Rewriting...', 'checking', true);
+            // Status removed - status box no longer used
         } else {
-            this.showStatus('Reviewing...', 'checking', true);
+            // Status removed - status box no longer used
         }
-        this.status.classList.add('loading');
         try {
             let body = { text };
             if (answers) {
@@ -807,9 +784,7 @@ class LanguageToolEditor {
             this.displayLLMResult(data.result, answers !== null, field);
             this.updateActiveEditorHighlight(); // Ensure highlight remains
         } catch (e) {
-            this.showStatus('LLM call failed', 'error');
             alert('LLM call failed: ' + e);
-            this.status.classList.remove('loading');
             fieldObj.llmInProgress = false;
             this.resetButtonState(field);
             this.updateActiveEditorHighlight(); // Ensure highlight remains
@@ -819,18 +794,8 @@ class LanguageToolEditor {
     displayLLMResult(result, showRewrite, field = this.activeField) {
         const fieldObj = this.fields[field];
         
-        // If we have a result, the review finished, so clear the loading status
-        if (result) {
-            if (this.statusTimer) {
-                clearTimeout(this.statusTimer);
-                this.statusTimer = null;
-            }
-            this.status.classList.remove('loading');
-            this.status.className = 'status';
-            this.status.textContent = '';
-        }
         // If no result but field is being reviewed, preserve loading state
-        else if (fieldObj.llmInProgress) {
+        if (!result && fieldObj.llmInProgress) {
             // Keep the loading state when switching between boxes during active review
             return;
         }
@@ -1186,11 +1151,7 @@ class LanguageToolEditor {
     }
 
     saveTerm(term, field, savedMention = null) {
-        console.log('💾 SAVE START:', new Date().toISOString());
-        console.log('📝 Term:', term, 'Field:', field);
-        
         // Apply blue highlight IMMEDIATELY for instant feedback
-        console.log('⚡ APPLYING BLUE IMMEDIATELY:', new Date().toISOString());
         this.flashTerm(term, field, savedMention);
         
         fetch('/terms', {
@@ -1199,15 +1160,9 @@ class LanguageToolEditor {
             body: JSON.stringify({ term })
         })
         .then(res => {
-            console.log('📡 Backend response received:', new Date().toISOString());
             if (!res.ok) throw new Error('Failed to add term');
             
-            console.log('✅ Term saved successfully:', new Date().toISOString());
-            
-            console.log('⏰ Setting up cleanup delay:', new Date().toISOString());
             setTimeout(() => {
-                console.log('🧹 CLEANUP START:', new Date().toISOString());
-                
                 if (savedMention) {
                     const text = this.fields[field].editor.innerText;
                     const key = this.getSuggestionKey(savedMention, text);
@@ -1216,88 +1171,58 @@ class LanguageToolEditor {
                         s => this.getSuggestionKey(s, text) !== key
                     );
                     this.updateHighlights(field);
-                    console.log('🔄 Updated highlights:', new Date().toISOString());
                     
                     // Show the overlay again after highlights are updated
                     const overlay = this.fields[field].highlightOverlay;
                     if (overlay) {
                         overlay.style.display = 'block';
-                        console.log('👁️ Overlay shown after highlight update:', new Date().toISOString());
                     }
                 }
                 
                 this.checkText('editor');
                 this.checkText('editor2');
-                console.log('🔍 Reran spellcheck:', new Date().toISOString());
             }, 1600); // Wait 1.6 seconds (slightly longer than the 1.5-second blue highlight)
         })
         .catch((error) => {
-            console.log('❌ Save error:', error);
-            this.showStatus('Failed to add term', 'error');
+            // Error handling removed - status box no longer used
         });
-        
-        console.log('💾 SAVE END:', new Date().toISOString());
     }
     
     // Flash a term with blue color to indicate it was added to dictionary
     flashTerm(term, field, savedMention = null) {
-        console.log('🚀 FLASH START:', new Date().toISOString());
-        
         const mentionToUse = savedMention || this.currentMention;
-        console.log('📋 Mention:', mentionToUse ? mentionToUse.textContent : 'null');
         
         if (mentionToUse) {
             const overlay = this.fields[field].highlightOverlay;
-            console.log('🎯 Overlay found:', !!overlay);
             
             if (overlay) {
                 const suggestionIndex = this.fields[field].currentSuggestions.findIndex(s => 
                     s.offset === mentionToUse.offset && s.length === mentionToUse.length
                 );
-                console.log('🔍 Suggestion index:', suggestionIndex);
                 
                 if (suggestionIndex !== -1) {
                     const spanSelector = `[data-suggestion-index="${suggestionIndex}"]`;
                     const span = overlay.querySelector(spanSelector);
-                    console.log('💙 Span found:', !!span);
                     
                     if (span) {
-                        console.log('⚡ APPLYING BLUE NOW:', new Date().toISOString());
-                        console.log('   Before BG:', span.style.backgroundColor);
-                        
                         // Use the same blue as the submit button (#00A7E1)
                         span.style.backgroundColor = 'rgba(0, 167, 225, 0.3)';
                         span.style.borderBottom = '2px solid #00A7E1';
                         span.style.color = 'black';
                         
-                        console.log('   After BG:', span.style.backgroundColor);
-                        console.log('✅ BLUE APPLIED:', new Date().toISOString());
-                        
                         setTimeout(() => {
-                            console.log('🗑️ REMOVING BLUE:', new Date().toISOString());
                             span.remove();
                             
                             // Hide the overlay AFTER blue is removed, during recalculation
                             const overlay = this.fields[field].highlightOverlay;
                             if (overlay) {
                                 overlay.style.display = 'none';
-                                console.log('👁️ Overlay hidden for recalculation:', new Date().toISOString());
                             }
                         }, 1500);
-                    } else {
-                        console.log('❌ Span not found');
                     }
-                } else {
-                    console.log('❌ Suggestion index not found');
                 }
-            } else {
-                console.log('❌ No overlay');
             }
-        } else {
-            console.log('❌ No mention');
         }
-        
-        console.log('🏁 FLASH END:', new Date().toISOString());
     }
 
     addToHistory(text, field = this.activeField, evaluationResult = null) {

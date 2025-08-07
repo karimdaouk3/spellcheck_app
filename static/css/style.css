@@ -146,60 +146,7 @@ body {
     background: #1976D2;
 }
 
-.status {
-    position: absolute;
-    top: 50%;
-    right: 32px;
-    padding: 8px 14px;
-    color: white;
-    border-radius: 4px;
-    font-size: 14px;
-    opacity: 0;
-    transition: opacity 0.3s;
-    display: flex;
-    align-items: center;
-    min-height: 28px;
-    z-index: 20;
-    transform: translateY(-50%);
-}
 
-.status.show {
-    opacity: 1;
-}
-
-.status.error {
-    background: #41007F;
-}
-
-.status.checking {
-    background: #00A7E1;
-}
-
-.status.loading::after {
-    content: '';
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    margin-left: 10px;
-    border: 2.5px solid #fff;
-    border-top: 2.5px solid #41007F;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    vertical-align: middle;
-}
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-.status.success {
-    background: #00A7E1; /* Always blue instead of purple */
-}
-
-.status.recording {
-    background: #d32f2f;
-    color: #fff;
-}
 
 .header {
     display: none; /* Hide the purple FSR Coach header */
@@ -737,17 +684,7 @@ body {
         border-color: #41007F;
     }
     
-    .status {
-        right: 8px;
-        font-size: 12px;
-        padding: 6px 10px;
-        height: 32px; /* Exact height to match dropdowns */
-        display: flex;
-        align-items: center; /* Vertically center content */
-        box-sizing: border-box;
-        top: 50%;
-        transform: translateY(-50%); /* Perfect vertical centering */
-    }
+
     
     .editor-container-group {
         padding: 20px 16px 16px 16px; /* Match body padding for perfect alignment */
@@ -812,7 +749,7 @@ body {
     }
 }
 .editor-div, #editor,
-.popup, .popup-message, .suggestion-item, .ignore-button, .status, .header, .rewrite-popup, .rewrite-title, .rewrite-content, .llm-submit-button, .llm-result-overlay, .llm-section, .llm-section-title, .llm-section-justification {
+.popup, .popup-message, .suggestion-item, .ignore-button, .header, .rewrite-popup, .rewrite-title, .rewrite-content, .llm-submit-button, .llm-result-overlay, .llm-section, .llm-section-title, .llm-section-justification {
     font-family: 'Open Sans', sans-serif;
 }
 .llm-result-overlay::-webkit-scrollbar {
