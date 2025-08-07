@@ -639,8 +639,8 @@ class LanguageToolEditor {
             blueBtn.onclick = () => {
                 const text = this.fields[this.popupField].editor.innerText.substring(suggestion.offset, suggestion.offset + suggestion.length);
                 this.saveTerm(text, this.popupField);
-                this.ignoreCurrentSuggestion(this.popupField);
                 this.hidePopup();
+                // Don't call ignoreCurrentSuggestion here - let saveTerm handle the timing
                 this.showStatus(`"${text}" added to KLA term bank`, 'success');
             };
         } else if (blueBtn.parentElement) {
@@ -1196,8 +1196,19 @@ class LanguageToolEditor {
             // Flash the term with blue color to show it was added
             this.flashTerm(term, field);
             
-            // Delay the spellcheck rerun so the flash is visible
+            // Delay the suggestion removal and spellcheck rerun so the flash is visible
             setTimeout(() => {
+                // Remove the current suggestion from highlights
+                if (this.currentMention) {
+                    const text = this.fields[field].editor.innerText;
+                    const key = this.getSuggestionKey(this.currentMention, text);
+                    this.fields[field].ignoredSuggestions.add(key);
+                    this.fields[field].currentSuggestions = this.fields[field].currentSuggestions.filter(
+                        s => this.getSuggestionKey(s, text) !== key
+                    );
+                    this.updateHighlights(field);
+                }
+                
                 // Rerun spellcheck for both boxes so new terms are no longer highlighted
                 this.checkText('editor');
                 this.checkText('editor2');
