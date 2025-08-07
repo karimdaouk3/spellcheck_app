@@ -1044,64 +1044,52 @@ class LanguageToolEditor {
         });
     }
 
-    // Update the label/title of each text box to include the score
+    // Update the label/title of each text box to include the temperature bar
     updateEditorLabelsWithScore() {
         const score1 = document.getElementById('score-editor');
         const score2 = document.getElementById('score-editor2');
         const r1 = this.fields['editor'].llmLastResult;
         const r2 = this.fields['editor2'].llmLastResult;
         
-        // Update Current Problem Statement score
+        // Update Current Problem Statement temperature bar
         if (r1 && r1.evaluation) {
             const weightedScore = this.calculateWeightedScore('editor', r1.evaluation);
             const percentage = Math.round(weightedScore);
             
-            score1.textContent = `Current Score: ${percentage}%`;
+            score1.innerHTML = this.createTemperatureBar(percentage);
             score1.className = 'editor-score';
-            
-            // Color coding based on performance
-            if (percentage >= 75) {
-                score1.style.backgroundColor = '#4CAF50';
-                score1.style.color = 'white';
-            } else if (percentage >= 50) {
-                score1.style.backgroundColor = '#FFC107';
-                score1.style.color = 'black';
-            } else {
-                score1.style.backgroundColor = '#F44336';
-                score1.style.color = 'white';
-            }
         } else {
-            score1.textContent = '';
+            score1.innerHTML = '';
             score1.className = 'editor-score';
-            score1.style.backgroundColor = '';
-            score1.style.color = '';
         }
         
-        // Update Daily FSR Notes score
+        // Update Daily FSR Notes temperature bar
         if (r2 && r2.evaluation) {
             const weightedScore = this.calculateWeightedScore('editor2', r2.evaluation);
             const percentage = Math.round(weightedScore);
             
-            score2.textContent = `Current Score: ${percentage}%`;
+            score2.innerHTML = this.createTemperatureBar(percentage);
             score2.className = 'editor-score';
-            
-            // Color coding based on performance
-            if (percentage >= 75) {
-                score2.style.backgroundColor = '#4CAF50';
-                score2.style.color = 'white';
-            } else if (percentage >= 50) {
-                score2.style.backgroundColor = '#FFC107';
-                score2.style.color = 'black';
-            } else {
-                score2.style.backgroundColor = '#F44336';
-                score2.style.color = 'white';
-            }
         } else {
-            score2.textContent = '';
+            score2.innerHTML = '';
             score2.className = 'editor-score';
-            score2.style.backgroundColor = '';
-            score2.style.color = '';
         }
+    }
+
+    // Create temperature bar with gradient from red to yellow to green
+    createTemperatureBar(percentage) {
+        const clampedPercentage = Math.max(0, Math.min(100, percentage));
+        const position = clampedPercentage; // 0-100
+        
+        return `
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 0.9em; font-weight: 600;">
+                <span style="color: #666;">Score:</span>
+                <div style="position: relative; width: 120px; height: 20px; background: linear-gradient(to right, #ff4444 0%, #ffaa00 50%, #44ff44 100%); border-radius: 10px; border: 2px solid #ddd; overflow: hidden;">
+                    <div style="position: absolute; top: 0; left: ${position}%; width: 3px; height: 100%; background: #333; border-radius: 1px; transform: translateX(-50%); box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>
+                </div>
+                <span style="color: #333; min-width: 35px;">${percentage}%</span>
+            </div>
+        `;
     }
 
     // Load rulesets from backend
@@ -1318,20 +1306,10 @@ class LanguageToolEditor {
             
             // Calculate score if available
             let scoreDisplay = '';
-            let scoreColor = '';
             if (llmResult && llmResult.evaluation) {
                 const score = this.calculateWeightedScore(this.activeField, llmResult.evaluation);
                 const percentage = Math.round(score);
-                scoreDisplay = `Score: ${percentage}%`;
-                
-                // Color coding based on performance (same as current score box)
-                if (percentage >= 75) {
-                    scoreColor = '#4CAF50'; // Green
-                } else if (percentage >= 50) {
-                    scoreColor = '#FFC107'; // Yellow
-                } else {
-                    scoreColor = '#F44336'; // Red
-                }
+                scoreDisplay = this.createTemperatureBar(percentage);
             }
             
             // Replace newlines with <br> tags for proper rendering
@@ -1339,7 +1317,7 @@ class LanguageToolEditor {
             
             historyItem.innerHTML = `
                 <div style="margin-bottom:5px;white-space:pre-wrap;">${textWithNewlines}</div>
-                ${scoreDisplay ? `<div style="font-size:0.8em;color:${scoreColor};font-weight:bold;">${scoreDisplay}</div>` : ''}
+                ${scoreDisplay ? `<div style="margin-top:5px;">${scoreDisplay}</div>` : ''}
             `;
             
             historyItem.onclick = () => {
