@@ -937,8 +937,8 @@ class LanguageToolEditor {
                 qHtml += `<div class="rewrite-title" style="border: 2px solid ${borderColor}; background: ${backgroundColor}; border-radius: 10px; padding: 18px 18px 10px 18px; margin-bottom: 10px; margin-top: 10px;">`;
                 fieldObj.llmQuestions.forEach((q, idx) => {
                     qHtml += `<div class="rewrite-question">${this.escapeHtml(q.question)}</div>`;
-                    // Only prepopulate answer if we're restoring from history
-                    const existingAnswer = (fieldObj.isRestoringFromHistory && fieldObj.llmAnswers[q.criteria]) ? fieldObj.llmAnswers[q.criteria] : '';
+                    // Prepopulate answer if we're restoring from history OR if we have saved answers
+                    const existingAnswer = (fieldObj.isRestoringFromHistory || fieldObj.llmAnswers[q.criteria]) ? (fieldObj.llmAnswers[q.criteria] || '') : '';
                     qHtml += `<textarea class="rewrite-answer" data-criteria="${this.escapeHtml(q.criteria)}" rows="1" style="width:100%;margin-bottom:12px;resize:none;">${this.escapeHtml(existingAnswer)}</textarea>`;
                 });
                 qHtml += `<button id="submit-answers-btn" class="llm-submit-button" style="margin-top:10px;">Rewrite</button>`;
@@ -1357,8 +1357,21 @@ class LanguageToolEditor {
             evalBox.innerHTML = '';
             evalBox.style.display = 'none';
         }
+        
+        // Save current rewrite answers before hiding popup
         const rewritePopup = document.getElementById('rewrite-popup');
-        if (rewritePopup) {
+        if (rewritePopup && rewritePopup.style.display !== 'none') {
+            const currentField = this.activeField;
+            const currentFieldObj = this.fields[currentField];
+            if (currentFieldObj && currentFieldObj.llmQuestions) {
+                const answerEls = rewritePopup.querySelectorAll('.rewrite-answer');
+                answerEls.forEach(el => {
+                    const crit = el.getAttribute('data-criteria');
+                    if (crit) {
+                        currentFieldObj.llmAnswers[crit] = el.value;
+                    }
+                });
+            }
             rewritePopup.style.display = 'none';
         }
         
