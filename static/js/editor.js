@@ -1196,10 +1196,12 @@ class LanguageToolEditor {
             // Flash the term with blue color to show it was added
             this.flashTerm(term, field);
             
-            // No need to check for data.terms anymore
-            // Rerun spellcheck for both boxes so new terms are no longer highlighted
-            this.checkText('editor');
-            this.checkText('editor2');
+            // Delay the spellcheck rerun so the flash is visible
+            setTimeout(() => {
+                // Rerun spellcheck for both boxes so new terms are no longer highlighted
+                this.checkText('editor');
+                this.checkText('editor2');
+            }, 1200); // Wait 1.2 seconds (slightly longer than the 1-second flash)
         })
         .catch(() => {
             this.showStatus('Failed to add term', 'error');
