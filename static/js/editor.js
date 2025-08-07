@@ -1276,16 +1276,20 @@ class LanguageToolEditor {
                     console.log('Span classes:', span ? span.className : 'No span');
                     
                     if (span) {
-                        console.log('Making highlight blue...');
-                        span.style.backgroundColor = '#41007F';
-                        span.style.borderBottom = '2px solid #41007F';
-                        span.style.color = 'white';
+                        console.log('=== MAKING HIGHLIGHT BLUE ===');
+                        console.log('Span before change:', span.outerHTML);
+                        console.log('Current background:', span.style.backgroundColor);
+                        console.log('Current border:', span.style.borderBottom);
                         
-                        // Remove the highlight after 1 second
-                        setTimeout(() => {
-                            console.log('Removing highlight...');
-                            span.remove();
-                        }, 1000);
+                        // Make it semi-opaque blue
+                        span.style.backgroundColor = 'rgba(0, 123, 255, 0.3)';
+                        span.style.borderBottom = '2px solid #007bff';
+                        span.style.color = 'black';
+                        
+                        console.log('Span after change:', span.outerHTML);
+                        console.log('New background:', span.style.backgroundColor);
+                        console.log('New border:', span.style.borderBottom);
+                        console.log('=== BLUE HIGHLIGHT APPLIED ===');
                     } else {
                         console.log('ERROR: Span not found!');
                         console.log('All spans in overlay:', overlay.querySelectorAll('span'));
