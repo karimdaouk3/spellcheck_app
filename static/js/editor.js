@@ -1083,11 +1083,11 @@ class LanguageToolEditor {
         
         return `
             <div style="display: flex; align-items: center; gap: 8px; font-size: 0.9em; font-weight: 600;">
-                <span style="color: #666;">Score:</span>
+                <span style="color: #666;">Vague</span>
                 <div style="position: relative; width: 120px; height: 20px; background: linear-gradient(to right, #ff4444 0%, #ffaa00 50%, #44ff44 100%); border-radius: 10px; border: 2px solid #ddd; overflow: hidden;">
                     <div style="position: absolute; top: 0; left: ${position}%; width: 3px; height: 100%; background: #333; border-radius: 1px; transform: translateX(-50%); box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>
                 </div>
-                <span style="color: #333; min-width: 35px;">${percentage}%</span>
+                <span style="color: #333; min-width: 60px;">Thorough</span>
             </div>
         `;
     }
