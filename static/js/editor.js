@@ -1186,29 +1186,25 @@ class LanguageToolEditor {
     }
 
     saveTerm(term, field, savedMention = null) {
-        console.log('=== SAVE TERM DEBUG START ===');
-        console.log('Saving term:', term, 'for field:', field);
-        console.log('Saved mention:', savedMention);
+        console.log('💾 SAVE START:', new Date().toISOString());
+        console.log('📝 Term:', term, 'Field:', field);
         
-        // Send the term to the backend
         fetch('/terms', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ term })
         })
         .then(res => {
-            console.log('Backend response:', res);
+            console.log('📡 Backend response received:', new Date().toISOString());
             if (!res.ok) throw new Error('Failed to add term');
             
-            console.log('Term saved successfully, calling flashTerm...');
-            // Flash the term with blue color to show it was added
+            console.log('✅ Term saved, calling flashTerm:', new Date().toISOString());
             this.flashTerm(term, field, savedMention);
             
-            console.log('Setting up delayed cleanup...');
-            // Delay the suggestion removal and spellcheck rerun so the flash is visible
+            console.log('⏰ Setting up 1.2s cleanup delay:', new Date().toISOString());
             setTimeout(() => {
-                console.log('Executing delayed cleanup...');
-                // Remove the current suggestion from highlights
+                console.log('🧹 CLEANUP START:', new Date().toISOString());
+                
                 if (savedMention) {
                     const text = this.fields[field].editor.innerText;
                     const key = this.getSuggestionKey(savedMention, text);
@@ -1217,101 +1213,73 @@ class LanguageToolEditor {
                         s => this.getSuggestionKey(s, text) !== key
                     );
                     this.updateHighlights(field);
-                    console.log('Removed suggestion and updated highlights');
+                    console.log('🔄 Updated highlights:', new Date().toISOString());
                 }
                 
-                // Rerun spellcheck for both boxes so new terms are no longer highlighted
                 this.checkText('editor');
                 this.checkText('editor2');
-                console.log('Reran spellcheck');
-            }, 1200); // Wait 1.2 seconds (slightly longer than the 1-second flash)
+                console.log('🔍 Reran spellcheck:', new Date().toISOString());
+            }, 1200);
         })
         .catch((error) => {
-            console.log('Error saving term:', error);
+            console.log('❌ Save error:', error);
             this.showStatus('Failed to add term', 'error');
         });
         
-        console.log('=== SAVE TERM DEBUG END ===');
+        console.log('💾 SAVE END:', new Date().toISOString());
     }
     
     // Flash a term with blue color to indicate it was added to dictionary
     flashTerm(term, field, savedMention = null) {
-        console.log('=== FLASH TERM DEBUG START ===');
-        console.log('Term to flash:', term);
-        console.log('Field:', field);
-        console.log('Saved mention:', savedMention);
+        console.log('🚀 FLASH START:', new Date().toISOString());
         
-        const fieldObj = this.fields[field];
-        console.log('FieldObj:', fieldObj);
-        
-        // Use the saved suggestion to find the exact highlight span
         const mentionToUse = savedMention || this.currentMention;
-        console.log('Mention to use:', mentionToUse);
+        console.log('📋 Mention:', mentionToUse ? mentionToUse.textContent : 'null');
         
         if (mentionToUse) {
-            const overlay = fieldObj.highlightOverlay;
-            console.log('Overlay:', overlay);
-            console.log('Overlay innerHTML:', overlay ? overlay.innerHTML : 'No overlay');
+            const overlay = this.fields[field].highlightOverlay;
+            console.log('🎯 Overlay found:', !!overlay);
             
             if (overlay) {
-                // Find the span that corresponds to the current suggestion
-                console.log('Current suggestions:', fieldObj.currentSuggestions);
-                console.log('Looking for suggestion with offset:', mentionToUse.offset, 'length:', mentionToUse.length);
-                
-                const suggestionIndex = fieldObj.currentSuggestions.findIndex(s => {
-                    const match = s.offset === mentionToUse.offset && s.length === mentionToUse.length;
-                    console.log('Checking suggestion:', s, 'Match:', match);
-                    return match;
-                });
-                
-                console.log('Found suggestion index:', suggestionIndex);
+                const suggestionIndex = this.fields[field].currentSuggestions.findIndex(s => 
+                    s.offset === mentionToUse.offset && s.length === mentionToUse.length
+                );
+                console.log('🔍 Suggestion index:', suggestionIndex);
                 
                 if (suggestionIndex !== -1) {
                     const spanSelector = `[data-suggestion-index="${suggestionIndex}"]`;
-                    console.log('Looking for span with selector:', spanSelector);
-                    
                     const span = overlay.querySelector(spanSelector);
-                    console.log('Found span:', span);
-                    console.log('Span text content:', span ? span.textContent : 'No span');
-                    console.log('Span classes:', span ? span.className : 'No span');
+                    console.log('💙 Span found:', !!span);
                     
                     if (span) {
-                        console.log('=== MAKING HIGHLIGHT BLUE ===');
-                        console.log('Span before change:', span.outerHTML);
-                        console.log('Current background:', span.style.backgroundColor);
-                        console.log('Current border:', span.style.borderBottom);
+                        console.log('⚡ APPLYING BLUE NOW:', new Date().toISOString());
+                        console.log('   Before BG:', span.style.backgroundColor);
                         
-                        // Make it semi-opaque blue
                         span.style.backgroundColor = 'rgba(0, 123, 255, 0.3)';
                         span.style.borderBottom = '2px solid #007bff';
                         span.style.color = 'black';
                         
-                        console.log('Span after change:', span.outerHTML);
-                        console.log('New background:', span.style.backgroundColor);
-                        console.log('New border:', span.style.borderBottom);
-                        console.log('=== BLUE HIGHLIGHT APPLIED ===');
+                        console.log('   After BG:', span.style.backgroundColor);
+                        console.log('✅ BLUE APPLIED:', new Date().toISOString());
                         
-                        // Remove the highlight after 1 second
                         setTimeout(() => {
-                            console.log('=== REMOVING BLUE HIGHLIGHT ===');
+                            console.log('🗑️ REMOVING:', new Date().toISOString());
                             span.remove();
                         }, 1000);
                     } else {
-                        console.log('ERROR: Span not found!');
-                        console.log('All spans in overlay:', overlay.querySelectorAll('span'));
-                        console.log('All spans with data-suggestion-index:', overlay.querySelectorAll('[data-suggestion-index]'));
+                        console.log('❌ Span not found');
                     }
                 } else {
-                    console.log('ERROR: Suggestion index not found!');
+                    console.log('❌ Suggestion index not found');
                 }
             } else {
-                console.log('ERROR: No overlay found!');
+                console.log('❌ No overlay');
             }
         } else {
-            console.log('ERROR: No mention to use!');
+            console.log('❌ No mention');
         }
         
-        console.log('=== FLASH TERM DEBUG END ===');
+        console.log('🏁 FLASH END:', new Date().toISOString());
     }
 
     addToHistory(text, field = this.activeField, evaluationResult = null) {
