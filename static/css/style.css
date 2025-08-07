@@ -466,7 +466,7 @@ body {
 
 .feedback-text {
     color: white;
-    font-size: 0.9em;
+    font-size: 1.1em;
     font-weight: 500;
     font-family: 'Open Sans', sans-serif;
     white-space: nowrap;
@@ -670,7 +670,7 @@ body {
     }
     
     .feedback-text {
-        font-size: 0.8em;
+        font-size: 1em;
     }
     
     .feedback-section svg {
