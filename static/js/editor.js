@@ -1085,8 +1085,9 @@ class LanguageToolEditor {
             <div style="display: flex; align-items: center; gap: 8px; font-size: 0.9em; font-weight: 600;">
                 <span style="color: #000;">Vague</span>
                 <div style="position: relative; width: 120px; height: 20px; background: linear-gradient(to right, #ff4444 0%, #ffaa00 50%, #44ff44 100%); border-radius: 10px; border: 2px solid #ddd; overflow: visible;">
-                    <div style="position: absolute; top: -2px; left: ${position}%; width: 2px; height: 24px; background: #41007F; border-radius: 1px; transform: translateX(-50%); border: 1px solid #fff; box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>
+                    <div style="position: absolute; top: -3px; left: ${position}%; width: 2px; height: 26px; background: #41007F; border-radius: 1px; transform: translateX(-50%); border: 1px solid #fff; box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>
                     <div style="position: absolute; top: 24px; left: 50%; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 8px solid #00A7E1; transform: translateX(-50%);"></div>
+                    <div style="position: absolute; top: 34px; left: 50%; transform: translateX(-50%); font-size: 0.7em; font-weight: 600; color: #00A7E1; white-space: nowrap;">Goal</div>
                 </div>
                 <span style="color: #000; min-width: 60px;">Thorough</span>
             </div>
