@@ -16,12 +16,11 @@
     </div>
     {% else %}
     <div class="feedback-container">
-        <div class="feedback-header">
-            <h1>Help Us Improve FSR Coach</h1>
-            <p>Your feedback helps us make FSR Coach better for everyone. Please take a moment to share your thoughts.</p>
-        </div>
-        
         <form class="feedback-form" method="POST" action="/overall-feedback">
+            <div class="feedback-header">
+                <h1>Help Us Improve FSR Coach</h1>
+                <p>Your feedback helps us make FSR Coach better for everyone. Please take a moment to share your thoughts.</p>
+            </div>
             <div class="form-group">
                 <label for="experience-rating">Rate your overall experience using FSR Coach</label>
                 <select id="experience-rating" name="experience_rating" required>
