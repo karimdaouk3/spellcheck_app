@@ -1087,10 +1087,37 @@ class LanguageToolEditor {
                 <div style="position: relative; width: 120px; height: 20px; background: linear-gradient(to right, #ff4444 0%, #ffaa00 50%, #44ff44 100%); border-radius: 10px; border: 2px solid #ddd; overflow: visible;">
                     <div style="position: absolute; top: -3px; left: ${position}%; width: 2px; height: 26px; background: #41007F; border-radius: 1px; transform: translateX(-50%); border: 1px solid #fff; box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>
                     <div style="position: absolute; top: 24px; left: 50%; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 8px solid #00A7E1; transform: translateX(-50%);"></div>
-                    <div style="position: absolute; top: 26px; left: 50%; transform: translateX(-100%); margin-right: 8px; font-size: 0.7em; font-weight: 600; color: #00A7E1; white-space: nowrap;">Goal</div>
                 </div>
                 <span style="color: #000; min-width: 60px;">Thorough</span>
             </div>
+            <style>
+                @media (max-width: 768px) {
+                    .editor-score {
+                        font-size: 0.8em !important;
+                    }
+                    .editor-score > div {
+                        gap: 6px !important;
+                    }
+                    .editor-score > div > div {
+                        width: 100px !important;
+                        height: 16px !important;
+                    }
+                    .editor-score > div > div > div:first-child {
+                        height: 22px !important;
+                        top: -3px !important;
+                    }
+                    .editor-score > div > div > div:nth-child(2) {
+                        top: 20px !important;
+                        border-left: 5px solid transparent !important;
+                        border-right: 5px solid transparent !important;
+                        border-bottom: 6px solid #00A7E1 !important;
+                    }
+                    .editor-score > div > span {
+                        min-width: 50px !important;
+                        font-size: 0.8em !important;
+                    }
+                }
+            </style>
         `;
     }
 
