@@ -1192,6 +1192,10 @@ class LanguageToolEditor {
         })
         .then(res => {
             if (!res.ok) throw new Error('Failed to add term');
+            
+            // Flash the term with blue color to show it was added
+            this.flashTerm(term, field);
+            
             // No need to check for data.terms anymore
             // Rerun spellcheck for both boxes so new terms are no longer highlighted
             this.checkText('editor');
@@ -1200,6 +1204,40 @@ class LanguageToolEditor {
         .catch(() => {
             this.showStatus('Failed to add term', 'error');
         });
+    }
+    
+    // Flash a term with blue color to indicate it was added to dictionary
+    flashTerm(term, field) {
+        const fieldObj = this.fields[field];
+        const text = fieldObj.editor.innerText;
+        const termIndex = text.indexOf(term);
+        
+        if (termIndex !== -1) {
+            // Find the highlight span for this term
+            const overlay = fieldObj.overlay;
+            if (overlay) {
+                const highlightSpans = overlay.querySelectorAll('.highlight-span-spelling');
+                highlightSpans.forEach(span => {
+                    if (span.textContent === term) {
+                        // Store original styles
+                        const originalBackground = span.style.backgroundColor;
+                        const originalBorder = span.style.borderBottom;
+                        
+                        // Flash with blue color
+                        span.style.backgroundColor = '#41007F';
+                        span.style.borderBottom = '2px solid #41007F';
+                        span.style.color = 'white';
+                        
+                        // Restore original styles after flash
+                        setTimeout(() => {
+                            span.style.backgroundColor = originalBackground;
+                            span.style.borderBottom = originalBorder;
+                            span.style.color = '';
+                        }, 1000);
+                    }
+                });
+            }
+        }
     }
 
     addToHistory(text, field = this.activeField, evaluationResult = null) {
