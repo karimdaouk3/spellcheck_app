@@ -372,26 +372,52 @@ class LanguageToolEditor {
                 copyBtn.addEventListener('click', async () => {
                     const text = fieldObj.editor.innerText;
                     if (text.trim() === '') {
-                        this.showStatus('Nothing to copy', 'error');
+                        // Show error feedback on the button itself
+                        const originalText = copyBtn.textContent;
+                        copyBtn.textContent = 'Nothing to copy';
+                        copyBtn.style.backgroundColor = '#f44336';
+                        copyBtn.style.color = 'white';
+                        setTimeout(() => {
+                            copyBtn.textContent = originalText;
+                            copyBtn.style.backgroundColor = '';
+                            copyBtn.style.color = '';
+                        }, 1500);
                         return;
                     }
                     
                     try {
                         await navigator.clipboard.writeText(text);
-                        this.showStatus('Copied to clipboard!', 'success');
                         
-                        // Visual feedback - briefly change the button appearance
-                        const originalHTML = copyBtn.innerHTML;
-                        copyBtn.innerHTML = `
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4CAF50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <polyline points="20,6 9,17 4,12"></polyline>
-                            </svg>
-                        `;
+                        // Success feedback - change button text and color
+                        const originalText = copyBtn.textContent;
+                        const originalBackground = copyBtn.style.backgroundColor;
+                        const originalColor = copyBtn.style.color;
+                        
+                        copyBtn.textContent = 'Copied!';
+                        copyBtn.style.backgroundColor = '#4CAF50';
+                        copyBtn.style.color = 'white';
+                        
                         setTimeout(() => {
-                            copyBtn.innerHTML = originalHTML;
-                        }, 1000);
+                            copyBtn.textContent = originalText;
+                            copyBtn.style.backgroundColor = originalBackground;
+                            copyBtn.style.color = originalColor;
+                        }, 1500);
+                        
                     } catch (err) {
-                        this.showStatus('Failed to copy to clipboard', 'error');
+                        // Error feedback - change button text and color
+                        const originalText = copyBtn.textContent;
+                        const originalBackground = copyBtn.style.backgroundColor;
+                        const originalColor = copyBtn.style.color;
+                        
+                        copyBtn.textContent = 'Copy failed';
+                        copyBtn.style.backgroundColor = '#f44336';
+                        copyBtn.style.color = 'white';
+                        
+                        setTimeout(() => {
+                            copyBtn.textContent = originalText;
+                            copyBtn.style.backgroundColor = originalBackground;
+                            copyBtn.style.color = originalColor;
+                        }, 1500);
                     }
                 });
             }
