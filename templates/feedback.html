@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FSR Coach - Feedback</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/feedback.css') }}">
+</head>
+<body>
+    <div class="main-flex">
+        <div class="top-bar">
+            <div class="top-bar-content">
+                <div class="top-bar-title">FSR Coach Feedback</div>
+            </div>
+        </div>
+        <div class="content-flex">
+            <div class="feedback-container">
+                <div class="feedback-header">
+                    <h1>Help Us Improve FSR Coach</h1>
+                    <p>Your feedback helps us make FSR Coach better for everyone. Please take a moment to share your thoughts.</p>
+                </div>
+                
+                <form class="feedback-form" method="POST" action="/feedback">
+                    <div class="form-group">
+                        <label for="experience-rating">Rate your overall experience using FSR Coach</label>
+                        <select id="experience-rating" name="experience_rating" required>
+                            <option value="">Select a rating</option>
+                            <option value="1">1 - Poor</option>
+                            <option value="2">2 - Fair</option>
+                            <option value="3">3 - Good</option>
+                            <option value="4">4 - Very Good</option>
+                            <option value="5">5 - Excellent</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="use-in-field">Would you use this tool in the field?</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="use_in_field" value="yes" required>
+                                <span class="radio-text">Yes</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="use_in_field" value="no" required>
+                                <span class="radio-text">No</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="feedback-text">Please give any feedback you have for the AI team</label>
+                        <textarea id="feedback-text" name="feedback_text" rows="6" placeholder="Share your thoughts, suggestions, or any issues you encountered..."></textarea>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="submit-button">Submit Feedback</button>
+                        <a href="/" class="back-button">Back to FSR Coach</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    {% if message %}
+    <div class="message {{ message_type }}">
+        {{ message }}
+    </div>
+    {% endif %}
+</body>
+</html> 

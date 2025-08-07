@@ -1,0 +1,239 @@
+/* Feedback page specific styles */
+.feedback-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    width: 100%;
+}
+
+.feedback-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.feedback-header h1 {
+    color: #41007F;
+    font-size: 2.2em;
+    font-weight: 700;
+    margin-bottom: 16px;
+    font-family: 'Open Sans', sans-serif;
+}
+
+.feedback-header p {
+    color: #666;
+    font-size: 1.1em;
+    line-height: 1.6;
+    font-family: 'Open Sans', sans-serif;
+}
+
+.feedback-form {
+    background: #f9fafc;
+    border-radius: 14px;
+    box-shadow: 0 6px 32px rgba(0,0,0,0.13);
+    padding: 40px;
+    border: 1.5px solid #e0e0e0;
+}
+
+.form-group {
+    margin-bottom: 32px;
+}
+
+.form-group label {
+    display: block;
+    color: #41007F;
+    font-size: 1.1em;
+    font-weight: 600;
+    margin-bottom: 12px;
+    font-family: 'Open Sans', sans-serif;
+}
+
+.form-group select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 6px;
+    background: #fff;
+    color: #222;
+    font-size: 1em;
+    font-family: 'Open Sans', sans-serif;
+    outline: none;
+    transition: border-color 0.18s, box-shadow 0.18s;
+    box-sizing: border-box;
+}
+
+.form-group select:focus {
+    border-color: #41007F;
+    box-shadow: 0 0 0 2px rgba(65, 0, 127, 0.1);
+}
+
+.form-group select:hover {
+    border-color: #41007F;
+}
+
+.radio-group {
+    display: flex;
+    gap: 24px;
+}
+
+.radio-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-family: 'Open Sans', sans-serif;
+}
+
+.radio-label input[type="radio"] {
+    margin-right: 8px;
+    width: 18px;
+    height: 18px;
+    accent-color: #41007F;
+}
+
+.radio-text {
+    color: #222;
+    font-size: 1em;
+}
+
+.form-group textarea {
+    width: 100%;
+    padding: 16px;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 6px;
+    background: #fff;
+    color: #222;
+    font-size: 1em;
+    font-family: 'Open Sans', sans-serif;
+    outline: none;
+    transition: border-color 0.18s, box-shadow 0.18s;
+    box-sizing: border-box;
+    resize: vertical;
+    min-height: 120px;
+}
+
+.form-group textarea:focus {
+    border-color: #41007F;
+    box-shadow: 0 0 0 2px rgba(65, 0, 127, 0.1);
+}
+
+.form-group textarea:hover {
+    border-color: #41007F;
+}
+
+.form-group textarea::placeholder {
+    color: #888;
+    font-family: 'Open Sans', sans-serif;
+}
+
+.form-actions {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    margin-top: 40px;
+}
+
+.submit-button {
+    background: #00A7E1;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+    padding: 12px 28px;
+    font-family: 'Open Sans', sans-serif;
+}
+
+.submit-button:hover {
+    background: #41007F;
+}
+
+.back-button {
+    background: #f0f0f0;
+    color: #666;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    padding: 12px 28px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    font-family: 'Open Sans', sans-serif;
+}
+
+.back-button:hover {
+    background: #e0e0e0;
+    color: #222;
+}
+
+.message {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 16px 24px;
+    border-radius: 6px;
+    font-family: 'Open Sans', sans-serif;
+    font-weight: 500;
+    z-index: 1000;
+    animation: slideIn 0.3s ease-out;
+}
+
+.message.success {
+    background: #00A7E1;
+    color: white;
+}
+
+.message.error {
+    background: #f44336;
+    color: white;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Mobile responsiveness */
+@media (max-width: 950px) {
+    .feedback-container {
+        padding: 20px 16px;
+    }
+    
+    .feedback-header h1 {
+        font-size: 1.8em;
+    }
+    
+    .feedback-header p {
+        font-size: 1em;
+    }
+    
+    .feedback-form {
+        padding: 24px 20px;
+    }
+    
+    .radio-group {
+        flex-direction: column;
+        gap: 16px;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .submit-button,
+    .back-button {
+        width: 100%;
+        max-width: 300px;
+        justify-content: center;
+    }
+} 

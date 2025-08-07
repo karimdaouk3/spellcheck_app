@@ -441,6 +441,26 @@ body {
     font-weight: 700; /* Bold */
     text-align: center;
 }
+
+.feedback-button {
+    position: absolute;
+    top: 50%;
+    right: 32px;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.feedback-button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
 .top-bar-label {
     font-size: 1.05em;
     color: #41007F;
@@ -631,6 +651,16 @@ body {
     
     .top-bar-title {
         margin-left: 16px; /* Add left spacing on mobile */
+    }
+    
+    .feedback-button {
+        right: 16px;
+        padding: 6px;
+    }
+    
+    .feedback-button svg {
+        width: 18px;
+        height: 18px;
     }
     
     .top-bar-content {
