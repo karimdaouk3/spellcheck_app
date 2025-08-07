@@ -373,14 +373,10 @@ class LanguageToolEditor {
                     const text = fieldObj.editor.innerText;
                     if (text.trim() === '') {
                         // Show error feedback on the button itself
-                        const originalText = copyBtn.textContent;
-                        copyBtn.textContent = 'Nothing to copy';
-                        copyBtn.style.backgroundColor = '#f44336';
-                        copyBtn.style.color = 'white';
+                        const originalHTML = copyBtn.innerHTML;
+                        copyBtn.innerHTML = '<span style="color: #666; font-size: 0.8em;">Nothing to copy</span>';
                         setTimeout(() => {
-                            copyBtn.textContent = originalText;
-                            copyBtn.style.backgroundColor = '';
-                            copyBtn.style.color = '';
+                            copyBtn.innerHTML = originalHTML;
                         }, 1500);
                         return;
                     }
@@ -388,35 +384,21 @@ class LanguageToolEditor {
                     try {
                         await navigator.clipboard.writeText(text);
                         
-                        // Success feedback - change button text and color
-                        const originalText = copyBtn.textContent;
-                        const originalBackground = copyBtn.style.backgroundColor;
-                        const originalColor = copyBtn.style.color;
-                        
-                        copyBtn.textContent = 'Copied!';
-                        copyBtn.style.backgroundColor = '#4CAF50';
-                        copyBtn.style.color = 'white';
+                        // Success feedback - change button text
+                        const originalHTML = copyBtn.innerHTML;
+                        copyBtn.innerHTML = '<span style="color: #666; font-size: 0.8em;">Copied!</span>';
                         
                         setTimeout(() => {
-                            copyBtn.textContent = originalText;
-                            copyBtn.style.backgroundColor = originalBackground;
-                            copyBtn.style.color = originalColor;
+                            copyBtn.innerHTML = originalHTML;
                         }, 1500);
                         
                     } catch (err) {
-                        // Error feedback - change button text and color
-                        const originalText = copyBtn.textContent;
-                        const originalBackground = copyBtn.style.backgroundColor;
-                        const originalColor = copyBtn.style.color;
-                        
-                        copyBtn.textContent = 'Copy failed';
-                        copyBtn.style.backgroundColor = '#f44336';
-                        copyBtn.style.color = 'white';
+                        // Error feedback - change button text
+                        const originalHTML = copyBtn.innerHTML;
+                        copyBtn.innerHTML = '<span style="color: #666; font-size: 0.8em;">Copy failed</span>';
                         
                         setTimeout(() => {
-                            copyBtn.textContent = originalText;
-                            copyBtn.style.backgroundColor = originalBackground;
-                            copyBtn.style.color = originalColor;
+                            copyBtn.innerHTML = originalHTML;
                         }, 1500);
                     }
                 });
