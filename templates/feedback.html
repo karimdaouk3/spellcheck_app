@@ -33,21 +33,33 @@
             </div>
             
             <div class="form-group">
-                <label for="use-in-field">Would you use this tool in the field?</label>
+                <label for="helpfulness-rating">How helpful was FSR Coach for writing your Problem Statement and FSR Daily Notes?</label>
+                <select id="helpfulness-rating" name="helpfulness_rating" required>
+                    <option value="">Select a rating</option>
+                    <option value="1">1 - Not helpful at all</option>
+                    <option value="2">2 - Slightly helpful</option>
+                    <option value="3">3 - Somewhat helpful</option>
+                    <option value="4">4 - Very helpful</option>
+                    <option value="5">5 - Extremely helpful</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="future-interest">Would you be interested in using this tool in the future?</label>
                 <div class="radio-group">
                     <label class="radio-label">
-                        <input type="radio" name="use_in_field" value="yes" required>
+                        <input type="radio" name="future_interest" value="yes" required>
                         <span class="radio-text">Yes</span>
                     </label>
                     <label class="radio-label">
-                        <input type="radio" name="use_in_field" value="no" required>
+                        <input type="radio" name="future_interest" value="no" required>
                         <span class="radio-text">No</span>
                     </label>
                 </div>
             </div>
             
             <div class="form-group">
-                <label for="feedback-text">Please give any feedback you have for the AI team</label>
+                <label for="feedback-text">Please give any feedback you have for the AI team (optional)</label>
                 <textarea id="feedback-text" name="feedback_text" rows="6" placeholder="Share your thoughts, suggestions, or any issues you encountered..."></textarea>
             </div>
             
