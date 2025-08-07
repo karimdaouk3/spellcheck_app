@@ -1189,6 +1189,10 @@ class LanguageToolEditor {
         console.log('💾 SAVE START:', new Date().toISOString());
         console.log('📝 Term:', term, 'Field:', field);
         
+        // Apply blue highlight IMMEDIATELY for instant feedback
+        console.log('⚡ APPLYING BLUE IMMEDIATELY:', new Date().toISOString());
+        this.flashTerm(term, field, savedMention);
+        
         fetch('/terms', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1198,8 +1202,7 @@ class LanguageToolEditor {
             console.log('📡 Backend response received:', new Date().toISOString());
             if (!res.ok) throw new Error('Failed to add term');
             
-            console.log('✅ Term saved, calling flashTerm:', new Date().toISOString());
-            this.flashTerm(term, field, savedMention);
+            console.log('✅ Term saved successfully:', new Date().toISOString());
             
             console.log('⏰ Setting up 1.2s cleanup delay:', new Date().toISOString());
             setTimeout(() => {
