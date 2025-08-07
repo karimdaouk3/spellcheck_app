@@ -1204,7 +1204,7 @@ class LanguageToolEditor {
             
             console.log('✅ Term saved successfully:', new Date().toISOString());
             
-            console.log('⏰ Setting up 1.2s cleanup delay:', new Date().toISOString());
+            console.log('⏰ Setting up cleanup delay:', new Date().toISOString());
             setTimeout(() => {
                 console.log('🧹 CLEANUP START:', new Date().toISOString());
                 
@@ -1217,19 +1217,19 @@ class LanguageToolEditor {
                     );
                     this.updateHighlights(field);
                     console.log('🔄 Updated highlights:', new Date().toISOString());
-                }
-                
-                // Show the overlay again after cleanup
-                const overlay = this.fields[field].highlightOverlay;
-                if (overlay) {
-                    overlay.style.display = 'block';
-                    console.log('👁️ Overlay shown again:', new Date().toISOString());
+                    
+                    // Show the overlay again after highlights are updated
+                    const overlay = this.fields[field].highlightOverlay;
+                    if (overlay) {
+                        overlay.style.display = 'block';
+                        console.log('👁️ Overlay shown after highlight update:', new Date().toISOString());
+                    }
                 }
                 
                 this.checkText('editor');
                 this.checkText('editor2');
                 console.log('🔍 Reran spellcheck:', new Date().toISOString());
-            }, 1200);
+            }, 1600); // Wait 1.6 seconds (slightly longer than the 1.5-second blue highlight)
         })
         .catch((error) => {
             console.log('❌ Save error:', error);
@@ -1283,7 +1283,7 @@ class LanguageToolEditor {
                                 overlay.style.display = 'none';
                                 console.log('👁️ Overlay hidden for recalculation:', new Date().toISOString());
                             }
-                        }, 1000);
+                        }, 1500);
                     } else {
                         console.log('❌ Span not found');
                     }
