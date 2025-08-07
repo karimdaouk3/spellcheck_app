@@ -1093,7 +1093,7 @@ class LanguageToolEditor {
             <style>
                 @media (max-width: 950px) {
                     .editor-score {
-                        font-size: 0.85em !important;
+                        font-size: 0.9em !important;
                     }
                     .editor-score > div {
                         gap: 6px !important;
@@ -1113,8 +1113,8 @@ class LanguageToolEditor {
                         border-bottom: 6px solid #00A7E1 !important;
                     }
                     .editor-score > div > span {
-                        min-width: 50px !important;
-                        font-size: 0.85em !important;
+                        min-width: 0 !important;
+                        font-size: 0.9em !important;
                     }
                 }
             </style>
