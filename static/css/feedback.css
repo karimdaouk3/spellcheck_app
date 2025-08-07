@@ -1,4 +1,15 @@
 /* Feedback page specific styles */
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Open Sans', sans-serif;
+    background: #f5f5f5;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .feedback-container {
     max-width: 800px;
     margin: 0 auto;
@@ -148,59 +159,37 @@
     background: #41007F;
 }
 
-.back-button {
-    background: #f0f0f0;
-    color: #666;
+.thank-you-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.thank-you-content {
+    background: #f9fafc;
+    border-radius: 14px;
+    box-shadow: 0 6px 32px rgba(0,0,0,0.13);
+    padding: 60px 40px;
     border: 1.5px solid #e0e0e0;
-    border-radius: 4px;
-    font-size: 16px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-    padding: 12px 28px;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
+}
+
+.thank-you-content h1 {
+    color: #41007F;
+    font-size: 2.5em;
+    font-weight: 700;
+    margin-bottom: 20px;
     font-family: 'Open Sans', sans-serif;
 }
 
-.back-button:hover {
-    background: #e0e0e0;
-    color: #222;
-}
-
-.message {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 16px 24px;
-    border-radius: 6px;
+.thank-you-content p {
+    color: #666;
+    font-size: 1.2em;
+    line-height: 1.6;
     font-family: 'Open Sans', sans-serif;
-    font-weight: 500;
-    z-index: 1000;
-    animation: slideIn 0.3s ease-out;
 }
 
-.message.success {
-    background: #00A7E1;
-    color: white;
-}
 
-.message.error {
-    background: #f44336;
-    color: white;
-}
-
-@keyframes slideIn {
-    from {
-        transform: translateX(100%);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
-}
 
 /* Mobile responsiveness */
 @media (max-width: 950px) {
@@ -230,10 +219,21 @@
         align-items: center;
     }
     
-    .submit-button,
-    .back-button {
+    .submit-button {
         width: 100%;
         max-width: 300px;
         justify-content: center;
+    }
+    
+    .thank-you-content {
+        padding: 40px 20px;
+    }
+    
+    .thank-you-content h1 {
+        font-size: 2em;
+    }
+    
+    .thank-you-content p {
+        font-size: 1.1em;
     }
 } 
