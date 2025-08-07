@@ -1273,16 +1273,16 @@ class LanguageToolEditor {
                         console.log('   After BG:', span.style.backgroundColor);
                         console.log('✅ BLUE APPLIED:', new Date().toISOString());
                         
-                        // Hide the overlay immediately to prevent mismatched highlights
-                        const overlay = this.fields[field].highlightOverlay;
-                        if (overlay) {
-                            overlay.style.display = 'none';
-                            console.log('👁️ Overlay hidden:', new Date().toISOString());
-                        }
-                        
                         setTimeout(() => {
-                            console.log('🗑️ REMOVING:', new Date().toISOString());
+                            console.log('🗑️ REMOVING BLUE:', new Date().toISOString());
                             span.remove();
+                            
+                            // Hide the overlay AFTER blue is removed, during recalculation
+                            const overlay = this.fields[field].highlightOverlay;
+                            if (overlay) {
+                                overlay.style.display = 'none';
+                                console.log('👁️ Overlay hidden for recalculation:', new Date().toISOString());
+                            }
                         }, 1000);
                     } else {
                         console.log('❌ Span not found');
