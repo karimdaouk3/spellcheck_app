@@ -638,7 +638,9 @@ class LanguageToolEditor {
             ignoreBtn.insertAdjacentElement('afterend', blueBtn);
             blueBtn.onclick = () => {
                 const text = this.fields[this.popupField].editor.innerText.substring(suggestion.offset, suggestion.offset + suggestion.length);
-                this.saveTerm(text, this.popupField);
+                // Save the current mention before hiding popup
+                const currentMention = this.currentMention;
+                this.saveTerm(text, this.popupField, currentMention);
                 this.hidePopup();
                 // Don't call ignoreCurrentSuggestion here - let saveTerm handle the timing
                 this.showStatus(`"${text}" added to KLA term bank`, 'success');
@@ -1183,9 +1185,10 @@ class LanguageToolEditor {
         // Example: this.submitToLLM(transcription);
     }
 
-    saveTerm(term, field) {
+    saveTerm(term, field, savedMention = null) {
         console.log('=== SAVE TERM DEBUG START ===');
         console.log('Saving term:', term, 'for field:', field);
+        console.log('Saved mention:', savedMention);
         
         // Send the term to the backend
         fetch('/terms', {
@@ -1199,16 +1202,16 @@ class LanguageToolEditor {
             
             console.log('Term saved successfully, calling flashTerm...');
             // Flash the term with blue color to show it was added
-            this.flashTerm(term, field);
+            this.flashTerm(term, field, savedMention);
             
             console.log('Setting up delayed cleanup...');
             // Delay the suggestion removal and spellcheck rerun so the flash is visible
             setTimeout(() => {
                 console.log('Executing delayed cleanup...');
                 // Remove the current suggestion from highlights
-                if (this.currentMention) {
+                if (savedMention) {
                     const text = this.fields[field].editor.innerText;
-                    const key = this.getSuggestionKey(this.currentMention, text);
+                    const key = this.getSuggestionKey(savedMention, text);
                     this.fields[field].ignoredSuggestions.add(key);
                     this.fields[field].currentSuggestions = this.fields[field].currentSuggestions.filter(
                         s => this.getSuggestionKey(s, text) !== key
@@ -1232,18 +1235,20 @@ class LanguageToolEditor {
     }
     
     // Flash a term with blue color to indicate it was added to dictionary
-    flashTerm(term, field) {
+    flashTerm(term, field, savedMention = null) {
         console.log('=== FLASH TERM DEBUG START ===');
         console.log('Term to flash:', term);
         console.log('Field:', field);
+        console.log('Saved mention:', savedMention);
         
         const fieldObj = this.fields[field];
         console.log('FieldObj:', fieldObj);
         
-        // Use the current suggestion to find the exact highlight span
-        console.log('Current mention:', this.currentMention);
+        // Use the saved suggestion to find the exact highlight span
+        const mentionToUse = savedMention || this.currentMention;
+        console.log('Mention to use:', mentionToUse);
         
-        if (this.currentMention) {
+        if (mentionToUse) {
             const overlay = fieldObj.highlightOverlay;
             console.log('Overlay:', overlay);
             console.log('Overlay innerHTML:', overlay ? overlay.innerHTML : 'No overlay');
@@ -1251,10 +1256,10 @@ class LanguageToolEditor {
             if (overlay) {
                 // Find the span that corresponds to the current suggestion
                 console.log('Current suggestions:', fieldObj.currentSuggestions);
-                console.log('Looking for suggestion with offset:', this.currentMention.offset, 'length:', this.currentMention.length);
+                console.log('Looking for suggestion with offset:', mentionToUse.offset, 'length:', mentionToUse.length);
                 
                 const suggestionIndex = fieldObj.currentSuggestions.findIndex(s => {
-                    const match = s.offset === this.currentMention.offset && s.length === this.currentMention.length;
+                    const match = s.offset === mentionToUse.offset && s.length === mentionToUse.length;
                     console.log('Checking suggestion:', s, 'Match:', match);
                     return match;
                 });
@@ -1306,7 +1311,7 @@ class LanguageToolEditor {
                 console.log('ERROR: No overlay found!');
             }
         } else {
-            console.log('ERROR: No current mention!');
+            console.log('ERROR: No mention to use!');
         }
         
         console.log('=== FLASH TERM DEBUG END ===');
