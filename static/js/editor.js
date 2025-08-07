@@ -1184,6 +1184,9 @@ class LanguageToolEditor {
     }
 
     saveTerm(term, field) {
+        console.log('=== SAVE TERM DEBUG START ===');
+        console.log('Saving term:', term, 'for field:', field);
+        
         // Send the term to the backend
         fetch('/terms', {
             method: 'POST',
@@ -1191,13 +1194,17 @@ class LanguageToolEditor {
             body: JSON.stringify({ term })
         })
         .then(res => {
+            console.log('Backend response:', res);
             if (!res.ok) throw new Error('Failed to add term');
             
+            console.log('Term saved successfully, calling flashTerm...');
             // Flash the term with blue color to show it was added
             this.flashTerm(term, field);
             
+            console.log('Setting up delayed cleanup...');
             // Delay the suggestion removal and spellcheck rerun so the flash is visible
             setTimeout(() => {
+                console.log('Executing delayed cleanup...');
                 // Remove the current suggestion from highlights
                 if (this.currentMention) {
                     const text = this.fields[field].editor.innerText;
@@ -1207,55 +1214,102 @@ class LanguageToolEditor {
                         s => this.getSuggestionKey(s, text) !== key
                     );
                     this.updateHighlights(field);
+                    console.log('Removed suggestion and updated highlights');
                 }
                 
                 // Rerun spellcheck for both boxes so new terms are no longer highlighted
                 this.checkText('editor');
                 this.checkText('editor2');
+                console.log('Reran spellcheck');
             }, 1200); // Wait 1.2 seconds (slightly longer than the 1-second flash)
         })
-        .catch(() => {
+        .catch((error) => {
+            console.log('Error saving term:', error);
             this.showStatus('Failed to add term', 'error');
         });
+        
+        console.log('=== SAVE TERM DEBUG END ===');
     }
     
     // Flash a term with blue color to indicate it was added to dictionary
     flashTerm(term, field) {
+        console.log('=== FLASH TERM DEBUG START ===');
+        console.log('Term to flash:', term);
+        console.log('Field:', field);
+        
         const fieldObj = this.fields[field];
+        console.log('FieldObj:', fieldObj);
         
         // Use the current suggestion to find the exact highlight span
+        console.log('Current mention:', this.currentMention);
+        
         if (this.currentMention) {
             const overlay = fieldObj.highlightOverlay;
+            console.log('Overlay:', overlay);
+            console.log('Overlay innerHTML:', overlay ? overlay.innerHTML : 'No overlay');
+            
             if (overlay) {
                 // Find the span that corresponds to the current suggestion
-                const suggestionIndex = fieldObj.currentSuggestions.findIndex(s => 
-                    s.offset === this.currentMention.offset && 
-                    s.length === this.currentMention.length
-                );
+                console.log('Current suggestions:', fieldObj.currentSuggestions);
+                console.log('Looking for suggestion with offset:', this.currentMention.offset, 'length:', this.currentMention.length);
+                
+                const suggestionIndex = fieldObj.currentSuggestions.findIndex(s => {
+                    const match = s.offset === this.currentMention.offset && s.length === this.currentMention.length;
+                    console.log('Checking suggestion:', s, 'Match:', match);
+                    return match;
+                });
+                
+                console.log('Found suggestion index:', suggestionIndex);
                 
                 if (suggestionIndex !== -1) {
-                    const span = overlay.querySelector(`[data-suggestion-index="${suggestionIndex}"]`);
+                    const spanSelector = `[data-suggestion-index="${suggestionIndex}"]`;
+                    console.log('Looking for span with selector:', spanSelector);
+                    
+                    const span = overlay.querySelector(spanSelector);
+                    console.log('Found span:', span);
+                    console.log('Span text content:', span ? span.textContent : 'No span');
+                    console.log('Span classes:', span ? span.className : 'No span');
+                    
                     if (span) {
                         // Store original styles
                         const originalBackground = span.style.backgroundColor;
                         const originalBorder = span.style.borderBottom;
                         const originalColor = span.style.color;
                         
+                        console.log('Original styles - Background:', originalBackground, 'Border:', originalBorder, 'Color:', originalColor);
+                        
                         // Flash with blue color
+                        console.log('Applying blue flash styles...');
                         span.style.backgroundColor = '#41007F';
                         span.style.borderBottom = '2px solid #41007F';
                         span.style.color = 'white';
                         
+                        console.log('Applied styles - Background:', span.style.backgroundColor, 'Border:', span.style.borderBottom, 'Color:', span.style.color);
+                        
                         // Restore original styles after flash
                         setTimeout(() => {
+                            console.log('Restoring original styles...');
                             span.style.backgroundColor = originalBackground;
                             span.style.borderBottom = originalBorder;
                             span.style.color = originalColor;
+                            console.log('Restored styles - Background:', span.style.backgroundColor, 'Border:', span.style.borderBottom, 'Color:', span.style.color);
                         }, 1000);
+                    } else {
+                        console.log('ERROR: Span not found!');
+                        console.log('All spans in overlay:', overlay.querySelectorAll('span'));
+                        console.log('All spans with data-suggestion-index:', overlay.querySelectorAll('[data-suggestion-index]'));
                     }
+                } else {
+                    console.log('ERROR: Suggestion index not found!');
                 }
+            } else {
+                console.log('ERROR: No overlay found!');
             }
+        } else {
+            console.log('ERROR: No current mention!');
         }
+        
+        console.log('=== FLASH TERM DEBUG END ===');
     }
 
     addToHistory(text, field = this.activeField, evaluationResult = null) {
