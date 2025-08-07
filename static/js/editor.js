@@ -1276,37 +1276,16 @@ class LanguageToolEditor {
                     console.log('Span classes:', span ? span.className : 'No span');
                     
                     if (span) {
-                        // Store original styles
-                        const originalBackground = span.style.backgroundColor;
-                        const originalBorder = span.style.borderBottom;
-                        const originalColor = span.style.color;
+                        console.log('Making highlight blue...');
+                        span.style.backgroundColor = '#41007F';
+                        span.style.borderBottom = '2px solid #41007F';
+                        span.style.color = 'white';
                         
-                        console.log('Original styles - Background:', originalBackground, 'Border:', originalBorder, 'Color:', originalColor);
-                        
-                        // First, reset to red to make the flash visible
-                        console.log('Resetting to red first...');
-                        span.style.backgroundColor = 'rgba(255, 107, 107, 0.2)';
-                        span.style.borderBottom = '2px solid #ff6b6b';
-                        span.style.color = '';
-                        
-                        // Then flash with blue color after a brief delay
+                        // Remove the highlight after 1 second
                         setTimeout(() => {
-                            console.log('Applying blue flash styles...');
-                            span.style.backgroundColor = '#41007F';
-                            span.style.borderBottom = '2px solid #41007F';
-                            span.style.color = 'white';
-                            
-                            console.log('Applied styles - Background:', span.style.backgroundColor, 'Border:', span.style.borderBottom, 'Color:', span.style.color);
-                            
-                            // Restore original styles after flash
-                            setTimeout(() => {
-                                console.log('Restoring original styles...');
-                                span.style.backgroundColor = originalBackground;
-                                span.style.borderBottom = originalBorder;
-                                span.style.color = originalColor;
-                                console.log('Restored styles - Background:', span.style.backgroundColor, 'Border:', span.style.borderBottom, 'Color:', span.style.color);
-                            }, 1000);
-                        }, 50); // Brief delay to ensure red is visible first
+                            console.log('Removing highlight...');
+                            span.remove();
+                        }, 1000);
                     } else {
                         console.log('ERROR: Span not found!');
                         console.log('All spans in overlay:', overlay.querySelectorAll('span'));
