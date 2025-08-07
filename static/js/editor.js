@@ -1290,6 +1290,12 @@ class LanguageToolEditor {
                         console.log('New background:', span.style.backgroundColor);
                         console.log('New border:', span.style.borderBottom);
                         console.log('=== BLUE HIGHLIGHT APPLIED ===');
+                        
+                        // Remove the highlight after 1 second
+                        setTimeout(() => {
+                            console.log('=== REMOVING BLUE HIGHLIGHT ===');
+                            span.remove();
+                        }, 1000);
                     } else {
                         console.log('ERROR: Span not found!');
                         console.log('All spans in overlay:', overlay.querySelectorAll('span'));
