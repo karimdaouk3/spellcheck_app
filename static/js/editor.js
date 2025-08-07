@@ -1222,19 +1222,24 @@ class LanguageToolEditor {
     // Flash a term with blue color to indicate it was added to dictionary
     flashTerm(term, field) {
         const fieldObj = this.fields[field];
-        const text = fieldObj.editor.innerText;
-        const termIndex = text.indexOf(term);
         
-        if (termIndex !== -1) {
-            // Find the highlight span for this term
-            const overlay = fieldObj.overlay;
+        // Use the current suggestion to find the exact highlight span
+        if (this.currentMention) {
+            const overlay = fieldObj.highlightOverlay;
             if (overlay) {
-                const highlightSpans = overlay.querySelectorAll('.highlight-span-spelling');
-                highlightSpans.forEach(span => {
-                    if (span.textContent === term) {
+                // Find the span that corresponds to the current suggestion
+                const suggestionIndex = fieldObj.currentSuggestions.findIndex(s => 
+                    s.offset === this.currentMention.offset && 
+                    s.length === this.currentMention.length
+                );
+                
+                if (suggestionIndex !== -1) {
+                    const span = overlay.querySelector(`[data-suggestion-index="${suggestionIndex}"]`);
+                    if (span) {
                         // Store original styles
                         const originalBackground = span.style.backgroundColor;
                         const originalBorder = span.style.borderBottom;
+                        const originalColor = span.style.color;
                         
                         // Flash with blue color
                         span.style.backgroundColor = '#41007F';
@@ -1245,10 +1250,10 @@ class LanguageToolEditor {
                         setTimeout(() => {
                             span.style.backgroundColor = originalBackground;
                             span.style.borderBottom = originalBorder;
-                            span.style.color = '';
+                            span.style.color = originalColor;
                         }, 1000);
                     }
-                });
+                }
             }
         }
     }
