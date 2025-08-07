@@ -1091,9 +1091,9 @@ class LanguageToolEditor {
                 <span style="color: #000; min-width: 60px;">Thorough</span>
             </div>
             <style>
-                @media (max-width: 768px) {
+                @media (max-width: 950px) {
                     .editor-score {
-                        font-size: 0.8em !important;
+                        font-size: 0.85em !important;
                     }
                     .editor-score > div {
                         gap: 6px !important;
@@ -1114,7 +1114,7 @@ class LanguageToolEditor {
                     }
                     .editor-score > div > span {
                         min-width: 50px !important;
-                        font-size: 0.8em !important;
+                        font-size: 0.85em !important;
                     }
                 }
             </style>
