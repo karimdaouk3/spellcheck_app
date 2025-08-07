@@ -450,6 +450,18 @@ body {
     display: flex;
     align-items: center;
     gap: 12px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+    color: white;
+    font-family: 'Open Sans', sans-serif;
+}
+
+.feedback-section:hover {
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
 .feedback-text {
@@ -458,22 +470,6 @@ body {
     font-weight: 500;
     font-family: 'Open Sans', sans-serif;
     white-space: nowrap;
-}
-
-.feedback-button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 8px;
-    border-radius: 4px;
-    transition: background-color 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.feedback-button:hover {
-    background-color: rgba(255, 255, 255, 0.1);
 }
 .top-bar-label {
     font-size: 1.05em;
@@ -670,17 +666,14 @@ body {
     .feedback-section {
         right: 16px;
         gap: 8px;
+        padding: 6px 10px;
     }
     
     .feedback-text {
         font-size: 0.8em;
     }
     
-    .feedback-button {
-        padding: 6px;
-    }
-    
-    .feedback-button svg {
+    .feedback-section svg {
         width: 24px;
         height: 24px;
     }
