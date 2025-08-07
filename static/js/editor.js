@@ -370,13 +370,20 @@ class LanguageToolEditor {
             const copyBtn = fieldObj.copyBtn;
             if (copyBtn) {
                 copyBtn.addEventListener('click', async () => {
+                    // Prevent multiple clicks while showing feedback
+                    if (copyBtn.disabled) return;
+                    
                     const text = fieldObj.editor.innerText;
                     if (text.trim() === '') {
                         // Show error feedback on the button itself
                         const originalHTML = copyBtn.innerHTML;
+                        copyBtn.disabled = true;
+                        copyBtn.style.pointerEvents = 'none';
                         copyBtn.innerHTML = '<span style="color: #666; font-size: 0.8em;">Nothing to copy</span>';
                         setTimeout(() => {
                             copyBtn.innerHTML = originalHTML;
+                            copyBtn.disabled = false;
+                            copyBtn.style.pointerEvents = '';
                         }, 1500);
                         return;
                     }
@@ -386,19 +393,27 @@ class LanguageToolEditor {
                         
                         // Success feedback - change button text
                         const originalHTML = copyBtn.innerHTML;
+                        copyBtn.disabled = true;
+                        copyBtn.style.pointerEvents = 'none';
                         copyBtn.innerHTML = '<span style="color: #666; font-size: 0.8em;">Copied!</span>';
                         
                         setTimeout(() => {
                             copyBtn.innerHTML = originalHTML;
+                            copyBtn.disabled = false;
+                            copyBtn.style.pointerEvents = '';
                         }, 1500);
                         
                     } catch (err) {
                         // Error feedback - change button text
                         const originalHTML = copyBtn.innerHTML;
+                        copyBtn.disabled = true;
+                        copyBtn.style.pointerEvents = 'none';
                         copyBtn.innerHTML = '<span style="color: #666; font-size: 0.8em;">Copy failed</span>';
                         
                         setTimeout(() => {
                             copyBtn.innerHTML = originalHTML;
+                            copyBtn.disabled = false;
+                            copyBtn.style.pointerEvents = '';
                         }, 1500);
                     }
                 });
