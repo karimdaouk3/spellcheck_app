@@ -1086,7 +1086,6 @@ class LanguageToolEditor {
                 <span style="color: #000;">Vague</span>
                 <div style="position: relative; width: 120px; height: 20px; background: linear-gradient(to right, #ff4444 0%, #ffaa00 50%, #44ff44 100%); border-radius: 10px; border: 2px solid #ddd; overflow: visible;">
                     <div style="position: absolute; top: -3px; left: ${position}%; width: 2px; height: 26px; background: #41007F; border-radius: 1px; transform: translateX(-50%); border: 1px solid #fff; box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>
-                    <div style="position: absolute; top: 24px; left: 50%; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 8px solid #00A7E1; transform: translateX(-50%);"></div>
                 </div>
                 <span style="color: #000; min-width: 60px;">Thorough</span>
             </div>
@@ -1105,12 +1104,6 @@ class LanguageToolEditor {
                     .editor-score > div > div > div:first-child {
                         height: 22px !important;
                         top: -3px !important;
-                    }
-                    .editor-score > div > div > div:nth-child(2) {
-                        top: 20px !important;
-                        border-left: 5px solid transparent !important;
-                        border-right: 5px solid transparent !important;
-                        border-bottom: 6px solid #00A7E1 !important;
                     }
                     .editor-score > div > span {
                         min-width: 0 !important;
@@ -1340,7 +1333,23 @@ class LanguageToolEditor {
             if (llmResult && llmResult.evaluation) {
                 const score = this.calculateWeightedScore(this.activeField, llmResult.evaluation);
                 const percentage = Math.round(score);
-                scoreDisplay = this.createTemperatureBar(percentage);
+                
+                // Determine performance level based on percentage
+                let performanceText = '';
+                let performanceColor = '';
+                
+                if (percentage < 33) {
+                    performanceText = 'Needs Improvement';
+                    performanceColor = '#F44336'; // Red
+                } else if (percentage < 66) {
+                    performanceText = 'Good';
+                    performanceColor = '#FFC107'; // Yellow/Orange
+                } else {
+                    performanceText = 'Excellent';
+                    performanceColor = '#4CAF50'; // Green
+                }
+                
+                scoreDisplay = `<div style="font-size:0.8em;color:${performanceColor};font-weight:bold;">${performanceText}</div>`;
             }
             
             // Replace newlines with <br> tags for proper rendering
