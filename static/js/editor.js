@@ -1219,6 +1219,13 @@ class LanguageToolEditor {
                     console.log('🔄 Updated highlights:', new Date().toISOString());
                 }
                 
+                // Show the overlay again after cleanup
+                const overlay = this.fields[field].highlightOverlay;
+                if (overlay) {
+                    overlay.style.display = 'block';
+                    console.log('👁️ Overlay shown again:', new Date().toISOString());
+                }
+                
                 this.checkText('editor');
                 this.checkText('editor2');
                 console.log('🔍 Reran spellcheck:', new Date().toISOString());
@@ -1258,12 +1265,20 @@ class LanguageToolEditor {
                         console.log('⚡ APPLYING BLUE NOW:', new Date().toISOString());
                         console.log('   Before BG:', span.style.backgroundColor);
                         
-                        span.style.backgroundColor = 'rgba(0, 123, 255, 0.3)';
-                        span.style.borderBottom = '2px solid #007bff';
+                        // Use the same blue as the submit button (#00A7E1)
+                        span.style.backgroundColor = 'rgba(0, 167, 225, 0.3)';
+                        span.style.borderBottom = '2px solid #00A7E1';
                         span.style.color = 'black';
                         
                         console.log('   After BG:', span.style.backgroundColor);
                         console.log('✅ BLUE APPLIED:', new Date().toISOString());
+                        
+                        // Hide the overlay immediately to prevent mismatched highlights
+                        const overlay = this.fields[field].highlightOverlay;
+                        if (overlay) {
+                            overlay.style.display = 'none';
+                            console.log('👁️ Overlay hidden:', new Date().toISOString());
+                        }
                         
                         setTimeout(() => {
                             console.log('🗑️ REMOVING:', new Date().toISOString());
