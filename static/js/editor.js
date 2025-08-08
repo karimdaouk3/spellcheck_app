@@ -1628,68 +1628,72 @@ class LanguageToolEditor {
                 e.stopPropagation();
                 const criteria = btn.getAttribute('data-criteria');
                 const text = fieldObj.editor.innerText;
-                // Show feedback box if not already present
-                let card = btn.closest('.llm-section');
+                // Toggle feedback box
+                const card = btn.closest('.llm-section');
                 if (!card) return;
                 let feedbackBox = card.querySelector('.llm-feedback-box');
-                btn.classList.add('selected');
-                if (!feedbackBox) {
-                    feedbackBox = document.createElement('div');
-                    feedbackBox.className = 'llm-feedback-box';
-                    feedbackBox.style.marginTop = '0px';
-                    feedbackBox.innerHTML = `<textarea class="llm-feedback-text" rows="1" placeholder="Please Give Feedback"></textarea><button class="llm-feedback-submit" title="Send Feedback"> <svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><line x1='22' y1='2' x2='11' y2='13'/><polygon points='22 2 15 22 11 13 2 9 22 2'/></svg></button>`;
-                    card.appendChild(feedbackBox);
-                    // Add vertical space below feedback box
-                    const feedbackSpace = document.createElement('div');
-                    feedbackSpace.style.height = '12px';
-                    card.appendChild(feedbackSpace);
-                    const submitBtn = feedbackBox.querySelector('.llm-feedback-submit');
-                    submitBtn.addEventListener('click', () => {
-                        const feedbackText = feedbackBox.querySelector('.llm-feedback-text').value;
-                        // Find pass/fail for this criteria
-                        let passed = null;
-                        if (fieldObj.llmLastResult && fieldObj.llmLastResult.evaluation && fieldObj.llmLastResult.evaluation[criteria]) {
-                            passed = fieldObj.llmLastResult.evaluation[criteria].passed;
-                        }
-                        // Log feedback (console.log for now, or send to backend)
-                        fetch('/feedback', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                criteria,
-                                text,
-                                feedback: 'thumbs_down',
-                                explanation: feedbackText,
-                                passed
-                            })
-                        }).then(res => res.json()).then(data => {
-                            btn.classList.add('selected');
-                            btn.title = "Feedback received!";
-                            feedbackBox.remove();
-                            feedbackSpace.remove();
-                            
-                            // Move evaluation to completed and update score
-                            if (fieldObj.llmLastResult && fieldObj.llmLastResult.evaluation && fieldObj.llmLastResult.evaluation[criteria]) {
-                                // Mark this criteria as passed
-                                fieldObj.llmLastResult.evaluation[criteria].passed = true;
-                                
-                                // Update the score display
-                                this.updateEditorLabelsWithScore();
-                                
-                                // Re-render the evaluation display to move it to "Completed" section
-                                this.displayLLMResult(fieldObj.llmLastResult, false, field);
-                            }
-                        });
-                    });
-                    // Prevent newlines in feedback box
-                    const feedbackTextarea = feedbackBox.querySelector('.llm-feedback-text');
-                    feedbackTextarea.addEventListener('keydown', (e) => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            feedbackTextarea.blur();
-                        }
-                    });
+                if (feedbackBox) {
+                    // Close existing box and unselect button (no submit)
+                    feedbackBox.remove();
+                    const spacer = card.querySelector('.llm-feedback-space');
+                    if (spacer) spacer.remove();
+                    btn.classList.remove('selected');
+                    return;
                 }
+
+                // Open a new feedback box and mark selected
+                btn.classList.add('selected');
+                feedbackBox = document.createElement('div');
+                feedbackBox.className = 'llm-feedback-box';
+                feedbackBox.style.marginTop = '0px';
+                feedbackBox.innerHTML = `<textarea class="llm-feedback-text" rows="1" placeholder="Please Give Feedback"></textarea><button class="llm-feedback-submit" title="Send Feedback"> <svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><line x1='22' y1='2' x2='11' y2='13'/><polygon points='22 2 15 22 11 13 2 9 22 2'/></svg></button>`;
+                card.appendChild(feedbackBox);
+                // Add vertical space below feedback box
+                const feedbackSpace = document.createElement('div');
+                feedbackSpace.className = 'llm-feedback-space';
+                feedbackSpace.style.height = '12px';
+                card.appendChild(feedbackSpace);
+                const submitBtn = feedbackBox.querySelector('.llm-feedback-submit');
+                submitBtn.addEventListener('click', () => {
+                    const feedbackText = feedbackBox.querySelector('.llm-feedback-text').value;
+                    // Find pass/fail for this criteria
+                    let passed = null;
+                    if (fieldObj.llmLastResult && fieldObj.llmLastResult.evaluation && fieldObj.llmLastResult.evaluation[criteria]) {
+                        passed = fieldObj.llmLastResult.evaluation[criteria].passed;
+                    }
+                    // Send feedback to backend
+                    fetch('/feedback', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            criteria,
+                            text,
+                            feedback: 'thumbs_down',
+                            explanation: feedbackText,
+                            passed
+                        })
+                    }).then(res => res.json()).then(data => {
+                        btn.classList.add('selected');
+                        btn.title = "Feedback received!";
+                        feedbackBox.remove();
+                        feedbackSpace.remove();
+                        
+                        // Move evaluation to completed and update score
+                        if (fieldObj.llmLastResult && fieldObj.llmLastResult.evaluation && fieldObj.llmLastResult.evaluation[criteria]) {
+                            fieldObj.llmLastResult.evaluation[criteria].passed = true;
+                            this.updateEditorLabelsWithScore();
+                            this.displayLLMResult(fieldObj.llmLastResult, false, field);
+                        }
+                    });
+                });
+                // Prevent newlines in feedback box
+                const feedbackTextarea = feedbackBox.querySelector('.llm-feedback-text');
+                feedbackTextarea.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        feedbackTextarea.blur();
+                    }
+                });
             });
         });
     }
