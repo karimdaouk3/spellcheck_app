@@ -478,7 +478,18 @@ class LanguageToolEditor {
         const cancelBtn = document.getElementById('rewrite-feedback-cancel');
         const submitBtn = document.getElementById('rewrite-feedback-submit');
         if (cancelBtn && pop) {
-            cancelBtn.onclick = () => { pop.style.display = 'none'; };
+            cancelBtn.onclick = () => {
+                pop.style.display = 'none';
+                const pill1 = document.getElementById('rewrite-feedback-pill');
+                const pill2 = document.getElementById('rewrite-feedback-pill-2');
+                [pill1, pill2].forEach(p => {
+                    if (!p) return;
+                    const neg = p.querySelector('.pill-seg.neg');
+                    const pos = p.querySelector('.pill-seg.pos');
+                    if (neg) neg.classList.remove('colored');
+                    if (pos) pos.classList.remove('colored');
+                });
+            };
         }
         if (submitBtn && pop) {
             submitBtn.onclick = async () => {
@@ -513,15 +524,38 @@ class LanguageToolEditor {
                     });
                     if (res.ok) {
                         pop.style.display = 'none';
-                        // Hide the feedback button after successful submit
                         const pillId = field === 'editor' ? 'rewrite-feedback-pill' : 'rewrite-feedback-pill-2';
                         const pill = document.getElementById(pillId);
-                        if (pill) pill.style.display = 'none';
+                        if (pill) {
+                            pill.style.display = 'none';
+                            const neg = pill.querySelector('.pill-seg.neg');
+                            const pos = pill.querySelector('.pill-seg.pos');
+                            if (neg) neg.classList.remove('colored');
+                            if (pos) pos.classList.remove('colored');
+                        }
                     } else {
                         pop.style.display = 'none';
+                        const pill1 = document.getElementById('rewrite-feedback-pill');
+                        const pill2 = document.getElementById('rewrite-feedback-pill-2');
+                        [pill1, pill2].forEach(p => {
+                            if (!p) return;
+                            const neg = p.querySelector('.pill-seg.neg');
+                            const pos = p.querySelector('.pill-seg.pos');
+                            if (neg) neg.classList.remove('colored');
+                            if (pos) pos.classList.remove('colored');
+                        });
                     }
                 } catch (e) {
                     pop.style.display = 'none';
+                    const pill1 = document.getElementById('rewrite-feedback-pill');
+                    const pill2 = document.getElementById('rewrite-feedback-pill-2');
+                    [pill1, pill2].forEach(p => {
+                        if (!p) return;
+                        const neg = p.querySelector('.pill-seg.neg');
+                        const pos = p.querySelector('.pill-seg.pos');
+                        if (neg) neg.classList.remove('colored');
+                        if (pos) pos.classList.remove('colored');
+                    });
                 }
             };
         }
@@ -535,7 +569,7 @@ class LanguageToolEditor {
             const pill1 = document.getElementById('rewrite-feedback-pill');
             const pill2 = document.getElementById('rewrite-feedback-pill-2');
             const clickedPill = (pill1 && pill1.contains(e.target)) || (pill2 && pill2.contains(e.target));
-            if (!clickedInside && !clickedButton) {
+            if (!clickedInside && !clickedPill) {
                 popover.style.display = 'none';
                 const neg1 = pill1 ? pill1.querySelector('.pill-seg.neg') : null;
                 const pos1 = pill1 ? pill1.querySelector('.pill-seg.pos') : null;
