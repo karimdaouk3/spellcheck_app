@@ -503,6 +503,7 @@ body {
     min-height: 100vh;
     gap: 0;
     margin-top: 0;
+    padding-bottom: 60px;
 }
 .content-flex {
     display: flex;
