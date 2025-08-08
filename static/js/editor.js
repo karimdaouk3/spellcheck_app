@@ -1083,11 +1083,11 @@ class LanguageToolEditor {
         
         return `
             <div style="display: flex; align-items: center; gap: 10px; font-size: 0.85em; font-weight: 600; padding: 4px 0;">
-                <span style="color: #666; font-size: 0.9em;">Vague</span>
-                <div style="position: relative; width: 140px; height: 24px; background: linear-gradient(to right, #ff6b6b 0%, #ffd93d 50%, #6bcf7f 100%); border-radius: 12px; border: 2px solid #e0e0e0; overflow: visible; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
-                    <div style="position: absolute; top: -4px; left: ${position}%; width: 3px; height: 32px; background: linear-gradient(to bottom, #41007F, #5a1a9a); border-radius: 2px; transform: translateX(-50%); border: 2px solid #fff; box-shadow: 0 2px 8px rgba(65,0,127,0.4), 0 0 0 1px rgba(255,255,255,0.8);"></div>
+                <span style="color: #000; font-size: 0.9em;">Vague</span>
+                <div style="position: relative; width: 140px; height: 18px; background: linear-gradient(to right, #ff6b6b 0%, #ffd93d 50%, #6bcf7f 100%); border-radius: 9px; border: 2px solid #e0e0e0; overflow: visible; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
+                    <div style="position: absolute; top: -3px; left: ${position}%; width: 3px; height: 24px; background: linear-gradient(to bottom, #41007F, #5a1a9a); border-radius: 2px; transform: translateX(-50%); border: 2px solid #fff; box-shadow: 0 2px 8px rgba(65,0,127,0.4), 0 0 0 1px rgba(255,255,255,0.8);"></div>
                 </div>
-                <span style="color: #666; font-size: 0.9em; min-width: 70px;">Thorough</span>
+                <span style="color: #000; font-size: 0.9em; min-width: 70px;">Thorough</span>
             </div>
             <style>
                 @media (max-width: 950px) {
@@ -1099,11 +1099,11 @@ class LanguageToolEditor {
                     }
                     .editor-score > div > div {
                         width: 110px !important;
-                        height: 20px !important;
+                        height: 14px !important;
                     }
                     .editor-score > div > div > div:first-child {
-                        height: 28px !important;
-                        top: -4px !important;
+                        height: 20px !important;
+                        top: -3px !important;
                     }
                     .editor-score > div > span {
                         min-width: 0 !important;

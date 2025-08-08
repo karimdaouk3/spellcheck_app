@@ -626,7 +626,7 @@ body {
     .editor-label-container {
         flex-direction: row; /* Keep side by side like desktop */
         justify-content: space-between;
-        align-items: flex-start;
+        align-items: center;
         gap: 8px;
         width: 100%;
         margin-bottom: 0; /* Remove vertical margin between header and text box */
@@ -968,7 +968,7 @@ body {
 .editor-label-container {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     margin-bottom: 8px;
     min-height: 40px;
 }
@@ -982,7 +982,6 @@ body {
     margin-top: 0;
     display: flex;
     align-items: center;
-    height: 40px;
 }
 
 .editor-score {
