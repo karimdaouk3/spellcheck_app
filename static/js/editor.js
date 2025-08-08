@@ -926,17 +926,27 @@ class LanguageToolEditor {
         const rewritePopup = document.getElementById('rewrite-popup');
         if (!showRewrite) {
             // Show questions for failed criteria
-            fieldObj.llmQuestions = [];
-            // Clear previous answers when new questions are generated
-            fieldObj.llmAnswers = {};
+            const newQuestions = [];
             if (rulesObj) {
                 for (const key of Object.keys(rulesObj)) {
                     const section = rulesObj[key];
                     if (!section.passed && section.question) {
-                        fieldObj.llmQuestions.push({ criteria: key, question: section.question });
+                        newQuestions.push({ criteria: key, question: section.question });
                     }
                 }
             }
+            
+            // Check if we have new questions that are different from current ones
+            const currentQuestionKeys = fieldObj.llmQuestions ? fieldObj.llmQuestions.map(q => q.criteria).sort() : [];
+            const newQuestionKeys = newQuestions.map(q => q.criteria).sort();
+            const questionsChanged = JSON.stringify(currentQuestionKeys) !== JSON.stringify(newQuestionKeys);
+            
+            // Only clear answers if questions have changed (new evaluation) or if no answers exist
+            if (questionsChanged || !fieldObj.llmAnswers || Object.keys(fieldObj.llmAnswers).length === 0) {
+                fieldObj.llmAnswers = {};
+            }
+            
+            fieldObj.llmQuestions = newQuestions;
             if (fieldObj.llmQuestions.length > 0) {
                 // Determine color based on active editor
                 const isProblemStatement = field === 'editor';
