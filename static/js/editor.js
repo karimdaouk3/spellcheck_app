@@ -1391,17 +1391,23 @@ class LanguageToolEditor {
             const text = typeof item === 'string' ? item : item.text;
             const llmResult = typeof item === 'object' ? item.llmLastResult : null;
             
-            // Calculate score if available and set border color instead of text label
+            // Calculate score if available and set border color to a discrete bucket matching the temperature bar palette
             if (llmResult && llmResult.evaluation) {
                 const score = this.calculateWeightedScore(this.activeField, llmResult.evaluation);
                 const percentage = Math.round(score);
+                // Discrete buckets aligned with the temperature bar gradient
+                // 0–20: red, 21–40: orange-red, 41–60: yellow, 61–80: yellow-green, 81–100: green
                 let borderColor = '#e8eaed';
-                if (percentage < 33) {
-                    borderColor = '#F44336'; // Red
-                } else if (percentage < 66) {
-                    borderColor = '#FFC107'; // Yellow/Orange
+                if (percentage <= 20) {
+                    borderColor = '#ff6b6b';
+                } else if (percentage <= 40) {
+                    borderColor = '#ff9f43';
+                } else if (percentage <= 60) {
+                    borderColor = '#ffd93d';
+                } else if (percentage <= 80) {
+                    borderColor = '#a8e063';
                 } else {
-                    borderColor = '#4CAF50'; // Green
+                    borderColor = '#6bcf7f';
                 }
                 historyItem.style.border = `2px solid ${borderColor}`;
             }
