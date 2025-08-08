@@ -837,7 +837,7 @@ class LanguageToolEditor {
             let inputType = 'How Your Score Was Calculated';
             // Replace score box with feedback title
             html += `<div class="llm-score" style="font-size:1.35em;font-weight:700;margin-bottom:0;background:#fff;color:#41007F;padding:10px 0 10px 0;border-radius:8px;text-align:center;box-shadow:0 1px 4px rgba(33,0,127,0.07);letter-spacing:0.5px;display:flex;align-items:center;justify-content:center;gap:10px;position:relative;">\n` +
-                `<button id="eval-collapse-btn" title="Click to expand for details" style="background:rgba(65,0,127,0.05);border:none;cursor:pointer;padding:0 6px;outline:none;display:inline-flex;align-items:center;justify-content:center;position:absolute;left:0;top:50%;transform:translateY(-50%);height:100%;z-index:2;border-radius:4px;transition:background 0.2s ease;">\n` +
+                `<button id="eval-collapse-btn" title="Click to expand for details" style="background:rgba(65,0,127,0.05);border:none;cursor:pointer;padding:0 6px;outline:none;display:inline-flex;align-items:center;justify-content:center;position:absolute;left:8px;top:50%;transform:translateY(-50%);width:24px;height:24px;z-index:2;border-radius:4px;transition:background 0.2s ease;">\n` +
                 `<span id="eval-chevron" style="font-size:1.3em;">▶</span>\n` +
                 `</button>\n` +
                 `<span style="margin-left:32px;font-size:1.5em;">${inputType}</span>\n` +
@@ -1446,7 +1446,7 @@ class LanguageToolEditor {
             
             // Replace score box with feedback title
             html += `<div class="llm-score" style="font-size:1.35em;font-weight:700;margin-bottom:0;background:#fff;color:#41007F;padding:10px 0 10px 0;border-radius:8px;text-align:center;box-shadow:0 1px 4px rgba(33,0,127,0.07);letter-spacing:0.5px;display:flex;align-items:center;justify-content:center;gap:10px;position:relative;">\n` +
-                `<button id="eval-collapse-btn" title="Click to expand for details" style="background:rgba(65,0,127,0.05);border:none;cursor:pointer;padding:0 6px;outline:none;display:inline-flex;align-items:center;justify-content:center;position:absolute;left:0;top:50%;transform:translateY(-50%);height:100%;z-index:2;border-radius:4px;transition:background 0.2s ease;">\n` +
+                `<button id="eval-collapse-btn" title="Click to expand for details" style="background:rgba(65,0,127,0.05);border:none;cursor:pointer;padding:0 6px;outline:none;display:inline-flex;align-items:center;justify-content:center;position:absolute;left:8px;top:50%;transform:translateY(-50%);width:24px;height:24px;z-index:2;border-radius:4px;transition:background 0.2s ease;">\n` +
                 `<span id="eval-chevron" style="font-size:1.3em;">▶</span>\n` +
                 `</button>\n` +
                 `<span style="margin-left:32px;font-size:1.5em;">${inputType}</span>\n` +
