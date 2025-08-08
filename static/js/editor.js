@@ -1508,10 +1508,14 @@ class LanguageToolEditor {
         if (collapseBtn) {
             collapseBtn.onclick = () => {
                 this.evalCollapsed[field] = !this.evalCollapsed[field];
-                // Use the last result for this field if available
-                const lastResult = this.fields[field].llmLastResult;
-                if (lastResult) {
-                    this.renderEvaluationOnly(lastResult, field);
+                // Instead of regenerating HTML, just toggle the class and show/hide content
+                collapseBtn.classList.toggle('collapsed', this.evalCollapsed[field]);
+                const evalBox = document.getElementById('llm-eval-box');
+                if (evalBox) {
+                    const content = evalBox.querySelector('.llm-eval-content');
+                    if (content) {
+                        content.style.display = this.evalCollapsed[field] ? 'none' : 'block';
+                    }
                 }
             };
             // Set initial state
