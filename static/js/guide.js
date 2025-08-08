@@ -53,7 +53,35 @@
     setHighlight(target);
     positionTooltip(target);
     document.getElementById('g-prev').onclick = ()=>{ stepIndex = Math.max(0, stepIndex-1); showStep(stepIndex); };
-    document.getElementById('g-next').onclick = ()=>{ stepIndex = Math.min(steps.length-1, stepIndex+1); showStep(stepIndex); };
+    const nextBtn = document.getElementById('g-next');
+    // Default next behavior
+    nextBtn.onclick = ()=>{ stepIndex = Math.min(steps.length-1, stepIndex+1); showStep(stepIndex); };
+
+    // Auto-click actual buttons when appropriate
+    if (i === 1) { // Submit step
+      nextBtn.onclick = ()=>{
+        // Simulate clicking submit to render mock evaluation immediately
+        if (submitBtn) submitBtn.click();
+        stepIndex = 2;
+        showStep(stepIndex);
+      };
+    }
+    if (i === 3) { // Rewrite step
+      nextBtn.onclick = ()=>{
+        const rw = document.getElementById('guide-rewrite');
+        if (rw) {
+          rw.click();
+        } else {
+          // Fallback: apply improved text directly
+          const improved = 'Heat exchanger replacement: Replace HX-07 due to chronic fouling causing efficiency loss >18%. Plan: isolate, drain, swap unit, pressure test to 16 bar, restore service. Expected outcome: restore delta-T to spec and reduce energy draw.';
+          editor.innerText = improved;
+          rewritePopup.style.display = 'none';
+          evalBox.style.display = 'none';
+        }
+        stepIndex = Math.min(steps.length-1, stepIndex+1);
+        showStep(stepIndex);
+      };
+    }
   }
 
   function hideGuide(){
@@ -72,7 +100,7 @@
       <div id="guide-eval-content" class="llm-eval-content" style="display:block;margin-top:12px;">
         <div class="llm-section llm-dropdown open" data-passed="false">
           <div class="llm-section-header" tabindex="0"><span class="llm-dropdown-arrow open">▶</span><span class="llm-section-title" style="color:#111;"><strong>includes_relevant_context</strong></span></div>
-          <div class="llm-section-justification" style="display:block;">Add the specific test conditions and expected behavior.</div>
+          <div class="llm-section-justification" style="display:block;">Include model (HX-07), location, failure impact, and acceptance criteria.</div>
         </div>
         <div class="llm-section llm-dropdown" data-passed="true">
           <div class="llm-section-header" tabindex="0"><span class="llm-dropdown-arrow">▶</span><span class="llm-section-title" style="color:#111;"><strong>uses_professional_language</strong></span></div>
@@ -87,10 +115,10 @@
     rewritePopup.innerHTML = `
       <div class="rewrite-title" style="font-weight:700;color:#41007F;margin-bottom:8px;">To improve your input, please answer the following questions:</div>
       <div style="border:2px solid #41007F;background:rgba(240,240,255,0.3);border-radius:10px;padding:18px 18px 10px 18px;margin:10px 0;">
-        <div class="rewrite-question">What precise temperature range triggers the failure?</div>
-        <textarea class="rewrite-answer" rows="1" style="width:100%;margin-bottom:12px;resize:none;">Between 55–60°C during rapid ramp up.</textarea>
-        <div class="rewrite-question">What is the expected vs actual behavior?</div>
-        <textarea class="rewrite-answer" rows="1" style="width:100%;margin-bottom:12px;resize:none;">Expected: stable calibration; Actual: timeout on sensor read.</textarea>
+        <div class="rewrite-question">Which exchanger is being replaced and why?</div>
+        <textarea class="rewrite-answer" rows="1" style="width:100%;margin-bottom:12px;resize:none;">HX-07, chronic fouling leading to >18% efficiency loss.</textarea>
+        <div class="rewrite-question">What is the procedure and acceptance criteria?</div>
+        <textarea class="rewrite-answer" rows="1" style="width:100%;margin-bottom:12px;resize:none;">Isolate, drain, swap, pressure test 16 bar, restore service; delta-T back to spec.</textarea>
         <button id="guide-rewrite" class="llm-submit-button" style="margin-top:10px;">Rewrite</button>
       </div>
     `;
@@ -116,7 +144,7 @@
 
   document.addEventListener('click', (e) => {
     if (e.target && e.target.id === 'guide-rewrite') {
-      const improved = 'Calibrations fail on Line 3 when temperature ramps from 50→60°C within 30s. Logs indicate read timeout (1200ms). Mitigation: add debounce and extend read window to 1800ms.';
+      const improved = 'Heat exchanger replacement: Replace HX-07 due to chronic fouling causing efficiency loss >18%. Plan: isolate, drain, swap unit, pressure test to 16 bar, restore service. Expected outcome: restore delta-T to spec and reduce energy draw.';
       editor.innerText = improved;
       rewritePopup.style.display = 'none';
       evalBox.style.display = 'none';
