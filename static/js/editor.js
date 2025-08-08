@@ -188,11 +188,11 @@ class LanguageToolEditor {
                 }
                 this.debounceCheck(field);
                 // No rewrite-eval button anymore
-                // Hide rewrite-feedback button if content changed from last rewrite
-                const fbId = field === 'editor' ? 'rewrite-feedback-btn' : 'rewrite-feedback-btn-2';
-                const fb = document.getElementById(fbId);
-                if (fb && fieldObj.rewrittenSnapshot && fieldObj.editor.innerText !== fieldObj.rewrittenSnapshot) {
-                    fb.style.display = 'none';
+                // Hide rewrite-feedback pill if content changed from last rewrite
+                const pillId = field === 'editor' ? 'rewrite-feedback-pill' : 'rewrite-feedback-pill-2';
+                const pill = document.getElementById(pillId);
+                if (pill && fieldObj.rewrittenSnapshot && fieldObj.editor.innerText !== fieldObj.rewrittenSnapshot) {
+                    pill.style.display = 'none';
                 }
             });
             fieldObj.editor.addEventListener('paste', (e) => {
@@ -406,23 +406,42 @@ class LanguageToolEditor {
                 });
             }
 
-            // Rewrite feedback popover button
-            const rewriteFeedbackBtn = document.getElementById(field === 'editor' ? 'rewrite-feedback-btn' : 'rewrite-feedback-btn-2');
-            if (rewriteFeedbackBtn) {
-                rewriteFeedbackBtn.addEventListener('click', () => {
+            // Rewrite feedback pill
+            const pillWrapper = document.getElementById(field === 'editor' ? 'rewrite-feedback-pill' : 'rewrite-feedback-pill-2');
+            if (pillWrapper) {
+                const openPopoverFor = (sentiment) => {
                     this.activeField = field;
                     const pop = document.getElementById('rewrite-feedback-popover');
                     const textarea = document.getElementById('rewrite-feedback-text');
+                    const title = document.getElementById('rewrite-feedback-title');
                     if (textarea) textarea.value = '';
-                    if (pop && rewriteFeedbackBtn) {
-                        const rect = rewriteFeedbackBtn.getBoundingClientRect();
+                    if (title) {
+                        if (sentiment === 'positive') {
+                            title.textContent = 'Positive feedback on this rewrite';
+                            title.style.color = '#2e7d32';
+                        } else if (sentiment === 'negative') {
+                            title.textContent = 'Negative feedback on this rewrite';
+                            title.style.color = '#c62828';
+                        } else {
+                            title.textContent = 'Feedback on this rewrite';
+                            title.style.color = '#41007F';
+                        }
+                    }
+                    // Store pending sentiment for submit
+                    this.pendingRewriteSentiment = sentiment;
+                    if (pop && pillWrapper) {
+                        const rect = pillWrapper.getBoundingClientRect();
                         const top = rect.top + window.scrollY - 10;
                         const left = rect.left + window.scrollX + rect.width + 8;
                         pop.style.top = top + 'px';
                         pop.style.left = left + 'px';
                         pop.style.display = 'block';
                     }
-                });
+                };
+                const negBtn = pillWrapper.querySelector('.pill-seg.neg');
+                const posBtn = pillWrapper.querySelector('.pill-seg.pos');
+                if (negBtn) negBtn.addEventListener('click', () => openPopoverFor('negative'));
+                if (posBtn) posBtn.addEventListener('click', () => openPopoverFor('positive'));
             }
         });
         // Hide popup when clicking outside
@@ -466,6 +485,7 @@ class LanguageToolEditor {
                     rewritten_text: fieldObj.editor.innerText || '',
                     rewrite_qas: fieldObj.lastRewriteQA || {},
                     feedback_text: feedbackText,
+                    sentiment: this.pendingRewriteSentiment || null,
                     first_name: user.first_name || '',
                     last_name: user.last_name || '',
                     email: user.email || '',
@@ -856,11 +876,11 @@ class LanguageToolEditor {
             
             this.displayLLMResult(data.result, answers !== null, field, !answers);
             this.updateActiveEditorHighlight(); // Ensure highlight remains
-            // If this was a rewrite, snapshot state
+            // If this was a rewrite, snapshot state and show pill
             if (answers) {
-                const fbId = field === 'editor' ? 'rewrite-feedback-btn' : 'rewrite-feedback-btn-2';
-                const fbBtn = document.getElementById(fbId);
-                if (fbBtn) fbBtn.style.display = 'flex';
+                const pillId = field === 'editor' ? 'rewrite-feedback-pill' : 'rewrite-feedback-pill-2';
+                const pill = document.getElementById(pillId);
+                if (pill) pill.style.display = 'block';
                 fieldObj.rewrittenSnapshot = fieldObj.editor.innerText;
                 fieldObj.lastRewriteQA = answers;
             }

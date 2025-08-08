@@ -15,6 +15,31 @@
   animation: copyRing 0.4s ease-out;
   border-radius: 6px;
 }
+
+/* Rewrite feedback pill */
+.rewrite-feedback-pill .pill {
+  display: inline-flex;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+}
+.rewrite-feedback-pill .pill-seg {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 6px 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.rewrite-feedback-pill .pill-seg.neg:hover { background: rgba(244,67,54,0.12); }
+.rewrite-feedback-pill .pill-seg.pos:hover { background: rgba(76,175,80,0.12); }
+.rewrite-feedback-pill .pill-seg.active.neg { background: rgba(244,67,54,0.2); }
+.rewrite-feedback-pill .pill-seg.active.pos { background: rgba(76,175,80,0.2); }
 @import url('https://fonts.googleapis.com/css?family=Open+Sans:400,600,700&display=swap');
 body {
     font-family: 'Open Sans', sans-serif;
