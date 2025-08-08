@@ -1082,32 +1082,32 @@ class LanguageToolEditor {
         const position = clampedPercentage; // 0-100
         
         return `
-            <div style="display: flex; align-items: center; gap: 8px; font-size: 0.9em; font-weight: 600;">
-                <span style="color: #000;">Vague</span>
-                <div style="position: relative; width: 120px; height: 20px; background: linear-gradient(to right, #ff4444 0%, #ffaa00 50%, #44ff44 100%); border-radius: 10px; border: 2px solid #ddd; overflow: visible;">
-                    <div style="position: absolute; top: -3px; left: ${position}%; width: 2px; height: 26px; background: #41007F; border-radius: 1px; transform: translateX(-50%); border: 1px solid #fff; box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>
+            <div style="display: flex; align-items: center; gap: 10px; font-size: 0.85em; font-weight: 600; padding: 4px 0;">
+                <span style="color: #666; font-size: 0.9em;">Vague</span>
+                <div style="position: relative; width: 140px; height: 24px; background: linear-gradient(to right, #ff6b6b 0%, #ffd93d 50%, #6bcf7f 100%); border-radius: 12px; border: 2px solid #e0e0e0; overflow: visible; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
+                    <div style="position: absolute; top: -4px; left: ${position}%; width: 3px; height: 32px; background: linear-gradient(to bottom, #41007F, #5a1a9a); border-radius: 2px; transform: translateX(-50%); border: 2px solid #fff; box-shadow: 0 2px 8px rgba(65,0,127,0.4), 0 0 0 1px rgba(255,255,255,0.8);"></div>
                 </div>
-                <span style="color: #000; min-width: 60px;">Thorough</span>
+                <span style="color: #666; font-size: 0.9em; min-width: 70px;">Thorough</span>
             </div>
             <style>
                 @media (max-width: 950px) {
                     .editor-score {
-                        font-size: 0.9em !important;
+                        font-size: 0.85em !important;
                     }
                     .editor-score > div {
-                        gap: 6px !important;
+                        gap: 8px !important;
                     }
                     .editor-score > div > div {
-                        width: 100px !important;
-                        height: 16px !important;
+                        width: 110px !important;
+                        height: 20px !important;
                     }
                     .editor-score > div > div > div:first-child {
-                        height: 22px !important;
-                        top: -3px !important;
+                        height: 28px !important;
+                        top: -4px !important;
                     }
                     .editor-score > div > span {
                         min-width: 0 !important;
-                        font-size: 0.9em !important;
+                        font-size: 0.85em !important;
                     }
                 }
             </style>
