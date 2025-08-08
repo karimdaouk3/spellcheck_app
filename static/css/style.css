@@ -575,7 +575,7 @@ body {
 
 .history-box::-webkit-scrollbar-track {
     background: transparent;
-    border-radius: 0 16px 16px 0;
+    margin: 16px 0;
 }
 
 .history-box::-webkit-scrollbar-thumb {
@@ -668,7 +668,7 @@ body {
     
     /* Custom scrollbar for history box on mobile */
     .history-box::-webkit-scrollbar-track {
-        border-radius: 0 12px 12px 0;
+        margin: 12px 0;
     }
     
     /* Mobile optimizations for all screens under 900px */
