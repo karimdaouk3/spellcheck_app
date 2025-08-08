@@ -1001,14 +1001,14 @@ body {
     position: absolute;
     left: 8px;
     top: 50%;
-    transform: translateY(-50%);
+    transform: translateY(-50%) rotate(90deg); /* open (expanded) points down */
     z-index: 2;
     display: flex;
     align-items: center;
     justify-content: center;
     width: 24px;
     height: 24px;
-    transition: color 0.2s ease, background 0.2s ease;
+    transition: transform 0.2s ease, color 0.2s ease, background 0.2s ease;
     color: #666;
     cursor: pointer;
     border-radius: 4px;
@@ -1021,7 +1021,7 @@ body {
 }
 
 #eval-collapse-btn.collapsed {
-    transform: translateY(-50%) rotate(-90deg);
+    transform: translateY(-50%) rotate(0deg); /* closed points right */
     background: rgba(65, 0, 127, 0.1);
     color: #41007F;
 }
