@@ -1006,8 +1006,8 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     transition: transform 0.2s ease, color 0.2s ease, background 0.2s ease;
     color: #666;
     cursor: pointer;

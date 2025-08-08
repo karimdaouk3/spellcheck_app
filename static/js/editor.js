@@ -842,8 +842,7 @@ class LanguageToolEditor {
                 `</button>\n` +
                 `<span style="margin-left:32px;font-size:1.5em;">${inputType}</span>\n` +
                 `</div>`;
-            // Wrap content in a div for toggling
-            html += `<div class="eval-content" style="display: ${isCollapsed ? 'none' : 'block'};">`;
+            // Only show the rest if not collapsed
             if (!isCollapsed) {
                 // Sort rules: passed first, then failed
                 const sortedKeys = keys.sort((a, b) => {
@@ -897,7 +896,6 @@ class LanguageToolEditor {
                     }
                 }
             }
-            html += `</div>`;
         } else {
             evalBox.innerHTML = '';
             evalBox.style.display = 'none';
@@ -912,13 +910,7 @@ class LanguageToolEditor {
             if (btnCheck) {
                 btnCheck.onclick = () => {
                     this.evalCollapsed[field] = !this.evalCollapsed[field];
-                    btnCheck.classList.toggle('collapsed', this.evalCollapsed[field]);
-                    // Toggle the content visibility instead of regenerating HTML
-                    const evalBox = document.getElementById('llm-eval-box');
-                    const content = evalBox.querySelector('.eval-content');
-                    if (content) {
-                        content.style.display = this.evalCollapsed[field] ? 'none' : 'block';
-                    }
+                    this.displayLLMResult(result, showRewrite, field);
                 };
                 // Set initial state
                 btnCheck.classList.toggle('collapsed', this.evalCollapsed[field]);
@@ -1509,6 +1501,8 @@ class LanguageToolEditor {
                     this.renderEvaluationOnly(lastResult, field);
                 }
             };
+            // Set initial state
+            collapseBtn.classList.toggle('collapsed', this.evalCollapsed[field]);
         }
         
         // Re-add all the other event listeners (dropdowns, feedback buttons, etc.)
