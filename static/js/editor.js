@@ -1318,28 +1318,19 @@ class LanguageToolEditor {
             const text = typeof item === 'string' ? item : item.text;
             const llmResult = typeof item === 'object' ? item.llmLastResult : null;
             
-            // Calculate score if available
-            let scoreDisplay = '';
+            // Calculate score if available and set border color instead of text label
             if (llmResult && llmResult.evaluation) {
                 const score = this.calculateWeightedScore(this.activeField, llmResult.evaluation);
                 const percentage = Math.round(score);
-                
-                // Determine performance level based on percentage
-                let performanceText = '';
-                let performanceColor = '';
-                
+                let borderColor = '#e8eaed';
                 if (percentage < 33) {
-                    performanceText = 'Needs Improvement';
-                    performanceColor = '#F44336'; // Red
+                    borderColor = '#F44336'; // Red
                 } else if (percentage < 66) {
-                    performanceText = 'Good';
-                    performanceColor = '#FFC107'; // Yellow/Orange
+                    borderColor = '#FFC107'; // Yellow/Orange
                 } else {
-                    performanceText = 'Excellent';
-                    performanceColor = '#4CAF50'; // Green
+                    borderColor = '#4CAF50'; // Green
                 }
-                
-                scoreDisplay = `<div style="font-size:0.85em;color:${performanceColor};font-weight:600;background:rgba(255,255,255,0.8);padding:4px 8px;border-radius:6px;display:inline-block;margin-top:8px;">${performanceText}</div>`;
+                historyItem.style.border = `2px solid ${borderColor}`;
             }
             
             // Replace newlines with <br> tags for proper rendering
@@ -1347,7 +1338,6 @@ class LanguageToolEditor {
             
             historyItem.innerHTML = `
                 <div style="white-space:pre-wrap;">${textWithNewlines}</div>
-                ${scoreDisplay ? `<div>${scoreDisplay}</div>` : ''}
             `;
             
             historyItem.onclick = () => {
