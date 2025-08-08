@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FSR Coach Wiki</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  <style>
+    .wiki-header {
+      background: linear-gradient(90deg, #41007F, #5a1a9a);
+      color: white;
+      padding: 28px;
+      border-radius: 16px;
+      box-shadow: 0 6px 24px rgba(33,0,127,0.12);
+      margin: 16px auto 12px auto;
+      max-width: 1100px;
+    }
+    .wiki-container {
+      max-width: 1100px;
+      margin: 0 auto 48px auto;
+      padding: 0 20px;
+    }
+    .wiki-card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 2px 12px rgba(33,0,127,0.08);
+      border: 1px solid #eee;
+      padding: 20px 24px;
+      margin: 14px 0;
+    }
+    .wiki-card h3 {
+      color: #41007F;
+      margin: 0 0 8px 0;
+    }
+    .wiki-card p { color:#333; line-height: 1.6; }
+    .wiki-steps { list-style: none; padding: 0; margin: 10px 0 0 0; }
+    .wiki-steps li { margin: 8px 0; padding-left: 20px; position: relative; }
+    .wiki-steps li:before { content: '▸'; color: #41007F; position: absolute; left: 0; }
+    .wiki-top-actions { display:flex; gap:10px; margin-top:10px; }
+    .wiki-top-actions a { color:#fff; text-decoration:none; border:1px solid rgba(255,255,255,0.9); padding:8px 12px; border-radius:6px; }
+    .wiki-top-actions a:hover { background: rgba(255,255,255,0.15); }
+  </style>
+</head>
+<body>
+  <div class="wiki-header">
+    <h1 style="margin:0;">FSR Coach Wiki</h1>
+    <p style="margin:6px 0 0 0; opacity:0.95;">A quick guide to using FSR Coach effectively.</p>
+    <div class="wiki-top-actions">
+      <a href="/" title="Back to App">← Back to App</a>
+      <a href="/overall-feedback" title="Submit Feedback">Submit Feedback</a>
+    </div>
+  </div>
+  <div class="wiki-container">
+    <div class="wiki-card">
+      <h3>1. Overview</h3>
+      <p>FSR Coach helps you craft clear, thorough problem statements and FSR Daily Notes. The left side is where you type; the right side shows guidance and rewrite questions.</p>
+      <ul class="wiki-steps">
+        <li>Use the microphone to dictate, or type directly.</li>
+        <li>Click “Submit for Review” to get a score and detailed feedback.</li>
+        <li>Answer any rewrite questions to improve your text and get a suggested rewrite.</li>
+      </ul>
+    </div>
+
+    <div class="wiki-card">
+      <h3>2. Temperature Bar (Vague → Thorough)</h3>
+      <p>The header of each editor shows a temperature bar indicating thoroughness. Aim to move the purple indicator to the right over time.</p>
+      <ul class="wiki-steps">
+        <li>Vague (left) → Thorough (right)</li>
+        <li>Target is near the middle/right; keep iterating after reviews.</li>
+      </ul>
+    </div>
+
+    <div class="wiki-card">
+      <h3>3. Running a Review</h3>
+      <ul class="wiki-steps">
+        <li>Type or paste your content, then click “Submit for Review”.</li>
+        <li>Open the “How Your Score Was Calculated” panel to see each criterion.</li>
+        <li>For items marked “Needs Improvement”, click to reveal rationale and tips.</li>
+      </ul>
+    </div>
+
+    <div class="wiki-card">
+      <h3>4. Rewrite Questions</h3>
+      <p>When criteria need improvement, you’ll see targeted questions. Your answers persist while switching between the two editors. They reset only when a new review is run.</p>
+      <ul class="wiki-steps">
+        <li>Provide short, specific answers.</li>
+        <li>Click “Rewrite” to generate an improved draft.</li>
+      </ul>
+    </div>
+
+    <div class="wiki-card">
+      <h3>5. History</h3>
+      <p>The History section keeps recent versions. Click any item to restore it and view its score and feedback. Quality labels (Needs Improvement, Good, Excellent) appear below each entry.</p>
+    </div>
+
+    <div class="wiki-card">
+      <h3>6. Tips</h3>
+      <ul class="wiki-steps">
+        <li>Use the copy button to quickly copy your text (you’ll see a checkmark on success).</li>
+        <li>Use the mic for quick dictation; long pauses can reduce transcription quality.</li>
+        <li>Submit feedback from the top-right button to help improve FSR Coach.</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>
+

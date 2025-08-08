@@ -370,57 +370,22 @@ class LanguageToolEditor {
             const copyBtn = fieldObj.copyBtn;
             if (copyBtn) {
                 copyBtn.addEventListener('click', async () => {
-                    // Prevent multiple clicks while showing feedback
                     if (copyBtn.disabled) return;
-                    
                     const text = fieldObj.editor.innerText;
-                    if (text.trim() === '') {
-                        // Show error feedback on the button itself
-                        const originalHTML = copyBtn.innerHTML;
-                        copyBtn.disabled = true;
-                        copyBtn.style.pointerEvents = 'none';
-                        const isMobile = window.innerWidth < 950;
-                        const fontSize = isMobile ? '0.75em' : '0.85em';
-                        copyBtn.innerHTML = `<span style="color: #666; font-size: ${fontSize}; font-weight: normal; white-space: nowrap;">Nothing to copy</span>`;
-                        setTimeout(() => {
-                            copyBtn.innerHTML = originalHTML;
-                            copyBtn.disabled = false;
-                            copyBtn.style.pointerEvents = '';
-                        }, 1500);
-                        return;
-                    }
-                    
+                    if (text.trim() === '') return; // do nothing on empty
                     try {
                         await navigator.clipboard.writeText(text);
-                        
-                        // Success feedback - change button text
                         const originalHTML = copyBtn.innerHTML;
                         copyBtn.disabled = true;
                         copyBtn.style.pointerEvents = 'none';
-                        const isMobile = window.innerWidth < 950;
-                        const fontSize = isMobile ? '0.75em' : '0.85em';
-                        copyBtn.innerHTML = `<span style="color: #4CAF50; font-size: ${fontSize}; font-weight: normal; white-space: nowrap;">✓ Copied!</span>`;
-                        
+                        copyBtn.innerHTML = `<span style="color:#4CAF50; font-size:1.0em;">✓</span>`;
                         setTimeout(() => {
                             copyBtn.innerHTML = originalHTML;
                             copyBtn.disabled = false;
                             copyBtn.style.pointerEvents = '';
-                        }, 1500);
-                        
-                    } catch (err) {
-                        // Error feedback - change button text
-                        const originalHTML = copyBtn.innerHTML;
-                        copyBtn.disabled = true;
-                        copyBtn.style.pointerEvents = 'none';
-                        const isMobile = window.innerWidth < 950;
-                        const fontSize = isMobile ? '0.75em' : '0.85em';
-                        copyBtn.innerHTML = `<span style="color: #F44336; font-size: ${fontSize}; font-weight: normal; white-space: nowrap;">✗ Failed</span>`;
-                        
-                        setTimeout(() => {
-                            copyBtn.innerHTML = originalHTML;
-                            copyBtn.disabled = false;
-                            copyBtn.style.pointerEvents = '';
-                        }, 1500);
+                        }, 1200);
+                    } catch (e) {
+                        // silently ignore on failure
                     }
                 });
             }
@@ -787,7 +752,7 @@ class LanguageToolEditor {
                 this.logEvaluationData(text, data.result, field);
             }
             
-            this.displayLLMResult(data.result, answers !== null, field);
+            this.displayLLMResult(data.result, answers !== null, field, !answers);
             this.updateActiveEditorHighlight(); // Ensure highlight remains
         } catch (e) {
             alert('LLM call failed: ' + e);
@@ -797,7 +762,7 @@ class LanguageToolEditor {
         }
     }
 
-    displayLLMResult(result, showRewrite, field = this.activeField) {
+    displayLLMResult(result, showRewrite, field = this.activeField, isNewEvaluation = false) {
         const fieldObj = this.fields[field];
         
         // If no result but field is being reviewed, preserve loading state
@@ -836,7 +801,6 @@ class LanguageToolEditor {
             const passed = keys.filter(key => rulesObj[key].passed).length;
             let inputType = 'How Your Score Was Calculated';
             // Replace score box with feedback title
-            console.log('DEBUG displayLLMResult: Creating eval-collapse-btn HTML for field:', field);
             html += `<div class="llm-score" style="font-size:1.35em;font-weight:700;margin-bottom:0;background:#fff;color:#41007F;padding:10px 0 10px 0;border-radius:8px;text-align:center;box-shadow:0 1px 4px rgba(33,0,127,0.07);letter-spacing:0.5px;display:flex;align-items:center;justify-content:center;gap:10px;position:relative;">\n` +
                 `<button id="eval-collapse-btn" title="Click to expand for details" style="background:rgba(65,0,127,0.05);border:none;cursor:pointer;padding:0 6px;outline:none;display:inline-flex;align-items:center;justify-content:center;position:absolute;left:8px;top:50%;width:24px;height:24px;z-index:2;border-radius:4px;transition:background 0.2s ease;">\n` +
                 `<span id="eval-chevron" style="font-size:1.3em;">▶</span>\n` +
@@ -908,39 +872,24 @@ class LanguageToolEditor {
         // Check if button exists immediately after setting HTML
         setTimeout(() => {
             const btnCheck = document.getElementById('eval-collapse-btn');
-            console.log('DEBUG: Looking for eval-collapse-btn, found:', btnCheck);
             if (btnCheck) {
-                console.log('DEBUG: Setting up button click handler for field:', field);
-                console.log('DEBUG: Initial evalCollapsed state:', this.evalCollapsed[field]);
                 btnCheck.onclick = () => {
-                    console.log('DEBUG: Button clicked!');
-                    console.log('DEBUG: Previous evalCollapsed state:', this.evalCollapsed[field]);
                     this.evalCollapsed[field] = !this.evalCollapsed[field];
-                    console.log('DEBUG: New evalCollapsed state:', this.evalCollapsed[field]);
                     
                     // Instead of regenerating HTML, just toggle the class and show/hide content
-                    console.log('DEBUG: Toggling collapsed class to:', this.evalCollapsed[field]);
                     btnCheck.classList.toggle('collapsed', this.evalCollapsed[field]);
-                    console.log('DEBUG: Button classes after toggle:', btnCheck.className);
                     
                     const evalBox = document.getElementById('llm-eval-box');
-                    console.log('DEBUG: Found evalBox:', evalBox);
                     if (evalBox) {
                         const content = evalBox.querySelector('.llm-eval-content');
-                        console.log('DEBUG: Found content div:', content);
                         if (content) {
                             const newDisplay = this.evalCollapsed[field] ? 'none' : 'block';
-                            console.log('DEBUG: Setting content display to:', newDisplay);
                             content.style.display = newDisplay;
                         }
                     }
                 };
                 // Set initial state
-                console.log('DEBUG: Setting initial collapsed state to:', this.evalCollapsed[field]);
                 btnCheck.classList.toggle('collapsed', this.evalCollapsed[field]);
-                console.log('DEBUG: Initial button classes:', btnCheck.className);
-            } else {
-                console.log('DEBUG: eval-collapse-btn not found!');
             }
         }, 0);
         
@@ -963,8 +912,11 @@ class LanguageToolEditor {
                 }
             }
             
-            // Always clear answers when new questions are generated (this happens when submitting new text)
-            fieldObj.llmAnswers = {};
+            // Only clear answers when a new evaluation produces a new set of questions.
+            // Preserve answers when simply switching active boxes.
+            if (isNewEvaluation) {
+                fieldObj.llmAnswers = {};
+            }
             
             fieldObj.llmQuestions = newQuestions;
             if (fieldObj.llmQuestions.length > 0) {
@@ -976,8 +928,8 @@ class LanguageToolEditor {
                 qHtml += `<div class="rewrite-title" style="border: 2px solid ${borderColor}; background: ${backgroundColor}; border-radius: 10px; padding: 18px 18px 10px 18px; margin-bottom: 10px; margin-top: 10px;">`;
                 fieldObj.llmQuestions.forEach((q, idx) => {
                     qHtml += `<div class="rewrite-question">${this.escapeHtml(q.question)}</div>`;
-                    // Prepopulate answer if we're restoring from history OR if we have saved answers
-                    const existingAnswer = (fieldObj.isRestoringFromHistory || fieldObj.llmAnswers[q.criteria]) ? (fieldObj.llmAnswers[q.criteria] || '') : '';
+                    // Prepopulate saved answers when switching boxes; new evaluations start with cleared answers
+                    const existingAnswer = fieldObj.llmAnswers && fieldObj.llmAnswers[q.criteria] ? (fieldObj.llmAnswers[q.criteria] || '') : '';
                     qHtml += `<textarea class="rewrite-answer" data-criteria="${this.escapeHtml(q.criteria)}" rows="1" style="width:100%;margin-bottom:12px;resize:none;">${this.escapeHtml(existingAnswer)}</textarea>`;
                 });
                 qHtml += `<button id="submit-answers-btn" class="llm-submit-button" style="margin-top:10px;">Rewrite</button>`;
@@ -1475,7 +1427,6 @@ class LanguageToolEditor {
             let inputType = 'How Your Score Was Calculated';
             
             // Replace score box with feedback title
-            console.log('DEBUG renderEvaluationOnly: Creating eval-collapse-btn HTML for field:', field);
             html += `<div class="llm-score" style="font-size:1.35em;font-weight:700;margin-bottom:0;background:#fff;color:#41007F;padding:10px 0 10px 0;border-radius:8px;text-align:center;box-shadow:0 1px 4px rgba(33,0,127,0.07);letter-spacing:0.5px;display:flex;align-items:center;justify-content:center;gap:10px;position:relative;">\n` +
                 `<button id="eval-collapse-btn" title="Click to expand for details" style="background:rgba(65,0,127,0.05);border:none;cursor:pointer;padding:0 6px;outline:none;display:inline-flex;align-items:center;justify-content:center;position:absolute;left:8px;top:50%;width:24px;height:24px;z-index:2;border-radius:4px;transition:background 0.2s ease;">\n` +
                 `<span id="eval-chevron" style="font-size:1.3em;">▶</span>\n` +
@@ -1523,39 +1474,24 @@ class LanguageToolEditor {
         
         // Re-add collapse/expand logic
         const collapseBtn = document.getElementById('eval-collapse-btn');
-        console.log('DEBUG renderEvaluationOnly: Looking for eval-collapse-btn, found:', collapseBtn);
         if (collapseBtn) {
-            console.log('DEBUG renderEvaluationOnly: Setting up button click handler for field:', field);
-            console.log('DEBUG renderEvaluationOnly: Initial evalCollapsed state:', this.evalCollapsed[field]);
             collapseBtn.onclick = () => {
-                console.log('DEBUG renderEvaluationOnly: Button clicked!');
-                console.log('DEBUG renderEvaluationOnly: Previous evalCollapsed state:', this.evalCollapsed[field]);
                 this.evalCollapsed[field] = !this.evalCollapsed[field];
-                console.log('DEBUG renderEvaluationOnly: New evalCollapsed state:', this.evalCollapsed[field]);
                 
                 // Instead of regenerating HTML, just toggle the class and show/hide content
-                console.log('DEBUG renderEvaluationOnly: Toggling collapsed class to:', this.evalCollapsed[field]);
                 collapseBtn.classList.toggle('collapsed', this.evalCollapsed[field]);
-                console.log('DEBUG renderEvaluationOnly: Button classes after toggle:', collapseBtn.className);
                 
                 const evalBox = document.getElementById('llm-eval-box');
-                console.log('DEBUG renderEvaluationOnly: Found evalBox:', evalBox);
                 if (evalBox) {
                     const content = evalBox.querySelector('.llm-eval-content');
-                    console.log('DEBUG renderEvaluationOnly: Found content div:', content);
                     if (content) {
                         const newDisplay = this.evalCollapsed[field] ? 'none' : 'block';
-                        console.log('DEBUG renderEvaluationOnly: Setting content display to:', newDisplay);
                         content.style.display = newDisplay;
                     }
                 }
             };
             // Set initial state
-            console.log('DEBUG renderEvaluationOnly: Setting initial collapsed state to:', this.evalCollapsed[field]);
             collapseBtn.classList.toggle('collapsed', this.evalCollapsed[field]);
-            console.log('DEBUG renderEvaluationOnly: Initial button classes:', collapseBtn.className);
-        } else {
-            console.log('DEBUG renderEvaluationOnly: eval-collapse-btn not found!');
         }
         
         // Re-add all the other event listeners (dropdowns, feedback buttons, etc.)

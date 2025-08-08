@@ -461,6 +461,28 @@ body {
     font-family: 'Open Sans', sans-serif;
 }
 
+/* Left wiki button, styled like feedback */
+.wiki-section {
+    position: absolute;
+    top: 50%;
+    left: 16px;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 1);
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: background-color 0.2s, border-color 0.2s;
+    color: white;
+}
+.wiki-section:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 1);
+}
+
 .feedback-section:hover {
     background-color: rgba(255, 255, 255, 0.1);
     border-color: rgba(255, 255, 255, 1);
