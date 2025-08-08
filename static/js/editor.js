@@ -414,6 +414,8 @@ class LanguageToolEditor {
                     const pop = document.getElementById('rewrite-feedback-popover');
                     const textarea = document.getElementById('rewrite-feedback-text');
                     const title = document.getElementById('rewrite-feedback-title');
+                    const negBtn = pillWrapper.querySelector('.pill-seg.neg');
+                    const posBtn = pillWrapper.querySelector('.pill-seg.pos');
                     if (textarea) textarea.value = '';
                     if (title) {
                         if (sentiment === 'positive') {
@@ -429,6 +431,9 @@ class LanguageToolEditor {
                     }
                     // Store pending sentiment for submit
                     this.pendingRewriteSentiment = sentiment;
+                    // Color icon only while popover is open
+                    if (negBtn) negBtn.classList.toggle('colored', sentiment === 'negative');
+                    if (posBtn) posBtn.classList.toggle('colored', sentiment === 'positive');
                     if (pop && pillWrapper) {
                         const rect = pillWrapper.getBoundingClientRect();
                         const top = rect.top + window.scrollY - 10;
@@ -526,9 +531,17 @@ class LanguageToolEditor {
             const popover = document.getElementById('rewrite-feedback-popover');
             if (!popover || popover.style.display !== 'block') return;
             const clickedInside = popover.contains(e.target);
-            const clickedButton = e.target.closest('#rewrite-feedback-btn') || e.target.closest('#rewrite-feedback-btn-2');
+            // Close if clicking away; also un-color icons
+            const pill1 = document.getElementById('rewrite-feedback-pill');
+            const pill2 = document.getElementById('rewrite-feedback-pill-2');
+            const clickedPill = (pill1 && pill1.contains(e.target)) || (pill2 && pill2.contains(e.target));
             if (!clickedInside && !clickedButton) {
                 popover.style.display = 'none';
+                const neg1 = pill1 ? pill1.querySelector('.pill-seg.neg') : null;
+                const pos1 = pill1 ? pill1.querySelector('.pill-seg.pos') : null;
+                const neg2 = pill2 ? pill2.querySelector('.pill-seg.neg') : null;
+                const pos2 = pill2 ? pill2.querySelector('.pill-seg.pos') : null;
+                [neg1,pos1,neg2,pos2].forEach(btn => { if (btn) btn.classList.remove('colored'); });
             }
         });
     }

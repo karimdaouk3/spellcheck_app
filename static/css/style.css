@@ -36,10 +36,11 @@
   transition: background 0.15s;
 }
 .rewrite-feedback-pill .pill-seg svg { stroke: #666; }
-.rewrite-feedback-pill .pill-seg.neg:hover { background: rgba(158,158,158,0.12); }
-.rewrite-feedback-pill .pill-seg.pos:hover { background: rgba(158,158,158,0.12); }
-.rewrite-feedback-pill .pill-seg.active.neg svg { stroke: #c62828; }
-.rewrite-feedback-pill .pill-seg.active.pos svg { stroke: #2e7d32; }
+.rewrite-feedback-pill .pill-seg.neg:hover { background: rgba(244,67,54,0.12); }
+.rewrite-feedback-pill .pill-seg.pos:hover { background: rgba(76,175,80,0.12); }
+/* Icon color should only be colored when popover is open; class managed by JS */
+.rewrite-feedback-pill .pill-seg.colored.neg svg { stroke: #c62828; }
+.rewrite-feedback-pill .pill-seg.colored.pos svg { stroke: #2e7d32; }
 
 .rewrite-feedback-pill .pill-divider {
   width: 1px;
