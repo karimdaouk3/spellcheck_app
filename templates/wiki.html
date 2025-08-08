@@ -3,105 +3,66 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FSR Coach Wiki</title>
+  <title>FSR Coach – Interactive Guide</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
   <style>
-    .wiki-header {
-      background: linear-gradient(90deg, #41007F, #5a1a9a);
-      color: white;
-      padding: 28px;
-      border-radius: 16px;
-      box-shadow: 0 6px 24px rgba(33,0,127,0.12);
-      margin: 16px auto 12px auto;
-      max-width: 1100px;
-    }
-    .wiki-container {
-      max-width: 1100px;
-      margin: 0 auto 48px auto;
-      padding: 0 20px;
-    }
-    .wiki-card {
-      background: #fff;
-      border-radius: 14px;
-      box-shadow: 0 2px 12px rgba(33,0,127,0.08);
-      border: 1px solid #eee;
-      padding: 20px 24px;
-      margin: 14px 0;
-    }
-    .wiki-card h3 {
-      color: #41007F;
-      margin: 0 0 8px 0;
-    }
-    .wiki-card p { color:#333; line-height: 1.6; }
-    .wiki-steps { list-style: none; padding: 0; margin: 10px 0 0 0; }
-    .wiki-steps li { margin: 8px 0; padding-left: 20px; position: relative; }
-    .wiki-steps li:before { content: '▸'; color: #41007F; position: absolute; left: 0; }
-    .wiki-top-actions { display:flex; gap:10px; margin-top:10px; }
-    .wiki-top-actions a { color:#fff; text-decoration:none; border:1px solid rgba(255,255,255,0.9); padding:8px 12px; border-radius:6px; }
-    .wiki-top-actions a:hover { background: rgba(255,255,255,0.15); }
+    .guide-header { background: linear-gradient(90deg, #41007F, #5a1a9a); color:#fff; padding: 20px 24px; border-radius: 16px; box-shadow: 0 6px 24px rgba(33,0,127,0.12); margin: 16px auto; max-width: 1180px; display:flex; align-items:center; justify-content:space-between; }
+    .guide-actions a { color:#fff; text-decoration:none; border:1px solid rgba(255,255,255,0.9); padding:8px 12px; border-radius:6px; }
+    .guide-actions a:hover { background: rgba(255,255,255,0.15); }
+    .guide-container { max-width: 1180px; margin: 0 auto 48px auto; }
+    .guide-tooltip { position: fixed; z-index: 1000; background: #41007F; color:#fff; padding: 10px 12px; border-radius: 8px; box-shadow: 0 8px 24px rgba(33,0,127,0.3); max-width: 320px; font-size: 0.95em; }
+    .guide-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.25); z-index: 999; }
+    .guide-highlight { outline: 3px solid #00A7E1; outline-offset: 3px; border-radius: 8px; transition: outline 0.15s ease; }
+    .guide-ctrls { display:flex; gap:8px; margin-top:8px; }
+    .guide-btn { background:#fff; color:#41007F; border: 1px solid #fff; padding:6px 10px; border-radius:6px; cursor:pointer; font-weight:600; }
+    .guide-btn.secondary { background: transparent; color:#fff; border-color: rgba(255,255,255,0.7); }
   </style>
 </head>
 <body>
-  <div class="wiki-header">
-    <h1 style="margin:0;">FSR Coach Wiki</h1>
-    <p style="margin:6px 0 0 0; opacity:0.95;">A quick guide to using FSR Coach effectively.</p>
-    <div class="wiki-top-actions">
+  <div class="guide-header">
+    <div>
+      <h1 style="margin:0;">Interactive Guide</h1>
+      <div style="opacity:0.9;">Follow the steps to learn FSR Coach quickly.</div>
+    </div>
+    <div class="guide-actions">
       <a href="/" title="Back to App">← Back to App</a>
-      <a href="/overall-feedback" title="Submit Feedback">Submit Feedback</a>
     </div>
   </div>
-  <div class="wiki-container">
-    <div class="wiki-card">
-      <h3>1. Overview</h3>
-      <p>FSR Coach helps you craft clear, thorough problem statements and FSR Daily Notes. The left side is where you type; the right side shows guidance and rewrite questions.</p>
-      <ul class="wiki-steps">
-        <li>Use the microphone to dictate, or type directly.</li>
-        <li>Click “Submit for Review” to get a score and detailed feedback.</li>
-        <li>Answer any rewrite questions to improve your text and get a suggested rewrite.</li>
-      </ul>
-    </div>
-
-    <div class="wiki-card">
-      <h3>2. Temperature Bar (Vague → Thorough)</h3>
-      <p>The header of each editor shows a temperature bar indicating thoroughness. Aim to move the purple indicator to the right over time.</p>
-      <ul class="wiki-steps">
-        <li>Vague (left) → Thorough (right)</li>
-        <li>Target is near the middle/right; keep iterating after reviews.</li>
-      </ul>
-    </div>
-
-    <div class="wiki-card">
-      <h3>3. Running a Review</h3>
-      <ul class="wiki-steps">
-        <li>Type or paste your content, then click “Submit for Review”.</li>
-        <li>Open the “How Your Score Was Calculated” panel to see each criterion.</li>
-        <li>For items marked “Needs Improvement”, click to reveal rationale and tips.</li>
-      </ul>
-    </div>
-
-    <div class="wiki-card">
-      <h3>4. Rewrite Questions</h3>
-      <p>When criteria need improvement, you’ll see targeted questions. Your answers persist while switching between the two editors. They reset only when a new review is run.</p>
-      <ul class="wiki-steps">
-        <li>Provide short, specific answers.</li>
-        <li>Click “Rewrite” to generate an improved draft.</li>
-      </ul>
-    </div>
-
-    <div class="wiki-card">
-      <h3>5. History</h3>
-      <p>The History section keeps recent versions. Click any item to restore it and view its score and feedback. Quality labels (Needs Improvement, Good, Excellent) appear below each entry.</p>
-    </div>
-
-    <div class="wiki-card">
-      <h3>6. Tips</h3>
-      <ul class="wiki-steps">
-        <li>Use the copy button to quickly copy your text (you’ll see a checkmark on success).</li>
-        <li>Use the mic for quick dictation; long pauses can reduce transcription quality.</li>
-        <li>Submit feedback from the top-right button to help improve FSR Coach.</li>
-      </ul>
+  <div class="guide-container">
+    <div class="content-flex" style="gap:18px;">
+      <div class="left-column">
+        <div class="editor-container-group">
+          <div class="editor-container">
+            <div class="editor-label-container">
+              <label class="editor-label">Current Problem Statement</label>
+              <span class="editor-score"></span>
+            </div>
+            <div class="editor-wrapper" style="position:relative;">
+              <div id="guide-editor" contenteditable="true" class="editor-div" spellcheck="false">Sensor intermittently fails during calibration on Line 3. Intermittent behavior observed when temperature fluctuates rapidly. Logs show timeout on read operation.</div>
+              <button id="guide-copy" title="Copy" style="position:absolute; bottom:30px; right:40px; background:none; border:none; cursor:pointer; font-size:1.2em; padding:4px 8px; border-radius:4px; display:flex; align-items:center; justify-content:center;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+              </button>
+            </div>
+            <button id="guide-submit" class="llm-submit-button">Submit for Review</button>
+          </div>
+        </div>
+        <div class="history-box" style="margin-top:14px;">
+          <div class="history-header">History</div>
+          <ul id="guide-history" class="history-list"></ul>
+        </div>
+      </div>
+      <div class="right-column">
+        <div id="guide-rewrite-popup" class="rewrite-popup" style="display:none;flex-direction:column;gap:12px;margin-bottom:16px;"></div>
+        <div id="guide-eval-box" class="llm-eval-box" style="display:none;flex-direction:column;gap:12px;"></div>
+      </div>
     </div>
   </div>
+  <div id="guide-overlay" class="guide-overlay" style="display:none;"></div>
+  <div id="guide-tooltip" class="guide-tooltip" style="display:none;"></div>
+  <script src="{{ url_for('static', filename='js/guide.js') }}"></script>
 </body>
 </html>
 
