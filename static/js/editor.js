@@ -432,16 +432,21 @@ class LanguageToolEditor {
                 });
             }
 
-            // Rewrite feedback popup button
+            // Rewrite feedback popover button
             const rewriteFeedbackBtn = document.getElementById(field === 'editor' ? 'rewrite-feedback-btn' : 'rewrite-feedback-btn-2');
             if (rewriteFeedbackBtn) {
                 rewriteFeedbackBtn.addEventListener('click', () => {
                     this.activeField = field;
-                    const modal = document.getElementById('rewrite-feedback-modal');
+                    const pop = document.getElementById('rewrite-feedback-popover');
                     const textarea = document.getElementById('rewrite-feedback-text');
                     if (textarea) textarea.value = '';
-                    if (modal) {
-                        modal.style.display = 'flex';
+                    if (pop && rewriteFeedbackBtn) {
+                        const rect = rewriteFeedbackBtn.getBoundingClientRect();
+                        const top = rect.top + window.scrollY - 10;
+                        const left = rect.left + window.scrollX + rect.width + 8;
+                        pop.style.top = top + 'px';
+                        pop.style.left = left + 'px';
+                        pop.style.display = 'block';
                     }
                 });
             }
@@ -462,20 +467,20 @@ class LanguageToolEditor {
             this.hidePopup();
         };
 
-        // Global handlers for rewrite feedback modal
-        const modal = document.getElementById('rewrite-feedback-modal');
+        // Global handlers for rewrite feedback popover
+        const pop = document.getElementById('rewrite-feedback-popover');
         const cancelBtn = document.getElementById('rewrite-feedback-cancel');
         const submitBtn = document.getElementById('rewrite-feedback-submit');
-        if (cancelBtn && modal) {
-            cancelBtn.onclick = () => { modal.style.display = 'none'; };
+        if (cancelBtn && pop) {
+            cancelBtn.onclick = () => { pop.style.display = 'none'; };
         }
-        if (submitBtn && modal) {
+        if (submitBtn && pop) {
             submitBtn.onclick = async () => {
                 const field = this.activeField;
                 const fieldObj = this.fields[field];
                 const textarea = document.getElementById('rewrite-feedback-text');
                 const feedbackText = textarea ? textarea.value.trim() : '';
-                if (!feedbackText) { modal.style.display = 'none'; return; }
+                if (!feedbackText) { pop.style.display = 'none'; return; }
                 // Build payload
                 let user = {};
                 try {
@@ -500,19 +505,12 @@ class LanguageToolEditor {
                         body: JSON.stringify(payload)
                     });
                     if (res.ok) {
-                        modal.style.display = 'none';
-                        const btnId = field === 'editor' ? 'rewrite-feedback-btn' : 'rewrite-feedback-btn-2';
-                        const btn = document.getElementById(btnId);
-                        if (btn) {
-                            const orig = btn.innerHTML;
-                            btn.innerHTML = `<span style="color:#4CAF50; font-size:1.0em;">✓</span>`;
-                            setTimeout(() => { btn.innerHTML = orig; }, 1200);
-                        }
+                        pop.style.display = 'none';
                     } else {
-                        modal.style.display = 'none';
+                        pop.style.display = 'none';
                     }
                 } catch (e) {
-                    modal.style.display = 'none';
+                    pop.style.display = 'none';
                 }
             };
         }
