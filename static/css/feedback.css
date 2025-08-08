@@ -34,11 +34,7 @@ body {
     font-family: 'Open Sans', sans-serif;
 }
 
-.feedback-subtitle {
-    color: rgba(255,255,255,0.9);
-    margin-top: 8px;
-    font-size: 1.05em;
-}
+/* subtitle removed as requested */
 
 .feedback-form {
     background: #f9fafc;
@@ -120,7 +116,7 @@ body {
     outline: none;
     transition: border-color 0.18s, box-shadow 0.18s;
     box-sizing: border-box;
-    resize: vertical;
+    resize: none;
     min-height: 120px;
 }
 
