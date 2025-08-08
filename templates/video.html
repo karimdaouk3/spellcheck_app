@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FSR Coach – Instructional Video</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  <style>
+    .video-shell { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+    .video-header { background: linear-gradient(90deg, #41007F, #5a1a9a); color:#fff; padding:18px 22px; border-radius:16px; box-shadow:0 6px 24px rgba(33,0,127,0.12); display:flex; align-items:center; justify-content:space-between; }
+    .video-wrap { margin-top:16px; background:#000; border-radius:12px; overflow:hidden; box-shadow:0 6px 20px rgba(33,0,127,0.15); }
+    .video-frame { width:100%; aspect-ratio:16/9; border:0; }
+    .video-actions a { color:#fff; text-decoration:none; border:1px solid rgba(255,255,255,0.9); padding:8px 12px; border-radius:6px; }
+    .video-actions a:hover { background: rgba(255,255,255,0.15); }
+  </style>
+  </head>
+  <body>
+    <div class="video-shell">
+      <div class="video-header">
+        <div>
+          <h1 style="margin:0;">Instructional Video</h1>
+          <div style="opacity:0.9;">A quick walkthrough of FSR Coach.</div>
+        </div>
+        <div class="video-actions"><a href="/" title="Back to App">← Back to App</a></div>
+      </div>
+      <div class="video-wrap">
+        <!-- Replace the src below with your hosted video URL or embedded player -->
+        <iframe class="video-frame" src="https://www.youtube.com/embed/dQw4w9WgXcQ" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+      </div>
+    </div>
+  </body>
+</html>
+
