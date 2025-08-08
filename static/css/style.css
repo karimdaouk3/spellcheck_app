@@ -451,17 +451,18 @@ body {
     align-items: center;
     gap: 12px;
     background: none;
-    border: none;
+    border: 1px solid rgba(255, 255, 255, 0.3);
     cursor: pointer;
     padding: 8px 12px;
     border-radius: 6px;
-    transition: background-color 0.2s;
+    transition: background-color 0.2s, border-color 0.2s;
     color: white;
     font-family: 'Open Sans', sans-serif;
 }
 
 .feedback-section:hover {
     background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.5);
 }
 
 .feedback-text {
@@ -1066,12 +1067,12 @@ body {
 }
 /* Microphone button styling */
 #mic-btn, #mic-btn-2 {
-    background: rgba(187, 187, 187, 0.2) !important;
+    background: none !important;
     transition: background 0.3s ease;
 }
 
 #mic-btn:hover, #mic-btn-2:hover {
-    background: rgba(187, 187, 187, 0.3) !important;
+    background: rgba(187, 187, 187, 0.2) !important;
 }
 
 /* Disable hover effects for inactive buttons */

@@ -379,7 +379,7 @@ class LanguageToolEditor {
                         const originalHTML = copyBtn.innerHTML;
                         copyBtn.disabled = true;
                         copyBtn.style.pointerEvents = 'none';
-                        copyBtn.innerHTML = '<span style="color: #666; font-size: 0.8em;">Nothing to copy</span>';
+                        copyBtn.innerHTML = '<span style="color: #666; font-size: 0.85em; font-weight: 500; background: rgba(255,255,255,0.9); padding: 4px 8px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Nothing to copy</span>';
                         setTimeout(() => {
                             copyBtn.innerHTML = originalHTML;
                             copyBtn.disabled = false;
@@ -395,7 +395,7 @@ class LanguageToolEditor {
                         const originalHTML = copyBtn.innerHTML;
                         copyBtn.disabled = true;
                         copyBtn.style.pointerEvents = 'none';
-                        copyBtn.innerHTML = '<span style="color: #666; font-size: 0.8em;">Copied!</span>';
+                        copyBtn.innerHTML = '<span style="color: #4CAF50; font-size: 0.85em; font-weight: 600; background: rgba(255,255,255,0.95); padding: 4px 8px; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">✓ Copied!</span>';
                         
                         setTimeout(() => {
                             copyBtn.innerHTML = originalHTML;
@@ -408,7 +408,7 @@ class LanguageToolEditor {
                         const originalHTML = copyBtn.innerHTML;
                         copyBtn.disabled = true;
                         copyBtn.style.pointerEvents = 'none';
-                        copyBtn.innerHTML = '<span style="color: #666; font-size: 0.8em;">Copy failed</span>';
+                        copyBtn.innerHTML = '<span style="color: #F44336; font-size: 0.85em; font-weight: 500; background: rgba(255,255,255,0.95); padding: 4px 8px; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">✗ Failed</span>';
                         
                         setTimeout(() => {
                             copyBtn.innerHTML = originalHTML;
@@ -1085,14 +1085,14 @@ class LanguageToolEditor {
             <div style="display: flex; align-items: center; gap: 10px; font-size: 0.85em; font-weight: 600; padding: 4px 0;">
                 <span style="color: #000; font-size: 0.9em;">Vague</span>
                 <div style="position: relative; width: 140px; height: 18px; background: linear-gradient(to right, #ff6b6b 0%, #ffd93d 50%, #6bcf7f 100%); border-radius: 9px; border: 2px solid #e0e0e0; overflow: visible; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
-                    <div style="position: absolute; top: -3px; left: ${position}%; width: 3px; height: 24px; background: linear-gradient(to bottom, #41007F, #5a1a9a); border-radius: 2px; transform: translateX(-50%); border: 2px solid #fff; box-shadow: 0 2px 8px rgba(65,0,127,0.4), 0 0 0 1px rgba(255,255,255,0.8);"></div>
+                    <div style="position: absolute; top: 50%; left: ${position}%; width: 3px; height: 24px; background: linear-gradient(to bottom, #41007F, #5a1a9a); border-radius: 2px; transform: translate(-50%, -50%); border: 1px solid #fff; box-shadow: 0 2px 8px rgba(65,0,127,0.4), 0 0 0 1px rgba(255,255,255,0.8);"></div>
                 </div>
                 <span style="color: #000; font-size: 0.9em; min-width: 70px;">Thorough</span>
             </div>
             <style>
                 @media (max-width: 950px) {
                     .editor-score {
-                        font-size: 0.85em !important;
+                        font-size: 0.9em !important;
                     }
                     .editor-score > div {
                         gap: 8px !important;
@@ -1103,11 +1103,12 @@ class LanguageToolEditor {
                     }
                     .editor-score > div > div > div:first-child {
                         height: 20px !important;
-                        top: -3px !important;
+                        top: 50% !important;
+                        transform: translate(-50%, -50%) !important;
                     }
                     .editor-score > div > span {
                         min-width: 0 !important;
-                        font-size: 0.85em !important;
+                        font-size: 0.9em !important;
                     }
                 }
             </style>
