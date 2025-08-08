@@ -379,7 +379,9 @@ class LanguageToolEditor {
                         const originalHTML = copyBtn.innerHTML;
                         copyBtn.disabled = true;
                         copyBtn.style.pointerEvents = 'none';
-                        copyBtn.innerHTML = '<span style="color: #666; font-size: 0.85em; font-weight: normal;">Nothing to copy</span>';
+                        const isMobile = window.innerWidth < 950;
+                        const fontSize = isMobile ? '0.75em' : '0.85em';
+                        copyBtn.innerHTML = `<span style="color: #666; font-size: ${fontSize}; font-weight: normal; white-space: nowrap;">Nothing to copy</span>`;
                         setTimeout(() => {
                             copyBtn.innerHTML = originalHTML;
                             copyBtn.disabled = false;
@@ -395,7 +397,9 @@ class LanguageToolEditor {
                         const originalHTML = copyBtn.innerHTML;
                         copyBtn.disabled = true;
                         copyBtn.style.pointerEvents = 'none';
-                        copyBtn.innerHTML = '<span style="color: #4CAF50; font-size: 0.85em; font-weight: normal;">✓ Copied!</span>';
+                        const isMobile = window.innerWidth < 950;
+                        const fontSize = isMobile ? '0.75em' : '0.85em';
+                        copyBtn.innerHTML = `<span style="color: #4CAF50; font-size: ${fontSize}; font-weight: normal; white-space: nowrap;">✓ Copied!</span>`;
                         
                         setTimeout(() => {
                             copyBtn.innerHTML = originalHTML;
@@ -408,7 +412,9 @@ class LanguageToolEditor {
                         const originalHTML = copyBtn.innerHTML;
                         copyBtn.disabled = true;
                         copyBtn.style.pointerEvents = 'none';
-                        copyBtn.innerHTML = '<span style="color: #F44336; font-size: 0.85em; font-weight: normal;">✗ Failed</span>';
+                        const isMobile = window.innerWidth < 950;
+                        const fontSize = isMobile ? '0.75em' : '0.85em';
+                        copyBtn.innerHTML = `<span style="color: #F44336; font-size: ${fontSize}; font-weight: normal; white-space: nowrap;">✗ Failed</span>`;
                         
                         setTimeout(() => {
                             copyBtn.innerHTML = originalHTML;

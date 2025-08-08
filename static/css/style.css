@@ -633,6 +633,20 @@ body {
         padding: 10px 20px;
     }
     
+    /* Ensure copy button feedback text doesn't overlap with submit buttons */
+    .editor-container {
+        position: relative;
+    }
+    
+    /* Make copy button text smaller and ensure it doesn't cause layout issues */
+    #copy-btn span, #copy-btn-2 span {
+        font-size: 0.75em !important;
+        white-space: nowrap !important;
+        max-width: 100px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
     /* 2. Make editor label container match text box width and remove vertical margins */
     .editor-label-container {
         flex-direction: row; /* Keep side by side like desktop */
