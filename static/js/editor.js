@@ -1084,20 +1084,6 @@ class LanguageToolEditor {
                                 const crit = el.getAttribute('data-criteria');
                                 fieldObj.llmAnswers[crit] = el.value;
                             });
-                            // Log rewrite submission
-                            if (fieldObj.llmQuestions && fieldObj.llmQuestions.length > 0) {
-                                const logArr = fieldObj.llmQuestions.map(q => ({
-                                    original_text: fieldObj.editor.innerText,
-                                    criteria: q.criteria,
-                                    question: q.question,
-                                    user_answer: fieldObj.llmAnswers[q.criteria] || ''
-                                }));
-                                fetch('/rewrite-feedback', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify(logArr)
-                                });
-                            }
                             // Resubmit to LLM with answers
                             this.submitToLLM(fieldObj.editor.innerText, fieldObj.llmAnswers, field);
                         };
