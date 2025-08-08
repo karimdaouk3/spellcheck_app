@@ -355,12 +355,13 @@ body {
 .llm-dropdown-arrow {
     font-size: 0.8em; /* even smaller */
     margin-right: 10px;
-    transition: transform 0.18s;
+    transition: transform 0.2s ease;
     color: #bbb;
     user-select: none;
+    cursor: pointer;
 }
 .llm-dropdown-arrow.open {
-    transform: none;
+    transform: rotate(90deg);
 }
 .llm-section-title {
     font-size: 1.05em;
@@ -551,6 +552,10 @@ body {
 .history-box::-webkit-scrollbar-track {
     margin: 16px 0;
 }
+
+.history-box::-webkit-scrollbar-thumb {
+    margin: 16px 0;
+}
 #history-list {
     list-style: none;
     padding: 0;
@@ -626,6 +631,10 @@ body {
     
     /* Custom scrollbar for history box on mobile */
     .history-box::-webkit-scrollbar-track {
+        margin: 12px 0;
+    }
+    
+    .history-box::-webkit-scrollbar-thumb {
         margin: 12px 0;
     }
     
@@ -997,7 +1006,7 @@ body {
 }
 
 #eval-collapse-btn.collapsed {
-    transform: translateY(-50%) rotate(90deg);
+    transform: translateY(-50%) rotate(-90deg);
     background: rgba(65, 0, 127, 0.1);
     color: #41007F;
 }
