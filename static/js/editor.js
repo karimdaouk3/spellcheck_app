@@ -381,7 +381,12 @@ class LanguageToolEditor {
                 copyBtn.addEventListener('click', async () => {
                     if (copyBtn.disabled) return;
                     const text = fieldObj.editor.innerText;
-                    if (text.trim() === '') return; // do nothing on empty
+                    if (text.trim() === '') {
+                        // Subtle, no-text feedback on empty content
+                        copyBtn.classList.add('copy-error');
+                        setTimeout(() => copyBtn.classList.remove('copy-error'), 600);
+                        return;
+                    }
                     try {
                         await navigator.clipboard.writeText(text);
                         const originalHTML = copyBtn.innerHTML;
@@ -394,7 +399,9 @@ class LanguageToolEditor {
                             copyBtn.style.pointerEvents = '';
                         }, 1200);
                     } catch (e) {
-                        // silently ignore on failure
+                        // Subtle, no-text feedback on failure
+                        copyBtn.classList.add('copy-error');
+                        setTimeout(() => copyBtn.classList.remove('copy-error'), 600);
                     }
                 });
             }

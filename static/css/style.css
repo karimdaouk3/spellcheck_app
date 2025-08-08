@@ -3,6 +3,18 @@
   70% { box-shadow: 0 0 0 14px rgba(255,255,255,0); }
   100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
 }
+
+@keyframes copyRing {
+  0% { box-shadow: 0 0 0 0 rgba(244,67,54,0.45); transform: translateX(0); }
+  40% { box-shadow: 0 0 0 8px rgba(244,67,54,0.0); transform: translateX(-1px); }
+  60% { transform: translateX(1px); }
+  100% { box-shadow: 0 0 0 0 rgba(244,67,54,0.0); transform: translateX(0); }
+}
+
+.copy-error {
+  animation: copyRing 0.4s ease-out;
+  border-radius: 6px;
+}
 @import url('https://fonts.googleapis.com/css?family=Open+Sans:400,600,700&display=swap');
 body {
     font-family: 'Open Sans', sans-serif;
