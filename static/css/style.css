@@ -48,6 +48,21 @@
   background: #9e9e9e;
   margin: 4px 0;
 }
+
+/* Responsive adjustments for pill at <= 1200px */
+@media (max-width: 1200px) {
+  #rewrite-feedback-pill,
+  #rewrite-feedback-pill-2 {
+    left: 20px !important; /* reduce left offset */
+  }
+  .rewrite-feedback-pill .pill-seg {
+    padding: 4px 8px; /* smaller hit target */
+  }
+  .rewrite-feedback-pill .pill svg {
+    width: 14px;
+    height: 14px;
+  }
+}
 @import url('https://fonts.googleapis.com/css?family=Open+Sans:400,600,700&display=swap');
 body {
     font-family: 'Open Sans', sans-serif;
