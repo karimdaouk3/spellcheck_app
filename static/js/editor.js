@@ -187,6 +187,12 @@ class LanguageToolEditor {
                     this.updateHighlights(field); // Only update overlay if not hidden
                 }
                 this.debounceCheck(field);
+                // Hide rewrite-eval button if content changed from last rewrite
+                const btnId = field === 'editor' ? 'rewrite-eval-btn' : 'rewrite-eval-btn-2';
+                const btn = document.getElementById(btnId);
+                if (btn && fieldObj.rewrittenSnapshot && fieldObj.editor.innerText !== fieldObj.rewrittenSnapshot) {
+                    btn.style.display = 'none';
+                }
             });
             fieldObj.editor.addEventListener('paste', (e) => {
                 e.preventDefault();
@@ -227,6 +233,36 @@ class LanguageToolEditor {
                         return;
                     }
                     this.submitToLLM(text, null, field); // Only text on first submit, pass field
+                });
+            }
+            // Rewrite evaluation logging button
+            const rewriteEvalBtn = document.getElementById(field === 'editor' ? 'rewrite-eval-btn' : 'rewrite-eval-btn-2');
+            if (rewriteEvalBtn) {
+                rewriteEvalBtn.addEventListener('click', async () => {
+                    // Fetch user info if available
+                    let user = {};
+                    try {
+                        const resp = await fetch('/user');
+                        user = await resp.json();
+                    } catch {}
+                    const payload = {
+                        previous_text: fieldObj.prevVersionBeforeRewrite || '',
+                        rewritten_text: fieldObj.editor.innerText || '',
+                        rewrite_qas: fieldObj.lastRewriteQA || {},
+                        first_name: user.first_name || '',
+                        last_name: user.last_name || '',
+                        email: user.email || '',
+                        employee_id: user.employee_id || ''
+                    };
+                    try {
+                        await fetch('/rewrite-evaluation-log', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        rewriteEvalBtn.style.opacity = '0.6';
+                        setTimeout(()=>{ rewriteEvalBtn.style.opacity = '1'; }, 600);
+                    } catch (e) {}
                 });
             }
             // Microphone button logic
@@ -707,6 +743,10 @@ class LanguageToolEditor {
     // After LLM submit, always re-apply highlight
     async submitToLLM(text, answers = null, field = this.activeField) {
         const fieldObj = this.fields[field];
+        // Capture previous version before rewrite, to log later
+        if (answers) {
+            fieldObj.prevVersionBeforeRewrite = fieldObj.editor.innerText;
+        }
         fieldObj.llmInProgress = true;
         fieldObj.isRestoringFromHistory = false; // Reset flag for new submissions
         if (!this.evalCollapsed) this.evalCollapsed = {};
@@ -754,6 +794,14 @@ class LanguageToolEditor {
             
             this.displayLLMResult(data.result, answers !== null, field, !answers);
             this.updateActiveEditorHighlight(); // Ensure highlight remains
+            // If this was a rewrite, show evaluation btn and snapshot state
+            if (answers) {
+                const btnId = field === 'editor' ? 'rewrite-eval-btn' : 'rewrite-eval-btn-2';
+                const btn = document.getElementById(btnId);
+                if (btn) btn.style.display = 'flex';
+                fieldObj.rewrittenSnapshot = fieldObj.editor.innerText;
+                fieldObj.lastRewriteQA = answers;
+            }
         } catch (e) {
             alert('LLM call failed: ' + e);
             fieldObj.llmInProgress = false;
@@ -1718,4 +1766,5 @@ document.addEventListener('DOMContentLoaded', () => {
     if (editor) {
                     editor.setAttribute('data-placeholder', 'Start typing your current problem statement here');
     }
+});
 });
