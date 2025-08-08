@@ -910,8 +910,11 @@ class LanguageToolEditor {
             if (btnCheck) {
                 btnCheck.onclick = () => {
                     this.evalCollapsed[field] = !this.evalCollapsed[field];
+                    btnCheck.classList.toggle('collapsed', this.evalCollapsed[field]);
                     this.displayLLMResult(result, showRewrite, field);
                 };
+                // Set initial state
+                btnCheck.classList.toggle('collapsed', this.evalCollapsed[field]);
             }
         }, 0);
         
@@ -1472,11 +1475,7 @@ class LanguageToolEditor {
                     html += `<span style="color:${passedColor};font-weight:700;">${passedText}</span>\n`;
                     html += `<span style="color:#666;font-weight:400;">${this.escapeHtml(section.name || key)}</span>\n`;
                     html += `</div>\n`;
-                    html += `<div class="llm-dropdown-arrow" title="Click to expand/collapse">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="9 18 15 12 9 6"></polyline>
-                        </svg>
-                    </div>\n`;
+                    html += `<div class="llm-dropdown-arrow" style="color:#666;font-size:0.9em;transition:transform 0.2s;">▶</div>\n`;
                     html += `</div>\n`;
                     html += `<div class="llm-section-justification" style="display:none;margin-top:8px;padding:8px;background:#f9f9f9;border-radius:4px;font-size:0.9em;color:#666;line-height:1.4;">\n`;
                     html += `${this.escapeHtml(section.justification || 'No justification provided.')}\n`;
@@ -1535,6 +1534,7 @@ class LanguageToolEditor {
                 dropdown.classList.toggle('open');
                 const isOpen = dropdown.classList.contains('open');
                 justification.style.display = isOpen ? 'block' : 'none';
+                arrow.classList.toggle('open', isOpen);
             });
             header.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' || e.key === ' ') {

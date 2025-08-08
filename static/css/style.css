@@ -549,12 +549,28 @@ body {
 }
 
 /* Custom scrollbar for history box */
+.history-box::-webkit-scrollbar {
+    width: 8px;
+}
+
 .history-box::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
     margin: 16px 0;
 }
 
 .history-box::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
     margin: 16px 0;
+}
+
+.history-box::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+.history-box::-webkit-scrollbar-corner {
+    background: transparent;
 }
 #history-list {
     list-style: none;
