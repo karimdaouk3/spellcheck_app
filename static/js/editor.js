@@ -1767,4 +1767,3 @@ document.addEventListener('DOMContentLoaded', () => {
                     editor.setAttribute('data-placeholder', 'Start typing your current problem statement here');
     }
 });
-});
