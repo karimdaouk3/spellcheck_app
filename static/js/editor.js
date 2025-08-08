@@ -440,8 +440,16 @@ class LanguageToolEditor {
                 };
                 const negBtn = pillWrapper.querySelector('.pill-seg.neg');
                 const posBtn = pillWrapper.querySelector('.pill-seg.pos');
-                if (negBtn) negBtn.addEventListener('click', () => openPopoverFor('negative'));
-                if (posBtn) posBtn.addEventListener('click', () => openPopoverFor('positive'));
+                if (negBtn) negBtn.addEventListener('click', () => {
+                    negBtn.classList.add('active');
+                    if (posBtn) posBtn.classList.remove('active');
+                    openPopoverFor('negative');
+                });
+                if (posBtn) posBtn.addEventListener('click', () => {
+                    posBtn.classList.add('active');
+                    if (negBtn) negBtn.classList.remove('active');
+                    openPopoverFor('positive');
+                });
             }
         });
         // Hide popup when clicking outside
@@ -501,9 +509,9 @@ class LanguageToolEditor {
                     if (res.ok) {
                         pop.style.display = 'none';
                         // Hide the feedback button after successful submit
-                        const btnId = field === 'editor' ? 'rewrite-feedback-btn' : 'rewrite-feedback-btn-2';
-                        const fbBtn = document.getElementById(btnId);
-                        if (fbBtn) fbBtn.style.display = 'none';
+                        const pillId = field === 'editor' ? 'rewrite-feedback-pill' : 'rewrite-feedback-pill-2';
+                        const pill = document.getElementById(pillId);
+                        if (pill) pill.style.display = 'none';
                     } else {
                         pop.style.display = 'none';
                     }
