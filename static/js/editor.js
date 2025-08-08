@@ -1321,9 +1321,8 @@ class LanguageToolEditor {
         }
         
         fieldObj.history.forEach((item, index) => {
-            const historyItem = document.createElement('div');
+            const historyItem = document.createElement('li');
             historyItem.className = 'history-item';
-            historyItem.style.cssText = 'padding:10px;margin:5px 0;background:#f9f9f9;border-radius:5px;cursor:pointer;border-left:3px solid #41007F;';
             historyItem.title = 'Click to revert to this version';
             
             const text = typeof item === 'string' ? item : item.text;
@@ -1350,7 +1349,7 @@ class LanguageToolEditor {
                     performanceColor = '#4CAF50'; // Green
                 }
                 
-                scoreDisplay = `<div style="font-size:0.8em;color:${performanceColor};font-weight:bold;">${performanceText}</div>`;
+                scoreDisplay = `<div style="font-size:0.85em;color:${performanceColor};font-weight:600;background:rgba(255,255,255,0.8);padding:4px 8px;border-radius:6px;display:inline-block;margin-top:8px;">${performanceText}</div>`;
             }
             
             // Replace newlines with <br> tags for proper rendering
