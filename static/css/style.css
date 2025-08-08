@@ -353,35 +353,14 @@ body {
     background: none; /* Remove light blue highlight */
 }
 .llm-dropdown-arrow {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    margin-right: 8px;
-    transition: transform 0.2s ease, color 0.2s ease;
-    color: #666;
+    font-size: 0.8em; /* even smaller */
+    margin-right: 10px;
+    transition: transform 0.18s;
+    color: #bbb;
     user-select: none;
-    cursor: pointer;
-    border-radius: 4px;
-    background: rgba(65, 0, 127, 0.05);
 }
-
-.llm-dropdown-arrow:hover {
-    background: rgba(65, 0, 127, 0.1);
-    color: #41007F;
-}
-
 .llm-dropdown-arrow.open {
-    transform: rotate(90deg);
-    background: rgba(65, 0, 127, 0.1);
-    color: #41007F;
-}
-
-.llm-dropdown-arrow svg {
-    width: 14px;
-    height: 14px;
-    fill: currentColor;
+    transform: none;
 }
 .llm-section-title {
     font-size: 1.05em;
@@ -569,29 +548,8 @@ body {
 }
 
 /* Custom scrollbar for history box */
-.history-box::-webkit-scrollbar {
-    width: 8px;
-}
-
 .history-box::-webkit-scrollbar-track {
-    background: transparent;
     margin: 16px 0;
-}
-
-.history-box::-webkit-scrollbar-thumb {
-    background: rgba(65, 0, 127, 0.2);
-    border-radius: 4px;
-    border: 2px solid transparent;
-    background-clip: content-box;
-}
-
-.history-box::-webkit-scrollbar-thumb:hover {
-    background: rgba(65, 0, 127, 0.3);
-    background-clip: content-box;
-}
-
-.history-box::-webkit-scrollbar-corner {
-    background: transparent;
 }
 #history-list {
     list-style: none;
@@ -1021,6 +979,33 @@ body {
     transform: translateY(-50%);
     height: 100%;
     z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    transition: transform 0.2s ease, color 0.2s ease;
+    color: #666;
+    cursor: pointer;
+    border-radius: 4px;
+    background: rgba(65, 0, 127, 0.05);
+}
+
+#eval-collapse-btn:hover {
+    background: rgba(65, 0, 127, 0.1);
+    color: #41007F;
+}
+
+#eval-collapse-btn.collapsed {
+    transform: translateY(-50%) rotate(90deg);
+    background: rgba(65, 0, 127, 0.1);
+    color: #41007F;
+}
+
+#eval-collapse-btn svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
 }
 .llm-score span.score-label {
     margin-left: 32px;
