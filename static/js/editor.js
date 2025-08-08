@@ -842,8 +842,9 @@ class LanguageToolEditor {
                 `</button>\n` +
                 `<span style="margin-left:32px;font-size:1.5em;">${inputType}</span>\n` +
                 `</div>`;
-            // Only show the rest if not collapsed
+                        // Only show the rest if not collapsed
             if (!isCollapsed) {
+                html += '<div class="llm-eval-content" style="display: block;">';
                 // Sort rules: passed first, then failed
                 const sortedKeys = keys.sort((a, b) => {
                     const aPassed = rulesObj[a].passed;
@@ -895,6 +896,7 @@ class LanguageToolEditor {
                         `;
                     }
                 }
+                html += '</div>';
             }
         } else {
             evalBox.innerHTML = '';
@@ -910,7 +912,15 @@ class LanguageToolEditor {
             if (btnCheck) {
                 btnCheck.onclick = () => {
                     this.evalCollapsed[field] = !this.evalCollapsed[field];
-                    this.displayLLMResult(result, showRewrite, field);
+                    // Instead of regenerating HTML, just toggle the class and show/hide content
+                    btnCheck.classList.toggle('collapsed', this.evalCollapsed[field]);
+                    const evalBox = document.getElementById('llm-eval-box');
+                    if (evalBox) {
+                        const content = evalBox.querySelector('.llm-eval-content');
+                        if (content) {
+                            content.style.display = this.evalCollapsed[field] ? 'none' : 'block';
+                        }
+                    }
                 };
                 // Set initial state
                 btnCheck.classList.toggle('collapsed', this.evalCollapsed[field]);
@@ -936,15 +946,8 @@ class LanguageToolEditor {
                 }
             }
             
-            // Check if we have new questions that are different from current ones
-            const currentQuestionKeys = fieldObj.llmQuestions ? fieldObj.llmQuestions.map(q => q.criteria).sort() : [];
-            const newQuestionKeys = newQuestions.map(q => q.criteria).sort();
-            const questionsChanged = JSON.stringify(currentQuestionKeys) !== JSON.stringify(newQuestionKeys);
-            
-            // Only clear answers if questions have changed (new evaluation) or if no answers exist
-            if (questionsChanged || !fieldObj.llmAnswers || Object.keys(fieldObj.llmAnswers).length === 0) {
-                fieldObj.llmAnswers = {};
-            }
+            // Always clear answers when new questions are generated (this happens when submitting new text)
+            fieldObj.llmAnswers = {};
             
             fieldObj.llmQuestions = newQuestions;
             if (fieldObj.llmQuestions.length > 0) {
