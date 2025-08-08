@@ -999,17 +999,16 @@ body {
 }
 #eval-collapse-btn {
     position: absolute;
-    left: 0;
+    left: 8px;
     top: 50%;
     transform: translateY(-50%);
-    height: 100%;
     z-index: 2;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
-    transition: transform 0.2s ease, color 0.2s ease;
+    width: 28px;
+    height: 28px;
+    transition: transform 0.2s ease, color 0.2s ease, background 0.2s ease;
     color: #666;
     cursor: pointer;
     border-radius: 4px;
