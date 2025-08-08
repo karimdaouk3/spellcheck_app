@@ -557,7 +557,7 @@ body {
     background: #fafbfc;
     border: 1px solid #e8eaed;
     margin-bottom: 12px;
-    padding: 8px 18px;
+    padding: 4px 18px;
     font-size: 0.95em;
     color: #333;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
@@ -574,7 +574,6 @@ body {
     background: #f0f4ff;
     border-color: #41007F;
     box-shadow: 0 4px 12px rgba(65,0,127,0.15);
-    transform: translateY(-1px);
 }
 #history-list li:last-child {
     margin-bottom: 0;
@@ -1137,15 +1136,12 @@ body {
 @keyframes buttonPulse {
     0% {
         opacity: 1;
-        transform: scale(1);
     }
     50% {
         opacity: 0.8;
-        transform: scale(0.98);
     }
     100% {
         opacity: 1;
-        transform: scale(1);
     }
 }
 
@@ -1219,7 +1215,7 @@ body {
     color: #41007F;
     padding: 20px 0 12px 0;
     margin: 0 0 16px 0;
-    border-bottom: 3px solid #000;
+    border-bottom: 1px solid #41007F;
     height: auto;
     display: flex;
     align-items: center;
