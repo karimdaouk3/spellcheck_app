@@ -56,6 +56,7 @@
   #rewrite-feedback-pill,
   #rewrite-feedback-pill-2 {
     left: 20px !important; /* reduce left offset */
+    bottom: 26px !important; /* nudge upward when smaller */
   }
   .rewrite-feedback-pill .pill-seg {
     padding: 4px 8px; /* smaller hit target */
