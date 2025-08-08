@@ -23,6 +23,7 @@
   border: 1.6px solid #9e9e9e;
   border-radius: 999px;
   overflow: hidden;
+  align-items: center;
 }
 .rewrite-feedback-pill .pill-seg {
   appearance: none;
@@ -35,7 +36,7 @@
   justify-content: center;
   transition: background 0.15s;
 }
-.rewrite-feedback-pill .pill-seg svg { stroke: #666; stroke-width: 0.9; vector-effect: non-scaling-stroke; }
+.rewrite-feedback-pill .pill-seg svg { stroke: #666; }
 .rewrite-feedback-pill .pill-seg.neg:hover { background: rgba(244,67,54,0.12); }
 .rewrite-feedback-pill .pill-seg.pos:hover { background: rgba(76,175,80,0.12); }
 /* Icon color should only be colored when popover is open; class managed by JS */

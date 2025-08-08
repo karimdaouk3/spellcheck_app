@@ -994,57 +994,57 @@ class LanguageToolEditor {
                 `</div>`;
                         // Always create content div, but set display based on collapsed state
             html += '<div class="llm-eval-content" style="display: ' + (isCollapsed ? 'none' : 'block') + ';">';
-            // Sort rules: passed first, then failed
-            const sortedKeys = keys.sort((a, b) => {
-                const aPassed = rulesObj[a].passed;
-                const bPassed = rulesObj[b].passed;
-                if (aPassed === bPassed) return 0;
-                return aPassed ? -1 : 1;
-            });
-            // Separate passed and failed
-            const passedKeys = sortedKeys.filter(key => rulesObj[key].passed);
-            const failedKeys = sortedKeys.filter(key => !rulesObj[key].passed);
-            // Show Needs Improvement first, then Completed
-            if (failedKeys.length > 0) {
-                html += `<div style="font-weight:600;font-size:1.08em;color:#f44336;margin:18px 0 8px 0;">Needs Improvement</div>`;
-                for (const key of failedKeys) {
-                    const section = rulesObj[key];
-                    html += `
-                        <div class="llm-section llm-dropdown open" data-passed="false">
-                            <div class="llm-section-header" tabindex="0">
+                // Sort rules: passed first, then failed
+                const sortedKeys = keys.sort((a, b) => {
+                    const aPassed = rulesObj[a].passed;
+                    const bPassed = rulesObj[b].passed;
+                    if (aPassed === bPassed) return 0;
+                    return aPassed ? -1 : 1;
+                });
+                // Separate passed and failed
+                const passedKeys = sortedKeys.filter(key => rulesObj[key].passed);
+                const failedKeys = sortedKeys.filter(key => !rulesObj[key].passed);
+                // Show Needs Improvement first, then Completed
+                if (failedKeys.length > 0) {
+                    html += `<div style="font-weight:600;font-size:1.08em;color:#f44336;margin:18px 0 8px 0;">Needs Improvement</div>`;
+                    for (const key of failedKeys) {
+                        const section = rulesObj[key];
+                        html += `
+                            <div class="llm-section llm-dropdown open" data-passed="false">
+                                <div class="llm-section-header" tabindex="0">
                                 <span class="llm-dropdown-arrow open">▶</span>
-                                <span class="llm-section-title" style="color:#111;" data-criteria="${this.escapeHtml(key)}"><strong>${this.escapeHtml(key)}</strong></span>
-                                <span class="llm-feedback-btn" title="Give feedback" data-criteria="${this.escapeHtml(key)}">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="thumbs-down-icon" viewBox="0 0 16 16">
-                                        <path d="M8.864 15.674c-.956.24-1.843-.484-1.908-1.42-.072-1.05-.23-2.015-.428-2.59-.125-.36-.479-1.012-1.04-1.638-.557-.624-1.282-1.179-2.131-1.41C2.685 8.432 2 7.85 2 7V3c0-.845.682-1.464 1.448-1.546 1.07-.113 1.564-.415 2.068-.723l.048-.029c.272-.166.578-.349.97-.484C6.931.08 7.395 0 8 0h3.5c.937 0 1.599.478 1.934 1.064.164.287.254.607.254.913 0 .152-.023.312-.077.464.201.262.38.577.488.9.11.33.172.762.004 1.15.069.13.12.268.159.403.077.27.113.567.113.856s-.036.586-.113.856c-.035.12-.08.244-.138.363.394.571.418 1.2.234 1.733-.206.592-.682 1.1-1.2 1.272-.847.283-1.803.276-2.516.211a10 10 0 0 1-.443-.05 9.36 9.36 0 0 1-.062 4.51c-.138.508-.55.848-1.012.964zM11.5 1H8c-.51 0-.863.068-1.14.163-.281.097-.506.229-.776.393l-.04.025c-.555.338-1.198.73-2.49.868-.333.035-.554.29-.554.55V7c0 .255.226.543.62.65 1.095.3 1.977.997 2.614 1.709.635.71 1.064 1.475 1.238 1.977.243.7.407 1.768.482 2.85.025.362.36.595.667.518l.262-.065c.16-.04.258-.144.288-.255a8.34 8.34 0 0 0-.145-4.726.5.5 0 0 1 .595-.643h.003l.014.004.058.013a9 9 0 0 0 1.036.157c.663.06 1.457.054 2.11-.163.175-.059.45-.301.57-.651.107-.308.087-.67-.266-1.021L12.793 7l.353-.354c.043-.042.105-.14.154-.315.048-.167.075-.37.075-.581s-.027-.414-.075-.581c-.05-.174-.111-.273-.154-.315l-.353-.354.353-.354c.047-.047.109-.176.005-.488a2.2 2.2 0 0 0-.505-.804l-.353-.354.353-.354c.006-.005.041-.05.041-.17a.9.9 0 0 0-.121-.415C12.4 1.272 12.063 1 11.5 1"/>
-                                    </svg>
-                                </span>
+                                    <span class="llm-section-title" style="color:#111;" data-criteria="${this.escapeHtml(key)}"><strong>${this.escapeHtml(key)}</strong></span>
+                                    <span class="llm-feedback-btn" title="Give feedback" data-criteria="${this.escapeHtml(key)}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="thumbs-down-icon" viewBox="0 0 16 16">
+                                            <path d="M8.864 15.674c-.956.24-1.843-.484-1.908-1.42-.072-1.05-.23-2.015-.428-2.59-.125-.36-.479-1.012-1.04-1.638-.557-.624-1.282-1.179-2.131-1.41C2.685 8.432 2 7.85 2 7V3c0-.845.682-1.464 1.448-1.546 1.07-.113 1.564-.415 2.068-.723l.048-.029c.272-.166.578-.349.97-.484C6.931.08 7.395 0 8 0h3.5c.937 0 1.599.478 1.934 1.064.164.287.254.607.254.913 0 .152-.023.312-.077.464.201.262.38.577.488.9.11.33.172.762.004 1.15.069.13.12.268.159.403.077.27.113.567.113.856s-.036.586-.113.856c-.035.12-.08.244-.138.363.394.571.418 1.2.234 1.733-.206.592-.682 1.1-1.2 1.272-.847.283-1.803.276-2.516.211a10 10 0 0 1-.443-.05 9.36 9.36 0 0 1-.062 4.51c-.138.508-.55.848-1.012.964zM11.5 1H8c-.51 0-.863.068-1.14.163-.281.097-.506.229-.776.393l-.04.025c-.555.338-1.198.73-2.49.868-.333.035-.554.29-.554.55V7c0 .255.226.543.62.65 1.095.3 1.977.997 2.614 1.709.635.71 1.064 1.475 1.238 1.977.243.7.407 1.768.482 2.85.025.362.36.595.667.518l.262-.065c.16-.04.258-.144.288-.255a8.34 8.34 0 0 0-.145-4.726.5.5 0 0 1 .595-.643h.003l.014.004.058.013a9 9 0 0 0 1.036.157c.663.06 1.457.054 2.11-.163.175-.059.45-.301.57-.651.107-.308.087-.67-.266-1.021L12.793 7l.353-.354c.043-.042.105-.14.154-.315.048-.167.075-.37.075-.581s-.027-.414-.075-.581c-.05-.174-.111-.273-.154-.315l-.353-.354.353-.354c.047-.047.109-.176.005-.488a2.2 2.2 0 0 0-.505-.804l-.353-.354.353-.354c.006-.005.041-.05.041-.17a.9.9 0 0 0-.121-.415C12.4 1.272 12.063 1 11.5 1"/>
+                                        </svg>
+                                    </span>
+                                </div>
+                                <div class="llm-section-justification" style="display:block;">${this.escapeHtml(section.justification || '')}</div>
                             </div>
-                            <div class="llm-section-justification" style="display:block;">${this.escapeHtml(section.justification || '')}</div>
-                        </div>
-                    `;
+                        `;
+                    }
                 }
-            }
-            if (passedKeys.length > 0) {
-                html += `<div style="font-weight:600;font-size:1.08em;color:#4CAF50;margin-bottom:8px;">Completed</div>`;
-                for (const key of passedKeys) {
-                    const section = rulesObj[key];
-                    html += `
-                        <div class="llm-section llm-dropdown" data-passed="true">
-                            <div class="llm-section-header" tabindex="0">
+                if (passedKeys.length > 0) {
+                    html += `<div style="font-weight:600;font-size:1.08em;color:#4CAF50;margin-bottom:8px;">Completed</div>`;
+                    for (const key of passedKeys) {
+                        const section = rulesObj[key];
+                        html += `
+                            <div class="llm-section llm-dropdown" data-passed="true">
+                                <div class="llm-section-header" tabindex="0">
                                 <span class="llm-dropdown-arrow">▶</span>
-                                <span class="llm-section-title" style="color:#111;" data-criteria="${this.escapeHtml(key)}"><strong>${this.escapeHtml(key)}</strong></span>
-                                <span class="llm-feedback-btn" title="Give feedback" data-criteria="${this.escapeHtml(key)}">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="thumbs-down-icon" viewBox="0 0 16 16">
-                                        <path d="M8.864 15.674c-.956.24-1.843-.484-1.908-1.42-.072-1.05-.23-2.015-.428-2.59-.125-.36-.479-1.012-1.04-1.638-.557-.624-1.282-1.179-2.131-1.41C2.685 8.432 2 7.85 2 7V3c0-.845.682-1.464 1.448-1.546 1.07-.113 1.564-.415 2.068-.723l.048-.029c.272-.166.578-.349.97-.484C6.931.08 7.395 0 8 0h3.5c.937 0 1.599.478 1.934 1.064.164.287.254.607.254.913 0 .152-.023.312-.077.464.201.262.38.577.488.9.11.33.172.762.004 1.15.069.13.12.268.159.403.077.27.113.567.113.856s-.036.586-.113.856c-.035.12-.08.244-.138.363.394.571.418 1.2.234 1.733-.206.592-.682 1.1-1.2 1.272-.847.283-1.803.276-2.516.211a10 10 0 0 1-.443-.05 9.36 9.36 0 0 1-.062 4.51c-.138.508-.55.848-1.012.964zM11.5 1H8c-.51 0-.863.068-1.14.163-.281.097-.506.229-.776.393l-.04.025c-.555.338-1.198.73-2.49.868-.333.035-.554.29-.554.55V7c0 .255.226.543.62.65 1.095.3 1.977.997 2.614 1.709.635.71 1.064 1.475 1.238 1.977.243.7.407 1.768.482 2.85.025.362.36.595.667.518l.262-.065c.16-.04.258-.144.288-.255a8.34 8.34 0 0 0-.145-4.726.5.5 0 0 1 .595-.643h.003l.014.004.058.013a9 9 0 0 0 1.036.157c.663.06 1.457.054 2.11-.163.175-.059.45-.301.57-.651.107-.308.087-.67-.266-1.021L12.793 7l.353-.354c.043-.042.105-.14.154-.315.048-.167.075-.37.075-.581s-.027-.414-.075-.581c-.05-.174-.111-.273-.154-.315l-.353-.354.353-.354c.047-.047.109-.176.005-.488a2.2 2.2 0 0 0-.505-.804l-.353-.354.353-.354c.006-.005.041-.05.041-.17a.9.9 0 0 0-.121-.415C12.4 1.272 12.063 1 11.5 1"/>
-                                    </svg>
-                                </span>
+                                    <span class="llm-section-title" style="color:#111;" data-criteria="${this.escapeHtml(key)}"><strong>${this.escapeHtml(key)}</strong></span>
+                                    <span class="llm-feedback-btn" title="Give feedback" data-criteria="${this.escapeHtml(key)}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="thumbs-down-icon" viewBox="0 0 16 16">
+                                            <path d="M8.864 15.674c-.956.24-1.843-.484-1.908-1.42-.072-1.05-.23-2.015-.428-2.59-.125-.36-.479-1.012-1.04-1.638-.557-.624-1.282-1.179-2.131-1.41C2.685 8.432 2 7.85 2 7V3c0-.845.682-1.464 1.448-1.546 1.07-.113 1.564-.415 2.068-.723l.048-.029c.272-.166.578-.349.97-.484C6.931.08 7.395 0 8 0h3.5c.937 0 1.599.478 1.934 1.064.164.287.254.607.254.913 0 .152-.023.312-.077.464.201.262.38.577.488.9.11.33.172.762.004 1.15.069.13.12.268.159.403.077.27.113.567.113.856s-.036.586-.113.856c-.035.12-.08.244-.138.363.394.571.418 1.2.234 1.733-.206.592-.682 1.1-1.2 1.272-.847.283-1.803.276-2.516.211a10 10 0 0 1-.443-.05 9.36 9.36 0 0 1-.062 4.51c-.138.508-.55.848-1.012.964zM11.5 1H8c-.51 0-.863.068-1.14.163-.281.097-.506.229-.776.393l-.04.025c-.555.338-1.198.73-2.49.868-.333.035-.554.29-.554.55V7c0 .255.226.543.62.65 1.095.3 1.977.997 2.614 1.709.635.71 1.064 1.475 1.238 1.977.243.7.407 1.768.482 2.85.025.362.36.595.667.518l.262-.065c.16-.04.258-.144.288-.255a8.34 8.34 0 0 0-.145-4.726.5.5 0 0 1 .595-.643h.003l.014.004.058.013a9 9 0 0 0 1.036.157c.663.06 1.457.054 2.11-.163.175-.059.45-.301.57-.651.107-.308.087-.67-.266-1.021L12.793 7l.353-.354c.043-.042.105-.14.154-.315.048-.167.075-.37.075-.581s-.027-.414-.075-.581c-.05-.174-.111-.273-.154-.315l-.353-.354.353-.354c.047-.047.109-.176.005-.488a2.2 2.2 0 0 0-.505-.804l-.353-.354.353-.354c.006-.005.041-.05.041-.17a.9.9 0 0 0-.121-.415C12.4 1.272 12.063 1 11.5 1"/>
+                                        </svg>
+                                    </span>
+                                </div>
+                                <div class="llm-section-justification" style="display:none;">${this.escapeHtml(section.justification || '')}</div>
                             </div>
-                            <div class="llm-section-justification" style="display:none;">${this.escapeHtml(section.justification || '')}</div>
-                        </div>
-                    `;
+                        `;
+                    }
                 }
-            }
             html += '</div>';
         } else {
             evalBox.innerHTML = '';
@@ -1219,7 +1219,7 @@ class LanguageToolEditor {
             
             score1.innerHTML = this.createTemperatureBar(percentage);
             score1.className = 'editor-score';
-        } else {
+            } else {
             score1.innerHTML = '';
             score1.className = 'editor-score';
         }
@@ -1231,7 +1231,7 @@ class LanguageToolEditor {
             
             score2.innerHTML = this.createTemperatureBar(percentage);
             score2.className = 'editor-score';
-        } else {
+            } else {
             score2.innerHTML = '';
             score2.className = 'editor-score';
         }
@@ -1746,57 +1746,57 @@ class LanguageToolEditor {
 
                 // Open a new feedback box and mark selected
                 btn.classList.add('selected');
-                feedbackBox = document.createElement('div');
-                feedbackBox.className = 'llm-feedback-box';
-                feedbackBox.style.marginTop = '0px';
-                feedbackBox.innerHTML = `<textarea class="llm-feedback-text" rows="1" placeholder="Please Give Feedback"></textarea><button class="llm-feedback-submit" title="Send Feedback"> <svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><line x1='22' y1='2' x2='11' y2='13'/><polygon points='22 2 15 22 11 13 2 9 22 2'/></svg></button>`;
-                card.appendChild(feedbackBox);
-                // Add vertical space below feedback box
-                const feedbackSpace = document.createElement('div');
+                    feedbackBox = document.createElement('div');
+                    feedbackBox.className = 'llm-feedback-box';
+                    feedbackBox.style.marginTop = '0px';
+                    feedbackBox.innerHTML = `<textarea class="llm-feedback-text" rows="1" placeholder="Please Give Feedback"></textarea><button class="llm-feedback-submit" title="Send Feedback"> <svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><line x1='22' y1='2' x2='11' y2='13'/><polygon points='22 2 15 22 11 13 2 9 22 2'/></svg></button>`;
+                    card.appendChild(feedbackBox);
+                    // Add vertical space below feedback box
+                    const feedbackSpace = document.createElement('div');
                 feedbackSpace.className = 'llm-feedback-space';
-                feedbackSpace.style.height = '12px';
-                card.appendChild(feedbackSpace);
-                const submitBtn = feedbackBox.querySelector('.llm-feedback-submit');
-                submitBtn.addEventListener('click', () => {
-                    const feedbackText = feedbackBox.querySelector('.llm-feedback-text').value;
-                    // Find pass/fail for this criteria
-                    let passed = null;
-                    if (fieldObj.llmLastResult && fieldObj.llmLastResult.evaluation && fieldObj.llmLastResult.evaluation[criteria]) {
-                        passed = fieldObj.llmLastResult.evaluation[criteria].passed;
-                    }
-                    // Send feedback to backend
-                    fetch('/feedback', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            criteria,
-                            text,
-                            feedback: 'thumbs_down',
-                            explanation: feedbackText,
-                            passed
-                        })
-                    }).then(res => res.json()).then(data => {
-                        btn.classList.add('selected');
-                        btn.title = "Feedback received!";
-                        feedbackBox.remove();
-                        feedbackSpace.remove();
-                        
-                        // Move evaluation to completed and update score
+                    feedbackSpace.style.height = '12px';
+                    card.appendChild(feedbackSpace);
+                    const submitBtn = feedbackBox.querySelector('.llm-feedback-submit');
+                    submitBtn.addEventListener('click', () => {
+                        const feedbackText = feedbackBox.querySelector('.llm-feedback-text').value;
+                        // Find pass/fail for this criteria
+                        let passed = null;
                         if (fieldObj.llmLastResult && fieldObj.llmLastResult.evaluation && fieldObj.llmLastResult.evaluation[criteria]) {
-                            fieldObj.llmLastResult.evaluation[criteria].passed = true;
-                            this.updateEditorLabelsWithScore();
-                            this.displayLLMResult(fieldObj.llmLastResult, false, field);
+                            passed = fieldObj.llmLastResult.evaluation[criteria].passed;
+                        }
+                    // Send feedback to backend
+                        fetch('/feedback', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                criteria,
+                                text,
+                                feedback: 'thumbs_down',
+                                explanation: feedbackText,
+                                passed
+                            })
+                        }).then(res => res.json()).then(data => {
+                            btn.classList.add('selected');
+                            btn.title = "Feedback received!";
+                            feedbackBox.remove();
+                            feedbackSpace.remove();
+                            
+                            // Move evaluation to completed and update score
+                            if (fieldObj.llmLastResult && fieldObj.llmLastResult.evaluation && fieldObj.llmLastResult.evaluation[criteria]) {
+                                fieldObj.llmLastResult.evaluation[criteria].passed = true;
+                                this.updateEditorLabelsWithScore();
+                                this.displayLLMResult(fieldObj.llmLastResult, false, field);
+                            }
+                        });
+                    });
+                    // Prevent newlines in feedback box
+                    const feedbackTextarea = feedbackBox.querySelector('.llm-feedback-text');
+                    feedbackTextarea.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            feedbackTextarea.blur();
                         }
                     });
-                });
-                // Prevent newlines in feedback box
-                const feedbackTextarea = feedbackBox.querySelector('.llm-feedback-text');
-                feedbackTextarea.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        feedbackTextarea.blur();
-                    }
-                });
             });
         });
     }
