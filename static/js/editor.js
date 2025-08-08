@@ -187,12 +187,7 @@ class LanguageToolEditor {
                     this.updateHighlights(field); // Only update overlay if not hidden
                 }
                 this.debounceCheck(field);
-                // Hide rewrite-eval button if content changed from last rewrite
-                const btnId = field === 'editor' ? 'rewrite-eval-btn' : 'rewrite-eval-btn-2';
-                const btn = document.getElementById(btnId);
-                if (btn && fieldObj.rewrittenSnapshot && fieldObj.editor.innerText !== fieldObj.rewrittenSnapshot) {
-                    btn.style.display = 'none';
-                }
+                // No rewrite-eval button anymore
                 // Hide rewrite-feedback button if content changed from last rewrite
                 const fbId = field === 'editor' ? 'rewrite-feedback-btn' : 'rewrite-feedback-btn-2';
                 const fb = document.getElementById(fbId);
@@ -241,36 +236,7 @@ class LanguageToolEditor {
                     this.submitToLLM(text, null, field); // Only text on first submit, pass field
                 });
             }
-            // Rewrite evaluation logging button
-            const rewriteEvalBtn = document.getElementById(field === 'editor' ? 'rewrite-eval-btn' : 'rewrite-eval-btn-2');
-            if (rewriteEvalBtn) {
-                rewriteEvalBtn.addEventListener('click', async () => {
-                    // Fetch user info if available
-                    let user = {};
-                    try {
-                        const resp = await fetch('/user');
-                        user = await resp.json();
-                    } catch {}
-                    const payload = {
-                        previous_text: fieldObj.prevVersionBeforeRewrite || '',
-                        rewritten_text: fieldObj.editor.innerText || '',
-                        rewrite_qas: fieldObj.lastRewriteQA || {},
-                        first_name: user.first_name || '',
-                        last_name: user.last_name || '',
-                        email: user.email || '',
-                        employee_id: user.employee_id || ''
-                    };
-                    try {
-                        await fetch('/rewrite-evaluation-log', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        });
-                        rewriteEvalBtn.style.opacity = '0.6';
-                        setTimeout(()=>{ rewriteEvalBtn.style.opacity = '1'; }, 600);
-                    } catch (e) {}
-                });
-            }
+            // Removed rewrite-eval button logic
             // Microphone button logic
             const micBtn = fieldObj.micBtn;
             let isRecording = false;
@@ -867,11 +833,8 @@ class LanguageToolEditor {
             
             this.displayLLMResult(data.result, answers !== null, field, !answers);
             this.updateActiveEditorHighlight(); // Ensure highlight remains
-            // If this was a rewrite, show evaluation btn and snapshot state
+            // If this was a rewrite, snapshot state
             if (answers) {
-                const btnId = field === 'editor' ? 'rewrite-eval-btn' : 'rewrite-eval-btn-2';
-                const btn = document.getElementById(btnId);
-                if (btn) btn.style.display = 'flex';
                 const fbId = field === 'editor' ? 'rewrite-feedback-btn' : 'rewrite-feedback-btn-2';
                 const fbBtn = document.getElementById(fbId);
                 if (fbBtn) fbBtn.style.display = 'flex';
