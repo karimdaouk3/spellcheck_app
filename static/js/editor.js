@@ -1362,8 +1362,8 @@ class LanguageToolEditor {
             const textWithNewlines = text.replace(/\n/g, '<br>');
             
             historyItem.innerHTML = `
-                <div style="margin-bottom:5px;white-space:pre-wrap;">${textWithNewlines}</div>
-                ${scoreDisplay ? `<div style="margin-top:5px;">${scoreDisplay}</div>` : ''}
+                <div style="white-space:pre-wrap;">${textWithNewlines}</div>
+                ${scoreDisplay ? `<div>${scoreDisplay}</div>` : ''}
             `;
             
             historyItem.onclick = () => {
