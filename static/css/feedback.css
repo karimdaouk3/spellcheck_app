@@ -21,7 +21,7 @@ body {
     text-align: center;
     margin: -40px -40px 40px -40px;
     padding: 30px 40px;
-    background: #41007F;
+    background: linear-gradient(90deg, #41007F, #6b2ca1);
     border-radius: 14px 14px 0 0;
     border-bottom: none;
 }
@@ -32,6 +32,12 @@ body {
     font-weight: 700;
     margin: 0;
     font-family: 'Open Sans', sans-serif;
+}
+
+.feedback-subtitle {
+    color: rgba(255,255,255,0.9);
+    margin-top: 8px;
+    font-size: 1.05em;
 }
 
 .feedback-form {
@@ -143,18 +149,18 @@ body {
     background: #00A7E1;
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 8px;
     font-size: 16px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background 0.2s, box-shadow 0.2s, transform 0.02s;
     padding: 12px 28px;
     font-family: 'Open Sans', sans-serif;
+    box-shadow: 0 6px 18px rgba(0,167,225,0.25);
 }
 
-.submit-button:hover {
-    background: #41007F;
-}
+.submit-button:hover { background: #41007F; box-shadow: 0 10px 24px rgba(65,0,127,0.25); }
+.submit-button:active { transform: translateY(1px); }
 
 .thank-you-container {
     max-width: 600px;

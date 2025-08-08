@@ -338,17 +338,24 @@ class LanguageToolEditor {
                             micBtn.classList.add('recording-pulse');
                             micBtn.title = 'Recording... Click to stop';
                             
-                            // Change icon to white square when recording
+                            // Change icon to pulsating circle when recording
                             const micIcon = micBtn.querySelector('svg');
                             if (micIcon) {
-                                micIcon.innerHTML = '<rect x="6" y="6" width="12" height="12" fill="white"/>';
+                                micIcon.innerHTML = '<circle cx="12" cy="12" r="6" fill="#fff" />';
                                 micIcon.removeAttribute('stroke');
+                                micBtn.style.background = 'rgba(255,255,255,0.15)';
+                                micBtn.style.borderRadius = '50%';
+                                micBtn.style.boxShadow = '0 0 0 0 rgba(255,255,255,0.35)';
+                                micBtn.style.animation = 'micPulse 1.2s ease-out infinite';
                             }
                         } catch (err) {
                             fieldObj.editor.innerText = '';
                             fieldObj.editor.setAttribute('contenteditable', 'true');
                             micBtn.classList.remove('recording-pulse');
                             micBtn.title = 'Record speech';
+                            micBtn.style.animation = '';
+                            micBtn.style.boxShadow = '';
+                            micBtn.style.background = '';
                             
                             // Restore original microphone icon in case of error
                             const micIcon = micBtn.querySelector('svg');
@@ -472,6 +479,10 @@ class LanguageToolEditor {
                     });
                     if (res.ok) {
                         pop.style.display = 'none';
+                        // Hide the feedback button after successful submit
+                        const btnId = field === 'editor' ? 'rewrite-feedback-btn' : 'rewrite-feedback-btn-2';
+                        const fbBtn = document.getElementById(btnId);
+                        if (fbBtn) fbBtn.style.display = 'none';
                     } else {
                         pop.style.display = 'none';
                     }
@@ -480,6 +491,17 @@ class LanguageToolEditor {
                 }
             };
         }
+
+        // Close rewrite feedback popover when clicking outside
+        document.addEventListener('mousedown', (e) => {
+            const popover = document.getElementById('rewrite-feedback-popover');
+            if (!popover || popover.style.display !== 'block') return;
+            const clickedInside = popover.contains(e.target);
+            const clickedButton = e.target.closest('#rewrite-feedback-btn') || e.target.closest('#rewrite-feedback-btn-2');
+            if (!clickedInside && !clickedButton) {
+                popover.style.display = 'none';
+            }
+        });
     }
     
     debounceCheck(field) {
