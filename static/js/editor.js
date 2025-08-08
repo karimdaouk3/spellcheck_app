@@ -338,24 +338,18 @@ class LanguageToolEditor {
                             micBtn.classList.add('recording-pulse');
                             micBtn.title = 'Recording... Click to stop';
                             
-                            // Change icon to pulsating circle when recording
+                            // Change icon to white square when recording (reverted)
                             const micIcon = micBtn.querySelector('svg');
                             if (micIcon) {
-                                micIcon.innerHTML = '<circle cx="12" cy="12" r="6" fill="#fff" />';
+                                micIcon.innerHTML = '<rect x="6" y="6" width="12" height="12" fill="white"/>';
                                 micIcon.removeAttribute('stroke');
-                                micBtn.style.background = 'rgba(255,255,255,0.15)';
-                                micBtn.style.borderRadius = '50%';
-                                micBtn.style.boxShadow = '0 0 0 0 rgba(255,255,255,0.35)';
-                                micBtn.style.animation = 'micPulse 1.2s ease-out infinite';
                             }
                         } catch (err) {
                             fieldObj.editor.innerText = '';
                             fieldObj.editor.setAttribute('contenteditable', 'true');
                             micBtn.classList.remove('recording-pulse');
                             micBtn.title = 'Record speech';
-                            micBtn.style.animation = '';
-                            micBtn.style.boxShadow = '';
-                            micBtn.style.background = '';
+                            // Reverted: no custom animation styles to reset
                             
                             // Restore original microphone icon in case of error
                             const micIcon = micBtn.querySelector('svg');
