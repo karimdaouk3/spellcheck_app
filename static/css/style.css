@@ -483,8 +483,8 @@ body {
 /* --- New two-column layout --- */
 .top-bar {
     width: 100%;
-    background: linear-gradient(90deg, #3a0072 0%, #41007F 40%, #5a1a9a 100%); /* subtle purple gradient */
-    box-shadow: 0 2px 8px rgba(33,0,127,0.07);
+    background: linear-gradient(90deg, #008EC3 0%, #00A7E1 50%, #33B7E7 100%); /* subtle blue gradient to match Submit for Review */
+    box-shadow: 0 2px 8px rgba(0,167,225,0.12);
     border-bottom: 1.5px solid #e0e0e0;
     padding: 0 12px 0 32px;
     position: relative;
