@@ -61,6 +61,13 @@ class LanguageToolEditor {
         this.historyCloseIcon = document.getElementById('history-close-icon');
         this.popup = document.getElementById('popup');
 
+        // Initialize FSR Daily Notes line item tracking (internal only)
+        if (this.fields.editor2 && this.fields.editor2.editor) {
+            this.fields.editor2.lineItemId = 1; // starts at 1
+            this.fields.editor2.lastHadContent = (this.fields.editor2.editor.innerText || '').trim() !== '';
+            this.fields.editor2.suppressClearPrompt = false; // to avoid prompts on programmatic clears
+        }
+
         if (this.toggleHistoryBtn) {
             this.toggleHistoryBtn.addEventListener('click', () => {
                 this.historyPanel.classList.add('closed');
@@ -183,6 +190,19 @@ class LanguageToolEditor {
                 this.updateActiveEditorHighlight();
             });
             fieldObj.editor.addEventListener('input', () => {
+                // Detect transition from non-empty to empty ONLY for FSR Daily Notes (editor2)
+                if (field === 'editor2') {
+                    const isNowEmpty = fieldObj.editor.innerText.trim() === '';
+                    const wasNonEmpty = !!fieldObj.lastHadContent;
+                    if (wasNonEmpty && isNowEmpty && !fieldObj.suppressClearPrompt) {
+                        const confirmNew = window.confirm('Are you starting a new FSR line item?');
+                        if (confirmNew) {
+                            const current = typeof fieldObj.lineItemId === 'number' ? fieldObj.lineItemId : 1;
+                            fieldObj.lineItemId = current + 1;
+                        }
+                    }
+                    fieldObj.lastHadContent = !isNowEmpty;
+                }
                 if (!fieldObj.overlayHidden) {
                     this.updateHighlights(field); // Only update overlay if not hidden
                 }
@@ -249,6 +269,11 @@ class LanguageToolEditor {
                     this.renderHistory();
                     this.renderEvaluationAndRewrite(field);
                     if (!isRecording) {
+                        // Suppress clear prompt when programmatically clearing for mic start
+                        if (field === 'editor2') {
+                            fieldObj.suppressClearPrompt = true;
+                            setTimeout(() => { fieldObj.suppressClearPrompt = false; }, 300);
+                        }
                         fieldObj.editor.innerText = '';
                         fieldObj.highlightOverlay.innerHTML = '';
                         fieldObj.editor.setAttribute('data-placeholder', 'Listening...');
