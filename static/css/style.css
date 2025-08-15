@@ -1160,6 +1160,13 @@ body {
     align-items: center;
 }
 
+.editor-line-item-label {
+    margin: 0 2px 6px 2px;
+    color: #41007F;
+    font-size: 0.95em;
+    font-weight: 600;
+}
+
 .editor-score {
     font-size: 1.08em;
     font-weight: 600;

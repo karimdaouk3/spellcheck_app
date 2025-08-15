@@ -66,6 +66,9 @@ class LanguageToolEditor {
             this.fields.editor2.lineItemId = 1; // starts at 1
             this.fields.editor2.lastHadContent = (this.fields.editor2.editor.innerText || '').trim() !== '';
             this.fields.editor2.suppressClearPrompt = false; // to avoid prompts on programmatic clears
+            // Initialize the visible label
+            const lbl = document.getElementById('line-item-label');
+            if (lbl) lbl.textContent = `Line Item ${this.fields.editor2.lineItemId}`;
         }
 
         if (this.toggleHistoryBtn) {
@@ -275,6 +278,8 @@ class LanguageToolEditor {
                             if (confirmNew) {
                                 const current = typeof fieldObj.lineItemId === 'number' ? fieldObj.lineItemId : 1;
                                 fieldObj.lineItemId = current + 1;
+                                const lbl = document.getElementById('line-item-label');
+                                if (lbl) lbl.textContent = `Line Item ${fieldObj.lineItemId}`;
                             }
                         });
                     }
@@ -359,6 +364,8 @@ class LanguageToolEditor {
                             if (confirmNew) {
                                 const current = typeof fieldObj.lineItemId === 'number' ? fieldObj.lineItemId : 1;
                                 fieldObj.lineItemId = current + 1;
+                                const lbl = document.getElementById('line-item-label');
+                                if (lbl) lbl.textContent = `Line Item ${fieldObj.lineItemId}`;
                             }
                             fieldObj.lastHadContent = false;
                         }
