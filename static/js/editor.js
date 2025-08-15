@@ -269,10 +269,18 @@ class LanguageToolEditor {
                     this.renderHistory();
                     this.renderEvaluationAndRewrite(field);
                     if (!isRecording) {
-                        // Suppress clear prompt when programmatically clearing for mic start
+                        // For FSR Daily Notes, prompt before starting recording if clearing existing text
                         if (field === 'editor2') {
-                            fieldObj.suppressClearPrompt = true;
-                            setTimeout(() => { fieldObj.suppressClearPrompt = false; }, 300);
+                            const hadContent = fieldObj.editor.innerText.trim() !== '';
+                            if (hadContent) {
+                                const confirmNew = window.confirm('Are you starting a new FSR line item?');
+                                if (confirmNew) {
+                                    const current = typeof fieldObj.lineItemId === 'number' ? fieldObj.lineItemId : 1;
+                                    fieldObj.lineItemId = current + 1;
+                                }
+                                // After handling, mark as no content (we're about to clear)
+                                fieldObj.lastHadContent = false;
+                            }
                         }
                         fieldObj.editor.innerText = '';
                         fieldObj.highlightOverlay.innerHTML = '';
