@@ -93,22 +93,36 @@ class LanguageToolEditor {
     }
 
     // Simple Yes/No modal that resolves to true for Yes, false for No
-    showYesNoPrompt(message) {
+    // If anchorEl is provided, the modal overlays only that element; otherwise it overlays the viewport
+    showYesNoPrompt(message, anchorEl = null) {
         return new Promise((resolve) => {
             const overlay = document.createElement('div');
-            overlay.style.position = 'fixed';
-            overlay.style.inset = '0';
-            overlay.style.background = 'rgba(0,0,0,0.35)';
+            const target = anchorEl || document.body;
+            // Ensure anchor is positioned for absolute overlay
+            if (anchorEl) {
+                const computed = window.getComputedStyle(anchorEl);
+                if (computed.position === 'static') {
+                    anchorEl.style.position = 'relative';
+                }
+                overlay.style.position = 'absolute';
+                overlay.style.inset = '0';
+                overlay.style.zIndex = '5';
+            } else {
+                overlay.style.position = 'fixed';
+                overlay.style.inset = '0';
+                overlay.style.zIndex = '9999';
+            }
+            overlay.style.background = 'rgba(0,0,0,0.20)';
             overlay.style.display = 'flex';
             overlay.style.alignItems = 'center';
             overlay.style.justifyContent = 'center';
-            overlay.style.zIndex = '9999';
+            overlay.style.pointerEvents = 'auto';
             const dialog = document.createElement('div');
             dialog.style.background = '#fff';
             dialog.style.borderRadius = '8px';
             dialog.style.padding = '16px 16px 12px 16px';
             dialog.style.minWidth = '280px';
-            dialog.style.maxWidth = '90vw';
+            dialog.style.maxWidth = '90%';
             dialog.style.boxShadow = '0 8px 30px rgba(0,0,0,0.15)';
             const msg = document.createElement('div');
             msg.textContent = message || '';
@@ -139,25 +153,12 @@ class LanguageToolEditor {
             dialog.appendChild(msg);
             dialog.appendChild(actions);
             overlay.appendChild(dialog);
-            document.body.appendChild(overlay);
+            target.appendChild(overlay);
 
             const cleanup = () => {
                 if (overlay && overlay.parentElement) overlay.parentElement.removeChild(overlay);
-                document.removeEventListener('keydown', onKey);
             };
-            const onKey = (e) => {
-                if (e.key === 'Escape') {
-                    cleanup();
-                    resolve(false);
-                }
-            };
-            document.addEventListener('keydown', onKey);
-            overlay.addEventListener('click', (e) => {
-                if (e.target === overlay) {
-                    cleanup();
-                    resolve(false);
-                }
-            });
+            // Do NOT close on outside click or Escape; require explicit Yes/No
             noBtn.addEventListener('click', () => { cleanup(); resolve(false); });
             yesBtn.addEventListener('click', () => { cleanup(); resolve(true); });
         });
@@ -266,7 +267,9 @@ class LanguageToolEditor {
                     const isNowEmpty = fieldObj.editor.innerText.trim() === '';
                     const wasNonEmpty = !!fieldObj.lastHadContent;
                     if (wasNonEmpty && isNowEmpty && !fieldObj.suppressClearPrompt) {
-                        this.showYesNoPrompt('Are you starting a new FSR line item?').then((confirmNew) => {
+                        // Anchor the prompt to the editor container so only it is greyed out
+                        const anchor = fieldObj.editor.closest('.editor-container') || fieldObj.editor.parentElement;
+                        this.showYesNoPrompt('Are you starting a new FSR line item?', anchor).then((confirmNew) => {
                             if (confirmNew) {
                                 const current = typeof fieldObj.lineItemId === 'number' ? fieldObj.lineItemId : 1;
                                 fieldObj.lineItemId = current + 1;
@@ -349,7 +352,8 @@ class LanguageToolEditor {
                         fieldObj.editor.classList.add('empty');
                         // For FSR Daily Notes, prompt before starting recording (after clear)
                         if (field === 'editor2' && hadContent) {
-                            const confirmNew = await this.showYesNoPrompt('Are you starting a new FSR line item?');
+                            const anchor = fieldObj.editor.closest('.editor-container') || fieldObj.editor.parentElement;
+                            const confirmNew = await this.showYesNoPrompt('Are you starting a new FSR line item?', anchor);
                             if (confirmNew) {
                                 const current = typeof fieldObj.lineItemId === 'number' ? fieldObj.lineItemId : 1;
                                 fieldObj.lineItemId = current + 1;
