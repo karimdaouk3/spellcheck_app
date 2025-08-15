@@ -91,6 +91,77 @@ class LanguageToolEditor {
         this.createHighlightOverlay('editor');
         this.createHighlightOverlay('editor2');
     }
+
+    // Simple Yes/No modal that resolves to true for Yes, false for No
+    showYesNoPrompt(message) {
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.style.position = 'fixed';
+            overlay.style.inset = '0';
+            overlay.style.background = 'rgba(0,0,0,0.35)';
+            overlay.style.display = 'flex';
+            overlay.style.alignItems = 'center';
+            overlay.style.justifyContent = 'center';
+            overlay.style.zIndex = '9999';
+            const dialog = document.createElement('div');
+            dialog.style.background = '#fff';
+            dialog.style.borderRadius = '8px';
+            dialog.style.padding = '16px 16px 12px 16px';
+            dialog.style.minWidth = '280px';
+            dialog.style.maxWidth = '90vw';
+            dialog.style.boxShadow = '0 8px 30px rgba(0,0,0,0.15)';
+            const msg = document.createElement('div');
+            msg.textContent = message || '';
+            msg.style.marginBottom = '12px';
+            msg.style.color = '#111';
+            msg.style.fontWeight = '600';
+            const actions = document.createElement('div');
+            actions.style.display = 'flex';
+            actions.style.gap = '10px';
+            actions.style.justifyContent = 'flex-end';
+            const noBtn = document.createElement('button');
+            noBtn.textContent = 'No';
+            noBtn.style.padding = '6px 12px';
+            noBtn.style.border = '1px solid #ccc';
+            noBtn.style.background = '#fff';
+            noBtn.style.borderRadius = '6px';
+            noBtn.style.cursor = 'pointer';
+            const yesBtn = document.createElement('button');
+            yesBtn.textContent = 'Yes';
+            yesBtn.style.padding = '6px 12px';
+            yesBtn.style.border = 'none';
+            yesBtn.style.background = '#41007F';
+            yesBtn.style.color = '#fff';
+            yesBtn.style.borderRadius = '6px';
+            yesBtn.style.cursor = 'pointer';
+            actions.appendChild(noBtn);
+            actions.appendChild(yesBtn);
+            dialog.appendChild(msg);
+            dialog.appendChild(actions);
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+
+            const cleanup = () => {
+                if (overlay && overlay.parentElement) overlay.parentElement.removeChild(overlay);
+                document.removeEventListener('keydown', onKey);
+            };
+            const onKey = (e) => {
+                if (e.key === 'Escape') {
+                    cleanup();
+                    resolve(false);
+                }
+            };
+            document.addEventListener('keydown', onKey);
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    cleanup();
+                    resolve(false);
+                }
+            });
+            noBtn.addEventListener('click', () => { cleanup(); resolve(false); });
+            yesBtn.addEventListener('click', () => { cleanup(); resolve(true); });
+        });
+    }
     
     createHighlightOverlay(field) {
         const fieldObj = this.fields[field];
@@ -195,11 +266,12 @@ class LanguageToolEditor {
                     const isNowEmpty = fieldObj.editor.innerText.trim() === '';
                     const wasNonEmpty = !!fieldObj.lastHadContent;
                     if (wasNonEmpty && isNowEmpty && !fieldObj.suppressClearPrompt) {
-                        const confirmNew = window.confirm('Are you starting a new FSR line item?');
-                        if (confirmNew) {
-                            const current = typeof fieldObj.lineItemId === 'number' ? fieldObj.lineItemId : 1;
-                            fieldObj.lineItemId = current + 1;
-                        }
+                        this.showYesNoPrompt('Are you starting a new FSR line item?').then((confirmNew) => {
+                            if (confirmNew) {
+                                const current = typeof fieldObj.lineItemId === 'number' ? fieldObj.lineItemId : 1;
+                                fieldObj.lineItemId = current + 1;
+                            }
+                        });
                     }
                     fieldObj.lastHadContent = !isNowEmpty;
                 }
@@ -269,23 +341,21 @@ class LanguageToolEditor {
                     this.renderHistory();
                     this.renderEvaluationAndRewrite(field);
                     if (!isRecording) {
-                        // For FSR Daily Notes, prompt before starting recording if clearing existing text
-                        if (field === 'editor2') {
-                            const hadContent = fieldObj.editor.innerText.trim() !== '';
-                            if (hadContent) {
-                                const confirmNew = window.confirm('Are you starting a new FSR line item?');
-                                if (confirmNew) {
-                                    const current = typeof fieldObj.lineItemId === 'number' ? fieldObj.lineItemId : 1;
-                                    fieldObj.lineItemId = current + 1;
-                                }
-                                // After handling, mark as no content (we're about to clear)
-                                fieldObj.lastHadContent = false;
-                            }
-                        }
+                        // Clear first
+                        const hadContent = fieldObj.editor.innerText.trim() !== '';
                         fieldObj.editor.innerText = '';
                         fieldObj.highlightOverlay.innerHTML = '';
                         fieldObj.editor.setAttribute('data-placeholder', 'Listening...');
                         fieldObj.editor.classList.add('empty');
+                        // For FSR Daily Notes, prompt before starting recording (after clear)
+                        if (field === 'editor2' && hadContent) {
+                            const confirmNew = await this.showYesNoPrompt('Are you starting a new FSR line item?');
+                            if (confirmNew) {
+                                const current = typeof fieldObj.lineItemId === 'number' ? fieldObj.lineItemId : 1;
+                                fieldObj.lineItemId = current + 1;
+                            }
+                            fieldObj.lastHadContent = false;
+                        }
                         fieldObj.editor.setAttribute('contenteditable', 'false');
                         try {
                             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
