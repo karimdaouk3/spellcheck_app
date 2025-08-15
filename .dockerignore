@@ -1,0 +1,15 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv
+venv
+.git
+.gitignore
+node_modules
+.DS_Store
+*.log
+llm_evaluation_log.json
+llm_rewrite_feedback_log.json
+rewrite_evaluation_log.json
