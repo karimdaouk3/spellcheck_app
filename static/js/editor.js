@@ -107,6 +107,8 @@ class LanguageToolEditor {
                 overlay.style.position = 'absolute';
                 overlay.style.inset = '0';
                 overlay.style.zIndex = '5';
+                // Match the rounded corners of the active editor outline
+                overlay.style.borderRadius = computed.borderRadius || '10px';
             } else {
                 overlay.style.position = 'fixed';
                 overlay.style.inset = '0';
