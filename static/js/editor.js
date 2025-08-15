@@ -704,6 +704,8 @@ class LanguageToolEditor {
                 e.stopPropagation();
                 const suggestionIndex = parseInt(span.getAttribute('data-suggestion-index'));
                 const suggestion = fieldObj.currentSuggestions[suggestionIndex];
+                // Move caret to the start of the clicked highlight in the underlying editor
+                this.setCursorPosition(suggestion.offset, field);
                 this.showPopup(suggestion, e.clientX, e.clientY, field);
             });
         });
