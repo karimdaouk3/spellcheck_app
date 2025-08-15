@@ -1167,6 +1167,11 @@ body {
     font-weight: 600;
 }
 
+/* Remove margin below the label row only for Daily FSR Notes (second editor) */
+.editor-container-group > .editor-container:nth-of-type(2) .editor-label-container {
+    margin-bottom: 0 !important;
+}
+
 .editor-score {
     font-size: 1.08em;
     font-weight: 600;
