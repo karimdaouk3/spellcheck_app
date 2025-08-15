@@ -704,8 +704,10 @@ class LanguageToolEditor {
                 e.stopPropagation();
                 const suggestionIndex = parseInt(span.getAttribute('data-suggestion-index'));
                 const suggestion = fieldObj.currentSuggestions[suggestionIndex];
-                // Move caret to the start of the clicked highlight in the underlying editor
-                this.setCursorPosition(suggestion.offset, field);
+                // Determine the exact character offset within the span where the user clicked
+                const localIndex = this.getLocalIndexWithinSpan(span, e);
+                const absoluteIndex = suggestion.offset + localIndex;
+                this.setCursorPosition(absoluteIndex, field);
                 this.showPopup(suggestion, e.clientX, e.clientY, field);
             });
         });
@@ -848,15 +850,64 @@ class LanguageToolEditor {
     setCursorPosition(pos, field) {
         // Set cursor at character offset 'pos' in the contenteditable div
         this.fields[field].editor.focus();
-        const textNode = this.fields[field].editor.firstChild;
-        if (textNode && textNode.nodeType === Node.TEXT_NODE) {
-            const range = document.createRange();
-            range.setStart(textNode, Math.min(pos, textNode.length));
-            range.collapse(true);
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(range);
+        const editor = this.fields[field].editor;
+        const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
+        let node = walker.nextNode();
+        let remaining = pos;
+        while (node) {
+            const length = node.textContent.length;
+            if (remaining <= length) {
+                const range = document.createRange();
+                range.setStart(node, Math.max(0, remaining));
+                range.collapse(true);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+                return;
+            } else {
+                remaining -= length;
+            }
+            node = walker.nextNode();
         }
+        // If we get here, place at end
+        const range = document.createRange();
+        range.selectNodeContents(editor);
+        range.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }
+
+    // Compute the character index within a highlight span based on click position
+    getLocalIndexWithinSpan(span, mouseEvent) {
+        const doc = span.ownerDocument || document;
+        let range = null;
+        if (typeof doc.caretRangeFromPoint === 'function') {
+            range = doc.caretRangeFromPoint(mouseEvent.clientX, mouseEvent.clientY);
+        } else if (typeof doc.caretPositionFromPoint === 'function') {
+            const pos = doc.caretPositionFromPoint(mouseEvent.clientX, mouseEvent.clientY);
+            if (pos) {
+                range = doc.createRange();
+                range.setStart(pos.offsetNode, pos.offset);
+                range.collapse(true);
+            }
+        }
+        try {
+            if (range && span.contains(range.startContainer)) {
+                const preRange = doc.createRange();
+                preRange.selectNodeContents(span);
+                preRange.setEnd(range.startContainer, range.startOffset);
+                return preRange.toString().length;
+            }
+        } catch (_) {
+            // fall through to approximation
+        }
+        // Fallback: approximate based on x position within the span width
+        const rect = span.getBoundingClientRect();
+        const relX = rect.width > 0 ? (mouseEvent.clientX - rect.left) / rect.width : 0;
+        const clamped = Math.max(0, Math.min(1, relX));
+        const len = span.textContent ? span.textContent.length : 0;
+        return Math.round(clamped * len);
     }
 
     getSuggestionKey(suggestion, text) {
