@@ -1198,9 +1198,12 @@ class LanguageToolEditor {
         let html = '';
         let valid = result && typeof result === 'object';
         let rulesObj = result && result.evaluation ? result.evaluation : result;
-        // Persist review_id from backend (step 1)
+        // Persist review_id and user_input_id from backend (step 1)
         if (result && result.review_id) {
             fieldObj.reviewId = result.review_id;
+        }
+        if (result && result.user_input_id) {
+            fieldObj.userInputId = result.user_input_id;
         }
         // Collapsible state (per field)
         if (!this.evalCollapsed) this.evalCollapsed = {};
@@ -2022,8 +2025,9 @@ class LanguageToolEditor {
                         }
                         // Build IDs: rewrite_id (from criteria map) and user_input_id (from last rewrite mapping)
                         const rewriteId = (fieldObj.rewriteIdByCriteria && fieldObj.rewriteIdByCriteria[criteria]) ? fieldObj.rewriteIdByCriteria[criteria] : null;
-                        let userInputId = null;
-                        if (Array.isArray(fieldObj.lastRewriteUserInputs) && rewriteId) {
+                        // Prefer user_input_id provided with the evaluation (step 1)
+                        let userInputId = fieldObj.userInputId || null;
+                        if (!userInputId && Array.isArray(fieldObj.lastRewriteUserInputs) && rewriteId) {
                             const match = fieldObj.lastRewriteUserInputs.find(u => String(u.rewrite_id) === String(rewriteId));
                             if (match && (match.user_input_id || match.id)) {
                                 userInputId = match.user_input_id || match.id;
