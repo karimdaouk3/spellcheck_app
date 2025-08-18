@@ -1003,12 +1003,12 @@ class LanguageToolEditor {
         while (node) {
             const length = node.textContent.length;
             if (remaining <= length) {
-                const range = document.createRange();
+            const range = document.createRange();
                 range.setStart(node, Math.max(0, remaining));
-                range.collapse(true);
-                const sel = window.getSelection();
-                sel.removeAllRanges();
-                sel.addRange(range);
+            range.collapse(true);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
                 return;
             } else {
                 remaining -= length;
@@ -1171,6 +1171,10 @@ class LanguageToolEditor {
         let html = '';
         let valid = result && typeof result === 'object';
         let rulesObj = result && result.evaluation ? result.evaluation : result;
+        // Persist review_id from backend (step 1)
+        if (result && result.review_id) {
+            fieldObj.reviewId = result.review_id;
+        }
         // Collapsible state (per field)
         if (!this.evalCollapsed) this.evalCollapsed = {};
         if (typeof this.evalCollapsed[field] === 'undefined') this.evalCollapsed[field] = true; // Collapsed by default
@@ -1346,7 +1350,7 @@ class LanguageToolEditor {
                                 if (rewriteId) {
                                     answersPayload.push({ rewrite_id: rewriteId, answer });
                                 } else {
-                                    const crit = el.getAttribute('data-criteria');
+                                const crit = el.getAttribute('data-criteria');
                                     if (crit) {
                                         fieldObj.llmAnswers[crit] = answer;
                                     }
@@ -1377,6 +1381,12 @@ class LanguageToolEditor {
                 rewritePopup.style.display = 'none';
                 evalBox.style.display = 'none';
                 this.checkText(field);
+                // Persist user_inputs mapping from backend (rewrite_id -> user_input_id)
+                if (result && Array.isArray(result.user_inputs)) {
+                    fieldObj.lastRewriteUserInputs = result.user_inputs;
+                } else {
+                    fieldObj.lastRewriteUserInputs = [];
+                }
                 this.submitToLLM(rewrite, null, field);
             } else {
                 rewritePopup.style.display = 'none';
