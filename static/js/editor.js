@@ -61,6 +61,20 @@ class LanguageToolEditor {
         this.historyCloseIcon = document.getElementById('history-close-icon');
         this.popup = document.getElementById('popup');
 
+        // App session id for backend correlation
+        this.appSessionId = (() => {
+            try {
+                const existing = localStorage.getItem('app_session_id');
+                if (existing) return existing;
+                const fresh = this.generateUUIDv4();
+                localStorage.setItem('app_session_id', fresh);
+                return fresh;
+            } catch {
+                // Fallback if localStorage unavailable
+                return this.generateUUIDv4();
+            }
+        })();
+
         // Initialize FSR Daily Notes line item tracking (internal only)
         if (this.fields.editor2 && this.fields.editor2.editor) {
             this.fields.editor2.lineItemId = 1; // starts at 1
@@ -98,6 +112,14 @@ class LanguageToolEditor {
         this.updateActiveEditorHeader(); // Initialize the header
         this.createHighlightOverlay('editor');
         this.createHighlightOverlay('editor2');
+    }
+
+    // Simple UUID v4 generator for session correlation
+    generateUUIDv4() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
     }
 
     // Simple Yes/No modal that resolves to true for Yes, false for No
@@ -1098,18 +1120,17 @@ class LanguageToolEditor {
         }
         try {
             let body = { text };
+            // Attach correlation/context fields expected by backend when present
+            body.app_session_id = this.appSessionId;
+            // Provide field and inferred input_field for backend logging
+            body.input_field = (field === 'editor2') ? 'fsr' : 'problem_statement';
+            body.ruleset = (field === 'editor2') ? 'fsr' : 'problem_statement';
             if (answers) {
                 body.answers = answers;
                 body.step = 2;
                 if (fieldObj.reviewId) body.review_id = fieldObj.reviewId;
             } else {
                 body.step = 1;
-            }
-            // Add ruleset parameter
-            if (field === 'editor2') {
-                body.ruleset = 'fsr';
-            } else {
-                body.ruleset = 'problem_statement';
             }
             const response = await fetch('/llm', {
                 method: 'POST',
@@ -1185,6 +1206,16 @@ class LanguageToolEditor {
         const isCollapsed = this.evalCollapsed[field];
         
         if (valid && rulesObj && typeof rulesObj === 'object') {
+            // Map criteria -> rewrite_id for later feedback payloads
+            try {
+                fieldObj.rewriteIdByCriteria = {};
+                Object.keys(rulesObj).forEach(k => {
+                    const sec = rulesObj[k];
+                    if (sec && typeof sec === 'object' && sec.rewrite_id) {
+                        fieldObj.rewriteIdByCriteria[k] = sec.rewrite_id;
+                    }
+                });
+            } catch {}
             const keys = Object.keys(rulesObj);
             const total = keys.length;
             const passed = keys.filter(key => rulesObj[key].passed).length;
