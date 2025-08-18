@@ -1101,6 +1101,7 @@ class LanguageToolEditor {
             if (answers) {
                 body.answers = answers;
                 body.step = 2;
+                if (fieldObj.reviewId) body.review_id = fieldObj.reviewId;
             } else {
                 body.step = 1;
             }
@@ -1291,7 +1292,7 @@ class LanguageToolEditor {
                 for (const key of Object.keys(rulesObj)) {
                     const section = rulesObj[key];
                     if (!section.passed && section.question) {
-                        newQuestions.push({ criteria: key, question: section.question });
+                        newQuestions.push({ criteria: key, question: section.question, rewrite_id: section.rewrite_id || '' });
                     }
                 }
             }
@@ -1311,10 +1312,10 @@ class LanguageToolEditor {
                 let qHtml = '<div class="rewrite-title" style="display:flex;align-items:center;font-weight:700;font-size:1.13em;color:#41007F;margin-bottom:8px;">To improve your input, please answer the following questions:</div>';
                 qHtml += `<div class="rewrite-title" style="border: 2px solid ${borderColor}; background: ${backgroundColor}; border-radius: 10px; padding: 18px 18px 10px 18px; margin-bottom: 10px; margin-top: 10px;">`;
                 fieldObj.llmQuestions.forEach((q, idx) => {
+                    const rewriteId = q.rewrite_id || '';
                     qHtml += `<div class="rewrite-question">${this.escapeHtml(q.question)}</div>`;
-                    // Prepopulate saved answers when switching boxes; new evaluations start with cleared answers
                     const existingAnswer = fieldObj.llmAnswers && fieldObj.llmAnswers[q.criteria] ? (fieldObj.llmAnswers[q.criteria] || '') : '';
-                    qHtml += `<textarea class="rewrite-answer" data-criteria="${this.escapeHtml(q.criteria)}" rows="1" style="width:100%;margin-bottom:12px;resize:none;">${this.escapeHtml(existingAnswer)}</textarea>`;
+                    qHtml += `<textarea class="rewrite-answer" data-criteria="${this.escapeHtml(q.criteria)}" data-rewrite-id="${this.escapeHtml(rewriteId)}" rows="1" style="width:100%;margin-bottom:12px;resize:none;">${this.escapeHtml(existingAnswer)}</textarea>`;
                 });
                 qHtml += `<button id="submit-answers-btn" class="llm-submit-button" style="margin-top:10px;">Rewrite</button>`;
                 rewritePopup.innerHTML = qHtml;
@@ -1337,13 +1338,22 @@ class LanguageToolEditor {
                     });
                     if (btn) {
                         btn.onclick = () => {
-                            // Collect answers (redundant, but ensures latest values)
+                            // Build answers payload preferring rewrite_id
+                            const answersPayload = [];
                             answerEls.forEach(el => {
-                                const crit = el.getAttribute('data-criteria');
-                                fieldObj.llmAnswers[crit] = el.value;
+                                const rewriteId = el.getAttribute('data-rewrite-id');
+                                const answer = el.value;
+                                if (rewriteId) {
+                                    answersPayload.push({ rewrite_id: rewriteId, answer });
+                                } else {
+                                    const crit = el.getAttribute('data-criteria');
+                                    if (crit) {
+                                        fieldObj.llmAnswers[crit] = answer;
+                                    }
+                                }
                             });
-                            // Resubmit to LLM with answers
-                            this.submitToLLM(fieldObj.editor.innerText, fieldObj.llmAnswers, field);
+                            const toSend = answersPayload.length > 0 ? answersPayload : fieldObj.llmAnswers;
+                            this.submitToLLM(fieldObj.editor.innerText, toSend, field);
                         };
                     }
                 }, 100);

@@ -1,10 +1,12 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, session
 import language_tool_python as lt
 # Add LiteLLM import
 import litellm
 import json
 import time
 import os
+import snowflake.connector
+import uuid
 
 TERMS_FILE = 'terms.json'
 
@@ -73,6 +75,15 @@ def get_error_type(ruleId):
 @app.route("/")
 def index():
     return render_template("index.html")
+
+@app.route("/wiki")
+def wiki():
+    # Deprecated: redirect to instructional video page
+    return render_template("video.html")
+
+@app.route("/video")
+def video():
+    return render_template("video.html")
 
 @app.route("/check", methods=["POST"])
 def check():
@@ -195,13 +206,35 @@ Evaluate the following technical note against these criteria:\n{rules}\n\nFor ea
             except Exception as e:
                 print(f"Error parsing LLM JSON: {e}\nRaw output: {llm_result_str}")
                 return jsonify({"result": {}})
-            return jsonify({"result": {"evaluation": llm_result}})
+            # Generate a review_id and attach per-question rewrite_ids
+            review_id = f"rev_{uuid.uuid4()}"
+            if isinstance(llm_result, dict):
+                for key, section in llm_result.items():
+                    if isinstance(section, dict) and not section.get('passed') and section.get('question'):
+                        section['rewrite_id'] = f"rw_{uuid.uuid4()}"
+            # Optionally store in session for validation later
+            session.setdefault('reviews', {})
+            session['reviews'][review_id] = {k: v.get('rewrite_id') for k, v in llm_result.items() if isinstance(v, dict) and 'rewrite_id' in v}
+            session.modified = True
+            return jsonify({"result": {"review_id": review_id, "evaluation": llm_result}})
         except Exception as e:
             print(f"Error calling LLM: {e}")
             return jsonify({"result": f"LLM error: {e}"})
     elif step == 2:
         # Step 2: Generate rewrite using answers
-        answers_str = "\n".join(f"- {k}: {v}" for k, v in answers.items())
+        # Support answers as an array of {rewrite_id, answer} or legacy map {criteria: answer}
+        answers_str = ""
+        if isinstance(answers, list):
+            lines = []
+            for item in answers:
+                if not isinstance(item, dict):
+                    continue
+                rid = item.get('rewrite_id', 'unknown_id')
+                ans = item.get('answer', '')
+                lines.append(f"- [{rid}] {ans}")
+            answers_str = "\n".join(lines)
+        elif isinstance(answers, dict):
+            answers_str = "\n".join(f"- {k}: {v}" for k, v in answers.items())
         user_prompt = f"""
 Given the original technical note and the user's answers to the following questions, generate an improved version that would pass all criteria.\n\nOriginal Note: {{text}}\nUser Answers:\n{answers_str}\n\nReturn only the improved statement as 'rewrite' in a JSON object.\nExample: {{\"rewrite\": \"...\"}}
 """
@@ -247,10 +280,11 @@ def overall_feedback():
     
     # Handle POST request for overall feedback form
     experience_rating = request.form.get('experience_rating')
-    use_in_field = request.form.get('use_in_field')
+    helpfulness_rating = request.form.get('helpfulness_rating')
+    future_interest = request.form.get('future_interest')
     feedback_text = request.form.get('feedback_text', '')
     
-    if not experience_rating or not use_in_field:
+    if not experience_rating or not helpfulness_rating or not future_interest:
         return render_template("feedback.html", 
                              message="Please fill in all required fields.", 
                              message_type="error")
@@ -258,7 +292,8 @@ def overall_feedback():
     # Save feedback to file
     feedback_data = {
         "experience_rating": experience_rating,
-        "use_in_field": use_in_field,
+        "helpfulness_rating": helpfulness_rating,
+        "future_interest": future_interest,
         "feedback_text": feedback_text,
         "timestamp": time.time()
     }
@@ -315,23 +350,119 @@ REWRITE_FEEDBACK_FILE = 'rewrite_feedback.json'
 
 @app.route("/rewrite-feedback", methods=["POST"])
 def rewrite_feedback():
-    data = request.get_json()
-    # Expecting a list of entries, each with original_text, criteria, question, user_answer
-    if not isinstance(data, list):
-        return jsonify({"status": "error", "message": "Invalid data format (expected list)"}), 400
-    for entry in data:
-        if not all(k in entry for k in ("original_text", "criteria", "question", "user_answer")):
-            return jsonify({"status": "error", "message": "Missing required fields in entry"}), 400
-    # Load existing rewrite feedback
-    if os.path.exists(REWRITE_FEEDBACK_FILE):
-        with open(REWRITE_FEEDBACK_FILE, "r") as f:
-            feedback_data = json.load(f)
-    else:
-        feedback_data = []
-    # Add new entries
-    feedback_data.extend(data)
-    with open(REWRITE_FEEDBACK_FILE, "w") as f:
-        json.dump(feedback_data, f)
+    """
+    Repurposed to handle textual feedback on a completed rewrite only.
+    Expects JSON with keys: previous_text, rewritten_text, rewrite_qas, feedback_text,
+    first_name, last_name, email, employee_id.
+    """
+    data = request.get_json(silent=True) or {}
+    required = ["previous_text", "rewritten_text", "rewrite_qas", "feedback_text"]
+    if not all(k in data and str(data[k]).strip() != "" for k in required):
+        return jsonify({"status": "error", "message": "Missing required fields"}), 400
+
+    # Snowflake insert matching your template style
+    try:
+        # Pull user attributes from session-backed user_data
+        user_data = session.get('user_data', {})
+        insert_query = """
+            INSERT INTO SAGE.TEXTIO_SERVICES_INPUTS.LLM_REWRITE_FEEDBACK
+            (text, rewritten_text, rewrite_qas, feedback_text, sentiment, timestamp, first_name, last_name, email, employeeID)
+            SELECT %s, %s, PARSE_JSON(%s), %s, %s, TO_TIMESTAMP(%s), %s, %s, %s, %s
+        """
+        params = (
+            data["previous_text"],
+            data["rewritten_text"],
+            json.dumps(data["rewrite_qas"]),
+            data["feedback_text"],
+            data.get("sentiment"),
+            data.get("timestamp") or time.time(),
+            user_data.get("first_name", ""),
+            user_data.get("last_name", ""),
+            user_data.get("email", ""),
+            user_data.get("employee_id", ""),
+        )
+
+        conn = snowflake.connector.connect(
+            account=os.environ.get("SNOWFLAKE_ACCOUNT"),
+            user=os.environ.get("SNOWFLAKE_USER"),
+            password=os.environ.get("SNOWFLAKE_PASSWORD"),
+            warehouse=os.environ.get("SNOWFLAKE_WAREHOUSE"),
+            database=os.environ.get("SNOWFLAKE_DATABASE"),
+            schema=os.environ.get("SNOWFLAKE_SCHEMA"),
+            role=os.environ.get("SNOWFLAKE_ROLE"),
+            client_session_keep_alive=True,
+        )
+        try:
+            with conn.cursor() as cur:
+                cur.execute(insert_query, params)
+        finally:
+            conn.close()
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        print(f"Error inserting rewrite feedback: {e}")
+        return jsonify({"status": "error", "message": "Failed to log rewrite feedback"}), 500
+
+# --- Simple user endpoint (placeholder). Replace with real auth/user source if available ---
+@app.route("/user", methods=["GET"])
+def get_user():
+    # Try to load from environment variables as a basic example; otherwise return blanks
+    return jsonify({
+        "first_name": os.environ.get("USER_FIRST_NAME", ""),
+        "last_name": os.environ.get("USER_LAST_NAME", ""),
+        "email": os.environ.get("USER_EMAIL", ""),
+        "employee_id": os.environ.get("USER_EMPLOYEE_ID", "")
+    })
+
+# --- LLM evaluation logging ---
+EVALUATION_LOG_FILE = 'llm_evaluation_log.json'
+
+@app.route("/llm-evaluation-log", methods=["POST"])
+def llm_evaluation_log():
+    data = request.get_json(silent=True) or {}
+    required = ["text", "score", "criteria", "timestamp"]
+    if not all(k in data for k in required):
+        return jsonify({"status": "error", "message": "Missing required fields"}), 400
+
+    # Append to file
+    existing = []
+    if os.path.exists(EVALUATION_LOG_FILE):
+        try:
+            with open(EVALUATION_LOG_FILE, "r") as f:
+                existing = json.load(f)
+        except Exception:
+            existing = []
+    existing.append(data)
+    with open(EVALUATION_LOG_FILE, "w") as f:
+        json.dump(existing, f, indent=2)
+    return jsonify({"status": "ok"})
+
+# --- Rewrite evaluation logging (new endpoint for the new button) ---
+REWRITE_EVALUATION_LOG_FILE = 'llm_rewrite_evaluation.json'
+
+@app.route("/rewrite-evaluation-log", methods=["POST"])
+def rewrite_evaluation_log():
+    data = request.get_json(silent=True) or {}
+    # Expected fields: first_name, last_name, email, employee_id, previous_text, rewritten_text, rewrite_qas, timestamp
+    required = [
+        "previous_text", "rewritten_text", "rewrite_qas"
+    ]
+    if not all(k in data for k in required):
+        return jsonify({"status": "error", "message": "Missing required fields"}), 400
+
+    # Append to file for now; in production this would insert into a database/table
+    existing = []
+    if os.path.exists(REWRITE_EVALUATION_LOG_FILE):
+        try:
+            with open(REWRITE_EVALUATION_LOG_FILE, "r") as f:
+                existing = json.load(f)
+        except Exception:
+            existing = []
+    # Add server-side timestamp if not provided
+    if "timestamp" not in data:
+        data["timestamp"] = time.time()
+    existing.append(data)
+    with open(REWRITE_EVALUATION_LOG_FILE, "w") as f:
+        json.dump(existing, f, indent=2)
     return jsonify({"status": "ok"})
 
 
