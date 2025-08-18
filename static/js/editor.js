@@ -2020,7 +2020,16 @@ class LanguageToolEditor {
                         if (fieldObj.llmLastResult && fieldObj.llmLastResult.evaluation && fieldObj.llmLastResult.evaluation[criteria]) {
                             passed = fieldObj.llmLastResult.evaluation[criteria].passed;
                         }
-                    // Send feedback to backend
+                        // Build IDs: rewrite_id (from criteria map) and user_input_id (from last rewrite mapping)
+                        const rewriteId = (fieldObj.rewriteIdByCriteria && fieldObj.rewriteIdByCriteria[criteria]) ? fieldObj.rewriteIdByCriteria[criteria] : null;
+                        let userInputId = null;
+                        if (Array.isArray(fieldObj.lastRewriteUserInputs) && rewriteId) {
+                            const match = fieldObj.lastRewriteUserInputs.find(u => String(u.rewrite_id) === String(rewriteId));
+                            if (match && (match.user_input_id || match.id)) {
+                                userInputId = match.user_input_id || match.id;
+                            }
+                        }
+                        // Send feedback to backend using schema-aligned payload
                         fetch('/feedback', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -2029,7 +2038,9 @@ class LanguageToolEditor {
                                 text,
                                 feedback: 'thumbs_down',
                                 explanation: feedbackText,
-                                passed
+                                passed,
+                                rewrite_id: rewriteId,
+                                user_input_id: userInputId
                             })
                         }).then(res => res.json()).then(data => {
                             btn.classList.add('selected');
