@@ -1125,6 +1125,12 @@ class LanguageToolEditor {
             // Provide field and inferred input_field for backend logging
             body.input_field = (field === 'editor2') ? 'fsr' : 'problem_statement';
             body.ruleset = (field === 'editor2') ? 'fsr' : 'problem_statement';
+            // Include line item/version tracking for backend logging
+            if (field === 'editor2') {
+                body.line_item_id = this.fields.editor2 && typeof this.fields.editor2.lineItemId === 'number' ? this.fields.editor2.lineItemId : 1;
+            } else {
+                body.line_item_id = this.fields.editor && typeof this.fields.editor.problemVersionId === 'number' ? this.fields.editor.problemVersionId : 1;
+            }
             if (answers) {
                 body.answers = answers;
                 body.step = 2;
