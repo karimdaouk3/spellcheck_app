@@ -7,6 +7,7 @@ import time
 import os
 import snowflake.connector
 import uuid
+import uuid
 
 TERMS_FILE = 'terms.json'
 
@@ -206,17 +207,109 @@ Evaluate the following technical note against these criteria:\n{rules}\n\nFor ea
             except Exception as e:
                 print(f"Error parsing LLM JSON: {e}\nRaw output: {llm_result_str}")
                 return jsonify({"result": {}})
-            # Generate a review_id and attach per-question rewrite_ids
+
+            # Correlate/log user session input
+            timestamp = time.time()
+            user_data = session.get('user_data', {})
+            user_id = user_data.get('user_id')
+            app_session_id = data.get('app_session_id') or str(uuid.uuid4())
+            case_id = data.get('case_id', 'unknown_case')
+            line_item_id = data.get('line_item_id', 'unknown_line')
+            input_field = data.get('input_field', ruleset_name)
+            input_text = text
+
+            user_input_id = None
+            try:
+                conn = snowflake.connector.connect(
+                    account=os.environ.get("SNOWFLAKE_ACCOUNT"),
+                    user=os.environ.get("SNOWFLAKE_USER"),
+                    password=os.environ.get("SNOWFLAKE_PASSWORD"),
+                    warehouse=os.environ.get("SNOWFLAKE_WAREHOUSE"),
+                    database=os.environ.get("SNOWFLAKE_DATABASE"),
+                    schema=os.environ.get("SNOWFLAKE_SCHEMA"),
+                    role=os.environ.get("SNOWFLAKE_ROLE"),
+                )
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        INSERT INTO SAGE.TEXTIO_SERVICES_INPUTS.USER_SESSION_INPUTS
+                        (USER_ID, APP_SESSION_ID, CASE_ID, LINE_ITEM_ID, INPUT_FIELD, INPUT_TEXT, TIMESTAMP)
+                        VALUES (%s, %s, %s, %s, %s, %s, TO_TIMESTAMP_NTZ(%s))
+                        """,
+                        (
+                            user_id,
+                            app_session_id,
+                            case_id,
+                            line_item_id,
+                            input_field,
+                            input_text,
+                            timestamp,
+                        ),
+                    )
+                    # Retrieve the inserted ID (best-effort by app_session_id + input_text + timestamp order)
+                    cur.execute(
+                        """
+                        SELECT ID
+                        FROM SAGE.TEXTIO_SERVICES_INPUTS.USER_SESSION_INPUTS
+                        WHERE APP_SESSION_ID = %s
+                        ORDER BY TIMESTAMP DESC
+                        LIMIT 1
+                        """,
+                        (app_session_id,),
+                    )
+                    row = cur.fetchone()
+                    if row:
+                        user_input_id = row[0]
+            except Exception as e:
+                print(f"Error logging USER_SESSION_INPUTS: {e}")
+            finally:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+            # Generate a review_id and attach per-question rewrite UUIDs; log prompts
             review_id = f"rev_{uuid.uuid4()}"
-            if isinstance(llm_result, dict):
-                for key, section in llm_result.items():
-                    if isinstance(section, dict) and not section.get('passed') and section.get('question'):
-                        section['rewrite_id'] = f"rw_{uuid.uuid4()}"
+            try:
+                conn = snowflake.connector.connect(
+                    account=os.environ.get("SNOWFLAKE_ACCOUNT"),
+                    user=os.environ.get("SNOWFLAKE_USER"),
+                    password=os.environ.get("SNOWFLAKE_PASSWORD"),
+                    warehouse=os.environ.get("SNOWFLAKE_WAREHOUSE"),
+                    database=os.environ.get("SNOWFLAKE_DATABASE"),
+                    schema=os.environ.get("SNOWFLAKE_SCHEMA"),
+                    role=os.environ.get("SNOWFLAKE_ROLE"),
+                )
+                with conn.cursor() as cur:
+                    if isinstance(llm_result, dict):
+                        for idx, (key, section) in enumerate(llm_result.items(), start=1):
+                            if isinstance(section, dict) and not section.get('passed') and section.get('question'):
+                                question_uuid = str(uuid.uuid4())
+                                section['rewrite_id'] = question_uuid
+                                try:
+                                    cur.execute(
+                                        """
+                                        INSERT INTO SAGE.TEXTIO_SERVICES_INPUTS.LLM_REWRITE_PROMPTS
+                                        (REWRITE_UUID, CRITERIA_ID, CRITERIA_SCORE, REWRITE_QUESTION, TIMESTAMP)
+                                        VALUES (%s, %s, %s, %s, TO_TIMESTAMP_NTZ(%s))
+                                        """,
+                                        (question_uuid, idx, None, section.get('question', ''), timestamp),
+                                    )
+                                except Exception as ie:
+                                    print(f"Error logging question for rule '{key}': {ie}")
+            except Exception as e:
+                print(f"Error logging LLM_REWRITE_PROMPTS: {e}")
+            finally:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
             # Optionally store in session for validation later
             session.setdefault('reviews', {})
             session['reviews'][review_id] = {k: v.get('rewrite_id') for k, v in llm_result.items() if isinstance(v, dict) and 'rewrite_id' in v}
             session.modified = True
-            return jsonify({"result": {"review_id": review_id, "evaluation": llm_result}})
+            return jsonify({"result": {"review_id": review_id, "user_input_id": user_input_id, "evaluation": llm_result}})
         except Exception as e:
             print(f"Error calling LLM: {e}")
             return jsonify({"result": f"LLM error: {e}"})
@@ -255,6 +348,58 @@ Given the original technical note and the user's answers to the following questi
             except Exception as e:
                 print(f"Error parsing LLM JSON: {e}\nRaw output: {llm_result_str}")
                 return jsonify({"result": {}})
+
+            # Persist user answers into LLM_REWRITE_INPUTS and return mapping
+            timestamp = time.time()
+            user_inputs = []
+            try:
+                if isinstance(answers, list):
+                    conn = snowflake.connector.connect(
+                        account=os.environ.get("SNOWFLAKE_ACCOUNT"),
+                        user=os.environ.get("SNOWFLAKE_USER"),
+                        password=os.environ.get("SNOWFLAKE_PASSWORD"),
+                        warehouse=os.environ.get("SNOWFLAKE_WAREHOUSE"),
+                        database=os.environ.get("SNOWFLAKE_DATABASE"),
+                        schema=os.environ.get("SNOWFLAKE_SCHEMA"),
+                        role=os.environ.get("SNOWFLAKE_ROLE"),
+                    )
+                    with conn.cursor() as cur:
+                        for item in answers:
+                            rewrite_uuid = (item or {}).get('rewrite_id')
+                            user_input = (item or {}).get('answer', '').strip()
+                            if not rewrite_uuid or not user_input:
+                                continue
+                            # Lookup numeric ID of prompt by UUID
+                            cur.execute(
+                                """
+                                SELECT ID FROM SAGE.TEXTIO_SERVICES_INPUTS.LLM_REWRITE_PROMPTS
+                                WHERE REWRITE_UUID = %s
+                                """,
+                                (rewrite_uuid,),
+                            )
+                            row = cur.fetchone()
+                            if not row:
+                                continue
+                            prompt_id = row[0]
+                            # Insert the user answer
+                            cur.execute(
+                                """
+                                INSERT INTO SAGE.TEXTIO_SERVICES_INPUTS.LLM_REWRITE_INPUTS
+                                (REWRITE_ID, USER_REWRITE_INPUT, TIMESTAMP)
+                                VALUES (%s, %s, TO_TIMESTAMP_NTZ(%s))
+                                """,
+                                (prompt_id, user_input, timestamp),
+                            )
+                            user_inputs.append({"rewrite_id": prompt_id, "user_input_id": prompt_id})
+            except Exception as e:
+                print(f"Error logging rewrite inputs: {e}")
+            finally:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+            llm_result["user_inputs"] = user_inputs
             return jsonify({"result": llm_result})
         except Exception as e:
             print(f"Error calling LLM: {e}")
