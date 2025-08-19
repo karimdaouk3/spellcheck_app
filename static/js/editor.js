@@ -24,6 +24,9 @@ class LanguageToolEditor {
         if (typeof window.FSR_DEBUG === 'undefined') {
             window.FSR_DEBUG = true; // set to false to silence
         }
+
+        // Log user session info early
+        this.debugFetchUser('init');
         this.fields = {
             editor: {
                 editor: document.getElementById('editor'),
@@ -130,6 +133,27 @@ class LanguageToolEditor {
             console.log(`[DB-DEBUG ${ts}] ${eventLabel}`, safe);
         } catch (e) {
             // ignore logging errors
+        }
+    }
+
+    async debugFetchUser(contextLabel = 'runtime') {
+        try {
+            const resp = await fetch('/user', { headers: { 'Accept': 'application/json' } });
+            let info = null;
+            try { info = await resp.json(); } catch {}
+            this.logDb('User session check', {
+                context: contextLabel,
+                status: resp.status,
+                ok: resp.ok,
+                user: info,
+                location: window.location.href,
+                same_origin: window.location.origin,
+                cookie_present: typeof document !== 'undefined' ? (document.cookie && document.cookie.length > 0) : false
+            });
+            return info;
+        } catch (e) {
+            this.logDb('User session check error', { context: contextLabel, error: String(e) });
+            return null;
         }
     }
 
@@ -1223,7 +1247,19 @@ class LanguageToolEditor {
                     rewrite_uuid: this.fields[field].rewriteUuid || null,
                     input_field: (field === 'editor2') ? 'fsr' : 'problem_statement'
                 };
-                try { await fetch('/llm-evaluation-log', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }); this.logDb('LLM_EVALUATION insert (frontend payload)', payload); } catch {}
+                try {
+                    const res = await fetch('/llm-evaluation-log', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                    this.logDb('LLM_EVALUATION insert (frontend payload)', { payload, status: res.status, ok: res.ok });
+                    if (!res.ok) {
+                        // Fetch and log user info to diagnose session/auth issues
+                        await this.debugFetchUser('llm-evaluation-log failure');
+                        let errTxt = '';
+                        try { errTxt = await res.text(); } catch {}
+                        this.logDb('LLM_EVALUATION backend response body', { body: errTxt });
+                    }
+                } catch (e) {
+                    this.logDb('LLM_EVALUATION network error', { error: String(e) });
+                }
             }
             
             this.displayLLMResult(data.result, answers !== null, field, !answers);
