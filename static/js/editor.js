@@ -1260,6 +1260,8 @@ class LanguageToolEditor {
                     rewrite_uuid: this.fields[field].rewriteUuid || null,
                     input_field: (field === 'editor2') ? 'fsr' : 'problem_statement'
                 };
+                console.log('[DBG] llm-evaluation-log payload:', payload);
+                console.log('[DBG] text type:', typeof text, 'length:', text ? text.length : 'null/undefined');
                 try {
                     const res = await fetch('/llm-evaluation-log', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
                     this.logDb('LLM_EVALUATION insert (frontend payload)', { payload, status: res.status, ok: res.ok });
