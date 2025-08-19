@@ -19,6 +19,11 @@ class LanguageToolEditor {
             // Update scores after rulesets are loaded
             this.updateEditorLabelsWithScore();
         });
+
+        // Debug flag for DB interactions
+        if (typeof window.FSR_DEBUG === 'undefined') {
+            window.FSR_DEBUG = true; // set to false to silence
+        }
         this.fields = {
             editor: {
                 editor: document.getElementById('editor'),
@@ -112,6 +117,20 @@ class LanguageToolEditor {
         this.updateActiveEditorHeader(); // Initialize the header
         this.createHighlightOverlay('editor');
         this.createHighlightOverlay('editor2');
+    }
+
+    // Lightweight DB interaction logger
+    logDb(eventLabel, details) {
+        try {
+            if (!window.FSR_DEBUG) return;
+            const ts = new Date().toISOString();
+            // Shallow copy to avoid DOM objects
+            const safe = JSON.parse(JSON.stringify(details || {}));
+            // eslint-disable-next-line no-console
+            console.log(`[DB-DEBUG ${ts}] ${eventLabel}`, safe);
+        } catch (e) {
+            // ignore logging errors
+        }
     }
 
     // Simple UUID v4 generator for session correlation
@@ -623,6 +642,11 @@ class LanguageToolEditor {
                                 sentiment
                             })
                         });
+                        this.logDb('REWRITE_EVALUATION thumbs event', {
+                            user_input_id: this.fields[field].userInputId || null,
+                            rewrite_uuid: this.fields[field].rewriteUuid || null,
+                            sentiment
+                        });
                     } catch {}
                 };
                 const negBtn = pillWrapper.querySelector('.pill-seg.neg');
@@ -700,6 +724,7 @@ class LanguageToolEditor {
                         body: JSON.stringify(payload)
                     });
                     if (res.ok) {
+                        this.logDb('REWRITE_EVALUATION text submit', payload);
                         pop.style.display = 'none';
                         const pillId = field === 'editor' ? 'rewrite-feedback-pill' : 'rewrite-feedback-pill-2';
                         const pill = document.getElementById(pillId);
@@ -1161,6 +1186,18 @@ class LanguageToolEditor {
             if (typeof data.result === 'object') {
                 // Preserve original text outside of result to avoid polluting evaluation object
                 fieldObj.lastOriginalText = text;
+                // Step 1 IDs
+                if (!answers) {
+                    this.logDb('USER_SESSION_INPUTS insert result', {
+                        user_input_id: data.result && data.result.user_input_id,
+                        rewrite_uuid: data.result && data.result.rewrite_uuid,
+                        field,
+                        input_field: body && body.input_field,
+                        line_item_id: body && body.line_item_id,
+                        app_session_id: body && body.app_session_id,
+                        case_id: body && body.case_id
+                    });
+                }
             }
             fieldObj.llmLastResult = data.result;
             // Capture IDs returned from backend for coordination (no DB lookups)
@@ -1186,7 +1223,7 @@ class LanguageToolEditor {
                     rewrite_uuid: this.fields[field].rewriteUuid || null,
                     input_field: (field === 'editor2') ? 'fsr' : 'problem_statement'
                 };
-                try { await fetch('/llm-evaluation-log', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }); } catch {}
+                try { await fetch('/llm-evaluation-log', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }); this.logDb('LLM_EVALUATION insert (frontend payload)', payload); } catch {}
             }
             
             this.displayLLMResult(data.result, answers !== null, field, !answers);
@@ -1198,6 +1235,10 @@ class LanguageToolEditor {
                 if (pill) pill.style.display = 'block';
                 fieldObj.rewrittenSnapshot = fieldObj.editor.innerText;
                 fieldObj.lastRewriteQA = answers;
+                // Log rewrite inputs mapping if backend returns it
+                if (Array.isArray(data.result && data.result.user_inputs)) {
+                    this.logDb('USER_REWRITE_INPUTS inserted', { user_inputs: data.result.user_inputs });
+                }
             }
         } catch (e) {
             alert('LLM call failed: ' + e);
@@ -1573,15 +1614,16 @@ class LanguageToolEditor {
     // Load rulesets from backend
     async loadRulesets() {
         try {
-            const [problemStatementRuleset, fsrRuleset] = await Promise.all([
+            const [ps, fsr] = await Promise.all([
                 fetch('/ruleset/problem_statement').then(res => res.json()),
                 fetch('/ruleset/fsr').then(res => res.json())
             ]);
-            
-            this.rulesets = {
-                editor: problemStatementRuleset,
-                editor2: fsrRuleset
-            };
+
+            this.rulesets = { editor: ps, editor2: fsr };
+            this.logDb('Loaded criteria from CRITERIA_GROUPS (DEFAULT)', {
+                problem_statement: ps,
+                fsr
+            });
         } catch (error) {
             console.error('Error loading rulesets:', error);
         }
@@ -2082,6 +2124,15 @@ class LanguageToolEditor {
                                 user_input_id: userInputId
                             })
                         }).then(res => res.json()).then(data => {
+                            this.logDb('EVALUATION_FEEDBACK insert', {
+                                criteria,
+                                text,
+                                feedback: 'thumbs_down',
+                                explanation: feedbackText,
+                                passed,
+                                rewrite_id: rewriteId,
+                                user_input_id: userInputId
+                            });
                             btn.classList.add('selected');
                             btn.title = "Feedback received!";
                             feedbackBox.remove();
