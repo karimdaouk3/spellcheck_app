@@ -610,6 +610,20 @@ class LanguageToolEditor {
                         pop.style.left = left + 'px';
                         pop.style.display = 'block';
                     }
+                    // Fire immediate thumbs signal to backend (no text yet) per sentiment
+                    try {
+                        fetch('/rewrite-feedback', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                // Minimal payload for thumbs-only log
+                                user_input_id: this.fields[field].userInputId || null,
+                                rewrite_uuid: this.fields[field].rewriteUuid || null,
+                                feedback_text: '',
+                                sentiment
+                            })
+                        });
+                    } catch {}
                 };
                 const negBtn = pillWrapper.querySelector('.pill-seg.neg');
                 const posBtn = pillWrapper.querySelector('.pill-seg.pos');
@@ -673,15 +687,10 @@ class LanguageToolEditor {
                     user = await resp.json();
                 } catch {}
                 const payload = {
-                    previous_text: fieldObj.prevVersionBeforeRewrite || '',
-                    rewritten_text: fieldObj.editor.innerText || '',
-                    rewrite_qas: fieldObj.lastRewriteQA || {},
+                    user_input_id: fieldObj.userInputId || null,
+                    rewrite_uuid: fieldObj.rewriteUuid || null,
                     feedback_text: feedbackText,
                     sentiment: this.pendingRewriteSentiment || null,
-                    first_name: user.first_name || '',
-                    last_name: user.last_name || '',
-                    email: user.email || '',
-                    employee_id: user.employee_id || '',
                     timestamp: new Date().toISOString()
                 };
                 try {
