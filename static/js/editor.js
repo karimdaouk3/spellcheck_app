@@ -138,7 +138,7 @@ class LanguageToolEditor {
 
     async debugFetchUser(contextLabel = 'runtime') {
         try {
-            const candidates = ['/user', '/api/user'];
+            const candidates = ['/user'];
             let last = { status: 0, ok: false };
             for (const path of candidates) {
                 try {
