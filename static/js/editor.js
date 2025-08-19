@@ -1249,11 +1249,14 @@ class LanguageToolEditor {
             if (!answers) {
                 this.addToHistory(text, field, data.result);
                 // Log evaluation data
-                // Send exact calculated score and IDs for backend
-                const scoreForBackend = this.fields[field].calculatedScore;
+                // Calculate the score here before sending
+                const evaluation = data.result && data.result.evaluation ? data.result.evaluation : {};
+                const calculatedScore = this.calculateWeightedScore(field, evaluation);
+                this.fields[field].calculatedScore = calculatedScore; // Store for later use
+                
                 const payload = {
                     text,
-                    score: scoreForBackend,
+                    score: calculatedScore,
                     criteria: (data.result && data.result.evaluation) ? Object.keys(data.result.evaluation) : [],
                     timestamp: new Date().toISOString(),
                     user_input_id: this.fields[field].userInputId || null,
