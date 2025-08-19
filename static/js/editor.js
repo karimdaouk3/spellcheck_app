@@ -1131,12 +1131,17 @@ class LanguageToolEditor {
             } else {
                 body.line_item_id = this.fields.editor && typeof this.fields.editor.problemVersionId === 'number' ? this.fields.editor.problemVersionId : 1;
             }
+            // For step 1, generate and include a unique case_id for correlation
             if (answers) {
                 body.answers = answers;
                 body.step = 2;
                 if (fieldObj.reviewId) body.review_id = fieldObj.reviewId;
+                if (fieldObj.userInputId) body.user_input_id = fieldObj.userInputId;
+                if (fieldObj.rewriteUuid) body.rewrite_uuid = fieldObj.rewriteUuid;
             } else {
                 body.step = 1;
+                fieldObj.caseId = this.generateUUIDv4();
+                body.case_id = fieldObj.caseId;
             }
             const response = await fetch('/llm', {
                 method: 'POST',
@@ -1148,12 +1153,30 @@ class LanguageToolEditor {
                 data.result.original_text = text;
             }
             fieldObj.llmLastResult = data.result;
+            // Capture IDs returned from backend for coordination (no DB lookups)
+            if (data.result && data.result.user_input_id) {
+                fieldObj.userInputId = data.result.user_input_id;
+            }
+            if (data.result && data.result.rewrite_uuid) {
+                fieldObj.rewriteUuid = data.result.rewrite_uuid;
+            }
             
             // Add to history when submitting for evaluation (not rewrite)
             if (!answers) {
                 this.addToHistory(text, field, data.result);
                 // Log evaluation data
-                this.logEvaluationData(text, data.result, field);
+                // Send exact calculated score and IDs for backend
+                const scoreForBackend = this.fields[field].calculatedScore;
+                const payload = {
+                    text,
+                    score: scoreForBackend,
+                    criteria: (data.result && data.result.evaluation) ? Object.keys(data.result.evaluation) : [],
+                    timestamp: new Date().toISOString(),
+                    user_input_id: this.fields[field].userInputId || null,
+                    rewrite_uuid: this.fields[field].rewriteUuid || null,
+                    input_field: (field === 'editor2') ? 'fsr' : 'problem_statement'
+                };
+                try { await fetch('/llm-evaluation-log', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }); } catch {}
             }
             
             this.displayLLMResult(data.result, answers !== null, field, !answers);
@@ -1475,6 +1498,7 @@ class LanguageToolEditor {
         if (r1 && r1.evaluation) {
             const weightedScore = this.calculateWeightedScore('editor', r1.evaluation);
             const percentage = Math.round(weightedScore);
+            this.fields['editor'].calculatedScore = percentage; // expose for backend if needed
             
             score1.innerHTML = this.createTemperatureBar(percentage);
             score1.className = 'editor-score';
@@ -1487,6 +1511,7 @@ class LanguageToolEditor {
         if (r2 && r2.evaluation) {
             const weightedScore = this.calculateWeightedScore('editor2', r2.evaluation);
             const percentage = Math.round(weightedScore);
+            this.fields['editor2'].calculatedScore = percentage;
             
             score2.innerHTML = this.createTemperatureBar(percentage);
             score2.className = 'editor-score';
