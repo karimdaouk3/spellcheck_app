@@ -1159,7 +1159,8 @@ class LanguageToolEditor {
             });
             const data = await response.json();
             if (typeof data.result === 'object') {
-                data.result.original_text = text;
+                // Preserve original text outside of result to avoid polluting evaluation object
+                fieldObj.lastOriginalText = text;
             }
             fieldObj.llmLastResult = data.result;
             // Capture IDs returned from backend for coordination (no DB lookups)
