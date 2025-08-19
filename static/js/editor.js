@@ -138,19 +138,32 @@ class LanguageToolEditor {
 
     async debugFetchUser(contextLabel = 'runtime') {
         try {
-            const resp = await fetch('/user', { headers: { 'Accept': 'application/json' } });
-            let info = null;
-            try { info = await resp.json(); } catch {}
-            this.logDb('User session check', {
-                context: contextLabel,
-                status: resp.status,
-                ok: resp.ok,
-                user: info,
-                location: window.location.href,
-                same_origin: window.location.origin,
-                cookie_present: typeof document !== 'undefined' ? (document.cookie && document.cookie.length > 0) : false
-            });
-            return info;
+            const candidates = ['/user', '/api/user', '/me'];
+            let last = { status: 0, ok: false };
+            for (const path of candidates) {
+                try {
+                    const resp = await fetch(path, { headers: { 'Accept': 'application/json' } });
+                    last = { status: resp.status, ok: resp.ok, path };
+                    let info = null;
+                    try { info = await resp.json(); } catch {}
+                    this.logDb('User session check', {
+                        context: contextLabel,
+                        status: resp.status,
+                        ok: resp.ok,
+                        path,
+                        user: info,
+                        location: window.location.href,
+                        same_origin: window.location.origin,
+                        cookie_present: typeof document !== 'undefined' ? (document.cookie && document.cookie.length > 0) : false
+                    });
+                    if (resp.ok && info) return info;
+                } catch (e) {
+                    this.logDb('User session check error', { context: contextLabel, path, error: String(e) });
+                }
+            }
+            // No endpoint succeeded
+            this.logDb('User session check: no endpoint responded with user', last);
+            return null;
         } catch (e) {
             this.logDb('User session check error', { context: contextLabel, error: String(e) });
             return null;
