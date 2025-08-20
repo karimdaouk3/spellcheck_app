@@ -828,6 +828,33 @@ body {
         height: 24px;
     }
     
+    /* Hide button text on small screens, show only icons */
+    .feedback-text {
+        display: none;
+    }
+    
+    .wiki-section .feedback-text {
+        display: none;
+    }
+    
+    /* Adjust button padding for icon-only display */
+    .feedback-section {
+        padding: 8px;
+        gap: 0;
+    }
+    
+    .wiki-section {
+        padding: 8px;
+        gap: 0;
+    }
+    
+    /* Ensure title stays centered */
+    .top-bar-content {
+        justify-content: center;
+        padding-right: 60px; /* Reduced space for icon-only buttons */
+        padding-left: 60px; /* Add left padding to balance */
+    }
+    
     .top-bar-content {
         flex-wrap: wrap;
         gap: 4px;
@@ -835,8 +862,9 @@ body {
         min-height: 72px;
         align-items: center;
         width: 100%;
-        padding-right: 100px; /* Leave space for status */
-        justify-content: flex-start; /* Left justify when wrapping */
+        padding-right: 60px; /* Reduced space for icon-only buttons */
+        padding-left: 60px; /* Add left padding to balance */
+        justify-content: center; /* Center the title */
     }
     
     .top-bar-group {
@@ -878,6 +906,36 @@ body {
     .top-bar-select:hover {
         border-color: #41007F;
     }
+}
+
+/* Additional responsive adjustments for very small screens */
+@media (max-width: 600px) {
+    .top-bar {
+        padding: 8px 8px 8px 8px; /* Reduce padding on very small screens */
+        min-height: 60px; /* Slightly reduce height */
+    }
+    
+    .top-bar-title {
+        font-size: 1.5em; /* Slightly smaller title on very small screens */
+        margin-left: 8px;
+        margin-right: 8px;
+    }
+    
+    .feedback-section {
+        right: 8px;
+        padding: 6px;
+    }
+    
+    .wiki-section {
+        left: 8px;
+        padding: 6px;
+    }
+    
+    .top-bar-content {
+        padding-right: 50px; /* Even less space for very small screens */
+        padding-left: 50px;
+    }
+}
     
 
     
