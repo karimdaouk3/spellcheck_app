@@ -1263,7 +1263,9 @@ class LanguageToolEditor {
                         criteria: (data.result && data.result.evaluation) ? Object.keys(data.result.evaluation) : [],
                         timestamp: new Date().toISOString(),
                         user_input_id: this.fields[field].userInputId || null,
-                        rewrite_uuid: this.fields[field].rewriteUuid || null,
+                        // For Step 1 evaluations (no answers), rewrite_uuid should be null
+                        // For Step 2 evaluations (with answers), rewrite_uuid should be the one from Step 1
+                        rewrite_uuid: null, // This is Step 1 evaluation, so no rewrite_uuid yet
                         input_field: (field === 'editor2') ? 'fsr' : 'problem_statement'
                     };
                     console.log('[DBG] llm-evaluation-log payload:', payload);
