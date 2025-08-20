@@ -1329,7 +1329,14 @@ class LanguageToolEditor {
         }
         const isCollapsed = this.evalCollapsed[field];
         
-        if (valid && rulesObj && typeof rulesObj === 'object') {
+        // Check for evaluation error
+        if (result && result.error) {
+            html += `<div style="background:#fff3cd; border:1px solid #ffeaa7; color:#856404; padding:15px; border-radius:8px; margin:10px 0;">
+                <strong>Evaluation Error:</strong> ${this.escapeHtml(result.error)}
+                <br><br>
+                <button onclick="location.reload()" style="background:#856404; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Try Again</button>
+            </div>`;
+        } else if (valid && rulesObj && typeof rulesObj === 'object') {
             // Map criteria -> rewrite_id for later feedback payloads
             try {
                 fieldObj.rewriteIdByCriteria = {};
