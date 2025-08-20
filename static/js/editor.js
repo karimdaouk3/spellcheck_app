@@ -1249,41 +1249,10 @@ class LanguageToolEditor {
             if (!answers) {
                 this.addToHistory(text, field, data.result);
                 
-                // Skip database logging if restoring from history to avoid duplicate/conflicting entries
-                if (!fieldObj.isRestoringFromHistory) {
-                    // Log evaluation data
-                    // Calculate the score here before sending
-                    const evaluation = data.result && data.result.evaluation ? data.result.evaluation : {};
-                    const calculatedScore = this.calculateWeightedScore(field, evaluation);
-                    this.fields[field].calculatedScore = calculatedScore; // Store for later use
-                    
-                    const payload = {
-                        text,
-                        score: calculatedScore,
-                        criteria: (data.result && data.result.evaluation) ? Object.keys(data.result.evaluation) : [],
-                        timestamp: new Date().toISOString(),
-                        user_input_id: this.fields[field].userInputId || null,
-                        // For Step 1 evaluations (no answers), rewrite_uuid should be null
-                        // For Step 2 evaluations (with answers), rewrite_uuid should be the one from Step 1
-                        rewrite_uuid: null, // This is Step 1 evaluation, so no rewrite_uuid yet
-                        input_field: (field === 'editor2') ? 'fsr' : 'problem_statement'
-                    };
-                    console.log('[DBG] llm-evaluation-log payload:', payload);
-                    console.log('[DBG] text type:', typeof text, 'length:', text ? text.length : 'null/undefined');
-                    try {
-                        const res = await fetch('/llm-evaluation-log', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-                        this.logDb('LLM_EVALUATION insert (frontend payload)', { payload, status: res.status, ok: res.ok });
-                        if (!res.ok) {
-                            // Fetch and log user info to diagnose session/auth issues
-                            await this.debugFetchUser('llm-evaluation-log failure');
-                            let errTxt = '';
-                            try { errTxt = await res.text(); } catch {}
-                            this.logDb('LLM_EVALUATION backend response body', { body: errTxt });
-                        }
-                    } catch (e) {
-                        this.logDb('LLM_EVALUATION network error', { error: String(e) });
-                    }
-                }
+                // Store calculated score for potential future use
+                const evaluation = data.result && data.result.evaluation ? data.result.evaluation : {};
+                const calculatedScore = this.calculateWeightedScore(field, evaluation);
+                this.fields[field].calculatedScore = calculatedScore;
             }
             
             this.displayLLMResult(data.result, answers !== null, field, !answers);
@@ -2282,39 +2251,8 @@ class LanguageToolEditor {
         }
     }
     
-    // Log evaluation data to backend
-    async logEvaluationData(text, result, field) {
-        try {
-            // Calculate score
-            const evaluation = result && result.evaluation ? result.evaluation : result;
-            const score = this.calculateWeightedScore(field, evaluation);
-            
-            // Extract criteria (all evaluation keys)
-            const criteria = evaluation ? Object.keys(evaluation) : [];
-            
-            // Create timestamp
-            const timestamp = new Date().toISOString();
-            
-            // Prepare data for backend
-            const logData = {
-                text: text,
-                score: score,
-                criteria: criteria,
-                timestamp: timestamp
-            };
-            
-            // Send to backend
-            await fetch('/llm-evaluation-log', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(logData)
-            });
-            
-        } catch (error) {
-            console.error('Failed to log evaluation data:', error);
-            // Don't show error to user as this is just logging
-        }
-    }
+    // Note: Database logging is now handled entirely by the backend /llm endpoint
+    // This prevents duplicate rows in LLM_EVALUATION table
 }
 
 // Initialize the editor when DOM is loaded
