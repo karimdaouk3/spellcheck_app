@@ -70,15 +70,27 @@ class LanguageToolEditor {
         this.popup = document.getElementById('popup');
 
         // App session id for backend correlation
+        // Use sessionStorage for unique session per tab, localStorage for shared session across tabs
         this.appSessionId = (() => {
             try {
-                const existing = localStorage.getItem('app_session_id');
-                if (existing) return existing;
-                const fresh = this.generateUUIDv4();
-                localStorage.setItem('app_session_id', fresh);
-                return fresh;
+                // Check if we want unique sessions per tab (default: true)
+                const useUniqueSessions = true; // Set to false to use shared sessions across tabs
+                
+                if (useUniqueSessions) {
+                    // Generate unique session per tab
+                    const fresh = this.generateUUIDv4();
+                    sessionStorage.setItem('app_session_id', fresh);
+                    return fresh;
+                } else {
+                    // Use shared session across tabs (original behavior)
+                    const existing = localStorage.getItem('app_session_id');
+                    if (existing) return existing;
+                    const fresh = this.generateUUIDv4();
+                    localStorage.setItem('app_session_id', fresh);
+                    return fresh;
+                }
             } catch {
-                // Fallback if localStorage unavailable
+                // Fallback if storage unavailable
                 return this.generateUUIDv4();
             }
         })();
