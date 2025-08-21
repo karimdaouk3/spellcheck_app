@@ -64,20 +64,4 @@ A web application for evaluating and improving problem statements and FSR notes 
 - **LLM Integration**: AI-powered text evaluation
 - **Database**: Snowflake for data storage
 
-## Docker Alternative
 
-If you prefer using Docker:
-
-```bash
-# Build and run with Docker
-docker build -t fsr-coach .
-docker run --rm -p 5000:5000 fsr-coach
-```
-
-Then open http://localhost:5000
-
-### Docker Environment Variables (optional):
-- PORT: Flask port (default 5000)
-- WEB_CONCURRENCY: Gunicorn workers (default 2)
-- JAVA_OPTS: JVM opts for LanguageTool (default -Xms128m -Xmx512m)
-- LT_PORT: LanguageTool port (default 8081)
