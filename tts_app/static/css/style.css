@@ -7,7 +7,7 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #41007F 0%, #5a1a9a 100%);
+    background: linear-gradient(135deg, #2d0057 0%, #41007F 50%, #6b2ca1 100%);
     min-height: 100vh;
     color: #333;
     line-height: 1.6;
@@ -144,7 +144,7 @@ body {
 }
 
 .generate-btn {
-    background: linear-gradient(135deg, #41007F 0%, #5a1a9a 100%);
+    background: linear-gradient(135deg, #2d0057 0%, #41007F 100%);
     color: white;
     border: none;
     padding: 1rem 2rem;
