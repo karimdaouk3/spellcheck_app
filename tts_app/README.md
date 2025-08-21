@@ -11,20 +11,48 @@ A simple, modern web application that converts text to speech and provides downl
 - 📱 **Responsive Design**: Works on desktop, tablet, and mobile devices
 - 🎨 **Modern UI**: Beautiful gradient design with smooth animations
 
-## Setup
+## Quick Start
 
-1. **Install Dependencies**:
+### Prerequisites
+- Python 3.7 or higher
+- pip (Python package installer)
+
+### Installation & Setup
+
+1. **Navigate to the TTS app directory**:
+   ```bash
+   cd tts_app
+   ```
+
+2. **Install Dependencies**:
    ```bash
    pip install -r requirements.txt
    ```
 
-2. **Run the Application**:
+3. **Run the Application**:
    ```bash
    python app.py
    ```
 
-3. **Access the App**:
+4. **Access the App**:
    Open your browser and go to `http://localhost:5001`
+
+### Running from the Main Repository
+
+If you're in the main `spellcheck_app` directory:
+
+```bash
+# Navigate to TTS app
+cd tts_app
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the app
+python app.py
+```
+
+The TTS app runs independently on port 5001, while the main spellcheck app runs on port 8055.
 
 ## Usage
 
@@ -97,9 +125,10 @@ To integrate a real text-to-speech model, replace the placeholder audio generati
 
 The app uses a consistent color scheme that can be customized in `static/css/style.css`:
 
-- Primary: `#667eea` (Blue)
-- Secondary: `#764ba2` (Purple)
-- Success: `#48bb78` (Green)
+- Primary Purple: `#41007F`
+- Dark Purple: `#2d0057`
+- Light Purple: `#6b2ca1`
+- Accent Blue: `#00A7E1`
 - Error: `#c53030` (Red)
 
 ## License
