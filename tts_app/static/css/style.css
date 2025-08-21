@@ -7,7 +7,7 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #41007F 0%, #5a1a9a 100%);
     min-height: 100vh;
     color: #333;
     line-height: 1.6;
@@ -36,7 +36,7 @@ body {
 }
 
 .header-content h1 i {
-    color: #667eea;
+    color: #41007F;
     margin-right: 0.5rem;
 }
 
@@ -79,7 +79,7 @@ body {
 }
 
 .input-label i {
-    color: #667eea;
+    color: #41007F;
     margin-right: 0.5rem;
 }
 
@@ -97,8 +97,8 @@ body {
 
 .text-input:focus {
     outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    border-color: #41007F;
+    box-shadow: 0 0 0 3px rgba(65, 0, 127, 0.1);
 }
 
 .text-input::placeholder {
@@ -144,7 +144,7 @@ body {
 }
 
 .generate-btn {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #41007F 0%, #5a1a9a 100%);
     color: white;
     border: none;
     padding: 1rem 2rem;
@@ -153,12 +153,12 @@ body {
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 4px 15px rgba(65, 0, 127, 0.3);
 }
 
 .generate-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 6px 20px rgba(65, 0, 127, 0.4);
 }
 
 .generate-btn:disabled {
@@ -178,7 +178,7 @@ body {
     justify-content: center;
     gap: 1rem;
     margin-top: 1rem;
-    color: #667eea;
+    color: #41007F;
     font-weight: 500;
 }
 
@@ -186,7 +186,7 @@ body {
     width: 20px;
     height: 20px;
     border: 2px solid #e2e8f0;
-    border-top: 2px solid #667eea;
+    border-top: 2px solid #41007F;
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
@@ -211,7 +211,7 @@ body {
 }
 
 .output-header h3 i {
-    color: #667eea;
+    color: #41007F;
     margin-right: 0.5rem;
 }
 
