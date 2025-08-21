@@ -936,9 +936,8 @@ body {
         padding-left: 50px;
     }
 }
-    
 
-    
+@media (max-width: 950px) {
     .editor-container-group {
         padding: 20px 16px 16px 16px; /* Match body padding for perfect alignment */
     }
@@ -955,6 +954,7 @@ body {
         box-sizing: border-box;
     }
 }
+
 @media (min-width: 950px) and (max-width: 1600px) {
     .main-content {
         transform: none;
