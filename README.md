@@ -49,12 +49,63 @@ A web application for evaluating and improving problem statements and FSR notes 
 - **History Tracking**: Save and restore previous evaluations
 - **Instructional Video**: Built-in tutorial system
 
-## API Endpoints
+## API Endpoint
 
-- **POST** `/api/score` - Score problem statements or FSRs with custom criteria
-- **POST** `/llm` - Main LLM evaluation endpoint
-- **POST** `/llm-evaluation-log` - Log evaluation results
-- **POST** `/overall-feedback` - Submit overall feedback
+### POST `/api/score`
+
+Score problem statements or FSRs with custom criteria.
+
+#### Authentication
+Include the API key in the request header:
+```
+X-API-Key: SAGE-access
+```
+
+#### Request Body
+```json
+{
+  "input_type": "problem_statement" | "fsr",
+  "text": "Your text to evaluate",
+  "criteria": [
+    {
+      "name": "Custom Criteria Name",
+      "weight": 30
+    }
+  ]
+}
+```
+
+**Parameters:**
+- `input_type` (required): Either `"problem_statement"` or `"fsr"`
+- `text` (required): The text to evaluate
+- `criteria` (optional): Custom criteria with weights (will use default criteria if not provided)
+
+#### Response
+```json
+{
+  "score": 75,
+  "evaluation": {
+    "Criteria Name": {
+      "passed": true,
+      "score": 14.3
+    }
+  },
+  "input_type": "problem_statement",
+  "total_criteria": 7,
+  "passed_criteria": 5
+}
+```
+
+#### Example Usage
+```bash
+curl -X POST http://localhost:8055/api/score \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: SAGE-access" \
+  -d '{
+    "input_type": "problem_statement",
+    "text": "The wafer transfer system is experiencing intermittent failures during high-volume production runs."
+  }'
+```
 
 ## Technical Details
 
