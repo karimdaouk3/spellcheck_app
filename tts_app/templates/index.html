@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text-to-Speech Converter</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1><i class="fas fa-microphone"></i> Text-to-Speech</h1>
+                <p>Convert your text into natural-sounding speech</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="tts-card">
+                <!-- Input Section -->
+                <div class="input-section">
+                    <label for="text-input" class="input-label">
+                        <i class="fas fa-edit"></i> Enter your text
+                    </label>
+                    <textarea 
+                        id="text-input" 
+                        class="text-input" 
+                        placeholder="Type or paste your text here..."
+                        rows="6"
+                    ></textarea>
+                    <div class="input-controls">
+                        <div class="char-count">
+                            <span id="char-count">0</span> characters
+                        </div>
+                        <button id="clear-btn" class="clear-btn">
+                            <i class="fas fa-trash"></i> Clear
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Generate Button -->
+                <div class="generate-section">
+                    <button id="generate-btn" class="generate-btn">
+                        <i class="fas fa-play"></i> Generate Speech
+                    </button>
+                    <div id="loading" class="loading hidden">
+                        <div class="spinner"></div>
+                        <span>Generating audio...</span>
+                    </div>
+                </div>
+
+                <!-- Output Section -->
+                <div id="output-section" class="output-section hidden">
+                    <div class="output-header">
+                        <h3><i class="fas fa-headphones"></i> Generated Audio</h3>
+                    </div>
+                    
+                    <div class="audio-player">
+                        <audio id="audio-player" controls>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </div>
+                    
+                    <div class="download-section">
+                        <button id="download-btn" class="download-btn">
+                            <i class="fas fa-download"></i> Download WAV
+                        </button>
+                        <span class="file-info">High quality audio file</span>
+                    </div>
+                </div>
+
+                <!-- Error Section -->
+                <div id="error-section" class="error-section hidden">
+                    <div class="error-message">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span id="error-text"></span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>&copy; 2024 Text-to-Speech Converter. Powered by AI.</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
