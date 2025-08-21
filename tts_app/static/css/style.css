@@ -7,7 +7,7 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #41007F 0%, #00A7E1 50%, #5a1a9a 100%);
+    background: linear-gradient(135deg, #41007F 0%, #5a1a9a 100%);
     min-height: 100vh;
     color: #333;
     line-height: 1.6;
@@ -144,7 +144,7 @@ body {
 }
 
 .generate-btn {
-    background: linear-gradient(135deg, #41007F 0%, #00A7E1 100%);
+    background: linear-gradient(135deg, #41007F 0%, #5a1a9a 100%);
     color: white;
     border: none;
     padding: 1rem 2rem;
@@ -158,7 +158,7 @@ body {
 
 .generate-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0, 167, 225, 0.4);
+    box-shadow: 0 6px 20px rgba(65, 0, 127, 0.4);
 }
 
 .generate-btn:disabled {
