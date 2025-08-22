@@ -832,7 +832,12 @@ class LanguageToolEditor {
     }
     
     debounceCheck(field) {
-        // Status removed - status box no longer used
+        // Hide overlay immediately when user starts typing
+        const fieldObj = this.fields[field];
+        fieldObj.awaitingCheck = true;
+        fieldObj.overlayHidden = true;
+        this.updateHighlights(field); // This will clear the overlay
+        
         clearTimeout(this.debounceTimer);
         this.debounceTimer = setTimeout(() => {
             this.checkText(field);
@@ -845,6 +850,8 @@ class LanguageToolEditor {
         
         if (!text.trim()) {
             this.clearSuggestions(field);
+            fieldObj.awaitingCheck = false;
+            fieldObj.overlayHidden = false;
             // Status removed - status box no longer used
             return;
         }
@@ -885,7 +892,10 @@ class LanguageToolEditor {
     }
     
     clearSuggestions(field) {
-        this.fields[field].currentSuggestions = [];
+        const fieldObj = this.fields[field];
+        fieldObj.currentSuggestions = [];
+        fieldObj.awaitingCheck = false;
+        fieldObj.overlayHidden = false;
         this.updateHighlights(field);
     }
     
