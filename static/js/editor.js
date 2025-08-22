@@ -935,12 +935,19 @@ class LanguageToolEditor {
             return;
         }
         
-        // Create highlighted text
-        let highlightedText = '';
+        // Clear the overlay first
+        fieldObj.highlightOverlay.innerHTML = '';
+        
+        // Create text nodes and spans for highlighting
         let lastIndex = 0;
         fieldObj.currentSuggestions.forEach((suggestion, index) => {
             // Add text before the suggestion
-            highlightedText += this.escapeHtml(text.substring(lastIndex, suggestion.offset));
+            const beforeText = text.substring(lastIndex, suggestion.offset);
+            if (beforeText) {
+                const textNode = document.createTextNode(beforeText);
+                fieldObj.highlightOverlay.appendChild(textNode);
+            }
+            
             // Add the highlighted suggestion
             const errorText = text.substring(suggestion.offset, suggestion.offset + suggestion.length);
             let categoryClass = '';
@@ -951,12 +958,22 @@ class LanguageToolEditor {
             } else if (suggestion.errorType) {
                 categoryClass = 'highlight-span-other';
             }
-            highlightedText += `<span class="highlight-span ${categoryClass}" data-suggestion-index="${index}">${this.escapeHtml(errorText)}</span>`;
+            
+            const span = document.createElement('span');
+            span.className = `highlight-span ${categoryClass}`;
+            span.setAttribute('data-suggestion-index', index.toString());
+            span.textContent = errorText;
+            fieldObj.highlightOverlay.appendChild(span);
+            
             lastIndex = suggestion.offset + suggestion.length;
         });
+        
         // Add any remaining text after the last suggestion
-        highlightedText += this.escapeHtml(text.substring(lastIndex));
-        fieldObj.highlightOverlay.innerHTML = highlightedText;
+        const remainingText = text.substring(lastIndex);
+        if (remainingText) {
+            const textNode = document.createTextNode(remainingText);
+            fieldObj.highlightOverlay.appendChild(textNode);
+        }
         
         // Restore scroll position instead of resetting to top
         requestAnimationFrame(() => {
