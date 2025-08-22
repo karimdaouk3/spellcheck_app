@@ -965,15 +965,14 @@ class LanguageToolEditor {
     }
     
     escapeHtml(text) {
-        // Convert newlines to <br> tags to preserve them in the overlay
-        // This ensures the overlay text aligns properly with the editor text
+        // Escape HTML characters but preserve newlines as-is
+        // The overlay uses white-space: pre-wrap which handles newlines automatically
         return text
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;')
-            .replace(/\n/g, '<br>');
+            .replace(/'/g, '&#39;');
     }
     
     showPopup(suggestion, x, y, field) {
