@@ -234,6 +234,8 @@ body {
     overflow-y: auto;
     pointer-events: none;
     z-index: 1;
+    /* Make overlay text invisible; highlights (background/border) remain visible */
+    color: transparent;
 }
 
 .highlight-span {
