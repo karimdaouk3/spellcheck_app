@@ -1008,9 +1008,17 @@ class LanguageToolEditor {
             return '';
         }
         
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
+        // Convert newlines to <br> tags for proper display in overlay
+        // This ensures the overlay maintains the same line structure as the editor
+        const escapedText = text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/\n/g, '<br>');
+        
+        return escapedText;
     }
     
     showPopup(suggestion, x, y, field) {
