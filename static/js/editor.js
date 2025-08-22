@@ -409,8 +409,27 @@ class LanguageToolEditor {
             });
             fieldObj.editor.addEventListener('paste', (e) => {
                 e.preventDefault();
-                const text = (e.clipboardData || window.clipboardData).getData('text');
-                document.execCommand('insertText', false, text);
+                const rawText = (e.clipboardData || window.clipboardData).getData('text');
+                
+                // Handle empty or invalid text
+                if (!rawText || typeof rawText !== 'string') {
+                    return;
+                }
+                
+                // Standardize text formatting
+                let standardizedText = rawText
+                    // Normalize all newline sequences to single \n characters
+                    .replace(/\r\n/g, '\n')
+                    .replace(/\r/g, '\n')
+                    // Remove any excessive whitespace (multiple spaces/tabs)
+                    .replace(/[ \t]+/g, ' ')
+                    // Remove excessive newlines (more than 2 consecutive)
+                    .replace(/\n{3,}/g, '\n\n')
+                    // Trim whitespace from start and end
+                    .trim();
+                
+                // Insert the standardized text
+                document.execCommand('insertText', false, standardizedText);
             });
             fieldObj.editor.addEventListener('blur', () => {
                 if (this.getNormalizedText(fieldObj.editor).trim() === '') {
@@ -967,6 +986,11 @@ class LanguageToolEditor {
     
     // Get text with consistent newline handling to avoid discrepancies between editor and overlay
     getNormalizedText(editor) {
+        // Validate input
+        if (!editor || typeof editor.textContent === 'undefined') {
+            return '';
+        }
+        
         // Use textContent instead of innerText for more consistent newline handling
         // textContent preserves the original newline structure better than innerText
         let text = editor.textContent || '';
@@ -979,6 +1003,11 @@ class LanguageToolEditor {
     }
     
     escapeHtml(text) {
+        // Validate input
+        if (text === null || text === undefined) {
+            return '';
+        }
+        
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
@@ -1113,6 +1142,15 @@ class LanguageToolEditor {
 
 
     setCursorPosition(pos, field) {
+        // Validate inputs
+        if (!this.fields[field] || !this.fields[field].editor) {
+            return;
+        }
+        
+        if (typeof pos !== 'number' || pos < 0) {
+            pos = 0;
+        }
+        
         // Set cursor at character offset 'pos' in the contenteditable div
         this.fields[field].editor.focus();
         const editor = this.fields[field].editor;
@@ -1122,12 +1160,12 @@ class LanguageToolEditor {
         while (node) {
             const length = node.textContent.length;
             if (remaining <= length) {
-            const range = document.createRange();
+                const range = document.createRange();
                 range.setStart(node, Math.max(0, remaining));
-            range.collapse(true);
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(range);
+                range.collapse(true);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
                 return;
             } else {
                 remaining -= length;
