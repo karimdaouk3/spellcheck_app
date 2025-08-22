@@ -838,6 +838,10 @@ class LanguageToolEditor {
         fieldObj.overlayHidden = true;
         this.updateHighlights(field); // This will clear the overlay
         
+        // Clear existing suggestions when text structure changes
+        // This ensures old offsets don't interfere with new text
+        fieldObj.currentSuggestions = [];
+        
         clearTimeout(this.debounceTimer);
         this.debounceTimer = setTimeout(() => {
             this.checkText(field);
@@ -929,6 +933,13 @@ class LanguageToolEditor {
         let highlightedText = '';
         let lastIndex = 0;
         fieldObj.currentSuggestions.forEach((suggestion, index) => {
+            // Validate suggestion offsets to prevent errors when text structure changes
+            if (suggestion.offset < 0 || suggestion.offset >= text.length || 
+                suggestion.offset + suggestion.length > text.length) {
+                // Skip invalid suggestions (offsets out of bounds)
+                return;
+            }
+            
             // Add text before the suggestion
             highlightedText += this.escapeHtml(text.substring(lastIndex, suggestion.offset));
             // Add the highlighted suggestion
