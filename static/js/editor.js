@@ -12,19 +12,19 @@ class LanguageToolEditor {
         this.llmLastResult = null;
         this.history = [];
         this.activeField = 'editor'; // 'editor' or 'editor2'
-        
+ 
         // Load rulesets from backend
         this.rulesets = {};
         this.loadRulesets().then(() => {
             // Update scores after rulesets are loaded
             this.updateEditorLabelsWithScore();
         });
-
+ 
         // Debug flag for DB interactions
         if (typeof window.FSR_DEBUG === 'undefined') {
             window.FSR_DEBUG = true; // set to false to silence
         }
-
+ 
         // Log user session info early
         this.debugFetchUser('init');
         this.fields = {
@@ -68,14 +68,14 @@ class LanguageToolEditor {
         this.historyMenuIcon = document.getElementById('history-menu-icon');
         this.historyCloseIcon = document.getElementById('history-close-icon');
         this.popup = document.getElementById('popup');
-
+ 
         // App session id for backend correlation
         // Use sessionStorage for unique session per tab, localStorage for shared session across tabs
         this.appSessionId = (() => {
             try {
                 // Check if we want unique sessions per tab (default: true)
                 const useUniqueSessions = true; // Set to false to use shared sessions across tabs
-                
+ 
                 if (useUniqueSessions) {
                     // Generate unique session per tab
                     const fresh = this.generateUUIDv4();
@@ -94,7 +94,7 @@ class LanguageToolEditor {
                 return this.generateUUIDv4();
             }
         })();
-
+ 
         // Initialize FSR Daily Notes line item tracking (internal only)
         if (this.fields.editor2 && this.fields.editor2.editor) {
             this.fields.editor2.lineItemId = 1; // starts at 1
@@ -109,7 +109,7 @@ class LanguageToolEditor {
             this.fields.editor.problemVersionId = 1; // starts at 1
             this.fields.editor.lastHadContent = (this.fields.editor.editor.innerText || '').trim() !== '';
         }
-
+ 
         if (this.toggleHistoryBtn) {
             this.toggleHistoryBtn.addEventListener('click', () => {
                 this.historyPanel.classList.add('closed');
@@ -127,13 +127,13 @@ class LanguageToolEditor {
             this.openHistoryBtn.style.display = 'none';
         }
         this.renderHistory();
-        
+ 
         this.initEventListeners();
         this.updateActiveEditorHeader(); // Initialize the header
         this.createHighlightOverlay('editor');
         this.createHighlightOverlay('editor2');
     }
-
+ 
     // Lightweight DB interaction logger
     logDb(eventLabel, details) {
         try {
@@ -147,7 +147,7 @@ class LanguageToolEditor {
             // ignore logging errors
         }
     }
-
+ 
     async debugFetchUser(contextLabel = 'runtime') {
         try {
             const candidates = ['/user'];
@@ -181,7 +181,7 @@ class LanguageToolEditor {
             return null;
         }
     }
-
+ 
     // Simple UUID v4 generator for session correlation
     generateUUIDv4() {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -189,7 +189,7 @@ class LanguageToolEditor {
             return v.toString(16);
         });
     }
-
+ 
     // Simple Yes/No modal that resolves to true for Yes, false for No
     // If anchorEl is provided, the modal overlays only that element; otherwise it overlays the viewport
     showYesNoPrompt(message, anchorEl = null) {
@@ -254,7 +254,7 @@ class LanguageToolEditor {
             dialog.appendChild(actions);
             overlay.appendChild(dialog);
             target.appendChild(overlay);
-
+ 
             const cleanup = () => {
                 if (overlay && overlay.parentElement) overlay.parentElement.removeChild(overlay);
             };
@@ -263,35 +263,16 @@ class LanguageToolEditor {
             yesBtn.addEventListener('click', () => { cleanup(); resolve(true); });
         });
     }
-    
+ 
     createHighlightOverlay(field) {
         const fieldObj = this.fields[field];
         // Remove any existing overlay
         if (fieldObj.highlightOverlay && fieldObj.highlightOverlay.parentElement) {
             fieldObj.highlightOverlay.parentElement.removeChild(fieldObj.highlightOverlay);
         }
-        
-        // Create a new approach: use a contenteditable div that mirrors the editor exactly
+        // Create overlay container
         fieldObj.highlightOverlay = document.createElement('div');
         fieldObj.highlightOverlay.className = 'highlight-overlay';
-        fieldObj.highlightOverlay.setAttribute('contenteditable', 'false');
-        
-        // Copy all computed styles from the editor to ensure perfect alignment
-        const editorStyles = window.getComputedStyle(fieldObj.editor);
-        const importantStyles = [
-            'fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing',
-            'wordSpacing', 'textIndent', 'textTransform', 'whiteSpace', 'wordBreak',
-            'overflowWrap', 'padding', 'paddingTop', 'paddingRight', 'paddingBottom',
-            'paddingLeft', 'margin', 'marginTop', 'marginRight', 'marginBottom',
-            'marginLeft', 'border', 'borderTop', 'borderRight', 'borderBottom',
-            'borderLeft', 'boxSizing'
-        ];
-        
-        importantStyles.forEach(prop => {
-            fieldObj.highlightOverlay.style[prop] = editorStyles[prop];
-        });
-        
-        // Set overlay-specific styles
         fieldObj.highlightOverlay.style.position = 'absolute';
         fieldObj.highlightOverlay.style.top = '0';
         fieldObj.highlightOverlay.style.left = '0';
@@ -299,21 +280,20 @@ class LanguageToolEditor {
         fieldObj.highlightOverlay.style.height = '100%';
         fieldObj.highlightOverlay.style.pointerEvents = 'none';
         fieldObj.highlightOverlay.style.zIndex = '1';
+        fieldObj.highlightOverlay.style.fontFamily = fieldObj.editor.style.fontFamily || 'inherit';
+        fieldObj.highlightOverlay.style.fontSize = fieldObj.editor.style.fontSize || '16px';
+        fieldObj.highlightOverlay.style.lineHeight = fieldObj.editor.style.lineHeight || '1.5';
+        fieldObj.highlightOverlay.style.padding = '15px';
+        fieldObj.highlightOverlay.style.boxSizing = 'border-box';
+        fieldObj.highlightOverlay.style.whiteSpace = 'pre-wrap';
+        fieldObj.highlightOverlay.style.wordBreak = 'break-word';
         fieldObj.highlightOverlay.style.background = 'transparent';
-        fieldObj.highlightOverlay.style.color = 'transparent';
-        fieldObj.highlightOverlay.style.caretColor = 'transparent';
-        fieldObj.highlightOverlay.style.overflow = 'auto';
-        fieldObj.highlightOverlay.style.border = 'none';
-        fieldObj.highlightOverlay.style.outline = 'none';
-        
-        // Ensure the parent is positioned
-        fieldObj.editor.parentElement.style.position = 'relative';
         fieldObj.editor.parentElement.appendChild(fieldObj.highlightOverlay);
-        
-        // Initialize scroll position
+        fieldObj.editor.parentElement.style.position = 'relative';
+        // Always scroll overlay to top when created
         fieldObj.highlightOverlay.scrollTop = 0;
     }
-    
+ 
     // Utility to update the active editor highlight
     updateActiveEditorHighlight() {
         // Remove active/inactive classes from all editor containers
@@ -337,7 +317,7 @@ class LanguageToolEditor {
         // Update the score in the label
         this.updateEditorLabelsWithScore();
     }
-
+ 
     updateActiveEditorHeader() {
         const header = document.getElementById('active-editor-header');
         if (header) {
@@ -352,7 +332,7 @@ class LanguageToolEditor {
             header.textContent = headerText;
         }
     }
-
+ 
     initEventListeners() {
         ['editor', 'editor2'].forEach(field => {
             const fieldObj = this.fields[field];
@@ -423,7 +403,7 @@ class LanguageToolEditor {
                 // Hide rewrite-feedback pill if content changed from last rewrite
                 const pillId = field === 'editor' ? 'rewrite-feedback-pill' : 'rewrite-feedback-pill-2';
                 const pill = document.getElementById(pillId);
-                if (pill && fieldObj.rewrittenSnapshot && this.getEditorPlainText(field) !== fieldObj.rewrittenSnapshot) {
+                if (pill && fieldObj.rewrittenSnapshot && fieldObj.editor.textContent !== fieldObj.rewrittenSnapshot) {
                     pill.style.display = 'none';
                 }
             });
@@ -454,7 +434,7 @@ class LanguageToolEditor {
                     this.updateActiveEditorHighlight();
                     this.renderHistory();
                     this.renderEvaluationAndRewrite(field);
-                    const text = this.getEditorPlainText(field);
+                    const text = fieldObj.editor.textContent || '';
                     // Character limit logic
                     const charLimit = field === 'editor' ? 1000 : 10000;
                     if (text.length > charLimit) {
@@ -483,7 +463,7 @@ class LanguageToolEditor {
                     if (!isRecording) {
                         // Clear first
                         const hadContent = fieldObj.editor.innerText.trim() !== '';
-                        this.setEditorContent(field, '');
+                        fieldObj.editor.innerText = '';
                         fieldObj.highlightOverlay.innerHTML = '';
                         fieldObj.editor.setAttribute('data-placeholder', 'Listening...');
                         fieldObj.editor.classList.add('empty');
@@ -531,7 +511,7 @@ class LanguageToolEditor {
                                 micBtn.style.color = '';
                                 micBtn.disabled = true;
                                 micBtn.title = 'Record speech';
-                                
+ 
                                 // Restore original microphone icon
                                 const micIcon = micBtn.querySelector('svg');
                                 if (micIcon) {
@@ -541,13 +521,13 @@ class LanguageToolEditor {
                                     micIcon.setAttribute('stroke-linecap', 'round');
                                     micIcon.setAttribute('stroke-linejoin', 'round');
                                 }
-
-                                
+ 
+ 
                                 // Update editor placeholder to show transcription in progress
                                 fieldObj.editor.setAttribute('data-placeholder', 'Transcribing audio...');
-                                this.setEditorContent(field, '');
+                                fieldObj.editor.innerText = '';
                                 fieldObj.editor.classList.add('empty');
-                                
+ 
                                 let audioBlob = new Blob(audioChunks, { type: mimeType || 'audio/webm' });
                                 const formData = new FormData();
                                 formData.append('audio', audioBlob, 'recording.wav');
@@ -559,16 +539,16 @@ class LanguageToolEditor {
                                         });
                                         const data = await response.json();
                                         const transcription = data.transcription || '';
-                                        
+ 
                                         // Check if the transcription indicates insufficient audio content
                                         if (transcription.startsWith("I'm sorry")) {
                                             // Show alert for insufficient audio content
                                             alert('The recorded audio does not contain enough content for transcription. Please try recording again with a longer message.');
-                                            this.setEditorContent(field, '');
+                                            fieldObj.editor.innerText = '';
                                             fieldObj.editor.classList.add('empty');
                                         } else {
                                             // Normal transcription - put text in editor
-                                            this.setEditorContent(field, transcription);
+                                            fieldObj.editor.innerText = transcription;
                                             if (fieldObj.editor.innerText.trim() === '') {
                                                 fieldObj.editor.classList.add('empty');
                                             } else {
@@ -577,10 +557,10 @@ class LanguageToolEditor {
                                             this.checkText(field);
                                             this.llmPlaceholderCall(transcription);
                                         }
-                                        
+ 
                                         fieldObj.editor.setAttribute('data-placeholder', 'Start typing your text here...');
                                     } catch (e) {
-                                        this.setEditorContent(field, 'Error: Could not transcribe.');
+                                        fieldObj.editor.innerText = 'Error: Could not transcribe.';
                                         // Status removed - status box no longer used
                                         fieldObj.editor.setAttribute('data-placeholder', 'Start typing your text here...');
                                         fieldObj.editor.classList.remove('empty');
@@ -593,7 +573,7 @@ class LanguageToolEditor {
                             isRecording = true;
                             micBtn.classList.add('recording-pulse');
                             micBtn.title = 'Recording... Click to stop';
-                            
+ 
                             // Change icon to white square when recording (reverted)
                             const micIcon = micBtn.querySelector('svg');
                             if (micIcon) {
@@ -601,12 +581,12 @@ class LanguageToolEditor {
                                 micIcon.removeAttribute('stroke');
                             }
                         } catch (err) {
-                            this.setEditorContent(field, '');
+                            fieldObj.editor.innerText = '';
                             fieldObj.editor.setAttribute('contenteditable', 'true');
                             micBtn.classList.remove('recording-pulse');
                             micBtn.title = 'Record speech';
                             // Reverted: no custom animation styles to reset
-                            
+ 
                             // Restore original microphone icon in case of error
                             const micIcon = micBtn.querySelector('svg');
                             if (micIcon) {
@@ -616,7 +596,7 @@ class LanguageToolEditor {
                                 micIcon.setAttribute('stroke-linecap', 'round');
                                 micIcon.setAttribute('stroke-linejoin', 'round');
                             }
-                            
+ 
                             // Status removed - status box no longer used
                             alert('Could not access microphone.');
                             fieldObj.editor.setAttribute('data-placeholder', 'Start typing your text here...');
@@ -630,13 +610,13 @@ class LanguageToolEditor {
                     }
                 });
             }
-            
+ 
             // Copy to clipboard button logic
             const copyBtn = fieldObj.copyBtn;
             if (copyBtn) {
                 copyBtn.addEventListener('click', async () => {
                     if (copyBtn.disabled) return;
-                    const text = this.getEditorPlainText(field);
+                    const text = fieldObj.editor.textContent || '';
                     if (text.trim() === '') {
                         // Subtle, no-text feedback on empty content
                         copyBtn.classList.add('copy-error');
@@ -661,7 +641,7 @@ class LanguageToolEditor {
                     }
                 });
             }
-
+ 
             // Rewrite feedback pill
             const pillWrapper = document.getElementById(field === 'editor' ? 'rewrite-feedback-pill' : 'rewrite-feedback-pill-2');
             if (pillWrapper) {
@@ -747,7 +727,7 @@ class LanguageToolEditor {
             this.ignoreCurrentSuggestion(this.popupField);
             this.hidePopup();
         };
-
+ 
         // Global handlers for rewrite feedback popover
         const pop = document.getElementById('rewrite-feedback-popover');
         const cancelBtn = document.getElementById('rewrite-feedback-cancel');
@@ -830,7 +810,7 @@ class LanguageToolEditor {
                 }
             };
         }
-
+ 
         // Close rewrite feedback popover when clicking outside
         document.addEventListener('mousedown', (e) => {
             const popover = document.getElementById('rewrite-feedback-popover');
@@ -850,26 +830,37 @@ class LanguageToolEditor {
             }
         });
     }
-    
+ 
     debounceCheck(field) {
-        // Status removed - status box no longer used
+        // Hide overlay immediately when user starts typing
+        const fieldObj = this.fields[field];
+        fieldObj.awaitingCheck = true;
+        fieldObj.overlayHidden = true;
+        this.updateHighlights(field); // This will clear the overlay
+ 
+        // Clear existing suggestions when text structure changes
+        // This ensures old offsets don't interfere with new text
+        fieldObj.currentSuggestions = [];
+ 
         clearTimeout(this.debounceTimer);
         this.debounceTimer = setTimeout(() => {
             this.checkText(field);
         }, 1000);
     }
-    
+ 
     async checkText(field) {
-        // Get text in a way that matches how contenteditable handles it
-        const text = this.getEditorPlainText(field);
+        // Use textContent to preserve exact whitespace; innerText normalizes newlines/spaces
+        const text = this.fields[field].editor.textContent || '';
         const fieldObj = this.fields[field];
-        
+ 
         if (!text.trim()) {
             this.clearSuggestions(field);
+            fieldObj.awaitingCheck = false;
+            fieldObj.overlayHidden = false;
             // Status removed - status box no longer used
             return;
         }
-        
+ 
         try {
             const response = await fetch('/check', {
                 method: 'POST',
@@ -878,18 +869,18 @@ class LanguageToolEditor {
                 },
                 body: JSON.stringify({ text: text })
             });
-            
+ 
             // Filter out ignored suggestions using robust key
             const suggestionsRaw = await response.json();
             const suggestions = suggestionsRaw.filter(
                 s => !fieldObj.ignoredSuggestions.has(this.getSuggestionKey(s, text))
             );
-            
+ 
             fieldObj.currentSuggestions = suggestions;
             fieldObj.awaitingCheck = false;
             fieldObj.overlayHidden = false;
             this.updateHighlights(field);
-            
+ 
             const count = suggestions.length;
             if (!fieldObj.llmInProgress) {
                 if (count === 0) {
@@ -898,241 +889,126 @@ class LanguageToolEditor {
                     // Status removed - status box no longer used
                 }
             }
-            
+ 
         } catch (error) {
                             // Status removed - status box no longer used
             console.error('Error:', error);
         }
     }
-    
+ 
     clearSuggestions(field) {
-        this.fields[field].currentSuggestions = [];
+        const fieldObj = this.fields[field];
+        fieldObj.currentSuggestions = [];
+        fieldObj.awaitingCheck = false;
+        fieldObj.overlayHidden = false;
         this.updateHighlights(field);
     }
-    
+ 
     updateHighlights(field) {
         const fieldObj = this.fields[field];
-        
-        if (!fieldObj.highlightOverlay) {
-            this.createHighlightOverlay(field);
-        }
-        
+ 
         // Save current scroll position
         const currentScrollTop = fieldObj.editor.scrollTop;
         const currentScrollLeft = fieldObj.editor.scrollLeft;
-        
-        if (fieldObj.awaitingCheck || fieldObj.overlayHidden || fieldObj.currentSuggestions.length === 0) {
+ 
+        if (fieldObj.awaitingCheck || fieldObj.overlayHidden) {
             fieldObj.highlightOverlay.innerHTML = '';
+            // Restore scroll position instead of resetting to top
             fieldObj.highlightOverlay.scrollTop = currentScrollTop;
             fieldObj.highlightOverlay.scrollLeft = currentScrollLeft;
             return;
         }
-        
-        // NEW APPROACH: Clone the editor's content exactly to preserve all whitespace
-        const editorContent = fieldObj.editor.innerHTML;
-        
-        // Create a temporary container to manipulate the HTML
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = editorContent;
-        
-        // Convert the content to plain text while preserving structure
-        const walker = document.createTreeWalker(
-            tempDiv,
-            NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
-            null,
-            false
-        );
-        
-        const textNodes = [];
-        let currentOffset = 0;
-        
-        while (walker.nextNode()) {
-            const node = walker.currentNode;
-            
-            if (node.nodeType === Node.TEXT_NODE) {
-                textNodes.push({
-                    node: node,
-                    start: currentOffset,
-                    end: currentOffset + node.textContent.length,
-                    text: node.textContent
-                });
-                currentOffset += node.textContent.length;
-            } else if (node.nodeType === Node.ELEMENT_NODE) {
-                // Handle block-level elements that create line breaks
-                if (node.tagName === 'BR') {
-                    textNodes.push({
-                        node: node,
-                        start: currentOffset,
-                        end: currentOffset + 1,
-                        text: '\n',
-                        isBR: true
-                    });
-                    currentOffset += 1;
-                } else if (node.tagName === 'DIV' && node.previousSibling) {
-                    // DIVs create line breaks except for the first one
-                    textNodes.push({
-                        node: null,
-                        start: currentOffset,
-                        end: currentOffset + 1,
-                        text: '\n',
-                        isDivBreak: true
-                    });
-                    currentOffset += 1;
-                }
-            }
-        }
-        
-        // Apply highlights to the text nodes
-        fieldObj.currentSuggestions.forEach((suggestion, suggestionIndex) => {
-            const start = suggestion.offset;
-            const end = suggestion.offset + suggestion.length;
-            
-            // Find which text nodes this suggestion spans
-            textNodes.forEach(textNode => {
-                if (!textNode.isBR && !textNode.isDivBreak && textNode.node && 
-                    textNode.start < end && textNode.end > start) {
-                    // This text node is affected by the suggestion
-                    const nodeStart = Math.max(0, start - textNode.start);
-                    const nodeEnd = Math.min(textNode.text.length, end - textNode.start);
-                    
-                    if (nodeStart < nodeEnd) {
-                        // Split the text node if needed
-                        const beforeText = textNode.text.substring(0, nodeStart);
-                        const highlightText = textNode.text.substring(nodeStart, nodeEnd);
-                        const afterText = textNode.text.substring(nodeEnd);
-                        
-                        // Create the highlighted span
-                        const span = document.createElement('span');
-                        let categoryClass = 'highlight-span';
-                        if (suggestion.errorType === 'spelling') {
-                            categoryClass += ' highlight-span-spelling';
-                        } else if (suggestion.errorType === 'grammar') {
-                            categoryClass += ' highlight-span-grammar';
-                        } else if (suggestion.errorType) {
-                            categoryClass += ' highlight-span-other';
-                        }
-                        span.className = categoryClass;
-                        span.setAttribute('data-suggestion-index', suggestionIndex);
-                        span.textContent = highlightText;
-                        span.style.pointerEvents = 'auto';
-                        span.style.cursor = 'pointer';
-                        
-                        // Replace the text node with the new structure
-                        const parent = textNode.node.parentNode;
-                        if (beforeText) {
-                            parent.insertBefore(document.createTextNode(beforeText), textNode.node);
-                        }
-                        parent.insertBefore(span, textNode.node);
-                        if (afterText) {
-                            parent.insertBefore(document.createTextNode(afterText), textNode.node);
-                        }
-                        parent.removeChild(textNode.node);
-                    }
-                }
+ 
+        // Use textContent to ensure overlay offsets match actual DOM text nodes
+        const text = fieldObj.editor.textContent || '';
+        if (fieldObj.currentSuggestions.length === 0) {
+            fieldObj.highlightOverlay.innerHTML = '';
+            // Restore scroll position instead of resetting to top
+            requestAnimationFrame(() => {
+                fieldObj.highlightOverlay.scrollTop = currentScrollTop;
+                fieldObj.highlightOverlay.scrollLeft = currentScrollLeft;
             });
+            return;
+        }
+ 
+        // Create highlighted text
+        let highlightedText = '';
+        let lastIndex = 0;
+        fieldObj.currentSuggestions.forEach((suggestion, index) => {
+            // Validate suggestion offsets to prevent errors when text structure changes
+            if (suggestion.offset < 0 || suggestion.offset >= text.length || 
+                suggestion.offset + suggestion.length > text.length) {
+                // Skip invalid suggestions (offsets out of bounds)
+                return;
+            }
+ 
+            // Add text before the suggestion
+            highlightedText += this.escapeHtml(text.substring(lastIndex, suggestion.offset));
+            // Add the highlighted suggestion
+            const errorText = text.substring(suggestion.offset, suggestion.offset + suggestion.length);
+            let categoryClass = '';
+            if (suggestion.errorType === 'spelling') {
+                categoryClass = 'highlight-span-spelling';
+            } else if (suggestion.errorType === 'grammar') {
+                categoryClass = 'highlight-span-grammar';
+            } else if (suggestion.errorType) {
+                categoryClass = 'highlight-span-other';
+            }
+            highlightedText += `<span class="highlight-span ${categoryClass}" data-suggestion-index="${index}">${this.escapeHtml(errorText)}</span>`;
+            lastIndex = suggestion.offset + suggestion.length;
         });
-        
-        // Set the modified content to the overlay
-        fieldObj.highlightOverlay.innerHTML = tempDiv.innerHTML;
-        
-        // Restore scroll position
+        // Add any remaining text after the last suggestion
+        highlightedText += this.escapeHtml(text.substring(lastIndex));
+        fieldObj.highlightOverlay.innerHTML = highlightedText;
+ 
+        // Restore scroll position instead of resetting to top
         requestAnimationFrame(() => {
             fieldObj.highlightOverlay.scrollTop = currentScrollTop;
             fieldObj.highlightOverlay.scrollLeft = currentScrollLeft;
         });
-        
+ 
         // Attach click handlers to highlights
         const spans = fieldObj.highlightOverlay.querySelectorAll('.highlight-span');
         spans.forEach(span => {
+            span.style.borderRadius = '2px';
+            span.style.cursor = 'pointer';
+            span.style.pointerEvents = 'auto';
             span.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 const suggestionIndex = parseInt(span.getAttribute('data-suggestion-index'));
                 const suggestion = fieldObj.currentSuggestions[suggestionIndex];
+                // Determine the exact character offset within the span where the user clicked
+                const localIndex = this.getLocalIndexWithinSpan(span, e);
+                const absoluteIndex = suggestion.offset + localIndex;
+                this.setCursorPosition(absoluteIndex, field);
                 this.showPopup(suggestion, e.clientX, e.clientY, field);
             });
         });
     }
-    
+ 
     escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
+        // Escape HTML characters but preserve newlines as-is
+        // The overlay uses white-space: pre-wrap which handles newlines automatically
+        return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
-    
-    // Get plain text from editor that matches how offsets work in contenteditable
-    getEditorPlainText(field) {
-        const fieldObj = this.fields[field];
-        const editorContent = fieldObj.editor.innerHTML;
-        
-        // Create a temporary container
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = editorContent;
-        
-        // Walk through the DOM and build the plain text
-        const walker = document.createTreeWalker(
-            tempDiv,
-            NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
-            null,
-            false
-        );
-        
-        let plainText = '';
-        
-        while (walker.nextNode()) {
-            const node = walker.currentNode;
-            
-            if (node.nodeType === Node.TEXT_NODE) {
-                plainText += node.textContent;
-            } else if (node.nodeType === Node.ELEMENT_NODE) {
-                if (node.tagName === 'BR') {
-                    plainText += '\n';
-                } else if (node.tagName === 'DIV' && node.previousSibling) {
-                    // DIVs create line breaks except for the first one
-                    plainText += '\n';
-                }
-            }
-        }
-        
-        return plainText;
-    }
-    
-    // Set editor content from plain text, preserving whitespace
-    setEditorContent(field, text) {
-        const fieldObj = this.fields[field];
-        // For empty text, clear the editor
-        if (!text) {
-            fieldObj.editor.innerHTML = '';
-            return;
-        }
-        
-        // Convert plain text to HTML that contenteditable expects
-        // Split by lines and create appropriate structure
-        const lines = text.split('\n');
-        const htmlContent = lines.map((line, index) => {
-            if (index === 0) {
-                // First line doesn't need wrapping
-                return this.escapeHtml(line || '');
-            } else {
-                // Subsequent lines need DIV wrapping
-                return `<div>${this.escapeHtml(line || '')}</div>`;
-            }
-        }).join('');
-        
-        fieldObj.editor.innerHTML = htmlContent || '<br>';
-    }
-    
+ 
     showPopup(suggestion, x, y, field) {
         const messageDiv = this.popup.querySelector('.popup-message');
         const suggestionsDiv = this.popup.querySelector('.suggestions-list');
         this.popupField = field; // Track which field the popup is for
-        
+ 
         // Set message
         messageDiv.textContent = suggestion.message;
-        
+ 
         // Clear and populate suggestions
         suggestionsDiv.innerHTML = '';
-        
+ 
         if (suggestion.replacements && suggestion.replacements.length > 0) {
             // Only show the top 3 suggestions
             suggestion.replacements.slice(0, 3).forEach((replacement, index) => {
@@ -1150,29 +1026,29 @@ class LanguageToolEditor {
             noSuggestions.onclick = null;
             suggestionsDiv.appendChild(noSuggestions);
         }
-        
+ 
         // Position and show popup
         this.popup.style.display = 'block';
-        
+ 
         // Adjust position to stay within viewport
         const rect = this.popup.getBoundingClientRect();
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
-        
+ 
         let adjustedX = x;
         let adjustedY = y;
-        
+ 
         if (x + rect.width > viewportWidth) {
             adjustedX = viewportWidth - rect.width - 10;
         }
-        
+ 
         if (y + rect.height > viewportHeight) {
             adjustedY = y - rect.height - 10;
         }
-        
+ 
         this.popup.style.left = adjustedX + 'px';
         this.popup.style.top = adjustedY + 'px';
-        
+ 
         // Keep reference to current suggestion
         this.currentMention = suggestion;
         // Add extra blue button for spelling errors
@@ -1210,23 +1086,22 @@ class LanguageToolEditor {
             this.hidePopup();
         };
     }
-    
+ 
     hidePopup() {
         this.popup.style.display = 'none';
         this.currentMention = null;
     }
-    
+ 
     applySuggestion(suggestion, replacement, field) {
         // Save selection position and scroll position
         const selection = window.getSelection();
         const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
         const scrollTop = this.fields[field].editor.scrollTop;
         const scrollLeft = this.fields[field].editor.scrollLeft;
-        const text = this.getEditorPlainText(field);
+        const text = this.fields[field].editor.textContent || '';
         const before = text.substring(0, suggestion.offset);
         const after = text.substring(suggestion.offset + suggestion.length);
-        // For contenteditable, we need to set the content properly
-        this.setEditorContent(field, before + replacement + after);
+        this.fields[field].editor.textContent = before + replacement + after;
         // Restore cursor position after replacement
         const newPosition = suggestion.offset + replacement.length;
         this.setCursorPosition(newPosition, field);
@@ -1234,7 +1109,7 @@ class LanguageToolEditor {
         this.fields[field].editor.scrollTop = scrollTop;
         this.fields[field].editor.scrollLeft = scrollLeft;
         // Remove the suggestion from currentSuggestions so highlight disappears immediately
-        const newText = this.getEditorPlainText(field);
+        const newText = this.fields[field].editor.textContent || '';
         const key = this.getSuggestionKey(suggestion, newText);
         this.fields[field].currentSuggestions = this.fields[field].currentSuggestions.filter(
             s => this.getSuggestionKey(s, newText) !== key
@@ -1248,9 +1123,9 @@ class LanguageToolEditor {
         this.fields[field].editor.focus();
         this.debounceCheck(field);
     }
-    
-
-
+ 
+ 
+ 
     setCursorPosition(pos, field) {
         // Set cursor at character offset 'pos' in the contenteditable div
         this.fields[field].editor.focus();
@@ -1281,7 +1156,7 @@ class LanguageToolEditor {
         sel.removeAllRanges();
         sel.addRange(range);
     }
-
+ 
     // Compute the character index within a highlight span based on click position
     getLocalIndexWithinSpan(span, mouseEvent) {
         const doc = span.ownerDocument || document;
@@ -1313,13 +1188,13 @@ class LanguageToolEditor {
         const len = span.textContent ? span.textContent.length : 0;
         return Math.round(clamped * len);
     }
-
+ 
     getSuggestionKey(suggestion, text) {
         // Use the error text, ruleId, and message for uniqueness
         const errorText = text.substring(suggestion.offset, suggestion.offset + suggestion.length);
         return `${errorText}:${suggestion.ruleId}:${suggestion.message}`;
     }
-
+ 
     ignoreCurrentSuggestion(field) {
         if (this.currentMention) {
             const text = this.fields[field].editor.innerText;
@@ -1333,7 +1208,7 @@ class LanguageToolEditor {
         }
         this.hidePopup();
     }
-
+ 
     // After LLM submit, always re-apply highlight
     async submitToLLM(text, answers = null, field = this.activeField) {
         const fieldObj = this.fields[field];
@@ -1345,10 +1220,10 @@ class LanguageToolEditor {
         fieldObj.isRestoringFromHistory = false; // Reset flag for new submissions
         if (!this.evalCollapsed) this.evalCollapsed = {};
         // this.evalCollapsed[field] = false; // Expand by default after review/rewrite (REMOVE THIS LINE)
-        
+ 
         // Update button states
         this.updateButtonState(field, answers ? 'rewriting' : 'reviewing');
-        
+ 
         if (answers) {
             // Status removed - status box no longer used
         } else {
@@ -1409,17 +1284,17 @@ class LanguageToolEditor {
             if (data.result && data.result.rewrite_uuid) {
                 fieldObj.rewriteUuid = data.result.rewrite_uuid;
             }
-            
+ 
             // Add to history when submitting for evaluation (not rewrite)
             if (!answers) {
                 this.addToHistory(text, field, data.result);
-                
+ 
                 // Store calculated score for potential future use
                 const evaluation = data.result && data.result.evaluation ? data.result.evaluation : {};
                 const calculatedScore = this.calculateWeightedScore(field, evaluation);
                 this.fields[field].calculatedScore = calculatedScore;
             }
-            
+ 
             this.displayLLMResult(data.result, answers !== null, field, !answers);
             this.updateActiveEditorHighlight(); // Ensure highlight remains
             // If this was a rewrite, snapshot state and show pill
@@ -1441,27 +1316,27 @@ class LanguageToolEditor {
             this.updateActiveEditorHighlight(); // Ensure highlight remains
         }
     }
-
+ 
     displayLLMResult(result, showRewrite, field = this.activeField, isNewEvaluation = false) {
         const fieldObj = this.fields[field];
-        
+ 
         // If no result but field is being reviewed, preserve loading state
         if (!result && fieldObj.llmInProgress) {
             // Keep the loading state when switching between boxes during active review
             return;
         }
-        
+ 
         fieldObj.llmInProgress = false;
-        
+ 
         // Reset button states when LLM call completes
         this.resetButtonState(field);
-        
+ 
         // Only display the result if this field is currently active
         // Exception: Always show rewrite results (follow-up questions) even if in different box
         if (field !== this.activeField && !showRewrite) {
             return;
         }
-        
+ 
         const evalBox = document.getElementById('llm-eval-box');
         let html = '';
         let valid = result && typeof result === 'object';
@@ -1481,7 +1356,7 @@ class LanguageToolEditor {
             this.evalCollapsed[field] = true;
         }
         const isCollapsed = this.evalCollapsed[field];
-        
+ 
         // Check for evaluation error
         if (result && result.error) {
             html += `<div style="background:#fff3cd; border:1px solid #ffeaa7; color:#856404; padding:15px; border-radius:8px; margin:10px 0;">
@@ -1574,17 +1449,17 @@ class LanguageToolEditor {
         }
         evalBox.innerHTML = html;
         evalBox.style.display = 'flex';
-        
+ 
         // Check if button exists immediately after setting HTML
         setTimeout(() => {
             const btnCheck = document.getElementById('eval-collapse-btn');
             if (btnCheck) {
                 btnCheck.onclick = () => {
                     this.evalCollapsed[field] = !this.evalCollapsed[field];
-                    
+ 
                     // Instead of regenerating HTML, just toggle the class and show/hide content
                     btnCheck.classList.toggle('collapsed', this.evalCollapsed[field]);
-                    
+ 
                     const evalBox = document.getElementById('llm-eval-box');
                     if (evalBox) {
                         const content = evalBox.querySelector('.llm-eval-content');
@@ -1598,12 +1473,12 @@ class LanguageToolEditor {
                 btnCheck.classList.toggle('collapsed', this.evalCollapsed[field]);
             }
         }, 0);
-        
+ 
         // Add all event listeners for evaluation elements after HTML is set
         setTimeout(() => {
             this.addEvaluationEventListeners(field);
         }, 0);
-
+ 
         // --- Questions and rewrite popup logic ---
         const rewritePopup = document.getElementById('rewrite-popup');
         if (!showRewrite) {
@@ -1617,13 +1492,13 @@ class LanguageToolEditor {
                     }
                 }
             }
-            
+ 
             // Only clear answers when a new evaluation produces a new set of questions.
             // Preserve answers when simply switching active boxes.
             if (isNewEvaluation) {
                 fieldObj.llmAnswers = {};
             }
-            
+ 
             fieldObj.llmQuestions = newQuestions;
             if (fieldObj.llmQuestions.length > 0) {
                 // Determine color based on active editor
@@ -1674,7 +1549,7 @@ class LanguageToolEditor {
                                 }
                             });
                             const toSend = answersPayload.length > 0 ? answersPayload : fieldObj.llmAnswers;
-                            this.submitToLLM(fieldObj.editor.innerText, toSend, field);
+                            this.submitToLLM(fieldObj.editor.textContent || '', toSend, field);
                         };
                     }
                 }, 100);
@@ -1692,7 +1567,7 @@ class LanguageToolEditor {
                 }
             }
             if (rewrite) {
-                this.setEditorContent(field, rewrite);
+                fieldObj.editor.innerText = rewrite;
                 fieldObj.overlayHidden = true;
                 this.updateHighlights(field);
                 rewritePopup.style.display = 'none';
@@ -1710,15 +1585,15 @@ class LanguageToolEditor {
             }
         }
     }
-
+ 
     // Synchronize scrolling between overlay and editor
     syncOverlayScroll() {
         ['editor', 'editor2'].forEach(field => {
             const fieldObj = this.fields[field];
             if (!fieldObj.highlightOverlay || !fieldObj.editor) return;
-            
+ 
             let isScrolling = false;
-            
+ 
             // Sync overlay scroll to editor
             fieldObj.editor.onscroll = () => {
                 if (!isScrolling) {
@@ -1728,7 +1603,7 @@ class LanguageToolEditor {
                     setTimeout(() => { isScrolling = false; }, 10);
                 }
             };
-            
+ 
             // Sync editor scroll to overlay
             fieldObj.highlightOverlay.onscroll = () => {
                 if (!isScrolling) {
@@ -1740,33 +1615,33 @@ class LanguageToolEditor {
             };
         });
     }
-
+ 
     // Update the label/title of each text box to include the temperature bar
     updateEditorLabelsWithScore() {
         const score1 = document.getElementById('score-editor');
         const score2 = document.getElementById('score-editor2');
         const r1 = this.fields['editor'].llmLastResult;
         const r2 = this.fields['editor2'].llmLastResult;
-        
+ 
         // Update Current Problem Statement temperature bar
         if (r1 && r1.evaluation) {
             const weightedScore = this.calculateWeightedScore('editor', r1.evaluation);
             const percentage = Math.round(weightedScore);
             this.fields['editor'].calculatedScore = percentage; // expose for backend if needed
-            
+ 
             score1.innerHTML = this.createTemperatureBar(percentage);
             score1.className = 'editor-score';
             } else {
             score1.innerHTML = '';
             score1.className = 'editor-score';
         }
-        
+ 
         // Update Daily FSR Notes temperature bar
         if (r2 && r2.evaluation) {
             const weightedScore = this.calculateWeightedScore('editor2', r2.evaluation);
             const percentage = Math.round(weightedScore);
             this.fields['editor2'].calculatedScore = percentage;
-            
+ 
             score2.innerHTML = this.createTemperatureBar(percentage);
             score2.className = 'editor-score';
             } else {
@@ -1774,12 +1649,12 @@ class LanguageToolEditor {
             score2.className = 'editor-score';
         }
     }
-
+ 
     // Create temperature bar with gradient from red to yellow to green
     createTemperatureBar(percentage) {
         const clampedPercentage = Math.max(0, Math.min(100, percentage));
         const position = clampedPercentage; // 0-100
-        
+ 
         return `
             <div style="display: flex; align-items: center; gap: 10px; font-size: 0.85em; font-weight: 600; padding: 4px 0;">
                 <span style="color: #000; font-size: 0.9em;">Vague</span>
@@ -1813,7 +1688,7 @@ class LanguageToolEditor {
             </style>
         `;
     }
-
+ 
     // Load rulesets from backend
     async loadRulesets() {
         try {
@@ -1821,7 +1696,7 @@ class LanguageToolEditor {
                 fetch('/ruleset/problem_statement').then(res => res.json()),
                 fetch('/ruleset/fsr').then(res => res.json())
             ]);
-
+ 
             this.rulesets = { editor: ps, editor2: fsr };
             this.logDb('Loaded criteria from CRITERIA_GROUPS (DEFAULT)', {
                 problem_statement: ps,
@@ -1831,43 +1706,43 @@ class LanguageToolEditor {
             console.error('Error loading rulesets:', error);
         }
     }
-
+ 
     // Calculate weighted score based on criteria weights from backend
     calculateWeightedScore(field, evaluation) {
         const ruleset = this.rulesets[field];
         if (!ruleset || !ruleset.rules) {
             return 0;
         }
-        
+ 
         let totalScore = 0;
         let totalWeight = 0;
-        
+ 
         for (const rule of ruleset.rules) {
             const criteriaName = rule.name;
             const weight = rule.weight;
-            
+ 
             if (evaluation[criteriaName]) {
                 totalScore += evaluation[criteriaName].passed ? weight : 0;
                 totalWeight += weight;
             }
         }
-        
+ 
         // Automatically normalize to 100 regardless of actual weight sum
         // This ensures the score is always 0-100 even if weights don't sum to 100
         return totalWeight > 0 ? (totalScore / totalWeight) * 100 : 0;
     }
-
+ 
     // --- Placeholder for LLM call after transcription ---
     llmPlaceholderCall(transcription) {
         if (!transcription || transcription.trim() === '') return;
         // TODO: Replace this with your actual LLM call logic
         // Example: this.submitToLLM(transcription);
     }
-
+ 
     saveTerm(term, field, savedMention = null) {
         // Apply blue highlight IMMEDIATELY for instant feedback
         this.flashTerm(term, field, savedMention);
-        
+ 
         fetch('/terms', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1875,7 +1750,7 @@ class LanguageToolEditor {
         })
         .then(res => {
             if (!res.ok) throw new Error('Failed to add term');
-            
+ 
             setTimeout(() => {
                 if (savedMention) {
                     const text = this.fields[field].editor.innerText;
@@ -1885,14 +1760,14 @@ class LanguageToolEditor {
                         s => this.getSuggestionKey(s, text) !== key
                     );
                     this.updateHighlights(field);
-                    
+ 
                     // Show the overlay again after highlights are updated
                     const overlay = this.fields[field].highlightOverlay;
                     if (overlay) {
                         overlay.style.display = 'block';
                     }
                 }
-                
+ 
                 this.checkText('editor');
                 this.checkText('editor2');
             }, 1600); // Wait 1.6 seconds (slightly longer than the 1.5-second blue highlight)
@@ -1901,32 +1776,32 @@ class LanguageToolEditor {
             // Error handling removed - status box no longer used
         });
     }
-    
+ 
     // Flash a term with blue color to indicate it was added to dictionary
     flashTerm(term, field, savedMention = null) {
         const mentionToUse = savedMention || this.currentMention;
-        
+ 
         if (mentionToUse) {
             const overlay = this.fields[field].highlightOverlay;
-            
+ 
             if (overlay) {
                 const suggestionIndex = this.fields[field].currentSuggestions.findIndex(s => 
                     s.offset === mentionToUse.offset && s.length === mentionToUse.length
                 );
-                
+ 
                 if (suggestionIndex !== -1) {
                     const spanSelector = `[data-suggestion-index="${suggestionIndex}"]`;
                     const span = overlay.querySelector(spanSelector);
-                    
+ 
                     if (span) {
                         // Use the same blue as the submit button (#00A7E1)
                         span.style.backgroundColor = 'rgba(0, 167, 225, 0.3)';
                         span.style.borderBottom = '2px solid #00A7E1';
                         span.style.color = 'black';
-                        
+ 
                         setTimeout(() => {
                             span.remove();
-                            
+ 
                             // Hide the overlay AFTER blue is removed, during recalculation
                             const overlay = this.fields[field].highlightOverlay;
                             if (overlay) {
@@ -1938,17 +1813,17 @@ class LanguageToolEditor {
             }
         }
     }
-
+ 
     addToHistory(text, field = this.activeField, evaluationResult = null) {
         if (!text || !text.trim()) return;
         const fieldObj = this.fields[field];
-        
+ 
         // Trim newlines from the ends before adding to history
         const trimmedText = text.trim();
-        
+ 
         // Use provided evaluation result or current one
         const resultToStore = evaluationResult || fieldObj.llmLastResult;
-        
+ 
         // Create history entry with complete state
         const historyEntry = {
             text: trimmedText,
@@ -1958,36 +1833,38 @@ class LanguageToolEditor {
             reviewId: fieldObj.reviewId || null,
             timestamp: new Date().toISOString()
         };
-        
+ 
         fieldObj.history.unshift(historyEntry);
         if (fieldObj.history.length > 50) fieldObj.history = fieldObj.history.slice(0, 50);
         this.renderHistory();
     }
-
+ 
     restoreFromHistory(historyItem, field = this.activeField) {
         const fieldObj = this.fields[field];
-        
+ 
         // Hide overlay immediately when restoring from history
         fieldObj.overlayHidden = true;
         this.updateHighlights(field);
-        
+ 
         // Handle both old format (string) and new format (object)
         const text = typeof historyItem === 'string' ? historyItem : historyItem.text;
         const llmResult = typeof historyItem === 'object' ? historyItem.llmLastResult : null;
-        
+ 
         // Restore database IDs if available
         if (typeof historyItem === 'object') {
             fieldObj.userInputId = historyItem.userInputId || null;
             fieldObj.rewriteUuid = historyItem.rewriteUuid || null;
             fieldObj.reviewId = historyItem.reviewId || null;
         }
-        
+ 
         // Restore the text
-        this.setEditorContent(field, text);
+        fieldObj.editor.innerHTML = '&nbsp;'; // Force not empty for CSS
+        fieldObj.editor.textContent = text;
         fieldObj.editor.classList.remove('empty');
+        // textContent set above ensures exact whitespace is preserved
         fieldObj.editor.offsetHeight; // Force reflow
         fieldObj.editor.focus();
-
+ 
         // Restore the evaluation and feedback if available
         if (llmResult) {
             fieldObj.llmLastResult = llmResult;
@@ -2006,7 +1883,7 @@ class LanguageToolEditor {
         this.checkText(field);
         // Overlay will be shown again when checkText completes and calls updateHighlights
     }
-
+ 
     renderHistory() {
         if (!this.historyList) return;
         this.historyList.innerHTML = '';
@@ -2021,21 +1898,21 @@ class LanguageToolEditor {
             label = 'Input History';
         }
         if (historyHeader) historyHeader.textContent = label;
-        
+ 
         const fieldObj = this.fields[this.activeField];
         if (!fieldObj.history || fieldObj.history.length === 0) {
             this.historyList.innerHTML = '<div style="text-align:center;color:#666;padding:20px;">Previous versions will appear here after submission</div>';
             return;
         }
-        
+ 
         fieldObj.history.forEach((item, index) => {
             const historyItem = document.createElement('li');
             historyItem.className = 'history-item';
             historyItem.title = 'Click to revert to this version';
-            
+ 
             const text = typeof item === 'string' ? item : item.text;
             const llmResult = typeof item === 'object' ? item.llmLastResult : null;
-            
+ 
             // Calculate score if available and set border color to a discrete bucket matching the temperature bar palette
             if (llmResult && llmResult.evaluation) {
                 const score = this.calculateWeightedScore(this.activeField, llmResult.evaluation);
@@ -2056,22 +1933,22 @@ class LanguageToolEditor {
                 }
                 historyItem.style.border = `2px solid ${borderColor}`;
             }
-            
+ 
             // Replace newlines with <br> tags for proper rendering
             const textWithNewlines = text.replace(/\n/g, '<br>');
-            
+ 
             historyItem.innerHTML = `
                 <div style="white-space:pre-wrap;">${textWithNewlines}</div>
             `;
-            
+ 
             historyItem.onclick = () => {
                 this.restoreFromHistory(item, this.activeField);
             };
-            
+ 
             this.historyList.appendChild(historyItem);
         });
     }
-
+ 
     // When switching boxes, always clear rewrite result if it was just shown
     renderEvaluationAndRewrite(field) {
         // Defensive: clear right side first to avoid flicker of wrong data
@@ -2080,7 +1957,7 @@ class LanguageToolEditor {
             evalBox.innerHTML = '';
             evalBox.style.display = 'none';
         }
-        
+ 
         // Save current rewrite answers before hiding popup
         const rewritePopup = document.getElementById('rewrite-popup');
         if (rewritePopup && rewritePopup.style.display !== 'none') {
@@ -2097,12 +1974,12 @@ class LanguageToolEditor {
             }
             rewritePopup.style.display = 'none';
         }
-        
+ 
         // Only show evaluation if this is the active field
         if (field === this.activeField) {
             const fieldObj = this.fields[field];
             // If the last result was a rewrite, and the editor content doesn't match, clear it
-            if (fieldObj.llmLastResult && fieldObj.llmLastResult.rewrite && fieldObj.llmLastResult.original_text !== this.getEditorPlainText(field)) {
+            if (fieldObj.llmLastResult && fieldObj.llmLastResult.rewrite && fieldObj.llmLastResult.original_text !== fieldObj.editor.textContent) {
                 fieldObj.llmLastResult = null;
             }
             // Don't show evaluation if the field is currently being reviewed
@@ -2115,31 +1992,31 @@ class LanguageToolEditor {
                 this.displayLLMResult(fieldObj.llmLastResult, false, field);
             }
         }
-        
+ 
         this.updateActiveEditorHighlight(); // Always re-apply highlight after UI update
     }
-
+ 
     // Render only the evaluation part without affecting the rewrite popup
     renderEvaluationOnly(result, field = this.activeField) {
         const fieldObj = this.fields[field];
         const evalBox = document.getElementById('llm-eval-box');
         if (!evalBox) return;
-        
+ 
         let html = '';
         let valid = result && typeof result === 'object';
         let rulesObj = result && result.evaluation ? result.evaluation : result;
-        
+ 
         // Collapsible state (per field)
         if (!this.evalCollapsed) this.evalCollapsed = {};
         if (typeof this.evalCollapsed[field] === 'undefined') this.evalCollapsed[field] = true; // Collapsed by default
         const isCollapsed = this.evalCollapsed[field];
-        
+ 
         if (valid && rulesObj && typeof rulesObj === 'object') {
             const keys = Object.keys(rulesObj);
             const total = keys.length;
             const passed = keys.filter(key => rulesObj[key].passed).length;
             let inputType = 'How Your Score Was Calculated';
-            
+ 
             // Replace score box with feedback title
             html += `<div class="llm-score" style="font-size:1.35em;font-weight:700;margin-bottom:0;background:#fff;color:#41007F;padding:10px 0 10px 0;border-radius:8px;text-align:center;box-shadow:0 1px 4px rgba(33,0,127,0.07);letter-spacing:0.5px;display:flex;align-items:center;justify-content:center;gap:10px;position:relative;">\n` +
                 `<button id="eval-collapse-btn" title="Click to expand for details" style="background:rgba(65,0,127,0.05);border:none;cursor:pointer;padding:0 6px;outline:none;display:inline-flex;align-items:center;justify-content:center;position:absolute;left:8px;top:50%;width:24px;height:24px;z-index:2;border-radius:4px;transition:background 0.2s ease;">\n` +
@@ -2156,14 +2033,14 @@ class LanguageToolEditor {
                     if (aPassed === bPassed) return 0;
                     return aPassed ? -1 : 1;
                 });
-                
+ 
                 sortedKeys.forEach(key => {
                     const section = rulesObj[key];
                     const isPassed = section.passed;
                     const passedClass = isPassed ? 'passed' : 'failed';
                     const passedText = isPassed ? 'Completed' : 'Needs Improvement';
                     const passedColor = isPassed ? '#4CAF50' : '#F44336';
-                    
+ 
                     html += `<div class="llm-section ${passedClass}" data-passed="${isPassed}">\n`;
                     html += `<div class="llm-section-header">\n`;
                     html += `<div class="llm-section-title" data-criteria="${key}" style="cursor:pointer;font-weight:600;font-size:1.1em;color:#333;margin-bottom:4px;display:flex;align-items:center;gap:8px;">\n`;
@@ -2182,19 +2059,19 @@ class LanguageToolEditor {
                 });
             }
         }
-        
+ 
         evalBox.innerHTML = html;
         evalBox.style.display = 'flex';
-        
+ 
         // Re-add collapse/expand logic
         const collapseBtn = document.getElementById('eval-collapse-btn');
         if (collapseBtn) {
             collapseBtn.onclick = () => {
                 this.evalCollapsed[field] = !this.evalCollapsed[field];
-                
+ 
                 // Instead of regenerating HTML, just toggle the class and show/hide content
                 collapseBtn.classList.toggle('collapsed', this.evalCollapsed[field]);
-                
+ 
                 const evalBox = document.getElementById('llm-eval-box');
                 if (evalBox) {
                     const content = evalBox.querySelector('.llm-eval-content');
@@ -2207,24 +2084,24 @@ class LanguageToolEditor {
             // Set initial state
             collapseBtn.classList.toggle('collapsed', this.evalCollapsed[field]);
         }
-        
+ 
         // Re-add all the other event listeners (dropdowns, feedback buttons, etc.)
         this.addEvaluationEventListeners(field);
     }
-
+ 
     // Add event listeners for evaluation elements
     addEvaluationEventListeners(field) {
         const fieldObj = this.fields[field];
         const evalBox = document.getElementById('llm-eval-box');
         if (!evalBox) return;
-        
+ 
         // Dropdown logic
         const dropdowns = evalBox.querySelectorAll('.llm-dropdown');
         dropdowns.forEach((dropdown, index) => {
             const header = dropdown.querySelector('.llm-section-header');
             const justification = dropdown.querySelector('.llm-section-justification');
             const arrow = dropdown.querySelector('.llm-dropdown-arrow');
-            
+ 
             // Set initial state
             if (dropdown.classList.contains('open')) {
                 justification.style.display = 'block';
@@ -2247,7 +2124,7 @@ class LanguageToolEditor {
                 }
             });
         });
-
+ 
         // Add click handlers for evaluation titles to navigate to rewrite box (only for failed evaluations)
         const failedTitleElements = evalBox.querySelectorAll('.llm-dropdown[data-passed="false"] .llm-section-title');
         failedTitleElements.forEach(title => {
@@ -2271,7 +2148,7 @@ class LanguageToolEditor {
                 if (handled) e.stopPropagation();
             });
         });
-
+ 
         const feedbackBtns = evalBox.querySelectorAll('.llm-feedback-btn');
         feedbackBtns.forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -2290,7 +2167,7 @@ class LanguageToolEditor {
                     btn.classList.remove('selected');
                     return;
                 }
-
+ 
                 // Open a new feedback box and mark selected
                 btn.classList.add('selected');
                     feedbackBox = document.createElement('div');
@@ -2348,7 +2225,7 @@ class LanguageToolEditor {
                             btn.title = "Feedback received!";
                             feedbackBox.remove();
                             feedbackSpace.remove();
-                            
+ 
                             // Move evaluation to completed and update score
                             if (fieldObj.llmLastResult && fieldObj.llmLastResult.evaluation && fieldObj.llmLastResult.evaluation[criteria]) {
                                 fieldObj.llmLastResult.evaluation[criteria].passed = true;
@@ -2368,13 +2245,13 @@ class LanguageToolEditor {
             });
         });
     }
-    
+ 
     // Update button state to show progress
     updateButtonState(field, state) {
         const fieldObj = this.fields[field];
         const submitBtn = fieldObj.submitBtn;
         const rewriteBtn = document.getElementById('submit-answers-btn');
-        
+ 
         if (state === 'reviewing') {
             if (submitBtn) {
                 submitBtn.textContent = 'Reviewing...';
@@ -2395,13 +2272,13 @@ class LanguageToolEditor {
             }
         }
     }
-    
+ 
     // Reset button state to normal
     resetButtonState(field) {
         const fieldObj = this.fields[field];
         const submitBtn = fieldObj.submitBtn;
         const rewriteBtn = document.getElementById('submit-answers-btn');
-        
+ 
         if (submitBtn) {
             submitBtn.textContent = 'Submit for Review';
             submitBtn.disabled = false;
@@ -2410,7 +2287,7 @@ class LanguageToolEditor {
             submitBtn.style.cursor = 'pointer';
             submitBtn.classList.remove('button-processing');
         }
-        
+ 
         if (rewriteBtn) {
             rewriteBtn.textContent = 'Rewrite';
             rewriteBtn.disabled = false;
@@ -2420,11 +2297,11 @@ class LanguageToolEditor {
             rewriteBtn.classList.remove('button-processing');
         }
     }
-    
+ 
     // Note: Database logging is now handled entirely by the backend /llm endpoint
     // This prevents duplicate rows in LLM_EVALUATION table
 }
-
+ 
 // Initialize the editor when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     new LanguageToolEditor();
