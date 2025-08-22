@@ -832,16 +832,7 @@ class LanguageToolEditor {
     }
     
     debounceCheck(field) {
-        // Hide overlay immediately when user starts typing
-        const fieldObj = this.fields[field];
-        fieldObj.awaitingCheck = true;
-        fieldObj.overlayHidden = true;
-        this.updateHighlights(field); // This will clear the overlay
-        
-        // Clear existing suggestions when text structure changes
-        // This ensures old offsets don't interfere with new text
-        fieldObj.currentSuggestions = [];
-        
+        // Status removed - status box no longer used
         clearTimeout(this.debounceTimer);
         this.debounceTimer = setTimeout(() => {
             this.checkText(field);
@@ -849,13 +840,12 @@ class LanguageToolEditor {
     }
     
     async checkText(field) {
-        const text = this.fields[field].editor.innerText;
+        // Use textContent to preserve exact whitespace for proper offset calculations
+        const text = this.fields[field].editor.textContent || '';
         const fieldObj = this.fields[field];
         
         if (!text.trim()) {
             this.clearSuggestions(field);
-            fieldObj.awaitingCheck = false;
-            fieldObj.overlayHidden = false;
             // Status removed - status box no longer used
             return;
         }
@@ -896,10 +886,7 @@ class LanguageToolEditor {
     }
     
     clearSuggestions(field) {
-        const fieldObj = this.fields[field];
-        fieldObj.currentSuggestions = [];
-        fieldObj.awaitingCheck = false;
-        fieldObj.overlayHidden = false;
+        this.fields[field].currentSuggestions = [];
         this.updateHighlights(field);
     }
     
@@ -918,7 +905,9 @@ class LanguageToolEditor {
             return;
         }
         
-        const text = fieldObj.editor.innerText;
+        // Use textContent instead of innerText to preserve exact whitespace
+        // innerText normalizes whitespace which causes misalignment with double newlines
+        const text = fieldObj.editor.textContent || '';
         if (fieldObj.currentSuggestions.length === 0) {
             fieldObj.highlightOverlay.innerHTML = '';
             // Restore scroll position instead of resetting to top
@@ -933,13 +922,6 @@ class LanguageToolEditor {
         let highlightedText = '';
         let lastIndex = 0;
         fieldObj.currentSuggestions.forEach((suggestion, index) => {
-            // Validate suggestion offsets to prevent errors when text structure changes
-            if (suggestion.offset < 0 || suggestion.offset >= text.length || 
-                suggestion.offset + suggestion.length > text.length) {
-                // Skip invalid suggestions (offsets out of bounds)
-                return;
-            }
-            
             // Add text before the suggestion
             highlightedText += this.escapeHtml(text.substring(lastIndex, suggestion.offset));
             // Add the highlighted suggestion
@@ -986,14 +968,9 @@ class LanguageToolEditor {
     }
     
     escapeHtml(text) {
-        // Escape HTML characters but preserve newlines as-is
-        // The overlay uses white-space: pre-wrap which handles newlines automatically
-        return text
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
     
     showPopup(suggestion, x, y, field) {
