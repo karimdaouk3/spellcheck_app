@@ -98,7 +98,7 @@ class LanguageToolEditor {
         // Initialize FSR Daily Notes line item tracking (internal only)
         if (this.fields.editor2 && this.fields.editor2.editor) {
             this.fields.editor2.lineItemId = 1; // starts at 1
-            this.fields.editor2.lastHadContent = (this.fields.editor2.editor.innerText || '').trim() !== '';
+            this.fields.editor2.lastHadContent = (this.getNormalizedText(this.fields.editor2.editor) || '').trim() !== '';
             this.fields.editor2.suppressClearPrompt = false; // to avoid prompts on programmatic clears
             // Initialize the visible label
             const lbl = document.getElementById('line-item-label');
@@ -107,7 +107,7 @@ class LanguageToolEditor {
         // Initialize Problem Statement version tracking (internal only, no visible label)
         if (this.fields.editor && this.fields.editor.editor) {
             this.fields.editor.problemVersionId = 1; // starts at 1
-            this.fields.editor.lastHadContent = (this.fields.editor.editor.innerText || '').trim() !== '';
+            this.fields.editor.lastHadContent = (this.getNormalizedText(this.fields.editor.editor) || '').trim() !== '';
         }
 
         if (this.toggleHistoryBtn) {
@@ -341,13 +341,13 @@ class LanguageToolEditor {
             container.addEventListener('mousedown', (e) => {
                 // Only focus if not clicking a button or inside the popup
                 if (!e.target.closest('button') && !e.target.closest('.popup')) {
-                    // If click is inside the editor, let browser handle caret
-                    if (!fieldObj.editor.contains(e.target)) {
-                        fieldObj.editor.focus();
-                        // Place caret at end if not clicking inside editor
-                        this.setCursorPosition(fieldObj.editor.innerText.length, field);
-                        e.preventDefault();
-                    } else {
+                                            // If click is inside the editor, let browser handle caret
+                        if (!fieldObj.editor.contains(e.target)) {
+                            fieldObj.editor.focus();
+                            // Place caret at end if not clicking inside editor
+                            this.setCursorPosition(this.getNormalizedText(fieldObj.editor).length, field);
+                            e.preventDefault();
+                        } else {
                         // Click inside editor: let browser handle caret
                         // But ensure highlight is applied immediately
                         setTimeout(() => this.updateActiveEditorHighlight(), 0);
@@ -364,7 +364,7 @@ class LanguageToolEditor {
             fieldObj.editor.addEventListener('input', () => {
                 // Detect transition from non-empty to empty ONLY for FSR Daily Notes (editor2)
                 if (field === 'editor2') {
-                    const isNowEmpty = fieldObj.editor.innerText.trim() === '';
+                    const isNowEmpty = this.getNormalizedText(fieldObj.editor).trim() === '';
                     const wasNonEmpty = !!fieldObj.lastHadContent;
                     if (wasNonEmpty && isNowEmpty && !fieldObj.suppressClearPrompt) {
                         // Anchor the prompt to the editor container so only it is greyed out
@@ -382,7 +382,7 @@ class LanguageToolEditor {
                 }
                 // Detect transition for Problem Statement (editor) - version tracking (no visible label)
                 if (field === 'editor') {
-                    const isNowEmpty = fieldObj.editor.innerText.trim() === '';
+                    const isNowEmpty = this.getNormalizedText(fieldObj.editor).trim() === '';
                     const wasNonEmpty = !!fieldObj.lastHadContent;
                     if (wasNonEmpty && isNowEmpty) {
                         const anchor = fieldObj.editor.closest('.editor-container') || fieldObj.editor.parentElement;
@@ -403,7 +403,7 @@ class LanguageToolEditor {
                 // Hide rewrite-feedback pill if content changed from last rewrite
                 const pillId = field === 'editor' ? 'rewrite-feedback-pill' : 'rewrite-feedback-pill-2';
                 const pill = document.getElementById(pillId);
-                if (pill && fieldObj.rewrittenSnapshot && fieldObj.editor.innerText !== fieldObj.rewrittenSnapshot) {
+                if (pill && fieldObj.rewrittenSnapshot && this.getNormalizedText(fieldObj.editor) !== fieldObj.rewrittenSnapshot) {
                     pill.style.display = 'none';
                 }
             });
@@ -413,7 +413,7 @@ class LanguageToolEditor {
                 document.execCommand('insertText', false, text);
             });
             fieldObj.editor.addEventListener('blur', () => {
-                if (fieldObj.editor.innerText.trim() === '') {
+                if (this.getNormalizedText(fieldObj.editor).trim() === '') {
                     fieldObj.editor.classList.add('empty');
                 }
             });
@@ -423,7 +423,7 @@ class LanguageToolEditor {
                 });
             });
             // Initial check if there's existing text
-            if (fieldObj.editor.innerText.trim()) {
+            if (this.getNormalizedText(fieldObj.editor).trim()) {
                 this.checkText(field);
             }
             // LLM submit button event
@@ -434,7 +434,7 @@ class LanguageToolEditor {
                     this.updateActiveEditorHighlight();
                     this.renderHistory();
                     this.renderEvaluationAndRewrite(field);
-                    const text = fieldObj.editor.innerText;
+                    const text = this.getNormalizedText(fieldObj.editor);
                     // Character limit logic
                     const charLimit = field === 'editor' ? 1000 : 10000;
                     if (text.length > charLimit) {
@@ -462,7 +462,7 @@ class LanguageToolEditor {
                     this.renderEvaluationAndRewrite(field);
                     if (!isRecording) {
                         // Clear first
-                        const hadContent = fieldObj.editor.innerText.trim() !== '';
+                        const hadContent = this.getNormalizedText(fieldObj.editor).trim() !== '';
                         fieldObj.editor.innerText = '';
                         fieldObj.highlightOverlay.innerHTML = '';
                         fieldObj.editor.setAttribute('data-placeholder', 'Listening...');
@@ -549,7 +549,7 @@ class LanguageToolEditor {
                                         } else {
                                             // Normal transcription - put text in editor
                                             fieldObj.editor.innerText = transcription;
-                                            if (fieldObj.editor.innerText.trim() === '') {
+                                            if (this.getNormalizedText(fieldObj.editor).trim() === '') {
                                                 fieldObj.editor.classList.add('empty');
                                             } else {
                                                 fieldObj.editor.classList.remove('empty');
@@ -616,7 +616,7 @@ class LanguageToolEditor {
             if (copyBtn) {
                 copyBtn.addEventListener('click', async () => {
                     if (copyBtn.disabled) return;
-                    const text = fieldObj.editor.innerText;
+                    const text = this.getNormalizedText(fieldObj.editor);
                     if (text.trim() === '') {
                         // Subtle, no-text feedback on empty content
                         copyBtn.classList.add('copy-error');
@@ -840,7 +840,7 @@ class LanguageToolEditor {
     }
     
     async checkText(field) {
-        const text = this.fields[field].editor.innerText;
+        const text = this.getNormalizedText(this.fields[field].editor);
         const fieldObj = this.fields[field];
         
         if (!text.trim()) {
@@ -904,7 +904,8 @@ class LanguageToolEditor {
             return;
         }
         
-        const text = fieldObj.editor.innerText;
+        // Get text with consistent newline handling
+        const text = this.getNormalizedText(fieldObj.editor);
         if (fieldObj.currentSuggestions.length === 0) {
             fieldObj.highlightOverlay.innerHTML = '';
             // Restore scroll position instead of resetting to top
@@ -962,6 +963,19 @@ class LanguageToolEditor {
                 this.showPopup(suggestion, e.clientX, e.clientY, field);
             });
         });
+    }
+    
+    // Get text with consistent newline handling to avoid discrepancies between editor and overlay
+    getNormalizedText(editor) {
+        // Use textContent instead of innerText for more consistent newline handling
+        // textContent preserves the original newline structure better than innerText
+        let text = editor.textContent || '';
+        
+        // Normalize all newline sequences to single \n characters
+        // This ensures consistency between different browsers and input methods
+        text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        
+        return text;
     }
     
     escapeHtml(text) {
@@ -1070,7 +1084,7 @@ class LanguageToolEditor {
         const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
         const scrollTop = this.fields[field].editor.scrollTop;
         const scrollLeft = this.fields[field].editor.scrollLeft;
-        const text = this.fields[field].editor.innerText;
+        const text = this.getNormalizedText(this.fields[field].editor);
         const before = text.substring(0, suggestion.offset);
         const after = text.substring(suggestion.offset + suggestion.length);
         this.fields[field].editor.innerText = before + replacement + after;
@@ -1081,7 +1095,7 @@ class LanguageToolEditor {
         this.fields[field].editor.scrollTop = scrollTop;
         this.fields[field].editor.scrollLeft = scrollLeft;
         // Remove the suggestion from currentSuggestions so highlight disappears immediately
-        const newText = this.fields[field].editor.innerText;
+        const newText = this.getNormalizedText(this.fields[field].editor);
         const key = this.getSuggestionKey(suggestion, newText);
         this.fields[field].currentSuggestions = this.fields[field].currentSuggestions.filter(
             s => this.getSuggestionKey(s, newText) !== key
@@ -1521,7 +1535,7 @@ class LanguageToolEditor {
                                 }
                             });
                             const toSend = answersPayload.length > 0 ? answersPayload : fieldObj.llmAnswers;
-                            this.submitToLLM(fieldObj.editor.innerText, toSend, field);
+                            this.submitToLLM(this.getNormalizedText(fieldObj.editor), toSend, field);
                         };
                     }
                 }, 100);
@@ -1951,7 +1965,7 @@ class LanguageToolEditor {
         if (field === this.activeField) {
             const fieldObj = this.fields[field];
             // If the last result was a rewrite, and the editor content doesn't match, clear it
-            if (fieldObj.llmLastResult && fieldObj.llmLastResult.rewrite && fieldObj.llmLastResult.original_text !== fieldObj.editor.innerText) {
+            if (fieldObj.llmLastResult && fieldObj.llmLastResult.rewrite && fieldObj.llmLastResult.original_text !== this.getNormalizedText(fieldObj.editor)) {
                 fieldObj.llmLastResult = null;
             }
             // Don't show evaluation if the field is currently being reviewed
@@ -2126,7 +2140,7 @@ class LanguageToolEditor {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const criteria = btn.getAttribute('data-criteria');
-                const text = fieldObj.editor.innerText;
+                const text = this.getNormalizedText(fieldObj.editor);
                 // Toggle feedback box
                 const card = btn.closest('.llm-section');
                 if (!card) return;
