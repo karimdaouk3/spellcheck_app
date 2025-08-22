@@ -1008,15 +1008,14 @@ class LanguageToolEditor {
             return '';
         }
         
-        // Convert newlines to <br> tags for proper display in overlay
-        // This ensures the overlay maintains the same line structure as the editor
+        // Escape HTML entities but preserve newlines for CSS white-space: pre-wrap
+        // This allows the overlay to maintain the same line structure as the editor
         const escapedText = text
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;')
-            .replace(/\n/g, '<br>');
+            .replace(/'/g, '&#39;');
         
         return escapedText;
     }
