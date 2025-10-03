@@ -2397,14 +2397,33 @@ class CaseManager {
         this.cases = [];
         this.currentCase = null;
         this.caseCounter = 1;
+        this.userId = null;
         this.init();
     }
     
-    init() {
+    async init() {
+        await this.fetchUserInfo();
         this.loadCases();
         this.setupEventListeners();
         this.renderCasesList();
         this.startAutoSave();
+    }
+    
+    async fetchUserInfo() {
+        try {
+            const response = await fetch('/user');
+            if (response.ok) {
+                const userData = await response.json();
+                this.userId = userData.user_id;
+                console.log('User ID:', this.userId);
+            } else {
+                console.error('Failed to fetch user info');
+                this.userId = 'guest'; // Fallback
+            }
+        } catch (error) {
+            console.error('Error fetching user info:', error);
+            this.userId = 'guest'; // Fallback
+        }
     }
     
     setupEventListeners() {
@@ -2465,39 +2484,23 @@ class CaseManager {
     }
     
     loadCases() {
-        // Load from localStorage or use placeholder data
-        const savedCases = localStorage.getItem('fsr-cases');
+        if (!this.userId) {
+            console.warn('No user ID available, cannot load cases');
+            this.cases = [];
+            return;
+        }
+        
+        // Load user-specific cases from localStorage
+        const storageKey = `fsr-cases-${this.userId}`;
+        const savedCases = localStorage.getItem(storageKey);
+        
         if (savedCases) {
             this.cases = JSON.parse(savedCases);
+            console.log(`Loaded ${this.cases.length} cases for user ${this.userId}`);
         } else {
-            // Placeholder cases
-            this.cases = [
-                {
-                    id: 1,
-                    caseNumber: 'CASE-2024-001',
-                    problemStatement: 'Customer reported intermittent connectivity issues with our main application.',
-                    fsrNotes: 'Initial investigation shows network timeouts occurring during peak hours.',
-                    createdAt: new Date('2024-01-15'),
-                    updatedAt: new Date('2024-01-15')
-                },
-                {
-                    id: 2,
-                    caseNumber: 'CASE-2024-002',
-                    problemStatement: 'Database performance degradation affecting user experience.',
-                    fsrNotes: 'Query execution times have increased by 300% over the past week.',
-                    createdAt: new Date('2024-01-14'),
-                    updatedAt: new Date('2024-01-14')
-                },
-                {
-                    id: 3,
-                    caseNumber: 'CASE-2024-003',
-                    problemStatement: 'User authentication system failing for external users.',
-                    fsrNotes: 'SSO integration issues causing login failures for 15% of external users.',
-                    createdAt: new Date('2024-01-13'),
-                    updatedAt: new Date('2024-01-13')
-                }
-            ];
-            this.saveCases();
+            // No saved cases for this user - start with empty array
+            this.cases = [];
+            console.log(`No saved cases found for user ${this.userId}`);
         }
         
         // Set first case as current if none selected
@@ -2507,14 +2510,38 @@ class CaseManager {
     }
     
     saveCases() {
-        localStorage.setItem('fsr-cases', JSON.stringify(this.cases));
+        if (!this.userId) {
+            console.warn('No user ID available, cannot save cases');
+            return;
+        }
+        
+        const storageKey = `fsr-cases-${this.userId}`;
+        localStorage.setItem(storageKey, JSON.stringify(this.cases));
+        console.log(`Saved ${this.cases.length} cases for user ${this.userId}`);
     }
     
     createNewCase() {
-        const caseNumber = `CASE-2024-${String(this.caseCounter).padStart(3, '0')}`;
+        // Prompt user for case number
+        const caseNumber = prompt('Enter case number:');
+        
+        // Validate input
+        if (!caseNumber || caseNumber.trim() === '') {
+            alert('Case number is required.');
+            return;
+        }
+        
+        // Check if case number already exists
+        const existingCase = this.cases.find(c => c.caseNumber === caseNumber.trim());
+        if (existingCase) {
+            alert('This case number already exists.');
+            // Switch to existing case
+            this.switchToCase(existingCase.id);
+            return;
+        }
+        
         const newCase = {
             id: Date.now(),
-            caseNumber: caseNumber,
+            caseNumber: caseNumber.trim(),
             problemStatement: '',
             fsrNotes: '',
             createdAt: new Date(),
@@ -2522,7 +2549,6 @@ class CaseManager {
         };
         
         this.cases.unshift(newCase); // Add to beginning
-        this.caseCounter++;
         this.saveCases();
         this.renderCasesList();
         this.switchToCase(newCase.id);
@@ -2582,23 +2608,6 @@ class CaseManager {
         this.saveCases();
     }
     
-    deleteCase(caseId) {
-        if (this.cases.length <= 1) {
-            alert('Cannot delete the last case. Create a new case first.');
-            return;
-        }
-        
-        if (confirm('Are you sure you want to delete this case?')) {
-            this.cases = this.cases.filter(c => c.id !== caseId);
-            this.saveCases();
-            this.renderCasesList();
-            
-            // Switch to first available case
-            if (this.cases.length > 0) {
-                this.switchToCase(this.cases[0].id);
-            }
-        }
-    }
     
     renderCasesList() {
         const casesList = document.getElementById('cases-list');
@@ -2614,15 +2623,10 @@ class CaseManager {
                     <div class="case-number">${caseData.caseNumber}</div>
                     <div class="case-date">${this.formatDate(caseData.updatedAt)}</div>
                 </div>
-                <div class="case-actions">
-                    <button class="case-action-btn" onclick="window.spellCheckEditor.caseManager.deleteCase(${caseData.id})" title="Delete">🗑️</button>
-                </div>
             `;
             
-            caseItem.addEventListener('click', (e) => {
-                if (!e.target.closest('.case-actions')) {
-                    this.switchToCase(caseData.id);
-                }
+            caseItem.addEventListener('click', () => {
+                this.switchToCase(caseData.id);
             });
             
             casesList.appendChild(caseItem);
