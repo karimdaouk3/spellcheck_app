@@ -307,8 +307,18 @@ def get_user_case_data():
     
     user_id = user_data.get('user_id')
     
+    # Debug logging
+    print("=" * 50)
+    print(f"🔍 GET /api/cases/data - User ID: {user_id} (type: {type(user_id).__name__})")
+    print(f"📊 Available user IDs in MOCK_USER_CASE_DATA: {list(MOCK_USER_CASE_DATA.keys())}")
+    
+    # Convert user_id to string for comparison
+    user_id_str = str(user_id)
+    print(f"🔄 Converted user_id to string: '{user_id_str}'")
+    
     # Get user's case data from mock storage
-    user_cases = MOCK_USER_CASE_DATA.get(user_id, {})
+    user_cases = MOCK_USER_CASE_DATA.get(user_id_str, {})
+    print(f"📁 Found {len(user_cases)} cases for user '{user_id_str}'")
     
     # Filter out closed cases
     open_cases = {}
@@ -316,8 +326,11 @@ def get_user_case_data():
         if case_number not in MOCK_CLOSED_CASES:
             open_cases[case_number] = case_data
     
+    print(f"✅ Returning {len(open_cases)} open cases")
+    print("=" * 50)
+    
     return jsonify({
-        "user_id": user_id,
+        "user_id": user_id_str,
         "cases": open_cases,
         "count": len(open_cases)
     })

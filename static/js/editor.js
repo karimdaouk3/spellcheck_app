@@ -2415,7 +2415,16 @@ class CaseManager {
             if (response.ok) {
                 const userData = await response.json();
                 this.userId = userData.user_id;
-                console.log('User ID:', this.userId);
+                console.log('==============================================');
+                console.log('LOGGED IN USER ID:', this.userId);
+                console.log('User Data:', userData);
+                console.log('==============================================');
+                
+                // Show user ID in UI temporarily for debugging
+                const alert_msg = `Logged in as User ID: ${this.userId}\n` +
+                                `Name: ${userData.first_name} ${userData.last_name}\n` +
+                                `Email: ${userData.email}`;
+                console.log(alert_msg);
             } else {
                 console.error('Failed to fetch user info');
                 this.userId = 'guest'; // Fallback
@@ -2493,13 +2502,22 @@ class CaseManager {
         
         try {
             // Load cases from backend
+            console.log(`Attempting to load cases for user ${this.userId} from backend...`);
             const response = await fetch('/api/cases/data');
             
             if (response.ok) {
                 const data = await response.json();
                 const backendCases = data.cases || {};
                 
-                console.log(`Loaded ${Object.keys(backendCases).length} cases from backend for user ${this.userId}`);
+                console.log('==============================================');
+                console.log(`✅ Successfully loaded ${Object.keys(backendCases).length} cases from backend`);
+                console.log('Backend response:', data);
+                if (Object.keys(backendCases).length > 0) {
+                    console.log('Cases found:', Object.keys(backendCases));
+                } else {
+                    console.log('No cases found in backend for this user.');
+                }
+                console.log('==============================================');
                 
                 // Convert backend format to frontend format
                 this.cases = Object.values(backendCases).map(caseData => ({
@@ -2515,11 +2533,11 @@ class CaseManager {
                 this.saveCasesLocally();
             } else {
                 // Fallback to localStorage if backend fails
-                console.warn('Failed to load from backend, using localStorage');
+                console.warn('⚠️ Failed to load from backend, using localStorage');
                 this.loadCasesFromLocalStorage();
             }
         } catch (error) {
-            console.error('Error loading cases from backend:', error);
+            console.error('❌ Error loading cases from backend:', error);
             // Fallback to localStorage
             this.loadCasesFromLocalStorage();
         }
