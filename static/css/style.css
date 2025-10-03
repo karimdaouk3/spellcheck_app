@@ -487,7 +487,7 @@ body {
     background: linear-gradient(90deg, #3a0072 0%, #41007F 40%, #5a1a9a 100%); /* subtle purple gradient */
     box-shadow: 0 2px 8px rgba(33,0,127,0.07);
     border-bottom: 1.5px solid #e0e0e0;
-    padding: 0 12px 0 32px;
+    padding: 0 48px 0 32px; /* Match content-area padding */
     position: relative;
     z-index: 10;
     min-height: 72px;
@@ -515,7 +515,7 @@ body {
 .feedback-section {
     position: absolute;
     top: 50%;
-    right: 32px;
+    right: 48px; /* Match top-bar padding */
     transform: translateY(-50%);
     display: flex;
     align-items: center;
@@ -529,12 +529,12 @@ body {
     color: white;
     font-family: 'Open Sans', sans-serif;
 }
- 
+
 /* Left wiki button, styled like feedback */
 .wiki-section {
     position: absolute;
     top: 50%;
-    left: 16px;
+    left: 32px; /* Match top-bar padding */
     transform: translateY(-50%);
     display: flex;
     align-items: center;
@@ -764,8 +764,9 @@ body {
     transition: all 0.2s ease;
     box-shadow: 0 2px 12px rgba(33,0,127,0.07);
     border: 1px solid rgba(65,0,127,0.05);
-    -webkit-tap-highlight-color: transparent; /* Remove blue highlight on mobile tap */
-    -webkit-touch-callout: none; /* Disable callout on long press */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    user-select: none;
 }
 
 .active-case-box:hover {
@@ -1219,7 +1220,7 @@ body {
 /* Additional responsive adjustments for very small screens */
 @media (max-width: 600px) {
     .top-bar {
-        padding: 8px 16px 8px 16px; /* Match content-area padding on small screens */
+        padding: 8px 16px 8px 16px; /* Match content-area padding */
         min-height: 60px; /* Slightly reduce height */
     }
  
@@ -1230,18 +1231,18 @@ body {
     }
  
     .feedback-section {
-        right: 16px; /* Match top-bar padding */
+        right: 16px; /* Match padding */
         padding: 6px;
     }
  
     .wiki-section {
-        left: 16px; /* Match top-bar padding */
+        left: 16px; /* Match padding */
         padding: 6px;
     }
  
     .top-bar-content {
-        padding-right: 60px; /* Adjusted for button positioning */
-        padding-left: 60px;
+        padding-right: 50px; /* Space for icon-only buttons */
+        padding-left: 50px;
     }
 }
  
