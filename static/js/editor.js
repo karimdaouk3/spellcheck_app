@@ -133,8 +133,9 @@ class LanguageToolEditor {
         this.createHighlightOverlay('editor');
         this.createHighlightOverlay('editor2');
         
-        // Case management
+        // Case management - initialize asynchronously
         this.caseManager = new CaseManager();
+        this.caseManager.init(); // Call init() to start async initialization
         this.currentCase = null;
     }
  
@@ -2398,15 +2399,19 @@ class CaseManager {
         this.currentCase = null;
         this.caseCounter = 1;
         this.userId = null;
-        this.init();
+        // Don't call init() here - will be called from outside
     }
     
     async init() {
+        console.log('🚀 Initializing CaseManager...');
         await this.fetchUserInfo();
+        console.log('✅ User info fetched, userId:', this.userId);
         await this.loadCases();
+        console.log('✅ Cases loaded');
         this.setupEventListeners();
         this.renderCasesList();
         this.startAutoSave();
+        console.log('✅ CaseManager initialization complete');
     }
     
     async fetchUserInfo() {
