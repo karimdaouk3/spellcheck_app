@@ -2439,8 +2439,9 @@ class CaseManager {
         const closeSidebarBtn = document.getElementById('close-sidebar-btn');
         
         if (activeCaseBox && sidebar) {
-            // Start with sidebar collapsed by default
-            const isCollapsed = localStorage.getItem('sidebar-collapsed') !== 'false';
+            // Start with sidebar open by default on desktop, collapsed on mobile
+            const savedState = localStorage.getItem('sidebar-collapsed');
+            const isCollapsed = savedState === 'true' || (savedState === null && window.innerWidth <= 950);
             if (isCollapsed) {
                 sidebar.classList.add('collapsed');
             }

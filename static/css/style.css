@@ -825,7 +825,7 @@ body {
 }
  
 .left-column {
-    flex: 1 1 60%;
+    flex: 1 1 50%;
     max-width: none;
     min-width: 400px;
     display: flex;
@@ -835,7 +835,7 @@ body {
     margin-top: 16px;
 }
 .right-column {
-    flex: 1 1 40%;
+    flex: 1 1 50%;
     max-width: none;
     min-width: 380px;
     display: flex;
