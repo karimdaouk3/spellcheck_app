@@ -71,7 +71,7 @@ body {
     font-family: 'Open Sans', sans-serif;
     /* max-width: 800px; */
     margin: 0;
-    padding: 0 48px 0 32px;
+    padding: 0;
     background-color: #f5f5f5;
 }
  
@@ -620,27 +620,38 @@ body {
     position: fixed;
     top: 20px;
     left: 20px;
-    z-index: 100;
+    z-index: 1000;
     background: #41007F;
     color: white;
     border: none;
-    padding: 8px 12px;
-    border-radius: 6px;
+    padding: 10px 16px;
+    border-radius: 8px;
     cursor: pointer;
-    font-size: 0.9em;
-    font-weight: 500;
-    transition: left 0.3s ease;
+    font-size: 1em;
+    font-weight: 600;
+    transition: left 0.3s ease, background 0.2s ease;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    box-shadow: 0 2px 8px rgba(65, 0, 127, 0.3);
 }
 
 .sidebar-toggle-btn:hover {
     background: #5a1a9a;
+    box-shadow: 0 4px 12px rgba(65, 0, 127, 0.4);
 }
 
 .sidebar-toggle-btn.shifted {
     left: 300px;
+}
+
+#toggle-icon {
+    font-size: 1.2em;
+    line-height: 1;
+}
+
+#toggle-text {
+    font-size: 0.9em;
 }
 
 .sidebar-header {
@@ -742,6 +753,7 @@ body {
     display: flex;
     flex-direction: column;
     min-width: 0; /* Allow content to shrink */
+    padding: 0 48px 0 32px;
 }
 .content-flex {
     display: flex;
@@ -904,7 +916,7 @@ body {
     }
  
     /* Mobile optimizations for all screens under 900px */
-    body {
+    .content-area {
         padding: 0 16px 0 16px;
     }
  
