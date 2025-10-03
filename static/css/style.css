@@ -778,6 +778,14 @@ body {
         #copy-btn, #copy-btn-2 {
             right: 10px !important;
         }
+        
+        /* Make submit button even smaller on very small screens */
+        .llm-submit-button {
+            width: 140px !important;
+            max-width: 60% !important;
+            font-size: 13px !important;
+            padding: 8px 16px !important;
+        }
     }
  
     /* 2. Make editor label container match text box width and remove vertical margins */
