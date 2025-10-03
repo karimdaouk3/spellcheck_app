@@ -772,6 +772,13 @@ body {
         overflow: hidden;
         text-overflow: ellipsis;
     }
+    
+    /* Move copy button closer to right edge on very small screens to prevent overlap */
+    @media (max-width: 450px) {
+        #copy-btn, #copy-btn-2 {
+            right: 10px !important;
+        }
+    }
  
     /* 2. Make editor label container match text box width and remove vertical margins */
     .editor-label-container {
