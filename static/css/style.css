@@ -806,7 +806,7 @@ body {
         /* Center the vertical pill with the submit button */
         #rewrite-feedback-pill,
         #rewrite-feedback-pill-2 {
-            bottom: 50px !important; /* Center the middle of the vertical pill with submit button */
+            bottom: 25px !important; /* Center the middle of the vertical pill with the middle of submit button */
         }
     }
  
