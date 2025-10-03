@@ -8,6 +8,19 @@
 </head>
 <body>
     <div class="main-flex">
+        <!-- Cases Sidebar -->
+        <div class="cases-sidebar">
+            <div class="sidebar-header">
+                <h3>Cases</h3>
+                <button id="new-case-btn" class="new-case-btn">+ New Case</button>
+            </div>
+            <div class="cases-list" id="cases-list">
+                <!-- Cases will be populated here -->
+            </div>
+        </div>
+        
+        <div class="content-area">
+        <button class="sidebar-toggle" id="sidebar-toggle" style="display: none;">☰ Cases</button>
         <div class="top-bar">
             <button class="wiki-section" onclick="window.open('/video', '_blank')" title="Instructional Video">
                 <span class="feedback-text">Instructional Video</span>
@@ -121,6 +134,7 @@
             <div id="active-editor-header" class="active-editor-header"></div>
             <div id="rewrite-popup" class="rewrite-popup" style="display:none;flex-direction:column;gap:12px;margin-bottom:16px;"></div>
             <div id="llm-eval-box" class="llm-eval-box" style="display:none;flex-direction:column;gap:12px;"></div>
+        </div>
         </div>
         </div>
     </div>

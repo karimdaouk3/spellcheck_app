@@ -132,6 +132,10 @@ class LanguageToolEditor {
         this.updateActiveEditorHeader(); // Initialize the header
         this.createHighlightOverlay('editor');
         this.createHighlightOverlay('editor2');
+        
+        // Case management
+        this.caseManager = new CaseManager();
+        this.currentCase = null;
     }
  
     // Lightweight DB interaction logger
@@ -2380,9 +2384,260 @@ class LanguageToolEditor {
  
 // Initialize the editor when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    new LanguageToolEditor();
+    window.spellCheckEditor = new LanguageToolEditor();
     const editor = document.getElementById('editor');
     if (editor) {
                     editor.setAttribute('data-placeholder', 'Start typing your current problem statement here');
     }
 });
+
+// Case Management System
+class CaseManager {
+    constructor() {
+        this.cases = [];
+        this.currentCase = null;
+        this.caseCounter = 1;
+        this.init();
+    }
+    
+    init() {
+        this.loadCases();
+        this.setupEventListeners();
+        this.renderCasesList();
+        this.startAutoSave();
+    }
+    
+    setupEventListeners() {
+        // New case button
+        const newCaseBtn = document.getElementById('new-case-btn');
+        if (newCaseBtn) {
+            newCaseBtn.addEventListener('click', () => this.createNewCase());
+        }
+        
+        // Mobile sidebar toggle
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const sidebar = document.querySelector('.cases-sidebar');
+        
+        if (sidebarToggle && sidebar) {
+            sidebarToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('open');
+            });
+            
+            // Show toggle button on mobile
+            if (window.innerWidth <= 950) {
+                sidebarToggle.style.display = 'block';
+            }
+        }
+        
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', (e) => {
+            if (window.innerWidth <= 950 && sidebar && sidebar.classList.contains('open')) {
+                if (!sidebar.contains(e.target) && !sidebarToggle.contains(e.target)) {
+                    sidebar.classList.remove('open');
+                }
+            }
+        });
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (window.innerWidth <= 950) {
+                sidebarToggle.style.display = 'block';
+            } else {
+                sidebarToggle.style.display = 'none';
+                if (sidebar) sidebar.classList.remove('open');
+            }
+        });
+    }
+    
+    loadCases() {
+        // Load from localStorage or use placeholder data
+        const savedCases = localStorage.getItem('fsr-cases');
+        if (savedCases) {
+            this.cases = JSON.parse(savedCases);
+        } else {
+            // Placeholder cases
+            this.cases = [
+                {
+                    id: 1,
+                    caseNumber: 'CASE-2024-001',
+                    problemStatement: 'Customer reported intermittent connectivity issues with our main application.',
+                    fsrNotes: 'Initial investigation shows network timeouts occurring during peak hours.',
+                    createdAt: new Date('2024-01-15'),
+                    updatedAt: new Date('2024-01-15')
+                },
+                {
+                    id: 2,
+                    caseNumber: 'CASE-2024-002',
+                    problemStatement: 'Database performance degradation affecting user experience.',
+                    fsrNotes: 'Query execution times have increased by 300% over the past week.',
+                    createdAt: new Date('2024-01-14'),
+                    updatedAt: new Date('2024-01-14')
+                },
+                {
+                    id: 3,
+                    caseNumber: 'CASE-2024-003',
+                    problemStatement: 'User authentication system failing for external users.',
+                    fsrNotes: 'SSO integration issues causing login failures for 15% of external users.',
+                    createdAt: new Date('2024-01-13'),
+                    updatedAt: new Date('2024-01-13')
+                }
+            ];
+            this.saveCases();
+        }
+        
+        // Set first case as current if none selected
+        if (this.cases.length > 0 && !this.currentCase) {
+            this.switchToCase(this.cases[0].id);
+        }
+    }
+    
+    saveCases() {
+        localStorage.setItem('fsr-cases', JSON.stringify(this.cases));
+    }
+    
+    createNewCase() {
+        const caseNumber = `CASE-2024-${String(this.caseCounter).padStart(3, '0')}`;
+        const newCase = {
+            id: Date.now(),
+            caseNumber: caseNumber,
+            problemStatement: '',
+            fsrNotes: '',
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
+        
+        this.cases.unshift(newCase); // Add to beginning
+        this.caseCounter++;
+        this.saveCases();
+        this.renderCasesList();
+        this.switchToCase(newCase.id);
+        
+        // Close mobile sidebar
+        const sidebar = document.querySelector('.cases-sidebar');
+        if (sidebar && window.innerWidth <= 950) {
+            sidebar.classList.remove('open');
+        }
+    }
+    
+    switchToCase(caseId) {
+        const caseData = this.cases.find(c => c.id === caseId);
+        if (!caseData) return;
+        
+        // Save current case data before switching
+        if (this.currentCase) {
+            this.saveCurrentCaseData();
+        }
+        
+        this.currentCase = caseData;
+        
+        // Load case data into editors
+        const editor1 = document.getElementById('editor');
+        const editor2 = document.getElementById('editor2');
+        
+        if (editor1) editor1.innerText = caseData.problemStatement || '';
+        if (editor2) editor2.innerText = caseData.fsrNotes || '';
+        
+        // Update UI
+        this.renderCasesList();
+        this.updateActiveCaseHeader();
+        
+        // Clear any existing results
+        const evalBox = document.getElementById('llm-eval-box');
+        const rewritePopup = document.getElementById('rewrite-popup');
+        if (evalBox) evalBox.style.display = 'none';
+        if (rewritePopup) rewritePopup.style.display = 'none';
+        
+        // Trigger text check for new content
+        if (window.spellCheckEditor) {
+            window.spellCheckEditor.checkText('editor');
+            window.spellCheckEditor.checkText('editor2');
+        }
+    }
+    
+    saveCurrentCaseData() {
+        if (!this.currentCase) return;
+        
+        const editor1 = document.getElementById('editor');
+        const editor2 = document.getElementById('editor2');
+        
+        if (editor1) this.currentCase.problemStatement = editor1.innerText;
+        if (editor2) this.currentCase.fsrNotes = editor2.innerText;
+        
+        this.currentCase.updatedAt = new Date();
+        this.saveCases();
+    }
+    
+    deleteCase(caseId) {
+        if (this.cases.length <= 1) {
+            alert('Cannot delete the last case. Create a new case first.');
+            return;
+        }
+        
+        if (confirm('Are you sure you want to delete this case?')) {
+            this.cases = this.cases.filter(c => c.id !== caseId);
+            this.saveCases();
+            this.renderCasesList();
+            
+            // Switch to first available case
+            if (this.cases.length > 0) {
+                this.switchToCase(this.cases[0].id);
+            }
+        }
+    }
+    
+    renderCasesList() {
+        const casesList = document.getElementById('cases-list');
+        if (!casesList) return;
+        
+        casesList.innerHTML = '';
+        
+        this.cases.forEach(caseData => {
+            const caseItem = document.createElement('div');
+            caseItem.className = `case-item ${this.currentCase && this.currentCase.id === caseData.id ? 'active' : ''}`;
+            caseItem.innerHTML = `
+                <div>
+                    <div class="case-number">${caseData.caseNumber}</div>
+                    <div class="case-date">${this.formatDate(caseData.updatedAt)}</div>
+                </div>
+                <div class="case-actions">
+                    <button class="case-action-btn" onclick="window.spellCheckEditor.caseManager.deleteCase(${caseData.id})" title="Delete">🗑️</button>
+                </div>
+            `;
+            
+            caseItem.addEventListener('click', (e) => {
+                if (!e.target.closest('.case-actions')) {
+                    this.switchToCase(caseData.id);
+                }
+            });
+            
+            casesList.appendChild(caseItem);
+        });
+    }
+    
+    updateActiveCaseHeader() {
+        if (!this.currentCase) return;
+        
+        // Update any case-specific UI elements
+        const activeHeader = document.getElementById('active-editor-header');
+        if (activeHeader) {
+            activeHeader.innerHTML = `<div style="color: #41007F; font-weight: 600; margin-bottom: 8px;">Active Case: ${this.currentCase.caseNumber}</div>`;
+        }
+    }
+    
+    formatDate(date) {
+        return new Date(date).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
+    }
+    
+    // Auto-save current case data
+    startAutoSave() {
+        setInterval(() => {
+            if (this.currentCase) {
+                this.saveCurrentCaseData();
+            }
+        }, 30000); // Auto-save every 30 seconds
+    }
+}
