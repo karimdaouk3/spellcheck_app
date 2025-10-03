@@ -1488,6 +1488,10 @@ class LanguageToolEditor {
                 qHtml += `<button id="submit-answers-btn" class="llm-submit-button" style="margin-top:10px;">Rewrite</button>`;
                 rewritePopup.innerHTML = qHtml;
                 rewritePopup.style.display = 'block';
+                
+                // Auto-scroll to rewrite questions on mobile (stacked layout)
+                this.autoScrollToRewriteQuestions();
+                
                 setTimeout(() => {
                     const btn = document.getElementById('submit-answers-btn');
                     const answerEls = rewritePopup.querySelectorAll('.rewrite-answer');
@@ -1545,6 +1549,9 @@ class LanguageToolEditor {
                 rewritePopup.style.display = 'none';
                 evalBox.style.display = 'none';
                 this.checkText(field);
+                
+                // Auto-scroll back to the rewritten box on mobile (stacked layout)
+                this.autoScrollToRewrittenBox(field);
                 // Persist user_inputs mapping from backend (rewrite_id -> user_input_id)
                 if (result && Array.isArray(result.user_inputs)) {
                     fieldObj.lastRewriteUserInputs = result.user_inputs;
@@ -1622,6 +1629,40 @@ class LanguageToolEditor {
         }
     }
  
+    // Auto-scroll to rewrite questions when they are generated (mobile stacked layout)
+    autoScrollToRewriteQuestions() {
+        // Only auto-scroll on mobile (stacked layout) - when content-flex is column
+        const contentFlex = document.querySelector('.content-flex');
+        if (contentFlex && window.getComputedStyle(contentFlex).flexDirection === 'column') {
+            const rewritePopup = document.getElementById('rewrite-popup');
+            if (rewritePopup) {
+                // Smooth scroll to the rewrite popup
+                rewritePopup.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start',
+                    inline: 'nearest'
+                });
+            }
+        }
+    }
+    
+    // Auto-scroll back to the rewritten editor box when rewrite is completed
+    autoScrollToRewrittenBox(field) {
+        // Only auto-scroll on mobile (stacked layout) - when content-flex is column
+        const contentFlex = document.querySelector('.content-flex');
+        if (contentFlex && window.getComputedStyle(contentFlex).flexDirection === 'column') {
+            const editorContainer = document.querySelector(`#${field}`).closest('.editor-container');
+            if (editorContainer) {
+                // Smooth scroll to the editor container
+                editorContainer.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start',
+                    inline: 'nearest'
+                });
+            }
+        }
+    }
+
     // Create temperature bar with gradient from red to yellow to green
     createTemperatureBar(percentage) {
         const clampedPercentage = Math.max(0, Math.min(100, percentage));
