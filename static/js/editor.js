@@ -1630,7 +1630,7 @@ class LanguageToolEditor {
         return `
             <div class="score-bar-container">
                 <div class="score-bar-wrapper">
-                    <div class="score-bar" style="position: relative; width: 140px; height: 18px; background: linear-gradient(to right, #ff6b6b 0%, #ffd93d 50%, #6bcf7f 100%); border-radius: 9px; border: 2px solid #e0e0e0; overflow: visible; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
+                    <div class="score-bar" style="position: relative; width: 120px; height: 18px; background: linear-gradient(to right, #ff6b6b 0%, #ffd93d 50%, #6bcf7f 100%); border-radius: 9px; border: 2px solid #e0e0e0; overflow: visible; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
                         <div style="position: absolute; top: 50%; left: ${position}%; width: 2px; height: 28px; background: linear-gradient(to bottom, #41007F, #5a1a9a); border-radius: 1px; transform: translate(-50%, -50%); border: 1px solid #fff; box-shadow: 0 2px 8px rgba(65,0,127,0.4), 0 0 0 1px rgba(255,255,255,0.8);"></div>
                     </div>
                 </div>
@@ -1653,7 +1653,7 @@ class LanguageToolEditor {
                 .score-bar-labels {
                     display: flex;
                     justify-content: space-between;
-                    width: 140px;
+                    width: 120px;
                     color: #000;
                     font-size: 0.9em;
                 }
@@ -1679,12 +1679,12 @@ class LanguageToolEditor {
                     }
                     
                     .score-bar-labels {
-                        width: 100px;
+                        width: 80px;
                         font-size: 0.8em;
                     }
                     
                     .score-bar {
-                        width: 100px !important;
+                        width: 80px !important;
                         height: 16px !important;
                     }
                     
