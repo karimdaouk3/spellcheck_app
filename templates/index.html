@@ -23,27 +23,27 @@
         </div>
         
         <div class="content-area">
-        <div class="top-bar">
-            <button class="wiki-section" onclick="window.open('/video', '_blank')" title="Instructional Video">
-                <span class="feedback-text">Instructional Video</span>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                </svg>
-            </button>
-            <div class="top-bar-content">
-                <div class="top-bar-title">FSR Coach (Beta)</div>
-            </div>
-            <button class="feedback-section" onclick="window.location.href='/overall-feedback'" title="Submit Feedback">
-                <span class="feedback-text">Submit feedback!</span>
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                    <path d="M13 8H7"></path>
-                    <path d="M17 12H7"></path>
-                </svg>
-            </button>
-        </div>
-        
         <div class="content-flex">
+            <div class="top-bar">
+                <button class="wiki-section" onclick="window.open('/video', '_blank')" title="Instructional Video">
+                    <span class="feedback-text">Instructional Video</span>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                </button>
+                <div class="top-bar-content">
+                    <div class="top-bar-title">FSR Coach (Beta)</div>
+                </div>
+                <button class="feedback-section" onclick="window.location.href='/overall-feedback'" title="Submit Feedback">
+                    <span class="feedback-text">Submit feedback!</span>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        <path d="M13 8H7"></path>
+                        <path d="M17 12H7"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="content-flex-columns">
             <div class="left-column">
             <!-- Active Case Box -->
             <div class="active-case-box" id="active-case-box">
@@ -146,6 +146,7 @@
             <div id="active-editor-header" class="active-editor-header"></div>
             <div id="rewrite-popup" class="rewrite-popup" style="display:none;flex-direction:column;gap:12px;margin-bottom:16px;"></div>
             <div id="llm-eval-box" class="llm-eval-box" style="display:none;flex-direction:column;gap:12px;"></div>
+        </div>
         </div>
         </div>
         </div>
