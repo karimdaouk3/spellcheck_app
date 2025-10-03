@@ -2414,57 +2414,44 @@ class CaseManager {
             newCaseBtn.addEventListener('click', () => this.createNewCase());
         }
         
-        // Sidebar toggle button (works on both desktop and mobile)
-        const toggleBtn = document.getElementById('sidebar-toggle-btn');
+        // Active case box - clicking opens sidebar
+        const activeCaseBox = document.getElementById('active-case-box');
         const sidebar = document.querySelector('.cases-sidebar');
-        const toggleIcon = document.getElementById('toggle-icon');
-        const toggleText = document.getElementById('toggle-text');
         
-        if (toggleBtn && sidebar) {
-            // Load saved collapse state
-            const isCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
+        if (activeCaseBox && sidebar) {
+            // Start with sidebar collapsed by default
+            const isCollapsed = localStorage.getItem('sidebar-collapsed') !== 'false';
             if (isCollapsed) {
                 sidebar.classList.add('collapsed');
-                toggleBtn.classList.remove('shifted');
-                if (toggleIcon) toggleIcon.textContent = '☰';
-                if (toggleText) toggleText.textContent = 'Cases';
-            } else {
-                toggleBtn.classList.add('shifted');
-                if (toggleIcon) toggleIcon.textContent = '×';
-                if (toggleText) toggleText.textContent = 'Hide';
             }
             
-            toggleBtn.addEventListener('click', () => {
+            activeCaseBox.addEventListener('click', () => {
                 const isCurrentlyCollapsed = sidebar.classList.contains('collapsed');
                 
                 if (isCurrentlyCollapsed) {
                     // Expand
                     sidebar.classList.remove('collapsed');
-                    toggleBtn.classList.add('shifted');
-                    if (toggleIcon) toggleIcon.textContent = '×';
-                    if (toggleText) toggleText.textContent = 'Hide';
                     localStorage.setItem('sidebar-collapsed', 'false');
                 } else {
                     // Collapse
                     sidebar.classList.add('collapsed');
-                    toggleBtn.classList.remove('shifted');
-                    if (toggleIcon) toggleIcon.textContent = '☰';
-                    if (toggleText) toggleText.textContent = 'Cases';
                     localStorage.setItem('sidebar-collapsed', 'true');
                 }
             });
         }
         
-        // Handle mobile-specific behavior
-        if (window.innerWidth <= 950 && sidebar) {
-            // On mobile, start collapsed
-            sidebar.classList.add('collapsed');
-            if (toggleBtn) {
-                toggleBtn.classList.remove('shifted');
-                if (toggleIcon) toggleIcon.textContent = '☰';
-                if (toggleText) toggleText.textContent = 'Cases';
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', (e) => {
+            if (sidebar && !sidebar.classList.contains('collapsed')) {
+                if (!sidebar.contains(e.target) && !activeCaseBox.contains(e.target)) {
+                    // Don't auto-close on desktop, only on mobile
+                    if (window.innerWidth <= 950) {
+                        sidebar.classList.add('collapsed');
+                        localStorage.setItem('sidebar-collapsed', 'true');
+                    }
+                }
             }
-        }
+        });
     }
     
     loadCases() {
@@ -2634,6 +2621,12 @@ class CaseManager {
     
     updateActiveCaseHeader() {
         if (!this.currentCase) return;
+        
+        // Update the active case box display
+        const caseNumberDisplay = document.getElementById('case-number-display');
+        if (caseNumberDisplay) {
+            caseNumberDisplay.textContent = this.currentCase.caseNumber;
+        }
         
         // Update any case-specific UI elements
         const activeHeader = document.getElementById('active-editor-header');

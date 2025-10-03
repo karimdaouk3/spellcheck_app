@@ -20,10 +20,6 @@
         </div>
         
         <div class="content-area">
-        <button class="sidebar-toggle-btn" id="sidebar-toggle-btn">
-            <span id="toggle-icon">☰</span>
-            <span id="toggle-text">Cases</span>
-        </button>
         <div class="top-bar">
             <button class="wiki-section" onclick="window.open('/video', '_blank')" title="Instructional Video">
                 <span class="feedback-text">Instructional Video</span>
@@ -43,6 +39,17 @@
                 </svg>
             </button>
         </div>
+        
+        <!-- Active Case Box -->
+        <div class="active-case-box" id="active-case-box">
+            <div class="case-icon">📁</div>
+            <div class="case-info">
+                <div class="case-label">Active Case</div>
+                <div class="case-number-display" id="case-number-display">No case selected</div>
+            </div>
+            <div class="case-chevron">▶</div>
+        </div>
+        
         <div class="content-flex">
             <div class="left-column">
             <div class="header">
