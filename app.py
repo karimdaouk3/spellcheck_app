@@ -192,8 +192,8 @@ MOCK_CLOSED_CASES = [
 # Mock in-memory storage for user case data
 # Structure: { user_id: { case_number: { problemStatement, fsrNotes, updatedAt } } }
 MOCK_USER_CASE_DATA = {
-    # Example: Pre-populated data for testing
-    "demo_user": {
+    # Example: Pre-populated data for testing (user_id = 0)
+    "0": {
         "CASE-2024-001": {
             "caseNumber": "CASE-2024-001",
             "problemStatement": "Customer experiencing slow response times during peak hours.",
