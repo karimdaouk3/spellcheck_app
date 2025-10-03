@@ -166,6 +166,115 @@ def current_user():
         "employee_id": info.get("employee_id")
     })
 
+# ==================== MOCK CASE MANAGEMENT ENDPOINTS ====================
+# These are temporary mock endpoints that return hardcoded data
+# TODO: Replace with actual database queries when ready
+
+# Mock data for valid case numbers (hardcoded)
+MOCK_VALID_CASES = [
+    "CASE-2024-001",
+    "CASE-2024-002",
+    "CASE-2024-003",
+    "CASE-2024-100",
+    "CASE-2024-101",
+    "CASE-2024-999",
+    "12345",
+    "67890",
+    "TEST-001"
+]
+
+# Mock data for closed cases (hardcoded)
+MOCK_CLOSED_CASES = [
+    "CASE-2024-002",  # This case is closed
+    "67890"           # This case is also closed
+]
+
+@app.route('/api/cases/validate/<case_number>', methods=['GET'])
+def validate_case_number(case_number):
+    """
+    Mock endpoint to validate if a case number exists in the system.
+    Returns whether the case is valid and if it's open or closed.
+    
+    TODO: Replace with actual database query
+    """
+    user_data = session.get('user_data')
+    if not user_data:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    # Mock validation logic
+    is_valid = case_number in MOCK_VALID_CASES
+    is_closed = case_number in MOCK_CLOSED_CASES
+    
+    if not is_valid:
+        return jsonify({
+            "valid": False,
+            "message": f"Case number '{case_number}' does not exist in the system."
+        }), 404
+    
+    return jsonify({
+        "valid": True,
+        "case_number": case_number,
+        "is_closed": is_closed,
+        "status": "closed" if is_closed else "open"
+    })
+
+@app.route('/api/cases/user-cases', methods=['GET'])
+def get_user_cases():
+    """
+    Mock endpoint to get all open cases for the current user.
+    Returns list of case numbers that are open and belong to the user.
+    
+    TODO: Replace with actual database query filtering by user_id and status
+    """
+    user_data = session.get('user_data')
+    if not user_data:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    user_id = user_data.get('user_id')
+    
+    # Mock: Return all valid cases that are not closed
+    # In real implementation, this would filter by user_id from database
+    open_cases = [case for case in MOCK_VALID_CASES if case not in MOCK_CLOSED_CASES]
+    
+    return jsonify({
+        "user_id": user_id,
+        "cases": open_cases,
+        "count": len(open_cases)
+    })
+
+@app.route('/api/cases/status', methods=['POST'])
+def check_cases_status():
+    """
+    Mock endpoint to check status of multiple cases at once.
+    Accepts a list of case numbers and returns their status.
+    
+    TODO: Replace with actual database query
+    """
+    user_data = session.get('user_data')
+    if not user_data:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    data = request.get_json()
+    case_numbers = data.get('case_numbers', [])
+    
+    results = []
+    for case_number in case_numbers:
+        is_valid = case_number in MOCK_VALID_CASES
+        is_closed = case_number in MOCK_CLOSED_CASES
+        
+        results.append({
+            "case_number": case_number,
+            "valid": is_valid,
+            "is_closed": is_closed,
+            "status": "closed" if is_closed else ("open" if is_valid else "invalid")
+        })
+    
+    return jsonify({
+        "results": results
+    })
+
+# ==================== END MOCK ENDPOINTS ====================
+
 @app.before_request
 def _dbg_before_request():
     try:

@@ -2403,7 +2403,7 @@ class CaseManager {
     
     async init() {
         await this.fetchUserInfo();
-        this.loadCases();
+        await this.loadCases();
         this.setupEventListeners();
         this.renderCasesList();
         this.startAutoSave();
@@ -2484,7 +2484,7 @@ class CaseManager {
         });
     }
     
-    loadCases() {
+    async loadCases() {
         if (!this.userId) {
             console.warn('No user ID available, cannot load cases');
             this.cases = [];
@@ -2498,6 +2498,9 @@ class CaseManager {
         if (savedCases) {
             this.cases = JSON.parse(savedCases);
             console.log(`Loaded ${this.cases.length} cases for user ${this.userId}`);
+            
+            // Filter out closed cases by checking with backend
+            await this.filterClosedCases();
         } else {
             // No saved cases for this user - start with empty array
             this.cases = [];
@@ -2507,6 +2510,46 @@ class CaseManager {
         // Set first case as current if none selected
         if (this.cases.length > 0 && !this.currentCase) {
             this.switchToCase(this.cases[0].id);
+        }
+    }
+    
+    async filterClosedCases() {
+        if (this.cases.length === 0) return;
+        
+        try {
+            // Get all case numbers
+            const caseNumbers = this.cases.map(c => c.caseNumber);
+            
+            // Check status with backend
+            const response = await fetch('/api/cases/status', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ case_numbers: caseNumbers })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                const closedCaseNumbers = data.results
+                    .filter(r => r.is_closed)
+                    .map(r => r.case_number);
+                
+                if (closedCaseNumbers.length > 0) {
+                    console.log(`Found ${closedCaseNumbers.length} closed cases, removing them:`, closedCaseNumbers);
+                    
+                    // Remove closed cases
+                    this.cases = this.cases.filter(c => !closedCaseNumbers.includes(c.caseNumber));
+                    this.saveCases();
+                    
+                    // If current case was closed, switch to first available
+                    if (this.currentCase && closedCaseNumbers.includes(this.currentCase.caseNumber)) {
+                        this.currentCase = null;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error filtering closed cases:', error);
         }
     }
     
@@ -2521,7 +2564,7 @@ class CaseManager {
         console.log(`Saved ${this.cases.length} cases for user ${this.userId}`);
     }
     
-    createNewCase() {
+    async createNewCase() {
         // Prompt user for case number
         const caseNumber = prompt('Enter case number:');
         
@@ -2531,33 +2574,56 @@ class CaseManager {
             return;
         }
         
-        // Check if case number already exists
-        const existingCase = this.cases.find(c => c.caseNumber === caseNumber.trim());
+        const trimmedCaseNumber = caseNumber.trim();
+        
+        // Check if case number already exists locally
+        const existingCase = this.cases.find(c => c.caseNumber === trimmedCaseNumber);
         if (existingCase) {
-            alert('This case number already exists.');
+            alert('This case number already exists in your list.');
             // Switch to existing case
             this.switchToCase(existingCase.id);
             return;
         }
         
-        const newCase = {
-            id: Date.now(),
-            caseNumber: caseNumber.trim(),
-            problemStatement: '',
-            fsrNotes: '',
-            createdAt: new Date(),
-            updatedAt: new Date()
-        };
-        
-        this.cases.unshift(newCase); // Add to beginning
-        this.saveCases();
-        this.renderCasesList();
-        this.switchToCase(newCase.id);
-        
-        // Close mobile sidebar
-        const sidebar = document.querySelector('.cases-sidebar');
-        if (sidebar && window.innerWidth <= 950) {
-            sidebar.classList.remove('open');
+        // Validate case number with backend
+        try {
+            const response = await fetch(`/api/cases/validate/${encodeURIComponent(trimmedCaseNumber)}`);
+            const data = await response.json();
+            
+            if (!response.ok || !data.valid) {
+                alert(data.message || `Case number '${trimmedCaseNumber}' does not exist in the system.`);
+                return;
+            }
+            
+            // Check if case is closed
+            if (data.is_closed) {
+                alert(`Case '${trimmedCaseNumber}' is closed and cannot be added.`);
+                return;
+            }
+            
+            // Case is valid and open, create it
+            const newCase = {
+                id: Date.now(),
+                caseNumber: trimmedCaseNumber,
+                problemStatement: '',
+                fsrNotes: '',
+                createdAt: new Date(),
+                updatedAt: new Date()
+            };
+            
+            this.cases.unshift(newCase); // Add to beginning
+            this.saveCases();
+            this.renderCasesList();
+            this.switchToCase(newCase.id);
+            
+            // Close mobile sidebar
+            const sidebar = document.querySelector('.cases-sidebar');
+            if (sidebar && window.innerWidth <= 950) {
+                sidebar.classList.remove('open');
+            }
+        } catch (error) {
+            console.error('Error validating case number:', error);
+            alert('Error validating case number. Please try again.');
         }
     }
     
