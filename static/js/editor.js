@@ -2499,7 +2499,7 @@ class CaseManager {
     }
     
     async loadCases() {
-        if (!this.userId) {
+        if (this.userId === null || this.userId === undefined) {
             console.warn('No user ID available, cannot load cases');
             this.cases = [];
             return;
@@ -2612,7 +2612,7 @@ class CaseManager {
     }
     
     saveCasesLocally() {
-        if (!this.userId) {
+        if (this.userId === null || this.userId === undefined) {
             console.warn('No user ID available, cannot save cases');
             return;
         }
@@ -2623,7 +2623,7 @@ class CaseManager {
     }
     
     async saveCaseToBackend(caseData) {
-        if (!this.userId) {
+        if (this.userId === null || this.userId === undefined) {
             console.warn('No user ID available, cannot save to backend');
             return;
         }
