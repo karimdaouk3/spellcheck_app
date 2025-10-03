@@ -641,18 +641,20 @@ body {
 }
 
 .close-sidebar-btn {
-    display: none; /* Hidden on desktop */
     background: none;
     border: none;
-    font-size: 2em;
+    font-size: 2.5em;
     color: #666;
     cursor: pointer;
     padding: 0;
     line-height: 1;
-    width: 32px;
-    height: 32px;
+    width: 40px;
+    height: 40px;
     border-radius: 4px;
     transition: background 0.2s, color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .close-sidebar-btn:hover {
@@ -752,7 +754,7 @@ body {
 /* Active Case Box */
 .active-case-box {
     background: #fff;
-    margin: 16px 0 16px 0;
+    margin: 0 0 0 0;
     padding: 16px 32px;
     border-radius: 16px 16px 0 0;
     display: flex;
@@ -761,7 +763,6 @@ body {
     cursor: pointer;
     transition: all 0.2s ease;
     box-shadow: 0 2px 12px rgba(33,0,127,0.07);
-    max-width: 1200px;
     border: 1px solid rgba(65,0,127,0.05);
 }
 
@@ -958,15 +959,11 @@ body {
         box-shadow: 0 0 20px rgba(0,0,0,0.3);
     }
     
-    .close-sidebar-btn {
-        display: block !important; /* Show on mobile */
-    }
-    
     .active-case-box {
-        margin: 12px 0 0 0;
+        margin: 0 0 0 0;
         padding: 12px 16px;
         gap: 12px;
-        border-radius: 12px 12px 0 0 !important;
+        border-radius: 12px 12px 0 0;
     }
     
     .case-icon {
@@ -1220,9 +1217,8 @@ body {
 /* Additional responsive adjustments for very small screens */
 @media (max-width: 600px) {
     .top-bar {
-        padding: 8px 16px 8px 16px; /* Match content-area padding */
+        padding: 8px 8px 8px 8px; /* Reduce padding on very small screens */
         min-height: 60px; /* Slightly reduce height */
-        margin: 0 -16px; /* Extend to edges but maintain content padding */
     }
  
     .top-bar-title {
@@ -1232,12 +1228,12 @@ body {
     }
  
     .feedback-section {
-        right: 16px; /* Match padding */
+        right: 8px;
         padding: 6px;
     }
  
     .wiki-section {
-        left: 16px; /* Match padding */
+        left: 8px;
         padding: 6px;
     }
  

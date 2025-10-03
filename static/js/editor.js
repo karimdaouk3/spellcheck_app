@@ -2414,7 +2414,7 @@ class CaseManager {
             newCaseBtn.addEventListener('click', () => this.createNewCase());
         }
         
-        // Active case box - clicking opens sidebar
+        // Active case box - clicking toggles sidebar
         const activeCaseBox = document.getElementById('active-case-box');
         const sidebar = document.querySelector('.cases-sidebar');
         const closeSidebarBtn = document.getElementById('close-sidebar-btn');
@@ -2441,9 +2441,10 @@ class CaseManager {
             });
         }
         
-        // Close sidebar button (mobile)
+        // Close sidebar button
         if (closeSidebarBtn && sidebar) {
-            closeSidebarBtn.addEventListener('click', () => {
+            closeSidebarBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent event bubbling
                 sidebar.classList.add('collapsed');
                 localStorage.setItem('sidebar-collapsed', 'true');
             });
