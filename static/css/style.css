@@ -786,6 +786,22 @@ body {
             font-size: 13px !important;
             padding: 8px 16px !important;
         }
+        
+        /* Make feedback pill vertical on very small screens to prevent overlap */
+        .rewrite-feedback-pill .pill {
+            flex-direction: column !important;
+            border-radius: 8px !important;
+        }
+        
+        .rewrite-feedback-pill .pill-divider {
+            width: 100% !important;
+            height: 1px !important;
+            margin: 2px 0 !important;
+        }
+        
+        .rewrite-feedback-pill .pill-seg {
+            padding: 4px 6px !important;
+        }
     }
  
     /* 2. Make editor label container match text box width and remove vertical margins */
