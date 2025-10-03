@@ -1658,6 +1658,12 @@ class LanguageToolEditor {
                     font-size: 0.9em;
                 }
                 
+                @media (max-width: 950px) {
+                    .score-bar-labels {
+                        width: 100px;
+                    }
+                }
+                
                 .score-label-left {
                     color: #000;
                     font-size: 0.9em;
@@ -1697,21 +1703,21 @@ class LanguageToolEditor {
                     .editor-score {
                         font-size: 0.9em !important;
                     }
-                    .editor-score > div {
-                        gap: 8px !important;
+                    .score-bar-container {
+                        gap: 6px !important;
                     }
-                    .editor-score > div > div {
-                        width: 110px !important;
-                        height: 14px !important;
+                    .score-bar {
+                        width: 100px !important;
+                        height: 16px !important;
                     }
-                    .editor-score > div > div > div:first-child {
+                    .score-bar > div {
                         height: 24px !important;
                         top: 50% !important;
                         transform: translate(-50%, -50%) !important;
                     }
-                    .editor-score > div > span {
-                        min-width: 0 !important;
-                        font-size: 0.9em !important;
+                    .score-bar-labels {
+                        width: 100px !important;
+                        font-size: 0.85em !important;
                     }
                 }
             </style>
