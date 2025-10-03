@@ -2414,39 +2414,57 @@ class CaseManager {
             newCaseBtn.addEventListener('click', () => this.createNewCase());
         }
         
-        // Mobile sidebar toggle
-        const sidebarToggle = document.getElementById('sidebar-toggle');
+        // Sidebar toggle button (works on both desktop and mobile)
+        const toggleBtn = document.getElementById('sidebar-toggle-btn');
         const sidebar = document.querySelector('.cases-sidebar');
+        const toggleIcon = document.getElementById('toggle-icon');
+        const toggleText = document.getElementById('toggle-text');
         
-        if (sidebarToggle && sidebar) {
-            sidebarToggle.addEventListener('click', () => {
-                sidebar.classList.toggle('open');
-            });
-            
-            // Show toggle button on mobile
-            if (window.innerWidth <= 950) {
-                sidebarToggle.style.display = 'block';
+        if (toggleBtn && sidebar) {
+            // Load saved collapse state
+            const isCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
+            if (isCollapsed) {
+                sidebar.classList.add('collapsed');
+                toggleBtn.classList.remove('shifted');
+                if (toggleIcon) toggleIcon.textContent = '☰';
+                if (toggleText) toggleText.textContent = 'Cases';
+            } else {
+                toggleBtn.classList.add('shifted');
+                if (toggleIcon) toggleIcon.textContent = '×';
+                if (toggleText) toggleText.textContent = 'Hide';
             }
+            
+            toggleBtn.addEventListener('click', () => {
+                const isCurrentlyCollapsed = sidebar.classList.contains('collapsed');
+                
+                if (isCurrentlyCollapsed) {
+                    // Expand
+                    sidebar.classList.remove('collapsed');
+                    toggleBtn.classList.add('shifted');
+                    if (toggleIcon) toggleIcon.textContent = '×';
+                    if (toggleText) toggleText.textContent = 'Hide';
+                    localStorage.setItem('sidebar-collapsed', 'false');
+                } else {
+                    // Collapse
+                    sidebar.classList.add('collapsed');
+                    toggleBtn.classList.remove('shifted');
+                    if (toggleIcon) toggleIcon.textContent = '☰';
+                    if (toggleText) toggleText.textContent = 'Cases';
+                    localStorage.setItem('sidebar-collapsed', 'true');
+                }
+            });
         }
         
-        // Close sidebar when clicking outside on mobile
-        document.addEventListener('click', (e) => {
-            if (window.innerWidth <= 950 && sidebar && sidebar.classList.contains('open')) {
-                if (!sidebar.contains(e.target) && !sidebarToggle.contains(e.target)) {
-                    sidebar.classList.remove('open');
-                }
+        // Handle mobile-specific behavior
+        if (window.innerWidth <= 950 && sidebar) {
+            // On mobile, start collapsed
+            sidebar.classList.add('collapsed');
+            if (toggleBtn) {
+                toggleBtn.classList.remove('shifted');
+                if (toggleIcon) toggleIcon.textContent = '☰';
+                if (toggleText) toggleText.textContent = 'Cases';
             }
-        });
-        
-        // Handle window resize
-        window.addEventListener('resize', () => {
-            if (window.innerWidth <= 950) {
-                sidebarToggle.style.display = 'block';
-            } else {
-                sidebarToggle.style.display = 'none';
-                if (sidebar) sidebar.classList.remove('open');
-            }
-        });
+        }
     }
     
     loadCases() {
