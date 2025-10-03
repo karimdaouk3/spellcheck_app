@@ -2491,25 +2491,55 @@ class CaseManager {
             return;
         }
         
-        // Load user-specific cases from localStorage
-        const storageKey = `fsr-cases-${this.userId}`;
-        const savedCases = localStorage.getItem(storageKey);
-        
-        if (savedCases) {
-            this.cases = JSON.parse(savedCases);
-            console.log(`Loaded ${this.cases.length} cases for user ${this.userId}`);
+        try {
+            // Load cases from backend
+            const response = await fetch('/api/cases/data');
             
-            // Filter out closed cases by checking with backend
-            await this.filterClosedCases();
-        } else {
-            // No saved cases for this user - start with empty array
-            this.cases = [];
-            console.log(`No saved cases found for user ${this.userId}`);
+            if (response.ok) {
+                const data = await response.json();
+                const backendCases = data.cases || {};
+                
+                console.log(`Loaded ${Object.keys(backendCases).length} cases from backend for user ${this.userId}`);
+                
+                // Convert backend format to frontend format
+                this.cases = Object.values(backendCases).map(caseData => ({
+                    id: Date.now() + Math.random(), // Generate unique ID
+                    caseNumber: caseData.caseNumber,
+                    problemStatement: caseData.problemStatement || '',
+                    fsrNotes: caseData.fsrNotes || '',
+                    createdAt: new Date(caseData.updatedAt || Date.now()),
+                    updatedAt: new Date(caseData.updatedAt || Date.now())
+                }));
+                
+                // Also sync with localStorage for offline access
+                this.saveCasesLocally();
+            } else {
+                // Fallback to localStorage if backend fails
+                console.warn('Failed to load from backend, using localStorage');
+                this.loadCasesFromLocalStorage();
+            }
+        } catch (error) {
+            console.error('Error loading cases from backend:', error);
+            // Fallback to localStorage
+            this.loadCasesFromLocalStorage();
         }
         
         // Set first case as current if none selected
         if (this.cases.length > 0 && !this.currentCase) {
             this.switchToCase(this.cases[0].id);
+        }
+    }
+    
+    loadCasesFromLocalStorage() {
+        const storageKey = `fsr-cases-${this.userId}`;
+        const savedCases = localStorage.getItem(storageKey);
+        
+        if (savedCases) {
+            this.cases = JSON.parse(savedCases);
+            console.log(`Loaded ${this.cases.length} cases from localStorage`);
+        } else {
+            this.cases = [];
+            console.log(`No cases found in localStorage`);
         }
     }
     
@@ -2554,6 +2584,11 @@ class CaseManager {
     }
     
     saveCases() {
+        // Save to localStorage for quick access
+        this.saveCasesLocally();
+    }
+    
+    saveCasesLocally() {
         if (!this.userId) {
             console.warn('No user ID available, cannot save cases');
             return;
@@ -2561,7 +2596,39 @@ class CaseManager {
         
         const storageKey = `fsr-cases-${this.userId}`;
         localStorage.setItem(storageKey, JSON.stringify(this.cases));
-        console.log(`Saved ${this.cases.length} cases for user ${this.userId}`);
+        console.log(`Saved ${this.cases.length} cases to localStorage for user ${this.userId}`);
+    }
+    
+    async saveCaseToBackend(caseData) {
+        if (!this.userId) {
+            console.warn('No user ID available, cannot save to backend');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/cases/data/${encodeURIComponent(caseData.caseNumber)}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    problemStatement: caseData.problemStatement || '',
+                    fsrNotes: caseData.fsrNotes || ''
+                })
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                console.log(`Saved case ${caseData.caseNumber} to backend at ${result.updated_at}`);
+                return true;
+            } else {
+                console.error(`Failed to save case ${caseData.caseNumber} to backend`);
+                return false;
+            }
+        } catch (error) {
+            console.error(`Error saving case ${caseData.caseNumber} to backend:`, error);
+            return false;
+        }
     }
     
     async createNewCase() {
@@ -2662,7 +2729,7 @@ class CaseManager {
         }
     }
     
-    saveCurrentCaseData() {
+    async saveCurrentCaseData() {
         if (!this.currentCase) return;
         
         const editor1 = document.getElementById('editor');
@@ -2672,7 +2739,12 @@ class CaseManager {
         if (editor2) this.currentCase.fsrNotes = editor2.innerText;
         
         this.currentCase.updatedAt = new Date();
+        
+        // Save to localStorage immediately
         this.saveCases();
+        
+        // Also save to backend (async, don't wait)
+        this.saveCaseToBackend(this.currentCase);
     }
     
     

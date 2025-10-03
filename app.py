@@ -189,6 +189,26 @@ MOCK_CLOSED_CASES = [
     "67890"           # This case is also closed
 ]
 
+# Mock in-memory storage for user case data
+# Structure: { user_id: { case_number: { problemStatement, fsrNotes, updatedAt } } }
+MOCK_USER_CASE_DATA = {
+    # Example: Pre-populated data for testing
+    "demo_user": {
+        "CASE-2024-001": {
+            "caseNumber": "CASE-2024-001",
+            "problemStatement": "Customer experiencing slow response times during peak hours.",
+            "fsrNotes": "Initial analysis shows database query optimization needed. Customer has 500+ concurrent users.",
+            "updatedAt": "2024-01-15T10:30:00Z"
+        },
+        "CASE-2024-003": {
+            "caseNumber": "CASE-2024-003",
+            "problemStatement": "Authentication failures for external users accessing the portal.",
+            "fsrNotes": "SSO configuration issue identified. Working with IT security team to resolve.",
+            "updatedAt": "2024-01-14T15:45:00Z"
+        }
+    }
+}
+
 @app.route('/api/cases/validate/<case_number>', methods=['GET'])
 def validate_case_number(case_number):
     """
@@ -271,6 +291,158 @@ def check_cases_status():
     
     return jsonify({
         "results": results
+    })
+
+@app.route('/api/cases/data', methods=['GET'])
+def get_user_case_data():
+    """
+    Mock endpoint to get all case data for the current user.
+    Returns all cases with their problem statements and FSR notes.
+    
+    TODO: Replace with actual database query
+    """
+    user_data = session.get('user_data')
+    if not user_data:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    user_id = user_data.get('user_id')
+    
+    # Get user's case data from mock storage
+    user_cases = MOCK_USER_CASE_DATA.get(user_id, {})
+    
+    # Filter out closed cases
+    open_cases = {}
+    for case_number, case_data in user_cases.items():
+        if case_number not in MOCK_CLOSED_CASES:
+            open_cases[case_number] = case_data
+    
+    return jsonify({
+        "user_id": user_id,
+        "cases": open_cases,
+        "count": len(open_cases)
+    })
+
+@app.route('/api/cases/data/<case_number>', methods=['GET'])
+def get_case_data(case_number):
+    """
+    Mock endpoint to get data for a specific case.
+    
+    TODO: Replace with actual database query
+    """
+    user_data = session.get('user_data')
+    if not user_data:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    user_id = user_data.get('user_id')
+    
+    # Check if user has this case
+    user_cases = MOCK_USER_CASE_DATA.get(user_id, {})
+    case_data = user_cases.get(case_number)
+    
+    if not case_data:
+        return jsonify({
+            "found": False,
+            "message": "No saved data for this case"
+        }), 404
+    
+    return jsonify({
+        "found": True,
+        "data": case_data
+    })
+
+@app.route('/api/cases/data/<case_number>', methods=['PUT'])
+def save_case_data(case_number):
+    """
+    Mock endpoint to save case data for a user.
+    Accepts problemStatement and fsrNotes.
+    
+    TODO: Replace with actual database insert/update
+    """
+    user_data = session.get('user_data')
+    if not user_data:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    user_id = user_data.get('user_id')
+    
+    # Validate case number exists and is open
+    if case_number not in MOCK_VALID_CASES:
+        return jsonify({"error": "Invalid case number"}), 400
+    
+    if case_number in MOCK_CLOSED_CASES:
+        return jsonify({"error": "Cannot save data for closed case"}), 400
+    
+    data = request.get_json()
+    problem_statement = data.get('problemStatement', '')
+    fsr_notes = data.get('fsrNotes', '')
+    
+    # Initialize user's cases dict if doesn't exist
+    if user_id not in MOCK_USER_CASE_DATA:
+        MOCK_USER_CASE_DATA[user_id] = {}
+    
+    # Save the case data
+    MOCK_USER_CASE_DATA[user_id][case_number] = {
+        "caseNumber": case_number,
+        "problemStatement": problem_statement,
+        "fsrNotes": fsr_notes,
+        "updatedAt": datetime.utcnow().isoformat() + 'Z'
+    }
+    
+    return jsonify({
+        "success": True,
+        "message": "Case data saved successfully",
+        "case_number": case_number,
+        "updated_at": MOCK_USER_CASE_DATA[user_id][case_number]["updatedAt"]
+    })
+
+@app.route('/api/cases/data', methods=['POST'])
+def save_multiple_cases():
+    """
+    Mock endpoint to save multiple cases at once.
+    Accepts array of case objects with caseNumber, problemStatement, fsrNotes.
+    
+    TODO: Replace with actual database batch insert/update
+    """
+    user_data = session.get('user_data')
+    if not user_data:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    user_id = user_data.get('user_id')
+    
+    data = request.get_json()
+    cases = data.get('cases', [])
+    
+    # Initialize user's cases dict if doesn't exist
+    if user_id not in MOCK_USER_CASE_DATA:
+        MOCK_USER_CASE_DATA[user_id] = {}
+    
+    saved_count = 0
+    errors = []
+    
+    for case_data in cases:
+        case_number = case_data.get('caseNumber')
+        
+        # Validate
+        if case_number not in MOCK_VALID_CASES:
+            errors.append(f"Invalid case: {case_number}")
+            continue
+        
+        if case_number in MOCK_CLOSED_CASES:
+            errors.append(f"Case is closed: {case_number}")
+            continue
+        
+        # Save
+        MOCK_USER_CASE_DATA[user_id][case_number] = {
+            "caseNumber": case_number,
+            "problemStatement": case_data.get('problemStatement', ''),
+            "fsrNotes": case_data.get('fsrNotes', ''),
+            "updatedAt": datetime.utcnow().isoformat() + 'Z'
+        }
+        saved_count += 1
+    
+    return jsonify({
+        "success": True,
+        "saved_count": saved_count,
+        "errors": errors
     })
 
 # ==================== END MOCK ENDPOINTS ====================
