@@ -2417,6 +2417,7 @@ class CaseManager {
         // Active case box - clicking opens sidebar
         const activeCaseBox = document.getElementById('active-case-box');
         const sidebar = document.querySelector('.cases-sidebar');
+        const closeSidebarBtn = document.getElementById('close-sidebar-btn');
         
         if (activeCaseBox && sidebar) {
             // Start with sidebar collapsed by default
@@ -2437,6 +2438,14 @@ class CaseManager {
                     sidebar.classList.add('collapsed');
                     localStorage.setItem('sidebar-collapsed', 'true');
                 }
+            });
+        }
+        
+        // Close sidebar button (mobile)
+        if (closeSidebarBtn && sidebar) {
+            closeSidebarBtn.addEventListener('click', () => {
+                sidebar.classList.add('collapsed');
+                localStorage.setItem('sidebar-collapsed', 'true');
             });
         }
         
