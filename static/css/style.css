@@ -764,6 +764,8 @@ body {
     transition: all 0.2s ease;
     box-shadow: 0 2px 12px rgba(33,0,127,0.07);
     border: 1px solid rgba(65,0,127,0.05);
+    -webkit-tap-highlight-color: transparent; /* Remove blue highlight on mobile tap */
+    -webkit-touch-callout: none; /* Disable callout on long press */
 }
 
 .active-case-box:hover {
@@ -1217,7 +1219,7 @@ body {
 /* Additional responsive adjustments for very small screens */
 @media (max-width: 600px) {
     .top-bar {
-        padding: 8px 8px 8px 8px; /* Reduce padding on very small screens */
+        padding: 8px 16px 8px 16px; /* Match content-area padding on small screens */
         min-height: 60px; /* Slightly reduce height */
     }
  
@@ -1228,18 +1230,18 @@ body {
     }
  
     .feedback-section {
-        right: 8px;
+        right: 16px; /* Match top-bar padding */
         padding: 6px;
     }
  
     .wiki-section {
-        left: 8px;
+        left: 16px; /* Match top-bar padding */
         padding: 6px;
     }
  
     .top-bar-content {
-        padding-right: 50px; /* Even less space for very small screens */
-        padding-left: 50px;
+        padding-right: 60px; /* Adjusted for button positioning */
+        padding-left: 60px;
     }
 }
  
