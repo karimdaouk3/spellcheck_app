@@ -2451,6 +2451,7 @@ class CaseManager {
         const activeCaseBox = document.getElementById('active-case-box');
         const sidebar = document.querySelector('.cases-sidebar');
         const closeSidebarBtn = document.getElementById('close-sidebar-btn');
+        const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
         
         if (activeCaseBox && sidebar) {
             // Start with sidebar open by default on desktop, collapsed on mobile
@@ -2461,6 +2462,23 @@ class CaseManager {
             }
             
             activeCaseBox.addEventListener('click', () => {
+                const isCurrentlyCollapsed = sidebar.classList.contains('collapsed');
+                
+                if (isCurrentlyCollapsed) {
+                    // Expand
+                    sidebar.classList.remove('collapsed');
+                    localStorage.setItem('sidebar-collapsed', 'false');
+                } else {
+                    // Collapse
+                    sidebar.classList.add('collapsed');
+                    localStorage.setItem('sidebar-collapsed', 'true');
+                }
+            });
+        }
+        
+        // Header sidebar toggle button
+        if (sidebarToggleBtn && sidebar) {
+            sidebarToggleBtn.addEventListener('click', () => {
                 const isCurrentlyCollapsed = sidebar.classList.contains('collapsed');
                 
                 if (isCurrentlyCollapsed) {

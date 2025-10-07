@@ -623,7 +623,27 @@ body {
 }
 
 .sidebar-toggle-btn {
-    display: none; /* Hidden - replaced by active case box */
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    padding: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+}
+
+.sidebar-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
 }
 
 .sidebar-header {
@@ -966,12 +986,12 @@ body {
 /* Mobile adjustments */
 @media (max-width: 950px) {
     .sidebar-toggle-btn {
-        top: 10px;
-        left: 10px;
-    }
-    
-    .sidebar-toggle-btn.shifted {
-        left: 10px;
+        left: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 36px;
+        height: 36px;
+        padding: 6px;
     }
     
     /* Make sidebar full-screen overlay on mobile */
