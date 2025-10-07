@@ -186,6 +186,8 @@ MOCK_VALID_CASES = [
 # Mock data for closed cases (hardcoded)
 MOCK_CLOSED_CASES = [
     "CASE-2024-002",  # This case is closed
+    "CASE-2024-999",  # This case is closed
+    "12345",          # This case is closed
     "67890"           # This case is also closed
 ]
 
@@ -205,6 +207,30 @@ MOCK_USER_CASE_DATA = {
             "problemStatement": "Authentication failures for external users accessing the portal.",
             "fsrNotes": "SSO configuration issue identified. Working with IT security team to resolve.",
             "updatedAt": "2024-01-14T15:45:00Z"
+        },
+        "CASE-2024-002": {
+            "caseNumber": "CASE-2024-002",
+            "problemStatement": "Database connection timeouts during peak hours.",
+            "fsrNotes": "Connection pool exhausted. Need to increase pool size and optimize queries.",
+            "updatedAt": "2024-01-13T09:30:00Z"
+        },
+        "CASE-2024-999": {
+            "caseNumber": "CASE-2024-999",
+            "problemStatement": "User interface not loading properly on mobile devices.",
+            "fsrNotes": "CSS media queries not working correctly. Fixed responsive design issues.",
+            "updatedAt": "2024-01-12T14:20:00Z"
+        },
+        "12345": {
+            "caseNumber": "12345",
+            "problemStatement": "Email notifications not being sent to users.",
+            "fsrNotes": "SMTP server configuration issue. Updated server settings and tested delivery.",
+            "updatedAt": "2024-01-11T16:45:00Z"
+        },
+        "67890": {
+            "caseNumber": "67890",
+            "problemStatement": "File upload functionality not working for large files.",
+            "fsrNotes": "Server timeout issue. Increased upload limits and added progress indicators.",
+            "updatedAt": "2024-01-10T11:15:00Z"
         }
     }
 }
@@ -212,7 +238,7 @@ MOCK_USER_CASE_DATA = {
 # Mock data for case feedback (in-memory storage)
 # Structure: { user_id: [ { case_number, closed_date, feedback: {symptom, fault, fix}, submitted_at } ] }
 MOCK_CASE_FEEDBACK = {
-    "0": []  # List of feedback entries for user 0
+    "0": []  # List of feedback entries for user 0 (empty for testing)
 }
 
 @app.route('/api/cases/validate/<case_number>', methods=['GET'])
@@ -1698,6 +1724,18 @@ def submit_case_feedback():
         "message": "Feedback submitted successfully",
         "case_number": feedback_entry['case_number'],
         "submitted_at": feedback_entry['submitted_at']
+    })
+
+@app.route('/api/cases/clear-feedback-flags', methods=['POST'])
+def clear_feedback_flags():
+    """
+    Debug endpoint to clear localStorage feedback flags for testing.
+    This allows the feedback popup to show again for testing.
+    """
+    return jsonify({
+        "success": True,
+        "message": "Feedback flags cleared. Refresh the page to see feedback popup again.",
+        "instructions": "Run localStorage.clear() in browser console to clear all feedback flags"
     })
 
 if __name__ == "__main__":
