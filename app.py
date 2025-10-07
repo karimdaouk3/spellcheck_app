@@ -185,10 +185,7 @@ MOCK_VALID_CASES = [
 
 # Mock data for closed cases (hardcoded)
 MOCK_CLOSED_CASES = [
-    "CASE-2024-002",  # This case is closed
-    "CASE-2024-999",  # This case is closed
-    "12345",          # This case is closed
-    "67890"           # This case is also closed
+    "CASE-2024-002"  # This case is closed
 ]
 
 # Mock in-memory storage for user case data
@@ -213,24 +210,6 @@ MOCK_USER_CASE_DATA = {
             "problemStatement": "Database connection timeouts during peak hours.",
             "fsrNotes": "Connection pool exhausted. Need to increase pool size and optimize queries.",
             "updatedAt": "2024-01-13T09:30:00Z"
-        },
-        "CASE-2024-999": {
-            "caseNumber": "CASE-2024-999",
-            "problemStatement": "User interface not loading properly on mobile devices.",
-            "fsrNotes": "CSS media queries not working correctly. Fixed responsive design issues.",
-            "updatedAt": "2024-01-12T14:20:00Z"
-        },
-        "12345": {
-            "caseNumber": "12345",
-            "problemStatement": "Email notifications not being sent to users.",
-            "fsrNotes": "SMTP server configuration issue. Updated server settings and tested delivery.",
-            "updatedAt": "2024-01-11T16:45:00Z"
-        },
-        "67890": {
-            "caseNumber": "67890",
-            "problemStatement": "File upload functionality not working for large files.",
-            "fsrNotes": "Server timeout issue. Increased upload limits and added progress indicators.",
-            "updatedAt": "2024-01-10T11:15:00Z"
         }
     }
 }
@@ -1725,6 +1704,119 @@ def submit_case_feedback():
         "case_number": feedback_entry['case_number'],
         "submitted_at": feedback_entry['submitted_at']
     })
+
+@app.route('/api/cases/generate-feedback', methods=['POST'])
+def generate_case_feedback():
+    """
+    Generate LLM-based feedback for a closed case using case information.
+    Uses the same LLM as the rest of the application.
+    """
+    user_data = session.get('user_data')
+    if not user_data:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    data = request.get_json()
+    if not data or 'case_number' not in data:
+        return jsonify({"error": "Case number required"}), 400
+    
+    case_number = data.get('case_number')
+    user_id = str(user_data.get('user_id', '0'))
+    
+    # Get case information
+    user_cases = MOCK_USER_CASE_DATA.get(user_id, {})
+    case_data = user_cases.get(case_number)
+    
+    if not case_data:
+        return jsonify({"error": "Case not found"}), 404
+    
+    try:
+        # Prepare case information for LLM
+        case_info = f"""
+Case Number: {case_number}
+Problem Statement: {case_data.get('problemStatement', '')}
+FSR Notes: {case_data.get('fsrNotes', '')}
+Last Updated: {case_data.get('updatedAt', '')}
+"""
+        
+        # Use the same LLM endpoint as the rest of the application
+        llm_prompt = f"""
+Based on the following closed case information, generate a structured feedback response with three components:
+
+Case Information:
+{case_info}
+
+Please provide:
+1. SYMPTOM: A clear description of what symptoms or issues were reported
+2. FAULT: The root cause or fault that was identified
+3. FIX: The solution that was implemented to resolve the issue
+
+Format your response as:
+SYMPTOM: [description]
+FAULT: [root cause]
+FIX: [solution implemented]
+
+Be specific and technical, drawing from the case information provided.
+"""
+        
+        # Call the existing LLM endpoint
+        llm_response = requests.post('http://127.0.0.1:8055/llm', json={
+            'messages': [
+                {
+                    'role': 'user',
+                    'content': llm_prompt
+                }
+            ],
+            'model': 'Phi-4-multimodal-instruct',
+            'max_completion_tokens': 512,
+            'temperature': 0.1
+        })
+        
+        if llm_response.status_code == 200:
+            llm_data = llm_response.json()
+            generated_content = llm_data.get('response', '')
+            
+            # Parse the LLM response to extract symptom, fault, fix
+            lines = generated_content.split('\n')
+            symptom = ""
+            fault = ""
+            fix = ""
+            
+            current_section = None
+            for line in lines:
+                line = line.strip()
+                if line.startswith('SYMPTOM:'):
+                    current_section = 'symptom'
+                    symptom = line.replace('SYMPTOM:', '').strip()
+                elif line.startswith('FAULT:'):
+                    current_section = 'fault'
+                    fault = line.replace('FAULT:', '').strip()
+                elif line.startswith('FIX:'):
+                    current_section = 'fix'
+                    fix = line.replace('FIX:', '').strip()
+                elif current_section and line:
+                    # Continue adding to current section
+                    if current_section == 'symptom':
+                        symptom += ' ' + line
+                    elif current_section == 'fault':
+                        fault += ' ' + line
+                    elif current_section == 'fix':
+                        fix += ' ' + line
+            
+            return jsonify({
+                "success": True,
+                "case_number": case_number,
+                "generated_feedback": {
+                    "symptom": symptom.strip(),
+                    "fault": fault.strip(),
+                    "fix": fix.strip()
+                }
+            })
+        else:
+            return jsonify({"error": "Failed to generate feedback"}), 500
+            
+    except Exception as e:
+        print(f"Error generating feedback: {e}")
+        return jsonify({"error": "Error generating feedback"}), 500
 
 @app.route('/api/cases/clear-feedback-flags', methods=['POST'])
 def clear_feedback_flags():
