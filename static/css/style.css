@@ -524,11 +524,13 @@ body {
     background: none;
     border: 1px solid rgba(255, 255, 255, 1);
     cursor: pointer;
-    padding: 8px 12px;
+    padding: 10px 12px; /* Match video button height */
     border-radius: 6px;
     transition: background-color 0.2s, border-color 0.2s;
     color: white;
     font-family: 'Open Sans', sans-serif;
+    height: 44px; /* Fixed height to match */
+    box-sizing: border-box;
 }
 
 /* Video button all the way on the right */
@@ -544,10 +546,12 @@ body {
     background: none;
     border: 1px solid rgba(255, 255, 255, 1);
     cursor: pointer;
-    padding: 8px 12px;
+    padding: 10px 12px; /* Match feedback button height */
     border-radius: 6px;
     transition: background-color 0.2s, border-color 0.2s;
     color: white;
+    height: 44px; /* Fixed height to match */
+    box-sizing: border-box;
 }
 .wiki-section:hover {
     background-color: rgba(255, 255, 255, 0.1);
@@ -944,16 +948,18 @@ body {
 /* Fix button overlap for medium screens */
 @media (max-width: 950px) and (min-width: 650px) {
     .feedback-section {
-        right: 70px; /* Keep spacing from video button */
+        right: 70px !important; /* Keep spacing from video button */
+        padding: 8px !important;
     }
     
     .wiki-section {
-        right: 12px;
+        right: 12px !important;
+        padding: 8px !important;
     }
     
     .top-bar-content {
-        padding-right: 90px; /* Space for two icon-only buttons */
-        padding-left: 20px;
+        padding-right: 90px !important; /* Space for two icon-only buttons */
+        padding-left: 20px !important;
     }
 }
  
