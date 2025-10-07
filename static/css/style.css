@@ -945,20 +945,20 @@ body {
 .history-panel, .open-history-btn, .toggle-history {
     display: none !important;
 }
-/* Fix button overlap for medium screens */
-@media (max-width: 950px) and (min-width: 650px) {
+/* Button positioning for screens 601px - 950px */
+@media (max-width: 950px) and (min-width: 601px) {
     .feedback-section {
-        right: 70px !important; /* Keep spacing from video button */
-        padding: 8px !important;
+        right: 70px !important;
+        padding: 10px 12px !important;
     }
     
     .wiki-section {
         right: 12px !important;
-        padding: 8px !important;
+        padding: 10px 12px !important;
     }
     
     .top-bar-content {
-        padding-right: 90px !important; /* Space for two icon-only buttons */
+        padding-right: 90px !important;
         padding-left: 20px !important;
     }
 }
@@ -1152,21 +1152,6 @@ body {
         margin-left: 16px; /* Add left spacing on mobile */
     }
  
-    .feedback-section {
-        right: 16px;
-        gap: 8px;
-        padding: 6px 10px;
-    }
- 
-    .feedback-text {
-        font-size: 1em;
-    }
- 
-    .feedback-section svg {
-        width: 24px;
-        height: 24px;
-    }
- 
     /* Hide button text on small screens, show only icons */
     .feedback-text {
         display: none;
@@ -1174,24 +1159,6 @@ body {
  
     .wiki-section .feedback-text {
         display: none;
-    }
- 
-    /* Adjust button padding for icon-only display */
-    .feedback-section {
-        padding: 8px;
-        gap: 0;
-    }
- 
-    .wiki-section {
-        padding: 8px;
-        gap: 0;
-    }
- 
-    /* Ensure title stays centered */
-    .top-bar-content {
-        justify-content: center;
-        padding-right: 120px; /* More space for two buttons on the right */
-        padding-left: 20px; /* Less padding on the left since no button there */
     }
  
     .top-bar-content {
@@ -1247,32 +1214,32 @@ body {
     }
 }
  
-/* Additional responsive adjustments for very small screens */
+/* Button positioning for small screens (600px and below) */
 @media (max-width: 600px) {
     .top-bar {
-        padding: 8px 8px 8px 8px; /* Smaller internal padding */
-        min-height: 60px; /* Slightly reduce height */
+        padding: 8px 8px 8px 8px;
+        min-height: 60px;
     }
  
     .top-bar-title {
-        font-size: 1.5em; /* Slightly smaller title on very small screens */
+        font-size: 1.5em;
         margin-left: 8px;
         margin-right: 8px;
     }
  
     .feedback-section {
-        right: 50px; /* Position to the left of video button on mobile */
-        padding: 6px;
+        right: 58px !important; /* Position to the left of video button on mobile */
+        padding: 10px 12px !important;
     }
  
     .wiki-section {
-        right: 8px; /* All the way on the right on mobile */
-        padding: 6px;
+        right: 8px !important; /* All the way on the right on mobile */
+        padding: 10px 12px !important;
     }
  
     .top-bar-content {
-        padding-right: 110px; /* Space for two buttons on the right */
-        padding-left: 10px; /* Minimal padding on left */
+        padding-right: 110px !important;
+        padding-left: 10px !important;
     }
 }
  
