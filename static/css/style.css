@@ -515,7 +515,7 @@ body {
 .feedback-section {
     position: absolute;
     top: 50%;
-    right: 12px;
+    right: 60px; /* Position to the left of video button */
     transform: translateY(-50%);
     display: flex;
     align-items: center;
@@ -530,11 +530,11 @@ body {
     font-family: 'Open Sans', sans-serif;
 }
 
-/* Video button on the right, styled like feedback */
+/* Video button all the way on the right */
 .wiki-section {
     position: absolute;
     top: 50%;
-    right: 100px; /* Position to the right of feedback button */
+    right: 12px; /* All the way on the right */
     transform: translateY(-50%);
     display: flex;
     align-items: center;
@@ -1239,12 +1239,12 @@ body {
     }
  
     .feedback-section {
-        right: 8px;
+        right: 50px; /* Position to the left of video button on mobile */
         padding: 6px;
     }
  
     .wiki-section {
-        right: 60px; /* Position to the right of feedback button on mobile */
+        right: 8px; /* All the way on the right on mobile */
         padding: 6px;
     }
  
