@@ -503,6 +503,9 @@ body {
     justify-content: center; /* Center the title */
     height: 72px;
     flex: 1 1 auto;
+    padding: 0 20px 0 60px; /* Add left padding for sidebar toggle button */
+    margin: 0;
+    box-sizing: border-box;
 }
  
 .top-bar-title {
@@ -627,23 +630,23 @@ body {
     left: 12px;
     top: 50%;
     transform: translateY(-50%);
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 8px;
-    padding: 8px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    z-index: 1000;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 1);
+    cursor: pointer;
+    padding: 10px 12px;
+    border-radius: 6px;
+    transition: background-color 0.2s, border-color 0.2s;
+    color: white;
+    height: 44px;
+    box-sizing: border-box;
 }
 
 .sidebar-toggle-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-    border-color: rgba(255, 255, 255, 0.5);
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 1);
 }
 
 .sidebar-header {
@@ -979,7 +982,7 @@ body {
     
     .top-bar-content {
         padding-right: 90px !important;
-        padding-left: 20px !important;
+        padding-left: 60px !important; /* Account for sidebar toggle button */
     }
 }
  
@@ -989,9 +992,8 @@ body {
         left: 8px;
         top: 50%;
         transform: translateY(-50%);
-        width: 36px;
-        height: 36px;
-        padding: 6px;
+        padding: 10px 12px;
+        height: 44px;
     }
     
     /* Make sidebar full-screen overlay on mobile */
@@ -1259,7 +1261,7 @@ body {
  
     .top-bar-content {
         padding-right: 110px !important;
-        padding-left: 10px !important;
+        padding-left: 60px !important; /* Account for sidebar toggle button */
     }
 }
  
