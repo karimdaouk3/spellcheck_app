@@ -1730,11 +1730,15 @@ def generate_case_feedback():
         return jsonify({"error": "Case not found"}), 404
     
     try:
-        # Prepare case information for LLM
+        # Use mock data for LLM input (as requested)
+        mock_problem_statement = "Customer experiencing database connection timeouts during peak hours, causing application crashes and data loss. Users unable to complete transactions."
+        mock_fsr_notes = "Root cause identified: Connection pool exhausted due to unoptimized queries. Implemented connection pooling, query optimization, and added monitoring. Case resolved successfully."
+        
+        # Prepare case information for LLM using mock data
         case_info = f"""
 Case Number: {case_number}
-Problem Statement: {case_data.get('problemStatement', '')}
-FSR Notes: {case_data.get('fsrNotes', '')}
+Problem Statement: {mock_problem_statement}
+FSR Notes: {mock_fsr_notes}
 Last Updated: {case_data.get('updatedAt', '')}
 """
         

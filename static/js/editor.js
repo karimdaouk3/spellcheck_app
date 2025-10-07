@@ -3102,8 +3102,11 @@ class CaseManager {
         feedbackPopup.style.display = 'flex';
         feedbackPopup.style.pointerEvents = 'auto';
         
-        this.updateFeedbackForm();
+        // Setup event listeners first
         this.setupFeedbackEventListeners();
+        
+        // Then update the form (which will generate LLM content)
+        this.updateFeedbackForm();
     }
     
     // Update feedback form with current case data
@@ -3121,12 +3124,22 @@ class CaseManager {
             day: 'numeric'
         });
         
-        // Show loading state
+        // Show loading state immediately
         const submitBtn = document.getElementById('feedback-submit');
+        const regenerateBtn = document.getElementById('feedback-regenerate');
         submitBtn.disabled = true;
+        regenerateBtn.disabled = true;
         submitBtn.textContent = 'Generating feedback...';
+        regenerateBtn.textContent = 'Generating...';
+        
+        // Clear form first
+        document.getElementById('feedback-symptom').value = '';
+        document.getElementById('feedback-fault').value = '';
+        document.getElementById('feedback-fix').value = '';
         
         try {
+            console.log('🤖 Generating LLM feedback for case:', currentCase.case_number);
+            
             // Generate LLM feedback
             const response = await fetch('/api/cases/generate-feedback', {
                 method: 'POST',
@@ -3148,23 +3161,26 @@ class CaseManager {
                 document.getElementById('feedback-fix').value = generatedFeedback.fix || '';
                 
                 console.log('✅ Generated feedback for case:', currentCase.case_number);
+                console.log('📝 Generated content:', generatedFeedback);
             } else {
                 console.error('Failed to generate feedback');
-                // Clear form if generation fails
-                document.getElementById('feedback-symptom').value = '';
+                // Show error message in form
+                document.getElementById('feedback-symptom').value = 'Error generating feedback. Please try again.';
                 document.getElementById('feedback-fault').value = '';
                 document.getElementById('feedback-fix').value = '';
             }
         } catch (error) {
             console.error('Error generating feedback:', error);
-            // Clear form if generation fails
-            document.getElementById('feedback-symptom').value = '';
+            // Show error message in form
+            document.getElementById('feedback-symptom').value = 'Error generating feedback. Please try again.';
             document.getElementById('feedback-fault').value = '';
             document.getElementById('feedback-fix').value = '';
         }
         
-        // Reset button state
+        // Reset button states
         submitBtn.textContent = 'Submit Feedback';
+        regenerateBtn.textContent = 'Regenerate';
+        regenerateBtn.disabled = false;
         this.validateFeedbackForm();
     }
     
@@ -3278,6 +3294,8 @@ class CaseManager {
         regenerateBtn.textContent = 'Generating...';
         
         try {
+            console.log('🔄 Regenerating LLM feedback for case:', currentCase.case_number);
+            
             // Generate new LLM feedback
             const response = await fetch('/api/cases/generate-feedback', {
                 method: 'POST',
@@ -3299,11 +3317,20 @@ class CaseManager {
                 document.getElementById('feedback-fix').value = generatedFeedback.fix || '';
                 
                 console.log('✅ Regenerated feedback for case:', currentCase.case_number);
+                console.log('📝 New generated content:', generatedFeedback);
             } else {
                 console.error('Failed to regenerate feedback');
+                // Show error message in form
+                document.getElementById('feedback-symptom').value = 'Error regenerating feedback. Please try again.';
+                document.getElementById('feedback-fault').value = '';
+                document.getElementById('feedback-fix').value = '';
             }
         } catch (error) {
             console.error('Error regenerating feedback:', error);
+            // Show error message in form
+            document.getElementById('feedback-symptom').value = 'Error regenerating feedback. Please try again.';
+            document.getElementById('feedback-fault').value = '';
+            document.getElementById('feedback-fix').value = '';
         }
         
         // Reset button states
