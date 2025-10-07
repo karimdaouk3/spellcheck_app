@@ -3127,7 +3127,8 @@ class CaseManager {
         // Show loading state immediately
         const submitBtn = document.getElementById('feedback-submit');
         submitBtn.disabled = true;
-        submitBtn.textContent = 'Generating feedback...';
+        submitBtn.textContent = 'Generating...';
+        submitBtn.classList.add('loading');
         
         // Clear form first
         document.getElementById('feedback-symptom').value = '';
@@ -3176,6 +3177,7 @@ class CaseManager {
         
         // Reset button state
         submitBtn.textContent = 'Submit Feedback';
+        submitBtn.classList.remove('loading');
         this.validateFeedbackForm();
     }
     
