@@ -187,6 +187,42 @@
         </div>
     </div>
 
+    <!-- Mandatory Feedback Popup for Closed Cases -->
+    <div id="feedback-popup" class="feedback-popup" style="display: none;">
+        <div class="feedback-overlay"></div>
+        <div class="feedback-content">
+            <div class="feedback-header">
+                <h3 id="feedback-title">Case Closed - Feedback Required</h3>
+                <div class="feedback-progress">
+                    <span id="feedback-progress-text">Case 1 of 1</span>
+                </div>
+            </div>
+            <div class="feedback-body">
+                <div class="feedback-case-info">
+                    <p><strong>Case Number:</strong> <span id="feedback-case-number">CASE-123</span></p>
+                    <p><strong>Closed Date:</strong> <span id="feedback-closed-date">January 15, 2024</span></p>
+                </div>
+                <div class="feedback-form">
+                    <div class="feedback-field">
+                        <label for="feedback-symptom">Symptom *</label>
+                        <textarea id="feedback-symptom" placeholder="Describe the symptoms or issues reported..." rows="4" required></textarea>
+                    </div>
+                    <div class="feedback-field">
+                        <label for="feedback-fault">Fault *</label>
+                        <textarea id="feedback-fault" placeholder="What was the root cause or fault identified?" rows="4" required></textarea>
+                    </div>
+                    <div class="feedback-field">
+                        <label for="feedback-fix">Fix *</label>
+                        <textarea id="feedback-fix" placeholder="What solution was implemented to resolve the issue?" rows="4" required></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="feedback-footer">
+                <button id="feedback-submit" class="feedback-btn feedback-btn-submit" disabled>Submit Feedback</button>
+            </div>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='js/editor.js') }}"></script>
 </body>
 </html>

@@ -209,6 +209,12 @@ MOCK_USER_CASE_DATA = {
     }
 }
 
+# Mock data for case feedback (in-memory storage)
+# Structure: { user_id: [ { case_number, closed_date, feedback: {symptom, fault, fix}, submitted_at } ] }
+MOCK_CASE_FEEDBACK = {
+    "0": []  # List of feedback entries for user 0
+}
+
 @app.route('/api/cases/validate/<case_number>', methods=['GET'])
 def validate_case_number(case_number):
     """
@@ -252,14 +258,21 @@ def get_user_cases():
     
     user_id = user_data.get('user_id')
     
-    # Mock: Return all valid cases that are not closed
+    # Mock: Return all valid cases (both open and closed) for testing
     # In real implementation, this would filter by user_id from database
-    open_cases = [case for case in MOCK_VALID_CASES if case not in MOCK_CLOSED_CASES]
+    all_cases = []
+    for case in MOCK_VALID_CASES:
+        case_data = {
+            "case_number": case,
+            "is_closed": case in MOCK_CLOSED_CASES,
+            "closed_date": "2024-01-15T10:30:00Z" if case in MOCK_CLOSED_CASES else None
+        }
+        all_cases.append(case_data)
     
     return jsonify({
         "user_id": user_id,
-        "cases": open_cases,
-        "count": len(open_cases)
+        "cases": all_cases,
+        "count": len(all_cases)
     })
 
 @app.route('/api/cases/status', methods=['POST'])
@@ -1625,6 +1638,67 @@ def speech_to_text():
     except Exception as e:
         print(f"Error during transcription: {e}")
         return jsonify({"error": str(e)}), 500
+
+@app.route('/api/cases/feedback', methods=['POST'])
+def submit_case_feedback():
+    """
+    Mock endpoint to submit feedback for a closed case.
+    Stores feedback data including symptom, fault, and fix.
+    
+    TODO: Replace with actual database insert
+    """
+    user_data = session.get('user_data')
+    if not user_data:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    user_id = str(user_data.get('user_id', '0'))
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    # Validate required fields
+    required_fields = ['case_number', 'feedback']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({"error": f"Missing required field: {field}"}), 400
+    
+    feedback = data.get('feedback', {})
+    feedback_required = ['symptom', 'fault', 'fix']
+    for field in feedback_required:
+        if field not in feedback or not feedback[field].strip():
+            return jsonify({"error": f"Missing or empty feedback field: {field}"}), 400
+    
+    # Initialize user's feedback list if doesn't exist
+    if user_id not in MOCK_CASE_FEEDBACK:
+        MOCK_CASE_FEEDBACK[user_id] = []
+    
+    # Create feedback entry
+    feedback_entry = {
+        "case_number": data.get('case_number'),
+        "closed_date": data.get('closed_date'),
+        "feedback": {
+            "symptom": feedback.get('symptom', '').strip(),
+            "fault": feedback.get('fault', '').strip(),
+            "fix": feedback.get('fix', '').strip()
+        },
+        "submitted_at": data.get('submitted_at', datetime.utcnow().isoformat() + 'Z')
+    }
+    
+    # Store feedback
+    MOCK_CASE_FEEDBACK[user_id].append(feedback_entry)
+    
+    print(f"📝 Feedback submitted for case {feedback_entry['case_number']} by user {user_id}")
+    print(f"   Symptom: {feedback_entry['feedback']['symptom'][:50]}...")
+    print(f"   Fault: {feedback_entry['feedback']['fault'][:50]}...")
+    print(f"   Fix: {feedback_entry['feedback']['fix'][:50]}...")
+    
+    return jsonify({
+        "success": True,
+        "message": "Feedback submitted successfully",
+        "case_number": feedback_entry['case_number'],
+        "submitted_at": feedback_entry['submitted_at']
+    })
 
 if __name__ == "__main__":
     print("Starting LanguageTool Flask App...")

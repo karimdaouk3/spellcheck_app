@@ -2411,6 +2411,10 @@ class CaseManager {
         this.setupEventListeners();
         this.renderCasesList();
         this.startAutoSave();
+        
+        // Check for closed cases that need feedback
+        await this.checkForClosedCases();
+        
         console.log('✅ CaseManager initialization complete');
     }
     
@@ -3031,5 +3035,196 @@ class CaseManager {
                 this.saveCurrentCaseData();
             }
         }, 30000); // Auto-save every 30 seconds
+    }
+    
+    // Check for closed cases that need feedback
+    async checkForClosedCases() {
+        if (this.userId === null || this.userId === undefined) {
+            console.log('No user ID available, skipping closed case check');
+            return;
+        }
+        
+        try {
+            // Get list of user's cases
+            const response = await fetch('/api/cases/user-cases');
+            if (!response.ok) {
+                console.log('Could not fetch user cases for closed case check');
+                return;
+            }
+            
+            const userCases = await response.json();
+            const closedCases = userCases.filter(caseData => caseData.is_closed);
+            
+            if (closedCases.length === 0) {
+                console.log('No closed cases found');
+                return;
+            }
+            
+            // Check which closed cases still need feedback
+            const casesNeedingFeedback = [];
+            for (const caseData of closedCases) {
+                const feedbackProvided = localStorage.getItem(`feedback-provided-${caseData.case_number}`);
+                if (!feedbackProvided) {
+                    casesNeedingFeedback.push(caseData);
+                }
+            }
+            
+            if (casesNeedingFeedback.length > 0) {
+                console.log(`Found ${casesNeedingFeedback.length} closed cases needing feedback`);
+                this.showFeedbackPopup(casesNeedingFeedback);
+            }
+            
+        } catch (error) {
+            console.error('Error checking for closed cases:', error);
+        }
+    }
+    
+    // Show feedback popup for closed cases
+    showFeedbackPopup(closedCases) {
+        this.pendingFeedbackCases = [...closedCases];
+        this.currentFeedbackIndex = 0;
+        
+        // Disable all page interactions
+        document.body.style.overflow = 'hidden';
+        document.body.style.pointerEvents = 'none';
+        
+        // Show the feedback popup
+        const feedbackPopup = document.getElementById('feedback-popup');
+        feedbackPopup.style.display = 'flex';
+        feedbackPopup.style.pointerEvents = 'auto';
+        
+        this.updateFeedbackForm();
+        this.setupFeedbackEventListeners();
+    }
+    
+    // Update feedback form with current case data
+    updateFeedbackForm() {
+        const currentCase = this.pendingFeedbackCases[this.currentFeedbackIndex];
+        const progressText = document.getElementById('feedback-progress-text');
+        const caseNumberSpan = document.getElementById('feedback-case-number');
+        const closedDateSpan = document.getElementById('feedback-closed-date');
+        
+        progressText.textContent = `Case ${this.currentFeedbackIndex + 1} of ${this.pendingFeedbackCases.length}`;
+        caseNumberSpan.textContent = currentCase.case_number;
+        closedDateSpan.textContent = new Date(currentCase.closed_date || new Date()).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+        
+        // Clear form
+        document.getElementById('feedback-symptom').value = '';
+        document.getElementById('feedback-fault').value = '';
+        document.getElementById('feedback-fix').value = '';
+        
+        this.validateFeedbackForm();
+    }
+    
+    // Setup event listeners for feedback form
+    setupFeedbackEventListeners() {
+        const symptomField = document.getElementById('feedback-symptom');
+        const faultField = document.getElementById('feedback-fault');
+        const fixField = document.getElementById('feedback-fix');
+        const submitBtn = document.getElementById('feedback-submit');
+        
+        // Remove existing listeners
+        symptomField.removeEventListener('input', this.validateFeedbackForm);
+        faultField.removeEventListener('input', this.validateFeedbackForm);
+        fixField.removeEventListener('input', this.validateFeedbackForm);
+        submitBtn.removeEventListener('click', this.submitFeedback);
+        
+        // Add new listeners
+        this.validateFeedbackForm = this.validateFeedbackForm.bind(this);
+        this.submitFeedback = this.submitFeedback.bind(this);
+        
+        symptomField.addEventListener('input', this.validateFeedbackForm);
+        faultField.addEventListener('input', this.validateFeedbackForm);
+        fixField.addEventListener('input', this.validateFeedbackForm);
+        submitBtn.addEventListener('click', this.submitFeedback);
+        
+        // Prevent form submission via Enter key
+        const form = document.querySelector('.feedback-form');
+        form.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+            }
+        });
+    }
+    
+    // Validate feedback form
+    validateFeedbackForm() {
+        const symptom = document.getElementById('feedback-symptom').value.trim();
+        const fault = document.getElementById('feedback-fault').value.trim();
+        const fix = document.getElementById('feedback-fix').value.trim();
+        const submitBtn = document.getElementById('feedback-submit');
+        
+        const isValid = symptom.length > 0 && fault.length > 0 && fix.length > 0;
+        submitBtn.disabled = !isValid;
+    }
+    
+    // Submit feedback for current case
+    async submitFeedback() {
+        const currentCase = this.pendingFeedbackCases[this.currentFeedbackIndex];
+        const symptom = document.getElementById('feedback-symptom').value.trim();
+        const fault = document.getElementById('feedback-fault').value.trim();
+        const fix = document.getElementById('feedback-fix').value.trim();
+        
+        const feedbackData = {
+            case_number: currentCase.case_number,
+            closed_date: currentCase.closed_date,
+            feedback: {
+                symptom: symptom,
+                fault: fault,
+                fix: fix
+            },
+            submitted_at: new Date().toISOString()
+        };
+        
+        try {
+            // Submit to backend
+            const response = await fetch('/api/cases/feedback', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(feedbackData)
+            });
+            
+            if (response.ok) {
+                console.log(`Feedback submitted for case ${currentCase.case_number}`);
+                
+                // Mark as feedback provided
+                localStorage.setItem(`feedback-provided-${currentCase.case_number}`, 'true');
+                
+                // Move to next case or close popup
+                this.currentFeedbackIndex++;
+                if (this.currentFeedbackIndex < this.pendingFeedbackCases.length) {
+                    this.updateFeedbackForm();
+                } else {
+                    this.closeFeedbackPopup();
+                }
+            } else {
+                console.error('Failed to submit feedback');
+                alert('Failed to submit feedback. Please try again.');
+            }
+            
+        } catch (error) {
+            console.error('Error submitting feedback:', error);
+            alert('Error submitting feedback. Please try again.');
+        }
+    }
+    
+    // Close feedback popup
+    closeFeedbackPopup() {
+        const feedbackPopup = document.getElementById('feedback-popup');
+        feedbackPopup.style.display = 'none';
+        
+        // Re-enable page interactions
+        document.body.style.overflow = '';
+        document.body.style.pointerEvents = '';
+        
+        // Clean up
+        this.pendingFeedbackCases = [];
+        this.currentFeedbackIndex = 0;
     }
 }
