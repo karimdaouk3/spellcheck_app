@@ -530,14 +530,15 @@ body {
     font-family: 'Open Sans', sans-serif;
 }
 
-/* Left wiki button, styled like feedback */
+/* Video button on the right, styled like feedback */
 .wiki-section {
     position: absolute;
     top: 50%;
-    left: 12px;
+    right: 100px; /* Position to the right of feedback button */
     transform: translateY(-50%);
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 10px;
     background: none;
     border: 1px solid rgba(255, 255, 255, 1);
@@ -1167,8 +1168,8 @@ body {
     /* Ensure title stays centered */
     .top-bar-content {
         justify-content: center;
-        padding-right: 60px; /* Reduced space for icon-only buttons */
-        padding-left: 60px; /* Add left padding to balance */
+        padding-right: 120px; /* More space for two buttons on the right */
+        padding-left: 20px; /* Less padding on the left since no button there */
     }
  
     .top-bar-content {
@@ -1243,13 +1244,13 @@ body {
     }
  
     .wiki-section {
-        left: 8px;
+        right: 60px; /* Position to the right of feedback button on mobile */
         padding: 6px;
     }
  
     .top-bar-content {
-        padding-right: 50px; /* Space for icon-only buttons */
-        padding-left: 50px;
+        padding-right: 110px; /* Space for two buttons on the right */
+        padding-left: 10px; /* Minimal padding on left */
     }
 }
  
