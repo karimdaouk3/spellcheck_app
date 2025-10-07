@@ -1709,7 +1709,7 @@ def submit_case_feedback():
 def generate_case_feedback():
     """
     Generate LLM-based feedback for a closed case using case information.
-    Uses the same LLM as the rest of the application.
+    Uses direct LLM call with the same configuration as the rest of the application.
     """
     user_data = session.get('user_data')
     if not user_data:
@@ -1742,7 +1742,7 @@ FSR Notes: {mock_fsr_notes}
 Last Updated: {case_data.get('updatedAt', '')}
 """
         
-        # Use the same LLM endpoint as the rest of the application
+        # Create LLM prompt
         llm_prompt = f"""
 Based on the following closed case information, generate a structured feedback response with three components:
 
@@ -1762,61 +1762,65 @@ FIX: [solution implemented]
 Be specific and technical, drawing from the case information provided.
 """
         
-        # Call the existing LLM endpoint
-        llm_response = requests.post('http://127.0.0.1:8055/llm', json={
-            'messages': [
-                {
-                    'role': 'user',
-                    'content': llm_prompt
-                }
-            ],
-            'model': 'Phi-4-multimodal-instruct',
-            'max_completion_tokens': 512,
-            'temperature': 0.1
-        })
-        
-        if llm_response.status_code == 200:
-            llm_data = llm_response.json()
-            generated_content = llm_data.get('response', '')
-            
-            # Parse the LLM response to extract symptom, fault, fix
-            lines = generated_content.split('\n')
-            symptom = ""
-            fault = ""
-            fix = ""
-            
-            current_section = None
-            for line in lines:
-                line = line.strip()
-                if line.startswith('SYMPTOM:'):
-                    current_section = 'symptom'
-                    symptom = line.replace('SYMPTOM:', '').strip()
-                elif line.startswith('FAULT:'):
-                    current_section = 'fault'
-                    fault = line.replace('FAULT:', '').strip()
-                elif line.startswith('FIX:'):
-                    current_section = 'fix'
-                    fix = line.replace('FIX:', '').strip()
-                elif current_section and line:
-                    # Continue adding to current section
-                    if current_section == 'symptom':
-                        symptom += ' ' + line
-                    elif current_section == 'fault':
-                        fault += ' ' + line
-                    elif current_section == 'fix':
-                        fix += ' ' + line
-            
-            return jsonify({
-                "success": True,
-                "case_number": case_number,
-                "generated_feedback": {
-                    "symptom": symptom.strip(),
-                    "fault": fault.strip(),
-                    "fix": fix.strip()
-                }
-            })
+        # Direct LLM call using the same configuration as the main app
+        model_kwargs = {
+            "model": ACTIVE_MODEL_CONFIG["model"],
+            "api_base": ACTIVE_MODEL_CONFIG["api_base"],
+            "custom_llm_provider": ACTIVE_MODEL_CONFIG["provider"],
+            "temperature": 0.1,
+        }
+        if ACTIVE_MODEL_CONFIG["use_token_provider"]:
+            model_kwargs["azure_ad_token_provider"] = ACTIVE_MODEL_CONFIG["token_provider"]
+            model_kwargs["api_version"] = ACTIVE_MODEL_CONFIG["api_version"]
         else:
-            return jsonify({"error": "Failed to generate feedback"}), 500
+            model_kwargs["api_key"] = ACTIVE_MODEL_CONFIG["api_key"]
+        
+        # Call LLM directly
+        response = litellm.completion(
+            messages=[
+                {"role": "user", "content": llm_prompt}
+            ],
+            **model_kwargs
+        )
+        
+        generated_content = response.choices[0].message.content
+        
+        # Parse the LLM response to extract symptom, fault, fix
+        lines = generated_content.split('\n')
+        symptom = ""
+        fault = ""
+        fix = ""
+        
+        current_section = None
+        for line in lines:
+            line = line.strip()
+            if line.startswith('SYMPTOM:'):
+                current_section = 'symptom'
+                symptom = line.replace('SYMPTOM:', '').strip()
+            elif line.startswith('FAULT:'):
+                current_section = 'fault'
+                fault = line.replace('FAULT:', '').strip()
+            elif line.startswith('FIX:'):
+                current_section = 'fix'
+                fix = line.replace('FIX:', '').strip()
+            elif current_section and line:
+                # Continue adding to current section
+                if current_section == 'symptom':
+                    symptom += ' ' + line
+                elif current_section == 'fault':
+                    fault += ' ' + line
+                elif current_section == 'fix':
+                    fix += ' ' + line
+        
+        return jsonify({
+            "success": True,
+            "case_number": case_number,
+            "generated_feedback": {
+                "symptom": symptom.strip(),
+                "fault": fault.strip(),
+                "fix": fix.strip()
+            }
+        })
             
     except Exception as e:
         print(f"Error generating feedback: {e}")

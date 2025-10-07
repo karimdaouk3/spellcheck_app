@@ -3126,11 +3126,8 @@ class CaseManager {
         
         // Show loading state immediately
         const submitBtn = document.getElementById('feedback-submit');
-        const regenerateBtn = document.getElementById('feedback-regenerate');
         submitBtn.disabled = true;
-        regenerateBtn.disabled = true;
         submitBtn.textContent = 'Generating feedback...';
-        regenerateBtn.textContent = 'Generating...';
         
         // Clear form first
         document.getElementById('feedback-symptom').value = '';
@@ -3177,10 +3174,8 @@ class CaseManager {
             document.getElementById('feedback-fix').value = '';
         }
         
-        // Reset button states
+        // Reset button state
         submitBtn.textContent = 'Submit Feedback';
-        regenerateBtn.textContent = 'Regenerate';
-        regenerateBtn.disabled = false;
         this.validateFeedbackForm();
     }
     
@@ -3190,25 +3185,20 @@ class CaseManager {
         const faultField = document.getElementById('feedback-fault');
         const fixField = document.getElementById('feedback-fix');
         const submitBtn = document.getElementById('feedback-submit');
-        const regenerateBtn = document.getElementById('feedback-regenerate');
-        
         // Remove existing listeners
         symptomField.removeEventListener('input', this.validateFeedbackForm);
         faultField.removeEventListener('input', this.validateFeedbackForm);
         fixField.removeEventListener('input', this.validateFeedbackForm);
         submitBtn.removeEventListener('click', this.submitFeedback);
-        regenerateBtn.removeEventListener('click', this.regenerateFeedback);
         
         // Add new listeners
         this.validateFeedbackForm = this.validateFeedbackForm.bind(this);
         this.submitFeedback = this.submitFeedback.bind(this);
-        this.regenerateFeedback = this.regenerateFeedback.bind(this);
         
         symptomField.addEventListener('input', this.validateFeedbackForm);
         faultField.addEventListener('input', this.validateFeedbackForm);
         fixField.addEventListener('input', this.validateFeedbackForm);
         submitBtn.addEventListener('click', this.submitFeedback);
-        regenerateBtn.addEventListener('click', this.regenerateFeedback);
         
         // Prevent form submission via Enter key
         const form = document.querySelector('.feedback-form');
@@ -3280,63 +3270,6 @@ class CaseManager {
             console.error('Error submitting feedback:', error);
             alert('Error submitting feedback. Please try again.');
         }
-    }
-    
-    // Regenerate feedback using LLM
-    async regenerateFeedback() {
-        const currentCase = this.pendingFeedbackCases[this.currentFeedbackIndex];
-        const submitBtn = document.getElementById('feedback-submit');
-        const regenerateBtn = document.getElementById('feedback-regenerate');
-        
-        // Show loading state
-        submitBtn.disabled = true;
-        regenerateBtn.disabled = true;
-        regenerateBtn.textContent = 'Generating...';
-        
-        try {
-            console.log('🔄 Regenerating LLM feedback for case:', currentCase.case_number);
-            
-            // Generate new LLM feedback
-            const response = await fetch('/api/cases/generate-feedback', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    case_number: currentCase.case_number
-                })
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                const generatedFeedback = data.generated_feedback;
-                
-                // Populate form with new generated content
-                document.getElementById('feedback-symptom').value = generatedFeedback.symptom || '';
-                document.getElementById('feedback-fault').value = generatedFeedback.fault || '';
-                document.getElementById('feedback-fix').value = generatedFeedback.fix || '';
-                
-                console.log('✅ Regenerated feedback for case:', currentCase.case_number);
-                console.log('📝 New generated content:', generatedFeedback);
-            } else {
-                console.error('Failed to regenerate feedback');
-                // Show error message in form
-                document.getElementById('feedback-symptom').value = 'Error regenerating feedback. Please try again.';
-                document.getElementById('feedback-fault').value = '';
-                document.getElementById('feedback-fix').value = '';
-            }
-        } catch (error) {
-            console.error('Error regenerating feedback:', error);
-            // Show error message in form
-            document.getElementById('feedback-symptom').value = 'Error regenerating feedback. Please try again.';
-            document.getElementById('feedback-fault').value = '';
-            document.getElementById('feedback-fix').value = '';
-        }
-        
-        // Reset button states
-        regenerateBtn.disabled = false;
-        regenerateBtn.textContent = 'Regenerate';
-        this.validateFeedbackForm();
     }
     
     // Close feedback popup

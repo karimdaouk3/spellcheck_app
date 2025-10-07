@@ -1062,17 +1062,6 @@ body {
     box-shadow: none;
 }
 
-.feedback-btn-regenerate {
-    background: #6c757d;
-    color: white;
-    border: 1px solid #5a6268;
-}
-
-.feedback-btn-regenerate:hover {
-    background: #5a6268;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
-}
 
 /* Mobile responsive feedback popup */
 @media (max-width: 600px) {
