@@ -3052,8 +3052,12 @@ class CaseManager {
                 return;
             }
             
-            const userCases = await response.json();
+            const responseData = await response.json();
+            console.log('🔍 Response data:', responseData);
+            const userCases = responseData.cases || [];
+            console.log('📋 User cases:', userCases);
             const closedCases = userCases.filter(caseData => caseData.is_closed);
+            console.log('🔒 Closed cases found:', closedCases);
             
             if (closedCases.length === 0) {
                 console.log('No closed cases found');
@@ -3064,14 +3068,19 @@ class CaseManager {
             const casesNeedingFeedback = [];
             for (const caseData of closedCases) {
                 const feedbackProvided = localStorage.getItem(`feedback-provided-${caseData.case_number}`);
+                console.log(`🔍 Checking feedback for case ${caseData.case_number}:`, feedbackProvided ? 'Already provided' : 'Needs feedback');
                 if (!feedbackProvided) {
                     casesNeedingFeedback.push(caseData);
                 }
             }
             
+            console.log(`📝 Cases needing feedback:`, casesNeedingFeedback);
+            
             if (casesNeedingFeedback.length > 0) {
                 console.log(`Found ${casesNeedingFeedback.length} closed cases needing feedback`);
                 this.showFeedbackPopup(casesNeedingFeedback);
+            } else {
+                console.log('All closed cases already have feedback provided');
             }
             
         } catch (error) {
