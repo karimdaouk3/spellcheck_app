@@ -2679,12 +2679,12 @@ class CaseManager {
     }
     
     async createNewCase() {
-        // Prompt user for case number
-        const caseNumber = prompt('Enter case number:');
+        // Prompt user for case number using custom popup
+        const caseNumber = await this.showCustomPrompt('Enter Case Number', 'Please enter the case number:');
         
         // Validate input
         if (!caseNumber || caseNumber.trim() === '') {
-            alert('Case number is required.');
+            await this.showCustomAlert('Error', 'Case number is required.');
             return;
         }
         
@@ -2693,7 +2693,7 @@ class CaseManager {
         // Check if case number already exists locally
         const existingCase = this.cases.find(c => c.caseNumber === trimmedCaseNumber);
         if (existingCase) {
-            alert('This case number already exists in your list.');
+            await this.showCustomAlert('Case Already Exists', 'This case number already exists in your list.');
             // Switch to existing case
             this.switchToCase(existingCase.id);
             return;
@@ -2708,9 +2708,9 @@ class CaseManager {
             
             if (!response.ok || !data.valid) {
                 // Case doesn't exist in database - show confirmation popup
-                const confirmed = confirm(
-                    `Case number '${trimmedCaseNumber}' does not exist in the database.\n\n` +
-                    `Are you sure you want to create this case? It will not be tracked in the system.`
+                const confirmed = await this.showCustomConfirm(
+                    'Case Not Found in Database',
+                    `Case number '${trimmedCaseNumber}' does not exist in the database.\n\nAre you sure you want to create this case? It will not be tracked in the system.`
                 );
                 
                 if (!confirmed) {
@@ -2719,7 +2719,7 @@ class CaseManager {
                 
                 isTrackedInDatabase = false;
             } else if (data.is_closed) {
-                alert(`Case '${trimmedCaseNumber}' is closed and cannot be added.`);
+                await this.showCustomAlert('Case Closed', `Case '${trimmedCaseNumber}' is closed and cannot be added.`);
                 return;
             }
             
@@ -2746,7 +2746,7 @@ class CaseManager {
             }
         } catch (error) {
             console.error('Error validating case number:', error);
-            alert('Error validating case number. Please try again.');
+            await this.showCustomAlert('Error', 'Error validating case number. Please try again.');
         }
     }
     
@@ -2855,6 +2855,172 @@ class CaseManager {
             month: 'short',
             day: 'numeric',
             year: 'numeric'
+        });
+    }
+    
+    // Custom popup functions
+    showCustomAlert(title, message) {
+        return new Promise((resolve) => {
+            const popup = document.getElementById('custom-popup');
+            const popupTitle = document.getElementById('popup-title');
+            const popupMessage = document.getElementById('popup-message');
+            const popupCancel = document.getElementById('popup-cancel');
+            const popupConfirm = document.getElementById('popup-confirm');
+            const popupClose = document.getElementById('popup-close');
+            
+            popupTitle.textContent = title;
+            popupMessage.textContent = message;
+            
+            // Hide cancel button for alert
+            popupCancel.style.display = 'none';
+            popupConfirm.textContent = 'OK';
+            
+            popup.style.display = 'flex';
+            
+            const cleanup = () => {
+                popup.style.display = 'none';
+                popupCancel.style.display = 'inline-block';
+                popupConfirm.textContent = 'Confirm';
+                popupConfirm.removeEventListener('click', handleConfirm);
+                popupClose.removeEventListener('click', handleClose);
+                popupCancel.removeEventListener('click', handleCancel);
+            };
+            
+            const handleConfirm = () => {
+                cleanup();
+                resolve(true);
+            };
+            
+            const handleClose = () => {
+                cleanup();
+                resolve(true);
+            };
+            
+            const handleCancel = () => {
+                cleanup();
+                resolve(false);
+            };
+            
+            popupConfirm.addEventListener('click', handleConfirm);
+            popupClose.addEventListener('click', handleClose);
+            popupCancel.addEventListener('click', handleCancel);
+        });
+    }
+    
+    showCustomConfirm(title, message) {
+        return new Promise((resolve) => {
+            const popup = document.getElementById('custom-popup');
+            const popupTitle = document.getElementById('popup-title');
+            const popupMessage = document.getElementById('popup-message');
+            const popupCancel = document.getElementById('popup-cancel');
+            const popupConfirm = document.getElementById('popup-confirm');
+            const popupClose = document.getElementById('popup-close');
+            
+            popupTitle.textContent = title;
+            popupMessage.textContent = message;
+            
+            // Show both buttons for confirm
+            popupCancel.style.display = 'inline-block';
+            popupConfirm.textContent = 'Confirm';
+            
+            popup.style.display = 'flex';
+            
+            const cleanup = () => {
+                popup.style.display = 'none';
+                popupConfirm.removeEventListener('click', handleConfirm);
+                popupClose.removeEventListener('click', handleClose);
+                popupCancel.removeEventListener('click', handleCancel);
+            };
+            
+            const handleConfirm = () => {
+                cleanup();
+                resolve(true);
+            };
+            
+            const handleClose = () => {
+                cleanup();
+                resolve(false);
+            };
+            
+            const handleCancel = () => {
+                cleanup();
+                resolve(false);
+            };
+            
+            popupConfirm.addEventListener('click', handleConfirm);
+            popupClose.addEventListener('click', handleClose);
+            popupCancel.addEventListener('click', handleCancel);
+        });
+    }
+    
+    showCustomPrompt(title, message) {
+        return new Promise((resolve) => {
+            const popup = document.getElementById('custom-popup');
+            const popupTitle = document.getElementById('popup-title');
+            const popupMessage = document.getElementById('popup-message');
+            const popupCancel = document.getElementById('popup-cancel');
+            const popupConfirm = document.getElementById('popup-confirm');
+            const popupClose = document.getElementById('popup-close');
+            
+            popupTitle.textContent = title;
+            
+            // Create input field
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.placeholder = 'Enter case number...';
+            input.style.cssText = 'width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1em; margin-top: 10px;';
+            
+            // Replace message with input
+            popupMessage.innerHTML = '';
+            popupMessage.appendChild(document.createTextNode(message));
+            popupMessage.appendChild(input);
+            
+            // Show both buttons for prompt
+            popupCancel.style.display = 'inline-block';
+            popupConfirm.textContent = 'OK';
+            
+            popup.style.display = 'flex';
+            
+            // Focus input
+            setTimeout(() => input.focus(), 100);
+            
+            const cleanup = () => {
+                popup.style.display = 'none';
+                popupMessage.innerHTML = '<p></p>';
+                popupConfirm.removeEventListener('click', handleConfirm);
+                popupClose.removeEventListener('click', handleClose);
+                popupCancel.removeEventListener('click', handleCancel);
+                input.removeEventListener('keydown', handleKeydown);
+            };
+            
+            const handleConfirm = () => {
+                const value = input.value.trim();
+                cleanup();
+                resolve(value);
+            };
+            
+            const handleClose = () => {
+                cleanup();
+                resolve(null);
+            };
+            
+            const handleCancel = () => {
+                cleanup();
+                resolve(null);
+            };
+            
+            const handleKeydown = (e) => {
+                if (e.key === 'Enter') {
+                    handleConfirm();
+                } else if (e.key === 'Escape') {
+                    handleCancel();
+                }
+            };
+            
+            popupConfirm.addEventListener('click', handleConfirm);
+            popupClose.addEventListener('click', handleClose);
+            popupCancel.addEventListener('click', handleCancel);
+            input.addEventListener('keydown', handleKeydown);
         });
     }
     

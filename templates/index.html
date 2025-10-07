@@ -169,6 +169,24 @@
             <button id="rewrite-feedback-submit" style="background:#41007F; color:#fff; border:none; padding:6px 10px; border-radius:6px; cursor:pointer;">Submit</button>
         </div>
     </div>
+    <!-- Custom Popup Modal -->
+    <div id="custom-popup" class="custom-popup" style="display: none;">
+        <div class="popup-overlay"></div>
+        <div class="popup-content">
+            <div class="popup-header">
+                <h3 id="popup-title">Confirm Action</h3>
+                <button id="popup-close" class="popup-close">×</button>
+            </div>
+            <div class="popup-body">
+                <p id="popup-message">Are you sure you want to proceed?</p>
+            </div>
+            <div class="popup-footer">
+                <button id="popup-cancel" class="popup-btn popup-btn-cancel">Cancel</button>
+                <button id="popup-confirm" class="popup-btn popup-btn-confirm">Confirm</button>
+            </div>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='js/editor.js') }}"></script>
 </body>
 </html>
