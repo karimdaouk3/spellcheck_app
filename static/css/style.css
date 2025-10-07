@@ -515,10 +515,11 @@ body {
 .feedback-section {
     position: absolute;
     top: 50%;
-    right: 60px; /* Position to the left of video button */
+    right: 70px; /* Position to the left of video button with margin */
     transform: translateY(-50%);
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 12px;
     background: none;
     border: 1px solid rgba(255, 255, 255, 1);
@@ -939,6 +940,21 @@ body {
 /* Remove old floating/collapsible history panel and open button */
 .history-panel, .open-history-btn, .toggle-history {
     display: none !important;
+}
+/* Fix button overlap for medium screens */
+@media (max-width: 950px) and (min-width: 650px) {
+    .feedback-section {
+        right: 70px; /* Keep spacing from video button */
+    }
+    
+    .wiki-section {
+        right: 12px;
+    }
+    
+    .top-bar-content {
+        padding-right: 90px; /* Space for two icon-only buttons */
+        padding-left: 20px;
+    }
 }
  
 /* Mobile adjustments */
