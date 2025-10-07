@@ -2646,6 +2646,12 @@ class CaseManager {
             return;
         }
         
+        // Skip saving untracked cases to backend
+        if (caseData.isTrackedInDatabase === false) {
+            console.log(`Skipping backend save for untracked case ${caseData.caseNumber}`);
+            return;
+        }
+        
         try {
             const response = await fetch(`/api/cases/data/${encodeURIComponent(caseData.caseNumber)}`, {
                 method: 'PUT',
@@ -2698,25 +2704,34 @@ class CaseManager {
             const response = await fetch(`/api/cases/validate/${encodeURIComponent(trimmedCaseNumber)}`);
             const data = await response.json();
             
-            if (!response.ok || !data.valid) {
-                alert(data.message || `Case number '${trimmedCaseNumber}' does not exist in the system.`);
-                return;
-            }
+            let isTrackedInDatabase = true;
             
-            // Check if case is closed
-            if (data.is_closed) {
+            if (!response.ok || !data.valid) {
+                // Case doesn't exist in database - show confirmation popup
+                const confirmed = confirm(
+                    `Case number '${trimmedCaseNumber}' does not exist in the database.\n\n` +
+                    `Are you sure you want to create this case? It will not be tracked in the system.`
+                );
+                
+                if (!confirmed) {
+                    return;
+                }
+                
+                isTrackedInDatabase = false;
+            } else if (data.is_closed) {
                 alert(`Case '${trimmedCaseNumber}' is closed and cannot be added.`);
                 return;
             }
             
-            // Case is valid and open, create it
+            // Create the case (either tracked or untracked)
             const newCase = {
                 id: Date.now(),
                 caseNumber: trimmedCaseNumber,
                 problemStatement: '',
                 fsrNotes: '',
                 createdAt: new Date(),
-                updatedAt: new Date()
+                updatedAt: new Date(),
+                isTrackedInDatabase: isTrackedInDatabase
             };
             
             this.cases.unshift(newCase); // Add to beginning
@@ -2798,11 +2813,17 @@ class CaseManager {
         this.cases.forEach(caseData => {
             const caseItem = document.createElement('div');
             caseItem.className = `case-item ${this.currentCase && this.currentCase.id === caseData.id ? 'active' : ''}`;
+            
+            // Add visual indicator for untracked cases
+            const untrackedIndicator = caseData.isTrackedInDatabase === false ? 
+                '<div class="untracked-indicator" title="Not tracked in database">⚠️</div>' : '';
+            
             caseItem.innerHTML = `
                 <div>
                     <div class="case-number">${caseData.caseNumber}</div>
                     <div class="case-date">${this.formatDate(caseData.updatedAt)}</div>
                 </div>
+                ${untrackedIndicator}
             `;
             
             caseItem.addEventListener('click', () => {
