@@ -19,100 +19,82 @@ class LanguageToolEditor {
             // Update scores after rulesets are loaded
             this.updateEditorLabelsWithScore();
         });
+ 
+        // Debug flag for DB interactions
+        if (typeof window.FSR_DEBUG === 'undefined') {
+            window.FSR_DEBUG = true; // set to false to silence
+        }
         
-        // Preload criteria to avoid database queries during app usage
-        this.preloadCriteria();
-    }
-    
-    // Preload criteria to cache them and avoid database queries during app usage
-    async preloadCriteria() {
-        try {
-            console.log('🔄 Preloading criteria to cache...');
-            const response = await fetch('/api/criteria/preload', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                console.log('✅ Criteria preloaded successfully:', data);
-            } else {
-                console.warn('⚠️ Failed to preload criteria, will load on-demand');
+        // Criteria cache to avoid repeated database queries
+        this.criteriaCache = {
+            problem_statement: null,
+            fsr: null,
+            cacheTimestamp: null,
+            cacheExpiry: 30 * 60 * 1000 // 30 minutes in milliseconds
+        };
+ 
+        // Log user session info early
+        this.debugFetchUser('init');
+        this.fields = {
+            editor: {
+                editor: document.getElementById('editor'),
+                micBtn: document.getElementById('mic-btn'),
+                submitBtn: document.getElementById('llm-submit'),
+                copyBtn: document.getElementById('copy-btn'),
+                highlightOverlay: null,
+                ignoredSuggestions: new Set(),
+                currentSuggestions: [],
+                awaitingCheck: false,
+                overlayHidden: false,
+                llmInProgress: false,
+                history: [],
+                llmQuestions: [],
+                llmAnswers: {},
+                llmLastResult: null
+            },
+            editor2: {
+                editor: document.getElementById('editor2'),
+                micBtn: document.getElementById('mic-btn-2'),
+                submitBtn: document.getElementById('llm-submit-2'),
+                copyBtn: document.getElementById('copy-btn-2'),
+                highlightOverlay: null,
+                ignoredSuggestions: new Set(),
+                currentSuggestions: [],
+                awaitingCheck: false,
+                overlayHidden: false,
+                llmInProgress: false,
+                history: [],
+                llmQuestions: [],
+                llmAnswers: {},
+                llmLastResult: null
             }
-        } catch (error) {
-            console.warn('⚠️ Error preloading criteria:', error);
-        }
-    }
-    
-    // Debug flag for DB interactions
-    if (typeof window.FSR_DEBUG === 'undefined') {
-        window.FSR_DEBUG = true; // set to false to silence
-    }
-    
-    // Log user session info early
-    this.debugFetchUser('init');
-    this.fields = {
-        editor: {
-            editor: document.getElementById('editor'),
-            micBtn: document.getElementById('mic-btn'),
-            submitBtn: document.getElementById('llm-submit'),
-            copyBtn: document.getElementById('copy-btn'),
-            highlightOverlay: null,
-            ignoredSuggestions: new Set(),
-            currentSuggestions: [],
-            awaitingCheck: false,
-            overlayHidden: false,
-            llmInProgress: false,
-            history: [],
-            llmQuestions: [],
-            llmAnswers: {},
-            llmLastResult: null
-        },
-        editor2: {
-            editor: document.getElementById('editor2'),
-            micBtn: document.getElementById('mic-btn-2'),
-            submitBtn: document.getElementById('llm-submit-2'),
-            copyBtn: document.getElementById('copy-btn-2'),
-            highlightOverlay: null,
-            ignoredSuggestions: new Set(),
-            currentSuggestions: [],
-            awaitingCheck: false,
-            overlayHidden: false,
-            llmInProgress: false,
-            history: [],
-            llmQuestions: [],
-            llmAnswers: {},
-            llmLastResult: null
-        }
-    };
-    this.historyPanel = document.getElementById('history-panel');
-    this.historyList = document.getElementById('history-list');
-    this.toggleHistoryBtn = document.getElementById('toggle-history');
-    this.openHistoryBtn = document.getElementById('open-history-btn');
-    this.historyMenuIcon = document.getElementById('history-menu-icon');
-    this.historyCloseIcon = document.getElementById('history-close-icon');
-    this.popup = document.getElementById('popup');
-    
-    // App session id for backend correlation
-    // Use sessionStorage for unique session per tab, localStorage for shared session across tabs
-    this.appSessionId = (() => {
-        try {
-            // Check if we want unique sessions per tab (default: true)
-            const useUniqueSessions = true; // Set to false to use shared sessions across tabs
-            
-            if (useUniqueSessions) {
-                // Generate unique session per tab
-                const fresh = this.generateUUIDv4();
-                sessionStorage.setItem('app_session_id', fresh);
-                return fresh;
-            } else {
-                // Use shared session across tabs (original behavior)
-                const existing = localStorage.getItem('app_session_id');
-                if (existing) return existing;
-                const fresh = this.generateUUIDv4();
-                localStorage.setItem('app_session_id', fresh);
+        };
+        this.historyPanel = document.getElementById('history-panel');
+        this.historyList = document.getElementById('history-list');
+        this.toggleHistoryBtn = document.getElementById('toggle-history');
+        this.openHistoryBtn = document.getElementById('open-history-btn');
+        this.historyMenuIcon = document.getElementById('history-menu-icon');
+        this.historyCloseIcon = document.getElementById('history-close-icon');
+        this.popup = document.getElementById('popup');
+ 
+        // App session id for backend correlation
+        // Use sessionStorage for unique session per tab, localStorage for shared session across tabs
+        this.appSessionId = (() => {
+            try {
+                // Check if we want unique sessions per tab (default: true)
+                const useUniqueSessions = true; // Set to false to use shared sessions across tabs
+                
+                if (useUniqueSessions) {
+                    // Generate unique session per tab
+                    const fresh = this.generateUUIDv4();
+                    sessionStorage.setItem('app_session_id', fresh);
+                    return fresh;
+                } else {
+                    // Use shared session across tabs (original behavior)
+                    const existing = localStorage.getItem('app_session_id');
+                    if (existing) return existing;
+                    const fresh = this.generateUUIDv4();
+                    localStorage.setItem('app_session_id', fresh);
                     return fresh;
                 }
             } catch {
@@ -1796,21 +1778,82 @@ class LanguageToolEditor {
         `;
     }
  
-    // Load rulesets from backend
+    // Check if criteria cache is valid
+    isCriteriaCacheValid() {
+        if (!this.criteriaCache.cacheTimestamp) {
+            return false;
+        }
+        const now = Date.now();
+        return (now - this.criteriaCache.cacheTimestamp) < this.criteriaCache.cacheExpiry;
+    }
+    
+    // Load criteria with caching
+    async loadCriteriaWithCache(rulesetName) {
+        const cacheKey = rulesetName === 'fsr' ? 'fsr' : 'problem_statement';
+        
+        // Check if we have valid cached data
+        if (this.isCriteriaCacheValid() && this.criteriaCache[cacheKey]) {
+            console.log(`📋 Using cached criteria for ${rulesetName}`);
+            return this.criteriaCache[cacheKey];
+        }
+        
+        try {
+            console.log(`🔄 Loading criteria from database for ${rulesetName}`);
+            const response = await fetch(`/ruleset/${rulesetName}`);
+            const criteria = await response.json();
+            
+            // Cache the criteria
+            this.criteriaCache[cacheKey] = criteria;
+            this.criteriaCache.cacheTimestamp = Date.now();
+            
+            console.log(`✅ Cached criteria for ${rulesetName}:`, criteria);
+            return criteria;
+        } catch (error) {
+            console.error(`❌ Error loading criteria for ${rulesetName}:`, error);
+            // Return cached data if available, even if expired
+            if (this.criteriaCache[cacheKey]) {
+                console.log(`⚠️ Using expired cache for ${rulesetName}`);
+                return this.criteriaCache[cacheKey];
+            }
+            return { rules: [] };
+        }
+    }
+    
+    // Clear criteria cache
+    clearCriteriaCache() {
+        this.criteriaCache = {
+            problem_statement: null,
+            fsr: null,
+            cacheTimestamp: null,
+            cacheExpiry: 30 * 60 * 1000 // 30 minutes in milliseconds
+        };
+        console.log('🗑️ Criteria cache cleared');
+    }
+    
+    // Force refresh criteria from database
+    async refreshCriteria() {
+        console.log('🔄 Force refreshing criteria from database...');
+        this.clearCriteriaCache();
+        await this.loadRulesets();
+    }
+    
+    // Load rulesets from backend with caching
     async loadRulesets() {
         try {
             const [ps, fsr] = await Promise.all([
-                fetch('/ruleset/problem_statement').then(res => res.json()),
-                fetch('/ruleset/fsr').then(res => res.json())
+                this.loadCriteriaWithCache('problem_statement'),
+                this.loadCriteriaWithCache('fsr')
             ]);
- 
+
             this.rulesets = { editor: ps, editor2: fsr };
-            this.logDb('Loaded criteria from CRITERIA_GROUPS (DEFAULT)', {
+            this.logDb('Loaded criteria with caching', {
                 problem_statement: ps,
-                fsr
+                fsr,
+                cacheValid: this.isCriteriaCacheValid()
             });
         } catch (error) {
             console.error('Error loading rulesets:', error);
+            this.rulesets = { editor: { rules: [] }, editor2: { rules: [] } };
         }
     }
  
