@@ -934,11 +934,11 @@ def llm():
 
     print(f"[DBG] /llm start data_keys={list(data.keys())} step={step} ruleset={ruleset_name}")
 
-    # Load rules dynamically from DB
+    # Load rules from cache
     if ruleset_name == "fsr":
-        rules_payload = load_ruleset_from_db("FSR_DAILY_NOTE", "DEFAULT")
+        rules_payload = get_cached_criteria("FSR_DAILY_NOTE")
     else:
-        rules_payload = load_ruleset_from_db("PROBLEM_STATEMENT", "DEFAULT")
+        rules_payload = get_cached_criteria("PROBLEM_STATEMENT")
     # Advice list
     if ruleset_name == "fsr":
         advice_list = []
@@ -1356,6 +1356,62 @@ def llm():
 # API keys for the scoring endpoint
 API_KEYS = ["SAGE-access"]
 
+# Global cache for criteria to avoid repeated database queries
+CRITERIA_CACHE = {
+    "PROBLEM_STATEMENT": None,
+    "FSR_DAILY_NOTE": None
+}
+
+def get_cached_criteria(input_field_type: str):
+    """
+    Get criteria from cache, loading from database if not cached.
+    This avoids repeated database queries for the same criteria.
+    """
+    if CRITERIA_CACHE[input_field_type] is None:
+        print(f"[DBG] Loading criteria for {input_field_type} from database...")
+        CRITERIA_CACHE[input_field_type] = load_ruleset_from_db(input_field_type, "DEFAULT")
+        print(f"[DBG] Cached {len(CRITERIA_CACHE[input_field_type].get('rules', []))} criteria for {input_field_type}")
+    else:
+        print(f"[DBG] Using cached criteria for {input_field_type}")
+    
+    return CRITERIA_CACHE[input_field_type]
+
+@app.route("/api/criteria/preload", methods=["POST"])
+def preload_criteria():
+    """
+    Preload all criteria into cache to avoid database queries during app usage.
+    This should be called when the app starts or when criteria need to be refreshed.
+    """
+    try:
+        print("[DBG] Preloading criteria into cache...")
+        
+        # Load both types of criteria
+        problem_statement_criteria = load_ruleset_from_db("PROBLEM_STATEMENT", "DEFAULT")
+        fsr_criteria = load_ruleset_from_db("FSR_DAILY_NOTE", "DEFAULT")
+        
+        # Update cache
+        CRITERIA_CACHE["PROBLEM_STATEMENT"] = problem_statement_criteria
+        CRITERIA_CACHE["FSR_DAILY_NOTE"] = fsr_criteria
+        
+        problem_count = len(problem_statement_criteria.get('rules', []))
+        fsr_count = len(fsr_criteria.get('rules', []))
+        
+        print(f"[DBG] Preloaded {problem_count} problem statement criteria and {fsr_count} FSR criteria")
+        
+        return jsonify({
+            "success": True,
+            "message": "Criteria preloaded successfully",
+            "problem_statement_criteria": problem_count,
+            "fsr_criteria": fsr_count
+        })
+        
+    except Exception as e:
+        print(f"[DBG] Error preloading criteria: {e}")
+        return jsonify({
+            "success": False,
+            "error": f"Failed to preload criteria: {str(e)}"
+        }), 500
+
 @app.route("/api/score", methods=["POST"])
 def score_text():
     """
@@ -1428,8 +1484,8 @@ def score_text():
                 ruleset_name = "problem_statement"
                 input_field_type = "PROBLEM_STATEMENT"
             
-            # Load rules and advice
-            rules_payload = load_ruleset_from_db(input_field_type, "DEFAULT")
+            # Load rules and advice from cache
+            rules_payload = get_cached_criteria(input_field_type)
             if not rules_payload or not rules_payload.get('rules'):
                 return jsonify({"error": "Failed to load evaluation criteria"}), 500
             

@@ -19,74 +19,100 @@ class LanguageToolEditor {
             // Update scores after rulesets are loaded
             this.updateEditorLabelsWithScore();
         });
- 
-        // Debug flag for DB interactions
-        if (typeof window.FSR_DEBUG === 'undefined') {
-            window.FSR_DEBUG = true; // set to false to silence
-        }
- 
-        // Log user session info early
-        this.debugFetchUser('init');
-        this.fields = {
-            editor: {
-                editor: document.getElementById('editor'),
-                micBtn: document.getElementById('mic-btn'),
-                submitBtn: document.getElementById('llm-submit'),
-                copyBtn: document.getElementById('copy-btn'),
-                highlightOverlay: null,
-                ignoredSuggestions: new Set(),
-                currentSuggestions: [],
-                awaitingCheck: false,
-                overlayHidden: false,
-                llmInProgress: false,
-                history: [],
-                llmQuestions: [],
-                llmAnswers: {},
-                llmLastResult: null
-            },
-            editor2: {
-                editor: document.getElementById('editor2'),
-                micBtn: document.getElementById('mic-btn-2'),
-                submitBtn: document.getElementById('llm-submit-2'),
-                copyBtn: document.getElementById('copy-btn-2'),
-                highlightOverlay: null,
-                ignoredSuggestions: new Set(),
-                currentSuggestions: [],
-                awaitingCheck: false,
-                overlayHidden: false,
-                llmInProgress: false,
-                history: [],
-                llmQuestions: [],
-                llmAnswers: {},
-                llmLastResult: null
+        
+        // Preload criteria to avoid database queries during app usage
+        this.preloadCriteria();
+    }
+    
+    // Preload criteria to cache them and avoid database queries during app usage
+    async preloadCriteria() {
+        try {
+            console.log('🔄 Preloading criteria to cache...');
+            const response = await fetch('/api/criteria/preload', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('✅ Criteria preloaded successfully:', data);
+            } else {
+                console.warn('⚠️ Failed to preload criteria, will load on-demand');
             }
-        };
-        this.historyPanel = document.getElementById('history-panel');
-        this.historyList = document.getElementById('history-list');
-        this.toggleHistoryBtn = document.getElementById('toggle-history');
-        this.openHistoryBtn = document.getElementById('open-history-btn');
-        this.historyMenuIcon = document.getElementById('history-menu-icon');
-        this.historyCloseIcon = document.getElementById('history-close-icon');
-        this.popup = document.getElementById('popup');
- 
-        // App session id for backend correlation
-        // Use sessionStorage for unique session per tab, localStorage for shared session across tabs
-        this.appSessionId = (() => {
-            try {
-                // Check if we want unique sessions per tab (default: true)
-                const useUniqueSessions = true; // Set to false to use shared sessions across tabs
-                
-                if (useUniqueSessions) {
-                    // Generate unique session per tab
-                    const fresh = this.generateUUIDv4();
-                    sessionStorage.setItem('app_session_id', fresh);
-                    return fresh;
-                } else {
-                    // Use shared session across tabs (original behavior)
-                    const existing = localStorage.getItem('app_session_id');
-                    if (existing) return existing;
-                    const fresh = this.generateUUIDv4();
-                    localStorage.setItem('app_session_id', fresh);
+        } catch (error) {
+            console.warn('⚠️ Error preloading criteria:', error);
+        }
+    }
+    
+    // Debug flag for DB interactions
+    if (typeof window.FSR_DEBUG === 'undefined') {
+        window.FSR_DEBUG = true; // set to false to silence
+    }
+    
+    // Log user session info early
+    this.debugFetchUser('init');
+    this.fields = {
+        editor: {
+            editor: document.getElementById('editor'),
+            micBtn: document.getElementById('mic-btn'),
+            submitBtn: document.getElementById('llm-submit'),
+            copyBtn: document.getElementById('copy-btn'),
+            highlightOverlay: null,
+            ignoredSuggestions: new Set(),
+            currentSuggestions: [],
+            awaitingCheck: false,
+            overlayHidden: false,
+            llmInProgress: false,
+            history: [],
+            llmQuestions: [],
+            llmAnswers: {},
+            llmLastResult: null
+        },
+        editor2: {
+            editor: document.getElementById('editor2'),
+            micBtn: document.getElementById('mic-btn-2'),
+            submitBtn: document.getElementById('llm-submit-2'),
+            copyBtn: document.getElementById('copy-btn-2'),
+            highlightOverlay: null,
+            ignoredSuggestions: new Set(),
+            currentSuggestions: [],
+            awaitingCheck: false,
+            overlayHidden: false,
+            llmInProgress: false,
+            history: [],
+            llmQuestions: [],
+            llmAnswers: {},
+            llmLastResult: null
+        }
+    };
+    this.historyPanel = document.getElementById('history-panel');
+    this.historyList = document.getElementById('history-list');
+    this.toggleHistoryBtn = document.getElementById('toggle-history');
+    this.openHistoryBtn = document.getElementById('open-history-btn');
+    this.historyMenuIcon = document.getElementById('history-menu-icon');
+    this.historyCloseIcon = document.getElementById('history-close-icon');
+    this.popup = document.getElementById('popup');
+    
+    // App session id for backend correlation
+    // Use sessionStorage for unique session per tab, localStorage for shared session across tabs
+    this.appSessionId = (() => {
+        try {
+            // Check if we want unique sessions per tab (default: true)
+            const useUniqueSessions = true; // Set to false to use shared sessions across tabs
+            
+            if (useUniqueSessions) {
+                // Generate unique session per tab
+                const fresh = this.generateUUIDv4();
+                sessionStorage.setItem('app_session_id', fresh);
+                return fresh;
+            } else {
+                // Use shared session across tabs (original behavior)
+                const existing = localStorage.getItem('app_session_id');
+                if (existing) return existing;
+                const fresh = this.generateUUIDv4();
+                localStorage.setItem('app_session_id', fresh);
                     return fresh;
                 }
             } catch {
