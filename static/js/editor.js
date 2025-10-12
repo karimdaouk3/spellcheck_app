@@ -13,13 +13,6 @@ class LanguageToolEditor {
         this.history = [];
         this.activeField = 'editor'; // 'editor' or 'editor2'
         
-        // Load rulesets from backend
-        this.rulesets = {};
-        this.loadRulesets().then(() => {
-            // Update scores after rulesets are loaded
-            this.updateEditorLabelsWithScore();
-        });
- 
         // Debug flag for DB interactions
         if (typeof window.FSR_DEBUG === 'undefined') {
             window.FSR_DEBUG = true; // set to false to silence
@@ -32,6 +25,13 @@ class LanguageToolEditor {
             cacheTimestamp: null,
             cacheExpiry: 30 * 60 * 1000 // 30 minutes in milliseconds
         };
+
+        // Load rulesets from backend
+        this.rulesets = {};
+        this.loadRulesets().then(() => {
+            // Update scores after rulesets are loaded
+            this.updateEditorLabelsWithScore();
+        });
  
         // Log user session info early
         this.debugFetchUser('init');
@@ -1861,25 +1861,41 @@ class LanguageToolEditor {
     calculateWeightedScore(field, evaluation) {
         const ruleset = this.rulesets[field];
         if (!ruleset || !ruleset.rules) {
+            console.log(`⚠️ No ruleset found for field: ${field}`, ruleset);
             return 0;
         }
         
         let totalScore = 0;
         let totalWeight = 0;
         
+        console.log(`📊 Calculating score for ${field}:`, {
+            ruleset: ruleset,
+            evaluation: evaluation,
+            rulesCount: ruleset.rules.length
+        });
+        
         for (const rule of ruleset.rules) {
             const criteriaName = rule.name;
             const weight = rule.weight;
             
             if (evaluation[criteriaName]) {
-                totalScore += evaluation[criteriaName].passed ? weight : 0;
+                const passed = evaluation[criteriaName].passed;
+                const scoreContribution = passed ? weight : 0;
+                totalScore += scoreContribution;
                 totalWeight += weight;
+                
+                console.log(`  ${criteriaName}: passed=${passed}, weight=${weight}, contribution=${scoreContribution}`);
+            } else {
+                console.log(`  ${criteriaName}: not found in evaluation`);
             }
         }
         
+        const finalScore = totalWeight > 0 ? (totalScore / totalWeight) * 100 : 0;
+        console.log(`📊 Final score for ${field}: ${finalScore}% (${totalScore}/${totalWeight})`);
+        
         // Automatically normalize to 100 regardless of actual weight sum
         // This ensures the score is always 0-100 even if weights don't sum to 100
-        return totalWeight > 0 ? (totalScore / totalWeight) * 100 : 0;
+        return finalScore;
     }
  
     // --- Placeholder for LLM call after transcription ---
