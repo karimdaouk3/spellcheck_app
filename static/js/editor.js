@@ -2522,55 +2522,76 @@ class CaseManager {
     
     async loadCases() {
         if (this.userId === null || this.userId === undefined) {
-            console.warn('No user ID available, cannot load cases');
+            console.warn('⚠️ [CaseManager] No user ID available, cannot load cases');
             this.cases = [];
             return;
         }
         
+        console.log(`🚀 [CaseManager] Loading cases for user ${this.userId} from database...`);
+        
         try {
-            // Load cases from backend
-            console.log(`Attempting to load cases for user ${this.userId} from backend...`);
-            const response = await fetch('/api/cases/data');
+            // Step 1: Get user cases (list of case numbers and status)
+            console.log('📋 [CaseManager] Step 1: Fetching user cases from /api/cases/user-cases');
+            const userCasesResponse = await fetch('/api/cases/user-cases');
             
-            if (response.ok) {
-                const data = await response.json();
-                const backendCases = data.cases || {};
-                
-                console.log('==============================================');
-                console.log(`✅ Successfully loaded ${Object.keys(backendCases).length} cases from backend`);
-                console.log('Backend response:', data);
-                if (Object.keys(backendCases).length > 0) {
-                    console.log('Cases found:', Object.keys(backendCases));
-                } else {
-                    console.log('No cases found in backend for this user.');
-                }
-                console.log('==============================================');
-                
-                // Convert backend format to frontend format
-                this.cases = Object.values(backendCases).map(caseData => ({
+            if (!userCasesResponse.ok) {
+                throw new Error(`Failed to fetch user cases: ${userCasesResponse.status} ${userCasesResponse.statusText}`);
+            }
+            
+            const userCasesData = await userCasesResponse.json();
+            console.log('✅ [CaseManager] User cases response:', userCasesData);
+            
+            // Step 2: Get detailed case data (problem statements and FSR notes)
+            console.log('📋 [CaseManager] Step 2: Fetching detailed case data from /api/cases/data');
+            const caseDataResponse = await fetch('/api/cases/data');
+            
+            if (!caseDataResponse.ok) {
+                throw new Error(`Failed to fetch case data: ${caseDataResponse.status} ${caseDataResponse.statusText}`);
+            }
+            
+            const caseData = await caseDataResponse.json();
+            console.log('✅ [CaseManager] Case data response:', caseData);
+            
+            // Convert backend format to frontend format
+            const backendCases = caseData.cases || {};
+            console.log(`📊 [CaseManager] Processing ${Object.keys(backendCases).length} cases from database`);
+            
+            this.cases = Object.values(backendCases).map(caseData => {
+                const caseInfo = {
                     id: Date.now() + Math.random(), // Generate unique ID
                     caseNumber: caseData.caseNumber,
                     problemStatement: caseData.problemStatement || '',
                     fsrNotes: caseData.fsrNotes || '',
                     createdAt: new Date(caseData.updatedAt || Date.now()),
-                    updatedAt: new Date(caseData.updatedAt || Date.now())
-                }));
+                    updatedAt: new Date(caseData.updatedAt || Date.now()),
+                    isTrackedInDatabase: true // All cases from database are tracked
+                };
                 
-                // Also sync with localStorage for offline access
-                this.saveCasesLocally();
-            } else {
-                // Fallback to localStorage if backend fails
-                console.warn('⚠️ Failed to load from backend, using localStorage');
-                this.loadCasesFromLocalStorage();
-            }
+                console.log(`📝 [CaseManager] Processed case ${caseInfo.caseNumber}:`, {
+                    problemStatement: caseInfo.problemStatement.substring(0, 50) + '...',
+                    fsrNotes: caseInfo.fsrNotes.substring(0, 50) + '...',
+                    isTracked: caseInfo.isTrackedInDatabase
+                });
+                
+                return caseInfo;
+            });
+            
+            console.log(`✅ [CaseManager] Successfully loaded ${this.cases.length} cases from database`);
+            
+            // Also sync with localStorage for offline access
+            this.saveCasesLocally();
+            console.log('💾 [CaseManager] Cases synced to localStorage for offline access');
+            
         } catch (error) {
-            console.error('❌ Error loading cases from backend:', error);
+            console.error('❌ [CaseManager] Error loading cases from database:', error);
+            console.log('🔄 [CaseManager] Falling back to localStorage...');
             // Fallback to localStorage
             this.loadCasesFromLocalStorage();
         }
         
         // Set first case as current if none selected
         if (this.cases.length > 0 && !this.currentCase) {
+            console.log(`🎯 [CaseManager] Setting current case to: ${this.cases[0].caseNumber}`);
             this.switchToCase(this.cases[0].id);
         }
     }
@@ -2646,38 +2667,50 @@ class CaseManager {
     
     async saveCaseToBackend(caseData) {
         if (this.userId === null || this.userId === undefined) {
-            console.warn('No user ID available, cannot save to backend');
-            return;
+            console.warn('⚠️ [CaseManager] No user ID available, cannot save to backend');
+            return false;
         }
         
         // Skip saving untracked cases to backend
         if (caseData.isTrackedInDatabase === false) {
-            console.log(`Skipping backend save for untracked case ${caseData.caseNumber}`);
-            return;
+            console.log(`⏭️ [CaseManager] Skipping backend save for untracked case ${caseData.caseNumber}`);
+            return true; // Not an error, just skipped
         }
         
+        console.log(`💾 [CaseManager] Saving case ${caseData.caseNumber} to database...`);
+        console.log(`📝 [CaseManager] Problem Statement: ${(caseData.problemStatement || '').substring(0, 50)}...`);
+        console.log(`📝 [CaseManager] FSR Notes: ${(caseData.fsrNotes || '').substring(0, 50)}...`);
+        
         try {
-            const response = await fetch(`/api/cases/data/${encodeURIComponent(caseData.caseNumber)}`, {
+            // Use the new input state endpoint
+            const response = await fetch('/api/cases/input-state', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    problemStatement: caseData.problemStatement || '',
-                    fsrNotes: caseData.fsrNotes || ''
+                    case_number: caseData.caseNumber,
+                    problem_statement: caseData.problemStatement || '',
+                    fsr_notes: caseData.fsrNotes || ''
                 })
             });
             
             if (response.ok) {
                 const result = await response.json();
-                console.log(`Saved case ${caseData.caseNumber} to backend at ${result.updated_at}`);
+                console.log(`✅ [CaseManager] Successfully saved case ${caseData.caseNumber} to database`);
+                console.log(`📊 [CaseManager] Database response:`, result);
                 return true;
             } else {
-                console.error(`Failed to save case ${caseData.caseNumber} to backend`);
+                const errorText = await response.text();
+                console.error(`❌ [CaseManager] Failed to save case ${caseData.caseNumber} to database:`, {
+                    status: response.status,
+                    statusText: response.statusText,
+                    error: errorText
+                });
                 return false;
             }
         } catch (error) {
-            console.error(`Error saving case ${caseData.caseNumber} to backend:`, error);
+            console.error(`❌ [CaseManager] Error saving case ${caseData.caseNumber} to database:`, error);
             return false;
         }
     }
@@ -2703,18 +2736,35 @@ class CaseManager {
             return;
         }
         
-        // Validate case number with backend
+        // Try to create case in database first
         try {
-            const response = await fetch(`/api/cases/validate/${encodeURIComponent(trimmedCaseNumber)}`);
-            const data = await response.json();
+            console.log(`🚀 [CaseManager] Attempting to create case ${trimmedCaseNumber} in database...`);
+            
+            const createResponse = await fetch('/api/cases/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    case_number: trimmedCaseNumber
+                })
+            });
             
             let isTrackedInDatabase = true;
             
-            if (!response.ok || !data.valid) {
-                // Case doesn't exist in database - show confirmation popup
+            if (createResponse.ok) {
+                const createData = await createResponse.json();
+                console.log(`✅ [CaseManager] Successfully created case ${trimmedCaseNumber} in database:`, createData);
+            } else if (createResponse.status === 409) {
+                // Case already exists - this is actually good, means it's tracked
+                console.log(`ℹ️ [CaseManager] Case ${trimmedCaseNumber} already exists in database (tracked)`);
+            } else {
+                // Case creation failed - show confirmation popup for untracked case
+                console.log(`⚠️ [CaseManager] Failed to create case ${trimmedCaseNumber} in database:`, createResponse.status);
+                
                 const confirmed = await this.showCustomConfirm(
                     'Case Not Found in Database',
-                    `Case number '${trimmedCaseNumber}' does not exist in the database.\n\nAre you sure you want to create this case? It will not be tracked in the system.`
+                    `Case number '${trimmedCaseNumber}' could not be created in the database.\n\nAre you sure you want to create this case? It will not be tracked in the system.`
                 );
                 
                 if (!confirmed) {
@@ -2722,9 +2772,6 @@ class CaseManager {
                 }
                 
                 isTrackedInDatabase = false;
-            } else if (data.is_closed) {
-                await this.showCustomAlert('Case Closed', `Case '${trimmedCaseNumber}' is closed and cannot be added.`);
-                return;
             }
             
             // Create the case (either tracked or untracked)
@@ -2738,6 +2785,11 @@ class CaseManager {
                 isTrackedInDatabase: isTrackedInDatabase
             };
             
+            console.log(`📝 [CaseManager] Creating new case:`, {
+                caseNumber: newCase.caseNumber,
+                isTracked: newCase.isTrackedInDatabase
+            });
+            
             this.cases.unshift(newCase); // Add to beginning
             this.saveCases();
             this.renderCasesList();
@@ -2748,9 +2800,12 @@ class CaseManager {
             if (sidebar && window.innerWidth <= 950) {
                 sidebar.classList.remove('open');
             }
+            
+            console.log(`✅ [CaseManager] Case ${trimmedCaseNumber} created successfully`);
+            
         } catch (error) {
-            console.error('Error validating case number:', error);
-            await this.showCustomAlert('Error', 'Error validating case number. Please try again.');
+            console.error('❌ [CaseManager] Error creating case:', error);
+            await this.showCustomAlert('Error', 'Error creating case. Please try again.');
         }
     }
     

@@ -273,9 +273,11 @@ def get_user_cases():
     """
     user_data = session.get('user_data')
     if not user_data:
+        print("❌ [Backend] /api/cases/user-cases: Not authenticated")
         return jsonify({"error": "Not authenticated"}), 401
     
     user_id = user_data.get('user_id')
+    print(f"🚀 [Backend] /api/cases/user-cases: Fetching cases for user {user_id}")
     
     try:
         query = f"""
@@ -283,26 +285,34 @@ def get_user_cases():
             FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
             WHERE CREATED_BY_USER = %s
         """
+        print(f"📊 [Backend] Executing query: {query}")
         result = snowflake_query(query, CONNECTION_PAYLOAD, (user_id,))
         
         cases = []
         if result is not None and not result.empty:
+            print(f"✅ [Backend] Found {len(result)} cases in database")
             for _, row in result.iterrows():
-                cases.append({
+                case_info = {
                     "case_id": row["CASE_ID"],
                     "case_status": row["CASE_STATUS"],
                     "last_sync_time": row["CRM_LAST_SYNC_TIME"],
                     "is_closed": row["CASE_STATUS"] == "closed"
-                })
+                }
+                cases.append(case_info)
+                print(f"📝 [Backend] Case {case_info['case_id']}: status={case_info['case_status']}")
+        else:
+            print("ℹ️ [Backend] No cases found for user")
         
-        return jsonify({
+        response_data = {
             "user_id": user_id,
             "cases": cases,
             "count": len(cases)
-        })
+        }
+        print(f"📤 [Backend] Returning {len(cases)} cases to frontend")
+        return jsonify(response_data)
         
     except Exception as e:
-        print(f"Error fetching user cases for user {user_id}: {e}")
+        print(f"❌ [Backend] Error fetching user cases for user {user_id}: {e}")
         return jsonify({"error": "Database error occurred"}), 500
 
 @app.route('/api/cases/status', methods=['POST'])
@@ -1956,13 +1966,16 @@ def get_input_state():
     """
     user_data = session.get('user_data')
     if not user_data:
+        print("❌ [Backend] /api/cases/input-state GET: Not authenticated")
         return jsonify({"error": "Not authenticated"}), 401
     
     case_number = request.args.get('case_number')
     if not case_number:
+        print("❌ [Backend] /api/cases/input-state GET: Case number required")
         return jsonify({"error": "Case number required"}), 400
     
     user_id = user_data.get('user_id')
+    print(f"🚀 [Backend] /api/cases/input-state GET: Fetching input state for case {case_number}, user {user_id}")
     
     try:
         case_number_int = int(case_number)
