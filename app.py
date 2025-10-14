@@ -171,54 +171,13 @@ def current_user():
 # TODO: Replace with actual database queries when ready
 
 # Mock data for valid case numbers (hardcoded)
-MOCK_VALID_CASES = [
-    "CASE-2024-001",
-    "CASE-2024-002",
-    "CASE-2024-003",
-    "CASE-2024-100",
-    "CASE-2024-101",
-    "CASE-2024-999",
-    "12345",
-    "67890",
-    "TEST-001"
-]
-
-# Mock data for closed cases (hardcoded)
-MOCK_CLOSED_CASES = [
-    2024002  # This case is closed
-]
-
-# Mock in-memory storage for user case data
-# Structure: { user_id: { case_number: { problemStatement, fsrNotes, updatedAt } } }
-MOCK_USER_CASE_DATA = {
-    # Example: Pre-populated data for testing (user_id = 0)
-    "0": {
-        2024001: {
-            "caseNumber": 2024001,
-            "problemStatement": "Customer experiencing slow response times during peak hours.",
-            "fsrNotes": "Initial analysis shows database query optimization needed. Customer has 500+ concurrent users.",
-            "updatedAt": "2024-01-15T10:30:00Z"
-        },
-        2024003: {
-            "caseNumber": 2024003,
-            "problemStatement": "Authentication failures for external users accessing the portal.",
-            "fsrNotes": "SSO configuration issue identified. Working with IT security team to resolve.",
-            "updatedAt": "2024-01-14T15:45:00Z"
-        },
-        2024002: {
-            "caseNumber": 2024002,
-            "problemStatement": "Database connection timeouts during peak hours.",
-            "fsrNotes": "Connection pool exhausted. Need to increase pool size and optimize queries.",
-            "updatedAt": "2024-01-13T09:30:00Z"
-        }
-    }
-}
-
-# Mock data for case feedback (in-memory storage)
-# Structure: { user_id: [ { case_number, closed_date, feedback: {symptom, fault, fix}, submitted_at } ] }
-MOCK_CASE_REVIEW = {
-    "0": []  # List of feedback entries for user 0 (empty for testing)
-}
+# Note: All mock data has been removed. The application now uses the database endpoints:
+# - /api/cases/user-cases (GET) - Database endpoint
+# - /api/cases/data (GET) - Database endpoint  
+# - /api/cases/input-state (GET/PUT) - Database endpoint
+# - /api/cases/create (POST) - Database endpoint
+# - /api/cases/feedback (POST) - Database endpoint
+# - /api/cases/generate-feedback (POST) - Database endpoint
 
 @app.route('/api/cases/validate/<case_number>', methods=['GET'])
 def validate_case_number(case_number):
@@ -315,36 +274,7 @@ def get_user_cases():
         print(f"❌ [Backend] Error fetching user cases for user {user_id}: {e}")
         return jsonify({"error": "Database error occurred"}), 500
 
-@app.route('/api/cases/status', methods=['POST'])
-def check_cases_status():
-    """
-    Mock endpoint to check status of multiple cases at once.
-    Accepts a list of case numbers and returns their status.
-    
-    TODO: Replace with actual database query
-    """
-    user_data = session.get('user_data')
-    if not user_data:
-        return jsonify({"error": "Not authenticated"}), 401
-    
-    data = request.get_json()
-    case_numbers = data.get('case_numbers', [])
-    
-    results = []
-    for case_number in case_numbers:
-        is_valid = case_number in MOCK_VALID_CASES
-        is_closed = case_number in MOCK_CLOSED_CASES
-        
-        results.append({
-            "case_number": case_number,
-            "valid": is_valid,
-            "is_closed": is_closed,
-            "status": "closed" if is_closed else ("open" if is_valid else "invalid")
-        })
-    
-    return jsonify({
-        "results": results
-    })
+# Removed: /api/cases/status - No longer needed, status is provided by database endpoints
 
 @app.route('/api/cases/data', methods=['GET'])
 def get_user_case_data():
@@ -439,100 +369,9 @@ def get_case_data(case_number):
         "data": case_data
     })
 
-@app.route('/api/cases/data/<case_number>', methods=['PUT'])
-def save_case_data(case_number):
-    """
-    Mock endpoint to save case data for a user.
-    Accepts problemStatement and fsrNotes.
-    
-    TODO: Replace with actual database insert/update
-    """
-    user_data = session.get('user_data')
-    if not user_data:
-        return jsonify({"error": "Not authenticated"}), 401
-    
-    user_id = user_data.get('user_id')
-    
-    # Validate case number exists and is open
-    if case_number not in MOCK_VALID_CASES:
-        return jsonify({"error": "Invalid case number"}), 400
-    
-    if case_number in MOCK_CLOSED_CASES:
-        return jsonify({"error": "Cannot save data for closed case"}), 400
-    
-    data = request.get_json()
-    problem_statement = data.get('problemStatement', '')
-    fsr_notes = data.get('fsrNotes', '')
-    
-    # Initialize user's cases dict if doesn't exist
-    if user_id not in MOCK_USER_CASE_DATA:
-        MOCK_USER_CASE_DATA[user_id] = {}
-    
-    # Save the case data
-    MOCK_USER_CASE_DATA[user_id][case_number] = {
-        "caseNumber": case_number,
-        "problemStatement": problem_statement,
-        "fsrNotes": fsr_notes,
-        "updatedAt": datetime.utcnow().isoformat() + 'Z'
-    }
-    
-    return jsonify({
-        "success": True,
-        "message": "Case data saved successfully",
-        "case_number": case_number,
-        "updated_at": MOCK_USER_CASE_DATA[user_id][case_number]["updatedAt"]
-    })
+# Removed: /api/cases/data/<case_number> PUT - Replaced by /api/cases/input-state PUT
 
-@app.route('/api/cases/data', methods=['POST'])
-def save_multiple_cases():
-    """
-    Mock endpoint to save multiple cases at once.
-    Accepts array of case objects with caseNumber, problemStatement, fsrNotes.
-    
-    TODO: Replace with actual database batch insert/update
-    """
-    user_data = session.get('user_data')
-    if not user_data:
-        return jsonify({"error": "Not authenticated"}), 401
-    
-    user_id = user_data.get('user_id')
-    
-    data = request.get_json()
-    cases = data.get('cases', [])
-    
-    # Initialize user's cases dict if doesn't exist
-    if user_id not in MOCK_USER_CASE_DATA:
-        MOCK_USER_CASE_DATA[user_id] = {}
-    
-    saved_count = 0
-    errors = []
-    
-    for case_data in cases:
-        case_number = case_data.get('caseNumber')
-        
-        # Validate
-        if case_number not in MOCK_VALID_CASES:
-            errors.append(f"Invalid case: {case_number}")
-            continue
-        
-        if case_number in MOCK_CLOSED_CASES:
-            errors.append(f"Case is closed: {case_number}")
-            continue
-        
-        # Save
-        MOCK_USER_CASE_DATA[user_id][case_number] = {
-            "caseNumber": case_number,
-            "problemStatement": case_data.get('problemStatement', ''),
-            "fsrNotes": case_data.get('fsrNotes', ''),
-            "updatedAt": datetime.utcnow().isoformat() + 'Z'
-        }
-        saved_count += 1
-    
-    return jsonify({
-        "success": True,
-        "saved_count": saved_count,
-        "errors": errors
-    })
+# Removed: /api/cases/data POST - No longer needed, individual cases handled by database endpoints
 
 # ==================== END MOCK ENDPOINTS ====================
 

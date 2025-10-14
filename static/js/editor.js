@@ -2631,45 +2631,7 @@ class CaseManager {
         }
     }
     
-    async filterClosedCases() {
-        if (this.cases.length === 0) return;
-        
-        try {
-            // Get all case numbers
-            const caseNumbers = this.cases.map(c => c.caseNumber);
-            
-            // Check status with backend
-            const response = await fetch('/api/cases/status', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ case_numbers: caseNumbers })
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                const closedCaseNumbers = data.results
-                    .filter(r => r.is_closed)
-                    .map(r => r.case_number);
-                
-                if (closedCaseNumbers.length > 0) {
-                    console.log(`Found ${closedCaseNumbers.length} closed cases, removing them:`, closedCaseNumbers);
-                    
-                    // Remove closed cases
-                    this.cases = this.cases.filter(c => !closedCaseNumbers.includes(c.caseNumber));
-                    this.saveCases();
-                    
-                    // If current case was closed, switch to first available
-                    if (this.currentCase && closedCaseNumbers.includes(this.currentCase.caseNumber)) {
-                        this.currentCase = null;
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Error filtering closed cases:', error);
-        }
-    }
+    // Removed: filterClosedCases() - No longer needed, case status is provided by database endpoints
     
     saveCases() {
         // Save to localStorage for quick access
