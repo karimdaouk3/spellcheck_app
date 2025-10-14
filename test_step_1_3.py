@@ -132,24 +132,24 @@ def create_sample_input_data():
                 session_id = session_row["ID"]
                 case_id = session_row["CASE_ID"]
                 
-                # Insert problem statement
+                # Insert problem statement (INPUT_FIELD_ID = 1 for problem_statement)
                 problem_query = f"""
                     INSERT INTO {DATABASE}.{SCHEMA}.LAST_INPUT_STATE
                     (CASE_SESSION_ID, INPUT_FIELD_ID, INPUT_FIELD_VALUE, LINE_ITEM_ID, INPUT_FIELD_EVAL_ID, LAST_UPDATED)
                     VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP())
                 """
                 snowflake_query(problem_query, CONNECTION_PAYLOAD, 
-                               (session_id, 'problem_statement', f'Sample problem statement for case {case_id}', None, None), 
+                               (session_id, 1, f'Sample problem statement for case {case_id}', None, None), 
                                return_df=False)
                 
-                # Insert FSR notes
+                # Insert FSR notes (INPUT_FIELD_ID = 2 for fsr)
                 fsr_query = f"""
                     INSERT INTO {DATABASE}.{SCHEMA}.LAST_INPUT_STATE
                     (CASE_SESSION_ID, INPUT_FIELD_ID, INPUT_FIELD_VALUE, LINE_ITEM_ID, INPUT_FIELD_EVAL_ID, LAST_UPDATED)
                     VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP())
                 """
                 snowflake_query(fsr_query, CONNECTION_PAYLOAD, 
-                               (session_id, 'fsr', f'Sample FSR notes for case {case_id}', 1, None), 
+                               (session_id, 2, f'Sample FSR notes for case {case_id}', 1, None), 
                                return_df=False)
         
         print("✅ Sample input state data created successfully")

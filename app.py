@@ -322,7 +322,7 @@ def get_user_case_data():
             FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS cs
             LEFT JOIN {DATABASE}.{SCHEMA}.LAST_INPUT_STATE lis_problem 
                 ON cs.ID = lis_problem.CASE_SESSION_ID 
-                AND lis_problem.INPUT_FIELD_ID = 'problem_statement'
+                AND lis_problem.INPUT_FIELD_ID = 1
             WHERE cs.CREATED_BY_USER = %s AND cs.CASE_STATUS = 'open'
         """
         cases_result = snowflake_query(query, CONNECTION_PAYLOAD, (user_id,))
@@ -339,7 +339,7 @@ def get_user_case_data():
                     WHERE CASE_SESSION_ID = (
                         SELECT ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
                         WHERE CASE_ID = %s AND CREATED_BY_USER = %s
-                    ) AND INPUT_FIELD_ID = 'fsr'
+                    ) AND INPUT_FIELD_ID = 2
                     ORDER BY LINE_ITEM_ID
                 """
                 fsr_result = snowflake_query(fsr_query, CONNECTION_PAYLOAD, (case_id, user_id))
