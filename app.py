@@ -8,11 +8,11 @@ import time
 import uuid
 import os
 import base64
-from datetime import datetime
 import requests
 from openai import OpenAI
 import tempfile
 import pandas as pd
+from datetime import datetime
 from pydub import AudioSegment
 import subprocess
 from pathlib import Path
@@ -223,31 +223,41 @@ MOCK_CASE_FEEDBACK = {
 @app.route('/api/cases/validate/<case_number>', methods=['GET'])
 def validate_case_number(case_number):
     """
-    Mock endpoint to validate if a case number exists in the system.
+    Database endpoint to validate if a case number exists in the system.
     Returns whether the case is valid and if it's open or closed.
-    
-    TODO: Replace with actual database query
     """
     user_data = session.get('user_data')
     if not user_data:
         return jsonify({"error": "Not authenticated"}), 401
     
-    # Mock validation logic
-    is_valid = case_number in MOCK_VALID_CASES
-    is_closed = case_number in MOCK_CLOSED_CASES
-    
-    if not is_valid:
-        return jsonify({
-            "valid": False,
-            "message": f"Case number '{case_number}' does not exist in the system."
-        }), 404
-    
-    return jsonify({
-        "valid": True,
-        "case_number": case_number,
-        "is_closed": is_closed,
-        "status": "closed" if is_closed else "open"
-    })
+    try:
+        query = f"""
+            SELECT CASE_ID, CASE_STATUS, LAST_SYNC_TIME
+            FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+            WHERE CASE_ID = %s
+            LIMIT 1
+        """
+        result = snowflake_query(query, CONNECTION_PAYLOAD, (case_number,))
+        
+        if result is not None and not result.empty:
+            case_data = result.iloc[0]
+            return jsonify({
+                "valid": True,
+                "case_id": case_data["CASE_ID"],
+                "case_status": case_data["CASE_STATUS"],
+                "last_sync_time": case_data["LAST_SYNC_TIME"],
+                "is_closed": case_data["CASE_STATUS"] == "closed",
+                "status": case_data["CASE_STATUS"]
+            })
+        else:
+            return jsonify({
+                "valid": False,
+                "message": f"Case number '{case_number}' does not exist in the system."
+            }), 404
+            
+    except Exception as e:
+        print(f"Error validating case {case_number}: {e}")
+        return jsonify({"error": "Database error occurred"}), 500
 
 @app.route('/api/cases/user-cases', methods=['GET'])
 def get_user_cases():
@@ -920,18 +930,6 @@ def get_ruleset(ruleset_name):
         return jsonify(load_ruleset_from_db("FSR_DAILY_NOTE", "DEFAULT"))
     else:
         return jsonify(load_ruleset_from_db("PROBLEM_STATEMENT", "DEFAULT"))
-
-@app.route("/api/criteria/clear-cache", methods=["POST"])
-def clear_criteria_cache():
-    """
-    Clear criteria cache on the frontend.
-    This endpoint can be called when criteria are updated in the database.
-    """
-    return jsonify({
-        "success": True,
-        "message": "Cache clear signal sent to frontend",
-        "timestamp": datetime.now().isoformat()
-    })
 
 @app.route("/llm", methods=["POST"])
 def llm():
