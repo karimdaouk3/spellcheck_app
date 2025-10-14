@@ -1840,6 +1840,57 @@ Be specific and technical, drawing from the case information provided.
         print(f"Error generating feedback: {e}")
         return jsonify({"error": "Error generating feedback"}), 500
 
+@app.route('/api/cases/create', methods=['POST'])
+def create_case():
+    """
+    Database endpoint to create a new case session.
+    Creates a new case in CASE_SESSIONS table for the authenticated user.
+    """
+    user_data = session.get('user_data')
+    if not user_data:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    data = request.get_json()
+    case_number = data.get('case_number')
+    user_id = user_data.get('user_id')
+    
+    if not case_number:
+        return jsonify({"error": "Case number required"}), 400
+    
+    try:
+        # Check if case already exists for this user
+        check_query = f"""
+            SELECT COUNT(*) FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+            WHERE CASE_ID = %s AND CREATED_BY_USER = %s
+        """
+        check_result = snowflake_query(check_query, CONNECTION_PAYLOAD, (case_number, user_id))
+        
+        if check_result is not None and check_result.iloc[0, 0] > 0:
+            return jsonify({"error": "Case already exists"}), 409
+        
+        # Check external CRM (placeholder function)
+        exists_in_crm = check_external_crm_exists(case_number)
+        
+        # Insert new case session
+        insert_query = f"""
+            INSERT INTO {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+            (CASE_ID, CREATED_BY_USER, CASE_STATUS, CREATION_TIME, CRM_LAST_SYNC_TIME)
+            VALUES (%s, %s, 'open', CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
+        """
+        snowflake_query(insert_query, CONNECTION_PAYLOAD, 
+                       (case_number, user_id), 
+                       return_df=False)
+        
+        return jsonify({
+            "success": True,
+            "case_number": case_number,
+            "message": "Case created successfully"
+        })
+        
+    except Exception as e:
+        print(f"Error creating case {case_number} for user {user_id}: {e}")
+        return jsonify({"error": "Database error occurred"}), 500
+
 @app.route('/api/cases/clear-feedback-flags', methods=['POST'])
 def clear_feedback_flags():
     """
