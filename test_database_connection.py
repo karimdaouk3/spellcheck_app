@@ -17,8 +17,6 @@ try:
 except ImportError as e:
     print(f"❌ ERROR: Could not import snowflake_query: {e}")
     print("Make sure snowflakeconnection.py is in the current directory")
-    print("Current directory:", os.getcwd())
-    print("Files in directory:", [f for f in os.listdir('.') if f.endswith('.py')])
     sys.exit(1)
 
 # Load configuration like app.py does
