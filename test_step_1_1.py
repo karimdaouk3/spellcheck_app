@@ -13,15 +13,12 @@ import os
 # Add the current directory to Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-# Import database functions (same as app.py)
+# Import database functions
 try:
     from snowflakeconnection import snowflake_query
     print("✅ Successfully imported snowflake_query")
 except ImportError as e:
     print(f"❌ ERROR: Could not import snowflake_query: {e}")
-    print("Make sure snowflakeconnection.py is in the current directory")
-    print("Current directory:", os.getcwd())
-    print("Files in directory:", [f for f in os.listdir('.') if f.endswith('.py')])
     sys.exit(1)
 
 # Load configuration
@@ -97,10 +94,27 @@ def test_case_validation():
     print("🧪 Testing Step 1.1: Case Validation Endpoint")
     print("=" * 50)
     
-    # Test 1: Valid case number
-    print(f"Test 1: Validating case '{TEST_CASE_NUMBER}'")
+    # Create a session to handle authentication
+    session = requests.Session()
+    
+    # First, login to get authentication
+    print("\n🔐 Logging in to get authentication...")
     try:
-        response = requests.get(f"{BASE_URL}/api/cases/validate/{TEST_CASE_NUMBER}")
+        login_response = session.get(f"{BASE_URL}/login")
+        print(f"   Login Status Code: {login_response.status_code}")
+        if login_response.status_code == 200:
+            print("   ✅ Login successful")
+        else:
+            print("   ❌ Login failed")
+            return False
+    except Exception as e:
+        print(f"   ❌ Login error: {e}")
+        return False
+    
+    # Test 1: Valid case number
+    print(f"\nTest 1: Validating case '{TEST_CASE_NUMBER}'")
+    try:
+        response = session.get(f"{BASE_URL}/api/cases/validate/{TEST_CASE_NUMBER}")
         print(f"Status Code: {response.status_code}")
         
         if response.status_code == 200:
@@ -137,7 +151,7 @@ def test_case_validation():
     # Test 2: Invalid case number
     print(f"\nTest 2: Validating non-existent case 'INVALID-CASE-999'")
     try:
-        response = requests.get(f"{BASE_URL}/api/cases/validate/INVALID-CASE-999")
+        response = session.get(f"{BASE_URL}/api/cases/validate/INVALID-CASE-999")
         print(f"Status Code: {response.status_code}")
         
         if response.status_code == 404:
