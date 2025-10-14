@@ -13,12 +13,15 @@ import os
 # Add the current directory to Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-# Import database functions
+# Import database functions (same as app.py)
 try:
     from snowflakeconnection import snowflake_query
     print("✅ Successfully imported snowflake_query")
 except ImportError as e:
     print(f"❌ ERROR: Could not import snowflake_query: {e}")
+    print("Make sure snowflakeconnection.py is in the current directory")
+    print("Current directory:", os.getcwd())
+    print("Files in directory:", [f for f in os.listdir('.') if f.endswith('.py')])
     sys.exit(1)
 
 # Load configuration
@@ -99,36 +102,34 @@ def test_case_validation():
     try:
         response = requests.get(f"{BASE_URL}/api/cases/validate/{TEST_CASE_NUMBER}")
         print(f"Status Code: {response.status_code}")
-    except requests.exceptions.ConnectionError:
-        print("❌ ERROR: Connection failed - Flask app is not running!")
-        print("💡 Start the Flask app first: python app.py")
-        return False
-    
-    if response.status_code == 200:
-        data = response.json()
-        print("✅ SUCCESS: Case validation endpoint is working!")
-        print(f"Response: {json.dumps(data, indent=2)}")
         
-        # Verify response structure
-        required_fields = ["valid", "case_id", "case_status", "is_closed", "status"]
-        missing_fields = [field for field in required_fields if field not in data]
-        
-        if missing_fields:
-            print(f"❌ WARNING: Missing fields in response: {missing_fields}")
-        else:
-            print("✅ All required fields present in response")
+        if response.status_code == 200:
+            data = response.json()
+            print("✅ SUCCESS: Case validation endpoint is working!")
+            print(f"Response: {json.dumps(data, indent=2)}")
             
-    elif response.status_code == 404:
-        data = response.json()
-        print(f"ℹ️  Case not found: {data.get('message', 'Unknown error')}")
-        print("This is expected if the case doesn't exist in the database")
-        
-    else:
-        print(f"❌ ERROR: Unexpected status code {response.status_code}")
-        print(f"Response: {response.text}")
+            # Verify response structure
+            required_fields = ["valid", "case_id", "case_status", "is_closed", "status"]
+            missing_fields = [field for field in required_fields if field not in data]
+            
+            if missing_fields:
+                print(f"❌ WARNING: Missing fields in response: {missing_fields}")
+            else:
+                print("✅ All required fields present in response")
+                
+        elif response.status_code == 404:
+            data = response.json()
+            print(f"ℹ️  Case not found: {data.get('message', 'Unknown error')}")
+            print("This is expected if the case doesn't exist in the database")
+            
+        else:
+            print(f"❌ ERROR: Unexpected status code {response.status_code}")
+            print(f"Response: {response.text}")
+            
+    except requests.exceptions.ConnectionError:
+        print("❌ ERROR: Could not connect to the server")
         print("Make sure the Flask app is running on http://127.0.0.1:8055")
         return False
-    
     except Exception as e:
         print(f"❌ ERROR: {e}")
         return False
