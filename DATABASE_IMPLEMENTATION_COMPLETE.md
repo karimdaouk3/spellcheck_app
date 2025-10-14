@@ -276,7 +276,7 @@ CREATE TABLE LAST_INPUT_STATE (
 **Column Explanations**:
 - `ID` - Primary key, auto-incrementing number
 - `CASE_SESSION_ID` - Foreign key to CASE_SESSIONS.ID, which case session this belongs to
-- `INPUT_FIELD_ID` - Type of input field: 'problem_statement' or 'fsr'
+- `INPUT_FIELD_ID` - Type of input field: 1 for 'problem_statement', 2 for 'fsr'
 - `INPUT_FIELD_VALUE` - The actual text content of the input
 - `LINE_ITEM_ID` - For FSR notes: line item number (1, 2, 3...). NULL for problem statement
 - `INPUT_FIELD_EVAL_ID` - ID of the last LLM evaluation for this input (links to LLM_EVALUATION.REWRITE_UUID)
@@ -290,9 +290,9 @@ CREATE TABLE LAST_INPUT_STATE (
 - `(CASE_SESSION_ID, INPUT_FIELD_ID, LINE_ITEM_ID, INPUT_FIELD_EVAL_ID)` - Ensures one state per case/field/line/evaluation combination
 
 **Usage Examples**:
-- Problem statement: `(CASE_SESSION_ID=1, INPUT_FIELD_ID='problem_statement', LINE_ITEM_ID=NULL)`
-- FSR line 1: `(CASE_SESSION_ID=1, INPUT_FIELD_ID='fsr', LINE_ITEM_ID=1)`
-- FSR line 2: `(CASE_SESSION_ID=1, INPUT_FIELD_ID='fsr', LINE_ITEM_ID=2)`
+- Problem statement: `(CASE_SESSION_ID=1, INPUT_FIELD_ID=1, LINE_ITEM_ID=NULL)`
+- FSR line 1: `(CASE_SESSION_ID=1, INPUT_FIELD_ID=2, LINE_ITEM_ID=1)`
+- FSR line 2: `(CASE_SESSION_ID=1, INPUT_FIELD_ID=2, LINE_ITEM_ID=2)`
 
 **Important**: This table is populated when user submits for review (including rewrites), NOT automatically
 
@@ -449,7 +449,7 @@ def get_user_case_data():
         FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS cs
         LEFT JOIN {DATABASE}.{SCHEMA}.LAST_INPUT_STATE lis_problem 
             ON cs.ID = lis_problem.CASE_SESSION_ID 
-            AND lis_problem.INPUT_FIELD_ID = 'problem_statement'
+            AND lis_problem.INPUT_FIELD_ID = 1
         WHERE cs.CREATED_BY_USER = %s AND cs.CASE_STATUS = 'open'
     """
     cases = snowflake_query(query, CONNECTION_PAYLOAD, (user_id,))
@@ -461,7 +461,7 @@ def get_user_case_data():
             FROM {DATABASE}.{SCHEMA}.LAST_INPUT_STATE
             WHERE CASE_SESSION_ID = (
                 SELECT ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS WHERE CASE_ID = %s AND CREATED_BY_USER = %s
-            ) AND INPUT_FIELD_ID = 'fsr'
+            ) AND INPUT_FIELD_ID = 2
             ORDER BY LINE_ITEM_ID
         """
         fsr_items = snowflake_query(fsr_query, CONNECTION_PAYLOAD, (case['case_id'], user_id))
