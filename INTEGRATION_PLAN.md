@@ -3,7 +3,7 @@
 ## Overview
 This plan integrates the new database tables (`CASE_SESSIONS`, `LAST_INPUT_STATE`, `CASE_REVIEW`) with the existing application, replacing mock endpoints with real database queries.
 
-**Note**: `CASE_FEEDBACK` table is actually named `CASE_REVIEW` in the database.
+**Note**: `CASE_REVIEW` table is actually named `CASE_REVIEW` in the database.
 
 ---
 
@@ -22,7 +22,7 @@ def validate_case_number(case_number):
         return jsonify({"error": "Not authenticated"}), 401
     
     query = f"""
-        SELECT CASE_ID, CASE_STATUS, LAST_SYNC_TIME
+        SELECT CASE_ID, CASE_STATUS, CRM_LAST_SYNC_TIME
         FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
         WHERE CASE_ID = %s
         LIMIT 1
@@ -35,7 +35,7 @@ def validate_case_number(case_number):
             "valid": True,
             "case_id": case_data["CASE_ID"],
             "case_status": case_data["CASE_STATUS"],
-            "last_sync_time": case_data["LAST_SYNC_TIME"]
+            "last_sync_time": case_data["CRM_LAST_SYNC_TIME"]
         })
     else:
         return jsonify({"valid": False, "message": "Case not found"})
@@ -62,7 +62,7 @@ def get_user_cases():
     
     user_id = user_data.get('user_id')
     query = f"""
-        SELECT CASE_ID, CASE_STATUS, LAST_SYNC_TIME
+        SELECT CASE_ID, CASE_STATUS, CRM_LAST_SYNC_TIME
         FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
         WHERE CREATED_BY_USER = %s
     """
@@ -74,7 +74,7 @@ def get_user_cases():
             cases.append({
                 "case_id": row["CASE_ID"],
                 "case_status": row["CASE_STATUS"],
-                "last_sync_time": row["LAST_SYNC_TIME"]
+                "last_sync_time": row["CRM_LAST_SYNC_TIME"]
             })
     
     return jsonify({"cases": cases, "count": len(cases)})
@@ -120,7 +120,7 @@ def get_user_case_data():
             
             # Get FSR line items for this case
             fsr_query = f"""
-                SELECT LINE_ITEM_ID, INPUT_FIELD_VALUE, INPUT_FIELD_EVAL_UUID, LAST_UPDATED
+                SELECT LINE_ITEM_ID, INPUT_FIELD_VALUE, INPUT_FIELD_EVAL_ID, LAST_UPDATED
                 FROM {DATABASE}.{SCHEMA}.LAST_INPUT_STATE
                 WHERE CASE_SESSION_ID = (
                     SELECT ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
@@ -192,7 +192,7 @@ def create_case():
     # Insert new case session
     insert_query = f"""
         INSERT INTO {DATABASE}.{SCHEMA}.CASE_SESSIONS 
-        (CASE_ID, CREATED_BY_USER, CASE_STATUS, CREATION_TIME, LAST_SYNC_TIME)
+        (CASE_ID, CREATED_BY_USER, CASE_STATUS, CREATION_TIME, CRM_LAST_SYNC_TIME)
         VALUES (%s, %s, 'open', CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
     """
     snowflake_query(insert_query, CONNECTION_PAYLOAD, 
@@ -234,7 +234,7 @@ def get_input_state():
     
     query = f"""
         SELECT INPUT_FIELD_ID, INPUT_FIELD_VALUE, LINE_ITEM_ID, 
-               INPUT_FIELD_EVAL_UUID, LAST_UPDATED
+               INPUT_FIELD_EVAL_ID, LAST_UPDATED
         FROM {DATABASE}.{SCHEMA}.LAST_INPUT_STATE
         WHERE CASE_SESSION_ID = %s
     """
@@ -247,7 +247,7 @@ def get_input_state():
                 "input_field_id": row["INPUT_FIELD_ID"],
                 "input_field_value": row["INPUT_FIELD_VALUE"],
                 "line_item_id": row["LINE_ITEM_ID"],
-                "input_field_eval_uuid": row["INPUT_FIELD_EVAL_UUID"],
+                "input_field_eval_uuid": row["INPUT_FIELD_EVAL_ID"],
                 "last_updated": row["LAST_UPDATED"]
             })
     
@@ -288,7 +288,7 @@ def update_input_state():
         MERGE INTO {DATABASE}.{SCHEMA}.LAST_INPUT_STATE AS target
         USING (
             SELECT %s as CASE_SESSION_ID, %s as INPUT_FIELD_ID, %s as INPUT_FIELD_VALUE, 
-                   %s as LINE_ITEM_ID, %s as INPUT_FIELD_EVAL_UUID, CURRENT_TIMESTAMP() as LAST_UPDATED
+                   %s as LINE_ITEM_ID, %s as INPUT_FIELD_EVAL_ID, CURRENT_TIMESTAMP() as LAST_UPDATED
         ) AS source
         ON target.CASE_SESSION_ID = source.CASE_SESSION_ID 
            AND target.INPUT_FIELD_ID = source.INPUT_FIELD_ID 
@@ -296,12 +296,12 @@ def update_input_state():
         WHEN MATCHED THEN
             UPDATE SET 
                 INPUT_FIELD_VALUE = source.INPUT_FIELD_VALUE,
-                INPUT_FIELD_EVAL_UUID = source.INPUT_FIELD_EVAL_UUID,
+                INPUT_FIELD_EVAL_ID = source.INPUT_FIELD_EVAL_ID,
                 LAST_UPDATED = source.LAST_UPDATED
         WHEN NOT MATCHED THEN
-            INSERT (CASE_SESSION_ID, INPUT_FIELD_ID, INPUT_FIELD_VALUE, LINE_ITEM_ID, INPUT_FIELD_EVAL_UUID, LAST_UPDATED)
+            INSERT (CASE_SESSION_ID, INPUT_FIELD_ID, INPUT_FIELD_VALUE, LINE_ITEM_ID, INPUT_FIELD_EVAL_ID, LAST_UPDATED)
             VALUES (source.CASE_SESSION_ID, source.INPUT_FIELD_ID, source.INPUT_FIELD_VALUE, 
-                    source.LINE_ITEM_ID, source.INPUT_FIELD_EVAL_UUID, source.LAST_UPDATED)
+                    source.LINE_ITEM_ID, source.INPUT_FIELD_EVAL_ID, source.LAST_UPDATED)
     """
     snowflake_query(merge_query, CONNECTION_PAYLOAD, 
                    (case_session_id, input_field_id, input_field_value, line_item_id, input_field_eval_uuid),
@@ -568,7 +568,7 @@ async submitToLLM(text, answers = null, field = this.activeField) {
 MOCK_VALID_CASES = [...]
 MOCK_CLOSED_CASES = [...]
 MOCK_USER_CASE_DATA = {...}
-MOCK_CASE_FEEDBACK = {...}
+MOCK_CASE_REVIEW = {...}
 ```
 
 ### Step 5.2: Remove Mock Endpoint Implementations

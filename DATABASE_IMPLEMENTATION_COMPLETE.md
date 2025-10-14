@@ -168,7 +168,7 @@ CREATE TABLE last_input_state (
 **Purpose**: Track current input state for each case session and field (problem statement, FSR line items)
 **Status**: ❌ **NOT IMPLEMENTED** - Critical for input state tracking
 
-### 3. CASE_FEEDBACK Table (NEW - CRITICAL)
+### 3. CASE_REVIEW Table (NEW - CRITICAL)
 ```sql
 CREATE TABLE case_feedback (
     id INTEGER AUTOINCREMENT PRIMARY KEY,
@@ -204,13 +204,12 @@ CREATE TABLE case_feedback (
 
 ```sql
 CREATE TABLE CASE_SESSIONS (
-    ID INTEGER AUTOINCREMENT PRIMARY KEY,
-    CASE_ID VARCHAR(100) NOT NULL,
+    ID NUMBER AUTOINCREMENT PRIMARY KEY,
+    CASE_ID NUMBER NOT NULL,
     CREATION_TIME TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP,
-    CREATED_BY_USER INTEGER NOT NULL,
+    CREATED_BY_USER NUMBER NOT NULL,
     CASE_STATUS VARCHAR(20) DEFAULT 'open',
-    LAST_SYNC_TIME TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP,
-    NOTES TEXT,
+    CRM_LAST_SYNC_TIME TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP,
     
     -- Foreign Keys
     FOREIGN KEY (CREATED_BY_USER) REFERENCES USER_INFORMATION(ID),
@@ -228,13 +227,12 @@ CREATE TABLE CASE_SESSIONS (
 ```
 
 **Column Explanations**:
-- `ID` - Primary key, auto-incrementing integer
+- `ID` - Primary key, auto-incrementing number
 - `CASE_ID` - Self-referencing foreign key to CASE_SESSIONS.CASE_ID
 - `CREATION_TIME` - When this case session was created, defaults to current timestamp
 - `CREATED_BY_USER` - Foreign key to USER_INFORMATION.ID, who created this case session
 - `CASE_STATUS` - Status of the case: 'open' or 'closed'
-- `LAST_SYNC_TIME` - When case status was last synchronized with external CRM (for tracking when we last checked if case is still open in external system)
-- `NOTES` - Additional notes or metadata about the case
+- `CRM_LAST_SYNC_TIME` - When case status was last synchronized with external CRM (for tracking when we last checked if case is still open in external system)
 
 **Foreign Keys**:
 - `CREATED_BY_USER` → `USER_INFORMATION(ID)` - Links to user who created the case
@@ -252,44 +250,44 @@ CREATE TABLE CASE_SESSIONS (
 
 ```sql
 CREATE TABLE LAST_INPUT_STATE (
-    ID INTEGER AUTOINCREMENT PRIMARY KEY,
-    CASE_SESSION_ID INTEGER NOT NULL,
-    INPUT_FIELD_ID VARCHAR(50) NOT NULL,
-    INPUT_FIELD_VALUE TEXT NOT NULL,
-    LINE_ITEM_ID INTEGER NULL,
-    INPUT_FIELD_EVAL_UUID VARCHAR(255) NULL,
+    ID NUMBER AUTOINCREMENT PRIMARY KEY,
+    CASE_SESSION_ID NUMBER NOT NULL,
+    INPUT_FIELD_ID NUMBER NOT NULL,
+    INPUT_FIELD_VALUE VARCHAR NOT NULL,
+    LINE_ITEM_ID NUMBER NULL,
+    INPUT_FIELD_EVAL_ID NUMBER NULL,
     LAST_UPDATED TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP,
     
     -- Foreign Keys
     FOREIGN KEY (CASE_SESSION_ID) REFERENCES CASE_SESSIONS(ID),
-    FOREIGN KEY (INPUT_FIELD_EVAL_UUID) REFERENCES LLM_EVALUATION(REWRITE_UUID),
+    FOREIGN KEY (INPUT_FIELD_EVAL_ID) REFERENCES LLM_EVALUATION(REWRITE_UUID),
     
     -- Constraints
-    UNIQUE(CASE_SESSION_ID, INPUT_FIELD_ID, LINE_ITEM_ID, INPUT_FIELD_EVAL_UUID),
+    UNIQUE(CASE_SESSION_ID, INPUT_FIELD_ID, LINE_ITEM_ID, INPUT_FIELD_EVAL_ID),
     
     -- Indexes
     INDEX IDX_CASE_SESSION (CASE_SESSION_ID),
     INDEX IDX_INPUT_FIELD (INPUT_FIELD_ID),
-    INDEX IDX_EVAL_UUID (INPUT_FIELD_EVAL_UUID),
+    INDEX IDX_EVAL_ID (INPUT_FIELD_EVAL_ID),
     INDEX IDX_LAST_UPDATED (LAST_UPDATED)
 );
 ```
 
 **Column Explanations**:
-- `ID` - Primary key, auto-incrementing integer
+- `ID` - Primary key, auto-incrementing number
 - `CASE_SESSION_ID` - Foreign key to CASE_SESSIONS.ID, which case session this belongs to
 - `INPUT_FIELD_ID` - Type of input field: 'problem_statement' or 'fsr'
 - `INPUT_FIELD_VALUE` - The actual text content of the input
 - `LINE_ITEM_ID` - For FSR notes: line item number (1, 2, 3...). NULL for problem statement
-- `INPUT_FIELD_EVAL_UUID` - UUID of the last LLM evaluation for this input (links to LLM_EVALUATION.REWRITE_UUID)
+- `INPUT_FIELD_EVAL_ID` - ID of the last LLM evaluation for this input (links to LLM_EVALUATION.REWRITE_UUID)
 - `LAST_UPDATED` - When this input state was last updated
 
 **Foreign Keys**:
 - `CASE_SESSION_ID` → `CASE_SESSIONS(ID)` - Links to the case session
-- `INPUT_FIELD_EVAL_UUID` → `LLM_EVALUATION(REWRITE_UUID)` - Links to the LLM evaluation
+- `INPUT_FIELD_EVAL_ID` → `LLM_EVALUATION(REWRITE_UUID)` - Links to the LLM evaluation
 
 **Unique Constraint**:
-- `(CASE_SESSION_ID, INPUT_FIELD_ID, LINE_ITEM_ID, INPUT_FIELD_EVAL_UUID)` - Ensures one state per case/field/line/evaluation combination
+- `(CASE_SESSION_ID, INPUT_FIELD_ID, LINE_ITEM_ID, INPUT_FIELD_EVAL_ID)` - Ensures one state per case/field/line/evaluation combination
 
 **Usage Examples**:
 - Problem statement: `(CASE_SESSION_ID=1, INPUT_FIELD_ID='problem_statement', LINE_ITEM_ID=NULL)`
@@ -300,35 +298,35 @@ CREATE TABLE LAST_INPUT_STATE (
 
 ---
 
-### 3. CASE_FEEDBACK Table
+### 3. CASE_REVIEW Table
 **Purpose**: Store feedback for closed cases (symptom, fault, fix)
 
 ```sql
-CREATE TABLE CASE_FEEDBACK (
-    ID INTEGER AUTOINCREMENT PRIMARY KEY,
-    USER_ID INTEGER NOT NULL,
-    CASE_NUMBER VARCHAR(100) NOT NULL,
+CREATE TABLE CASE_REVIEW (
+    ID NUMBER AUTOINCREMENT PRIMARY KEY,
+    CASE_ID NUMBER NOT NULL,
+    USER_ID NUMBER NOT NULL,
     CLOSED_DATE TIMESTAMP_NTZ NOT NULL,
-    SYMPTOM TEXT NOT NULL,
-    FAULT TEXT NOT NULL,
-    FIX TEXT NOT NULL,
+    SYMPTOM VARCHAR NOT NULL,
+    FAULT VARCHAR NOT NULL,
+    FIX VARCHAR NOT NULL,
     SUBMITTED_AT TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP,
     
     -- Foreign Keys
     FOREIGN KEY (USER_ID) REFERENCES USER_INFORMATION(ID),
-    FOREIGN KEY (CASE_NUMBER) REFERENCES CASE_SESSIONS(CASE_ID),
+    FOREIGN KEY (CASE_ID) REFERENCES CASE_SESSIONS(CASE_ID),
     
     -- Indexes
     INDEX IDX_USER_ID (USER_ID),
-    INDEX IDX_CASE_NUMBER (CASE_NUMBER),
+    INDEX IDX_CASE_ID (CASE_ID),
     INDEX IDX_SUBMITTED_AT (SUBMITTED_AT)
 );
 ```
 
 **Column Explanations**:
-- `ID` - Primary key, auto-incrementing integer
+- `ID` - Primary key, auto-incrementing number
+- `CASE_ID` - Foreign key to CASE_SESSIONS.CASE_ID, which case this feedback is for
 - `USER_ID` - Foreign key to USER_INFORMATION.ID, who submitted the feedback
-- `CASE_NUMBER` - Case number (e.g., "CASE-2024-001") that was closed
 - `CLOSED_DATE` - When the case was closed (from external CRM or system)
 - `SYMPTOM` - Description of the symptoms/issues reported
 - `FAULT` - Root cause or fault that was identified
@@ -337,7 +335,7 @@ CREATE TABLE CASE_FEEDBACK (
 
 **Foreign Keys**:
 - `USER_ID` → `USER_INFORMATION(ID)` - Links to user who submitted feedback
-- `CASE_NUMBER` → `CASE_SESSIONS(CASE_ID)` - Links to the case session
+- `CASE_ID` → `CASE_SESSIONS(CASE_ID)` - Links to the case session
 
 ---
 
@@ -409,7 +407,7 @@ async submitToLLM(text, answers = null, field = this.activeField) {
 def validate_case_number(case_number):
     # TODO: Replace with actual database query
     query = f"""
-        SELECT CASE_ID, CASE_STATUS, LAST_SYNC_TIME
+        SELECT CASE_ID, CASE_STATUS, CRM_LAST_SYNC_TIME
         FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
         WHERE CASE_ID = %s
         LIMIT 1
@@ -427,7 +425,7 @@ def get_user_cases():
     # TODO: Replace with actual database query
     user_id = session.get('user_data').get('user_id')
     query = f"""
-        SELECT CASE_ID, CASE_STATUS, LAST_SYNC_TIME
+        SELECT CASE_ID, CASE_STATUS, CRM_LAST_SYNC_TIME
         FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
         WHERE CREATED_BY_USER = %s
     """
@@ -459,7 +457,7 @@ def get_user_case_data():
     # Get FSR line items for each case
     for case in cases:
         fsr_query = f"""
-            SELECT LINE_ITEM_ID, INPUT_FIELD_VALUE, INPUT_FIELD_EVAL_UUID, LAST_UPDATED
+            SELECT LINE_ITEM_ID, INPUT_FIELD_VALUE, INPUT_FIELD_EVAL_ID, LAST_UPDATED
             FROM {DATABASE}.{SCHEMA}.LAST_INPUT_STATE
             WHERE CASE_SESSION_ID = (
                 SELECT ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS WHERE CASE_ID = %s AND CREATED_BY_USER = %s
@@ -485,7 +483,7 @@ def check_cases_status():
     # TODO: Replace with actual database query
     case_numbers = request.get_json().get('case_numbers', [])
     query = f"""
-        SELECT CASE_ID, CASE_STATUS, LAST_SYNC_TIME
+        SELECT CASE_ID, CASE_STATUS, CRM_LAST_SYNC_TIME
         FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS
         WHERE CASE_ID IN %s
     """
@@ -509,7 +507,7 @@ def create_case():
     # Insert into case_sessions (replaces cases + user_cases)
     insert_query = f"""
         INSERT INTO {DATABASE}.{SCHEMA}.CASE_SESSIONS 
-        (CASE_ID, CREATED_BY_USER, CASE_STATUS, CREATION_TIME, LAST_SYNC_TIME)
+        (CASE_ID, CREATED_BY_USER, CASE_STATUS, CREATION_TIME, CRM_LAST_SYNC_TIME)
         VALUES (%s, %s, 'open', CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
     """
     snowflake_query(insert_query, CONNECTION_PAYLOAD, 
@@ -518,14 +516,14 @@ def create_case():
 ```
 
 ### 6. Case Feedback Endpoints
-**Current Mock**: `MOCK_CASE_FEEDBACK`
+**Current Mock**: `MOCK_CASE_REVIEW`
 **Database Implementation Needed**:
 ```python
 @app.route('/api/cases/feedback', methods=['POST'])
 def submit_case_feedback():
     # TODO: Replace with actual database insert
     query = f"""
-        INSERT INTO {DATABASE}.{SCHEMA}.CASE_FEEDBACK 
+        INSERT INTO {DATABASE}.{SCHEMA}.CASE_REVIEW 
         (USER_ID, CASE_NUMBER, CLOSED_DATE, SYMPTOM, FAULT, FIX)
         VALUES (%s, %s, %s, %s, %s, %s)
     """
@@ -541,7 +539,7 @@ def get_input_state():
     # TODO: Replace localStorage with database query
     query = f"""
         SELECT INPUT_FIELD_ID, INPUT_FIELD_VALUE, LINE_ITEM_ID, 
-               INPUT_FIELD_EVAL_UUID, LAST_UPDATED
+               INPUT_FIELD_EVAL_ID, LAST_UPDATED
         FROM {DATABASE}.{SCHEMA}.LAST_INPUT_STATE
         WHERE CASE_SESSION_ID = %s
     """
@@ -568,7 +566,7 @@ def update_input_state():
         MERGE INTO {DATABASE}.{SCHEMA}.LAST_INPUT_STATE AS target
         USING (
             SELECT %s as CASE_SESSION_ID, %s as INPUT_FIELD_ID, %s as INPUT_FIELD_VALUE, 
-                   %s as LINE_ITEM_ID, %s as INPUT_FIELD_EVAL_UUID, CURRENT_TIMESTAMP() as LAST_UPDATED
+                   %s as LINE_ITEM_ID, %s as INPUT_FIELD_EVAL_ID, CURRENT_TIMESTAMP() as LAST_UPDATED
         ) AS source
         ON target.CASE_SESSION_ID = source.CASE_SESSION_ID 
            AND target.INPUT_FIELD_ID = source.INPUT_FIELD_ID 
@@ -576,12 +574,12 @@ def update_input_state():
         WHEN MATCHED THEN
             UPDATE SET 
                 INPUT_FIELD_VALUE = source.INPUT_FIELD_VALUE,
-                INPUT_FIELD_EVAL_UUID = source.INPUT_FIELD_EVAL_UUID,
+                INPUT_FIELD_EVAL_ID = source.INPUT_FIELD_EVAL_ID,
                 LAST_UPDATED = source.LAST_UPDATED
         WHEN NOT MATCHED THEN
-            INSERT (CASE_SESSION_ID, INPUT_FIELD_ID, INPUT_FIELD_VALUE, LINE_ITEM_ID, INPUT_FIELD_EVAL_UUID, LAST_UPDATED)
+            INSERT (CASE_SESSION_ID, INPUT_FIELD_ID, INPUT_FIELD_VALUE, LINE_ITEM_ID, INPUT_FIELD_EVAL_ID, LAST_UPDATED)
             VALUES (source.CASE_SESSION_ID, source.INPUT_FIELD_ID, source.INPUT_FIELD_VALUE, 
-                    source.LINE_ITEM_ID, source.INPUT_FIELD_EVAL_UUID, source.LAST_UPDATED)
+                    source.LINE_ITEM_ID, source.INPUT_FIELD_EVAL_ID, source.LAST_UPDATED)
     """
     snowflake_query(merge_query, CONNECTION_PAYLOAD, 
                    (case_session_id, input_field_id, input_field_value, line_item_id, input_field_eval_uuid),
@@ -644,7 +642,7 @@ def sync_case_status():
                 # Update case status in database
                 update_query = f"""
                     UPDATE {DATABASE}.{SCHEMA}.CASE_SESSIONS 
-                    SET CASE_STATUS = 'closed', LAST_SYNC_TIME = CURRENT_TIMESTAMP()
+                    SET CASE_STATUS = 'closed', CRM_LAST_SYNC_TIME = CURRENT_TIMESTAMP()
                     WHERE ID = %s
                 """
                 snowflake_query(update_query, CONNECTION_PAYLOAD, (case['id'],))
@@ -660,7 +658,7 @@ def sync_case_status():
 ### Phase 1: Critical Database Tables (HIGH PRIORITY)
 1. **CASE_SESSIONS** - Case tracking, CRM sync, and case status management
 2. **LAST_INPUT_STATE** - Input state tracking (problem statement, FSR line items)
-3. **CASE_FEEDBACK** - Feedback collection for closed cases
+3. **CASE_REVIEW** - Feedback collection for closed cases
 
 ### Phase 2: Database Endpoint Implementation (HIGH PRIORITY)
 1. Replace all mock endpoints with database queries
@@ -689,7 +687,7 @@ def sync_case_status():
 -- Create all missing tables with dynamic naming
 CREATE TABLE {DATABASE}.{SCHEMA}.CASE_SESSIONS (...);
 CREATE TABLE {DATABASE}.{SCHEMA}.LAST_INPUT_STATE (...);
-CREATE TABLE {DATABASE}.{SCHEMA}.CASE_FEEDBACK (...);
+CREATE TABLE {DATABASE}.{SCHEMA}.CASE_REVIEW (...);
 ```
 
 ### Step 2: Data Migration
@@ -728,7 +726,7 @@ CREATE TABLE {DATABASE}.{SCHEMA}.CASE_FEEDBACK (...);
 MOCK_VALID_CASES = [...]
 MOCK_CLOSED_CASES = [...]
 MOCK_USER_CASE_DATA = {...}
-MOCK_CASE_FEEDBACK = {...}
+MOCK_CASE_REVIEW = {...}
 ```
 
 ### 2. Mock Endpoints (Replace with database queries)
@@ -769,7 +767,7 @@ The application currently has **6 implemented database tables** and **3 critical
 ### ❌ **Still Missing (3 tables):**
 1. ❌ `CASE_SESSIONS` - Case tracking, CRM sync, and case status management
 2. ❌ `LAST_INPUT_STATE` - Input state tracking (problem statement, FSR line items)
-3. ❌ `CASE_FEEDBACK` - Feedback collection for closed cases
+3. ❌ `CASE_REVIEW` - Feedback collection for closed cases
 
 ### ❌ **Mock Endpoints to Replace (8 endpoints):**
 1. ❌ `/api/cases/validate/<case_number>` - Case validation
@@ -791,7 +789,7 @@ The application currently has **6 implemented database tables** and **3 critical
 1. ❌ `MOCK_VALID_CASES` - Replace with `CASE_SESSIONS` queries
 2. ❌ `MOCK_CLOSED_CASES` - Replace with `CASE_SESSIONS.CASE_STATUS`
 3. ❌ `MOCK_USER_CASE_DATA` - Replace with `LAST_INPUT_STATE` queries
-4. ❌ `MOCK_CASE_FEEDBACK` - Replace with `CASE_FEEDBACK` table
+4. ❌ `MOCK_CASE_REVIEW` - Replace with `CASE_REVIEW` table
 
 ### ❌ **Frontend Changes Needed:**
 1. ❌ Replace localStorage with database API calls
@@ -807,7 +805,7 @@ The application currently has **6 implemented database tables** and **3 critical
 ### **Phase 1: Database Tables (HIGH PRIORITY)**
 1. Create `CASE_SESSIONS` table
 2. Create `LAST_INPUT_STATE` table  
-3. Create `CASE_FEEDBACK` table
+3. Create `CASE_REVIEW` table
 
 ### **Phase 2: Backend Endpoints (HIGH PRIORITY)**
 1. Replace all 8 mock endpoints with database queries using `{DATABASE}.{SCHEMA}.TABLE_NAME` format

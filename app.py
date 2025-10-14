@@ -216,7 +216,7 @@ MOCK_USER_CASE_DATA = {
 
 # Mock data for case feedback (in-memory storage)
 # Structure: { user_id: [ { case_number, closed_date, feedback: {symptom, fault, fix}, submitted_at } ] }
-MOCK_CASE_FEEDBACK = {
+MOCK_CASE_REVIEW = {
     "0": []  # List of feedback entries for user 0 (empty for testing)
 }
 
@@ -232,7 +232,7 @@ def validate_case_number(case_number):
     
     try:
         query = f"""
-            SELECT CASE_ID, CASE_STATUS, LAST_SYNC_TIME
+            SELECT CASE_ID, CASE_STATUS, CRM_LAST_SYNC_TIME
             FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
             WHERE CASE_ID = %s
             LIMIT 1
@@ -245,7 +245,7 @@ def validate_case_number(case_number):
                 "valid": True,
                 "case_id": case_data["CASE_ID"],
                 "case_status": case_data["CASE_STATUS"],
-                "last_sync_time": case_data["LAST_SYNC_TIME"],
+                "last_sync_time": case_data["CRM_LAST_SYNC_TIME"],
                 "is_closed": case_data["CASE_STATUS"] == "closed",
                 "status": case_data["CASE_STATUS"]
             })
@@ -1685,8 +1685,8 @@ def submit_case_feedback():
             return jsonify({"error": f"Missing or empty feedback field: {field}"}), 400
     
     # Initialize user's feedback list if doesn't exist
-    if user_id not in MOCK_CASE_FEEDBACK:
-        MOCK_CASE_FEEDBACK[user_id] = []
+    if user_id not in MOCK_CASE_REVIEW:
+        MOCK_CASE_REVIEW[user_id] = []
     
     # Create feedback entry
     feedback_entry = {
@@ -1701,7 +1701,7 @@ def submit_case_feedback():
     }
     
     # Store feedback
-    MOCK_CASE_FEEDBACK[user_id].append(feedback_entry)
+    MOCK_CASE_REVIEW[user_id].append(feedback_entry)
     
     print(f"📝 Feedback submitted for case {feedback_entry['case_number']} by user {user_id}")
     print(f"   Symptom: {feedback_entry['feedback']['symptom'][:50]}...")

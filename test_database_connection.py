@@ -162,7 +162,7 @@ def add_test_cases():
             # Insert test case
             insert_query = f"""
                 INSERT INTO {DATABASE}.{SCHEMA}.CASE_SESSIONS 
-                (CASE_ID, CREATED_BY_USER, CASE_STATUS, CREATION_TIME, LAST_SYNC_TIME)
+                (CASE_ID, CREATED_BY_USER, CASE_STATUS, CREATION_TIME, CRM_LAST_SYNC_TIME)
                 VALUES (%s, %s, %s, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
             """
             snowflake_query(insert_query, CONNECTION_PAYLOAD, 
