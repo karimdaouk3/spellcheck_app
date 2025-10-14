@@ -192,11 +192,11 @@ def create_case():
     # Insert new case session
     insert_query = f"""
         INSERT INTO {DATABASE}.{SCHEMA}.CASE_SESSIONS 
-        (CASE_ID, CREATED_BY_USER, EXISTS_IN_CRM, CASE_STATUS, CREATION_TIME, LAST_SYNC_TIME)
-        VALUES (%s, %s, %s, 'open', CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
+        (CASE_ID, CREATED_BY_USER, CASE_STATUS, CREATION_TIME, LAST_SYNC_TIME)
+        VALUES (%s, %s, 'open', CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
     """
     snowflake_query(insert_query, CONNECTION_PAYLOAD, 
-                   (case_number, user_id, exists_in_crm), 
+                   (case_number, user_id), 
                    return_df=False)
     
     return jsonify({

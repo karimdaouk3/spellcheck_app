@@ -13,25 +13,17 @@ class LanguageToolEditor {
         this.history = [];
         this.activeField = 'editor'; // 'editor' or 'editor2'
         
-        // Debug flag for DB interactions
-        if (typeof window.FSR_DEBUG === 'undefined') {
-            window.FSR_DEBUG = true; // set to false to silence
-        }
-        
-        // Criteria cache to avoid repeated database queries
-        this.criteriaCache = {
-            problem_statement: null,
-            fsr: null,
-            cacheTimestamp: null,
-            cacheExpiry: 30 * 60 * 1000 // 30 minutes in milliseconds
-        };
-
         // Load rulesets from backend
         this.rulesets = {};
         this.loadRulesets().then(() => {
             // Update scores after rulesets are loaded
             this.updateEditorLabelsWithScore();
         });
+ 
+        // Debug flag for DB interactions
+        if (typeof window.FSR_DEBUG === 'undefined') {
+            window.FSR_DEBUG = true; // set to false to silence
+        }
  
         // Log user session info early
         this.debugFetchUser('init');
@@ -1778,82 +1770,21 @@ class LanguageToolEditor {
         `;
     }
  
-    // Check if criteria cache is valid
-    isCriteriaCacheValid() {
-        if (!this.criteriaCache.cacheTimestamp) {
-            return false;
-        }
-        const now = Date.now();
-        return (now - this.criteriaCache.cacheTimestamp) < this.criteriaCache.cacheExpiry;
-    }
-    
-    // Load criteria with caching
-    async loadCriteriaWithCache(rulesetName) {
-        const cacheKey = rulesetName === 'fsr' ? 'fsr' : 'problem_statement';
-        
-        // Check if we have valid cached data
-        if (this.isCriteriaCacheValid() && this.criteriaCache[cacheKey]) {
-            console.log(`📋 Using cached criteria for ${rulesetName}`);
-            return this.criteriaCache[cacheKey];
-        }
-        
-        try {
-            console.log(`🔄 Loading criteria from database for ${rulesetName}`);
-            const response = await fetch(`/ruleset/${rulesetName}`);
-            const criteria = await response.json();
-            
-            // Cache the criteria
-            this.criteriaCache[cacheKey] = criteria;
-            this.criteriaCache.cacheTimestamp = Date.now();
-            
-            console.log(`✅ Cached criteria for ${rulesetName}:`, criteria);
-            return criteria;
-        } catch (error) {
-            console.error(`❌ Error loading criteria for ${rulesetName}:`, error);
-            // Return cached data if available, even if expired
-            if (this.criteriaCache[cacheKey]) {
-                console.log(`⚠️ Using expired cache for ${rulesetName}`);
-                return this.criteriaCache[cacheKey];
-            }
-            return { rules: [] };
-        }
-    }
-    
-    // Clear criteria cache
-    clearCriteriaCache() {
-        this.criteriaCache = {
-            problem_statement: null,
-            fsr: null,
-            cacheTimestamp: null,
-            cacheExpiry: 30 * 60 * 1000 // 30 minutes in milliseconds
-        };
-        console.log('🗑️ Criteria cache cleared');
-    }
-    
-    // Force refresh criteria from database
-    async refreshCriteria() {
-        console.log('🔄 Force refreshing criteria from database...');
-        this.clearCriteriaCache();
-        await this.loadRulesets();
-    }
-    
-    // Load rulesets from backend with caching
+    // Load rulesets from backend
     async loadRulesets() {
         try {
             const [ps, fsr] = await Promise.all([
-                this.loadCriteriaWithCache('problem_statement'),
-                this.loadCriteriaWithCache('fsr')
+                fetch('/ruleset/problem_statement').then(res => res.json()),
+                fetch('/ruleset/fsr').then(res => res.json())
             ]);
-
+ 
             this.rulesets = { editor: ps, editor2: fsr };
-            this.logDb('Loaded criteria with caching', {
+            this.logDb('Loaded criteria from CRITERIA_GROUPS (DEFAULT)', {
                 problem_statement: ps,
-                fsr,
-                cacheValid: this.isCriteriaCacheValid()
+                fsr
             });
         } catch (error) {
             console.error('Error loading rulesets:', error);
-            this.rulesets = { editor: { rules: [] }, editor2: { rules: [] } };
         }
     }
  
@@ -1861,41 +1792,25 @@ class LanguageToolEditor {
     calculateWeightedScore(field, evaluation) {
         const ruleset = this.rulesets[field];
         if (!ruleset || !ruleset.rules) {
-            console.log(`⚠️ No ruleset found for field: ${field}`, ruleset);
             return 0;
         }
         
         let totalScore = 0;
         let totalWeight = 0;
         
-        console.log(`📊 Calculating score for ${field}:`, {
-            ruleset: ruleset,
-            evaluation: evaluation,
-            rulesCount: ruleset.rules.length
-        });
-        
         for (const rule of ruleset.rules) {
             const criteriaName = rule.name;
             const weight = rule.weight;
             
             if (evaluation[criteriaName]) {
-                const passed = evaluation[criteriaName].passed;
-                const scoreContribution = passed ? weight : 0;
-                totalScore += scoreContribution;
+                totalScore += evaluation[criteriaName].passed ? weight : 0;
                 totalWeight += weight;
-                
-                console.log(`  ${criteriaName}: passed=${passed}, weight=${weight}, contribution=${scoreContribution}`);
-            } else {
-                console.log(`  ${criteriaName}: not found in evaluation`);
             }
         }
         
-        const finalScore = totalWeight > 0 ? (totalScore / totalWeight) * 100 : 0;
-        console.log(`📊 Final score for ${field}: ${finalScore}% (${totalScore}/${totalWeight})`);
-        
         // Automatically normalize to 100 regardless of actual weight sum
         // This ensures the score is always 0-100 even if weights don't sum to 100
-        return finalScore;
+        return totalWeight > 0 ? (totalScore / totalWeight) * 100 : 0;
     }
  
     // --- Placeholder for LLM call after transcription ---

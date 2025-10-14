@@ -75,11 +75,11 @@ def ensure_test_data():
         # Insert test case
         insert_query = f"""
             INSERT INTO {DATABASE}.{SCHEMA}.CASE_SESSIONS 
-            (CASE_ID, CREATED_BY_USER, EXISTS_IN_CRM, CASE_STATUS, CREATION_TIME, LAST_SYNC_TIME)
-            VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
+            (CASE_ID, CREATED_BY_USER, CASE_STATUS, CREATION_TIME, LAST_SYNC_TIME)
+            VALUES (%s, %s, %s, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
         """
         snowflake_query(insert_query, CONNECTION_PAYLOAD, 
-                       (TEST_CASE_NUMBER, 0, False, 'open'), 
+                       (TEST_CASE_NUMBER, 0, 'open'), 
                        return_df=False)
         
         print(f"✅ Test case {TEST_CASE_NUMBER} created successfully")

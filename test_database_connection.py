@@ -137,15 +137,15 @@ def add_test_cases():
     print("=" * 40)
     
     test_cases = [
-        ("CASE-2024-001", 0, False, 'open'),
-        ("CASE-2024-002", 0, True, 'open'),
-        ("CASE-2024-003", 0, False, 'closed'),
-        ("TEST-CASE-001", 0, False, 'open'),
+        ("CASE-2024-001", 0, 'open'),
+        ("CASE-2024-002", 0, 'open'),
+        ("CASE-2024-003", 0, 'closed'),
+        ("TEST-CASE-001", 0, 'open'),
     ]
     
     added_count = 0
     
-    for test_case_id, user_id, exists_in_crm, status in test_cases:
+    for test_case_id, user_id, status in test_cases:
         try:
             # Check if test case already exists
             check_query = f"""
@@ -162,11 +162,11 @@ def add_test_cases():
             # Insert test case
             insert_query = f"""
                 INSERT INTO {DATABASE}.{SCHEMA}.CASE_SESSIONS 
-                (CASE_ID, CREATED_BY_USER, EXISTS_IN_CRM, CASE_STATUS, CREATION_TIME, LAST_SYNC_TIME)
-                VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
+                (CASE_ID, CREATED_BY_USER, CASE_STATUS, CREATION_TIME, LAST_SYNC_TIME)
+                VALUES (%s, %s, %s, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
             """
             snowflake_query(insert_query, CONNECTION_PAYLOAD, 
-                           (test_case_id, user_id, exists_in_crm, status), 
+                           (test_case_id, user_id, status), 
                            return_df=False)
             
             print(f"✅ Test case {test_case_id} added successfully")

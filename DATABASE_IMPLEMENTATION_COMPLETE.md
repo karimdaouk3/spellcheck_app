@@ -208,7 +208,6 @@ CREATE TABLE CASE_SESSIONS (
     CASE_ID VARCHAR(100) NOT NULL,
     CREATION_TIME TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP,
     CREATED_BY_USER INTEGER NOT NULL,
-    EXISTS_IN_CRM BOOLEAN DEFAULT FALSE,
     CASE_STATUS VARCHAR(20) DEFAULT 'open',
     LAST_SYNC_TIME TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP,
     NOTES TEXT,
@@ -233,7 +232,6 @@ CREATE TABLE CASE_SESSIONS (
 - `CASE_ID` - Self-referencing foreign key to CASE_SESSIONS.CASE_ID
 - `CREATION_TIME` - When this case session was created, defaults to current timestamp
 - `CREATED_BY_USER` - Foreign key to USER_INFORMATION.ID, who created this case session
-- `EXISTS_IN_CRM` - Boolean flag indicating if case exists in external CRM system
 - `CASE_STATUS` - Status of the case: 'open' or 'closed'
 - `LAST_SYNC_TIME` - When case status was last synchronized with external CRM (for tracking when we last checked if case is still open in external system)
 - `NOTES` - Additional notes or metadata about the case
@@ -401,19 +399,6 @@ async submitToLLM(text, answers = null, field = this.activeField) {
 
 ---
 
-## Summary
-
-**Total Tables to Create**: 3 tables only
-**Dependencies**: All tables reference existing `USER_INFORMATION` table
-**No Additional Changes**: No modifications to existing tables required
-
-**Implementation Order**:
-1. Create `case_sessions` table first
-2. Create `last_input_state` table (depends on case_sessions)
-3. Create `case_feedback` table (independent)
-
----
-
 ## Mock Endpoints That Need Database Implementation
 
 ### 1. Case Validation Endpoints
@@ -524,11 +509,11 @@ def create_case():
     # Insert into case_sessions (replaces cases + user_cases)
     insert_query = f"""
         INSERT INTO {DATABASE}.{SCHEMA}.CASE_SESSIONS 
-        (CASE_ID, CREATED_BY_USER, EXISTS_IN_CRM, CASE_STATUS, CREATION_TIME, LAST_SYNC_TIME)
-        VALUES (%s, %s, %s, 'open', CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
+        (CASE_ID, CREATED_BY_USER, CASE_STATUS, CREATION_TIME, LAST_SYNC_TIME)
+        VALUES (%s, %s, 'open', CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
     """
     snowflake_query(insert_query, CONNECTION_PAYLOAD, 
-                   (case_number, user_id, exists_in_crm), 
+                   (case_number, user_id), 
                    return_df=False)
 ```
 
