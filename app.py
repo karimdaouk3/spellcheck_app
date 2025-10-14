@@ -229,7 +229,13 @@ def validate_case_number(case_number):
     user_data = session.get('user_data')
     if not user_data:
         return jsonify({"error": "Not authenticated"}), 401
-    
+
+@app.route('/api/cases/validate-test/<case_number>', methods=['GET'])
+def validate_case_number_test(case_number):
+    """
+    TEST ENDPOINT: Same as validate_case_number but without authentication requirement.
+    This is for testing purposes only - remove in production.
+    """
     try:
         # Convert case_number to integer if it's a string
         try:
