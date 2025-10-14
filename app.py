@@ -1695,16 +1695,14 @@ def speech_to_text():
 @app.route('/api/cases/feedback', methods=['POST'])
 def submit_case_feedback():
     """
-    Mock endpoint to submit feedback for a closed case.
-    Stores feedback data including symptom, fault, and fix.
-    
-    TODO: Replace with actual database insert
+    Database endpoint to submit feedback for a closed case.
+    Stores feedback data in CASE_REVIEW table including symptom, fault, and fix.
     """
     user_data = session.get('user_data')
     if not user_data:
         return jsonify({"error": "Not authenticated"}), 401
     
-    user_id = str(user_data.get('user_id', '0'))
+    user_id = user_data.get('user_id')
     data = request.get_json()
     
     if not data:
@@ -1722,36 +1720,61 @@ def submit_case_feedback():
         if field not in feedback or not feedback[field].strip():
             return jsonify({"error": f"Missing or empty feedback field: {field}"}), 400
     
-    # Initialize user's feedback list if doesn't exist
-    if user_id not in MOCK_CASE_REVIEW:
-        MOCK_CASE_REVIEW[user_id] = []
-    
-    # Create feedback entry
-    feedback_entry = {
-        "case_number": data.get('case_number'),
-        "closed_date": data.get('closed_date'),
-        "feedback": {
-            "symptom": feedback.get('symptom', '').strip(),
-            "fault": feedback.get('fault', '').strip(),
-            "fix": feedback.get('fix', '').strip()
-        },
-        "submitted_at": data.get('submitted_at', datetime.utcnow().isoformat() + 'Z')
-    }
-    
-    # Store feedback
-    MOCK_CASE_REVIEW[user_id].append(feedback_entry)
-    
-    print(f"📝 Feedback submitted for case {feedback_entry['case_number']} by user {user_id}")
-    print(f"   Symptom: {feedback_entry['feedback']['symptom'][:50]}...")
-    print(f"   Fault: {feedback_entry['feedback']['fault'][:50]}...")
-    print(f"   Fix: {feedback_entry['feedback']['fix'][:50]}...")
-    
-    return jsonify({
-        "success": True,
-        "message": "Feedback submitted successfully",
-        "case_number": feedback_entry['case_number'],
-        "submitted_at": feedback_entry['submitted_at']
-    })
+    try:
+        case_number = int(data.get('case_number'))
+        
+        # Check if case exists for this user
+        case_check_query = f"""
+            SELECT ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+            WHERE CASE_ID = %s AND CREATED_BY_USER = %s
+        """
+        case_result = snowflake_query(case_check_query, CONNECTION_PAYLOAD, (case_number, user_id))
+        
+        if case_result is None or case_result.empty:
+            return jsonify({"error": "Case not found"}), 404
+        
+        # Insert feedback into CASE_REVIEW table
+        insert_feedback_query = f"""
+            INSERT INTO {DATABASE}.{SCHEMA}.CASE_REVIEW 
+            (CASE_ID, USER_ID, CLOSED_DATE, SYMPTOM, FAULT, FIX, SUBMITTED_AT)
+            VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP())
+        """
+        
+        closed_date = data.get('closed_date')
+        if closed_date:
+            # Parse ISO format date if provided
+            try:
+                from datetime import datetime
+                closed_date_parsed = datetime.fromisoformat(closed_date.replace('Z', '+00:00'))
+            except:
+                closed_date_parsed = None
+        else:
+            closed_date_parsed = None
+        
+        snowflake_query(insert_feedback_query, CONNECTION_PAYLOAD, 
+                       (case_number, user_id, closed_date_parsed,
+                        feedback.get('symptom', '').strip(),
+                        feedback.get('fault', '').strip(),
+                        feedback.get('fix', '').strip()),
+                       return_df=False)
+        
+        print(f"📝 Feedback submitted for case {case_number} by user {user_id}")
+        print(f"   Symptom: {feedback.get('symptom', '')[:50]}...")
+        print(f"   Fault: {feedback.get('fault', '')[:50]}...")
+        print(f"   Fix: {feedback.get('fix', '')[:50]}...")
+        
+        return jsonify({
+            "success": True,
+            "message": "Feedback submitted successfully",
+            "case_number": case_number,
+            "submitted_at": datetime.utcnow().isoformat() + 'Z'
+        })
+        
+    except ValueError:
+        return jsonify({"error": "Invalid case number format"}), 400
+    except Exception as e:
+        print(f"Error submitting feedback for case {data.get('case_number')}: {e}")
+        return jsonify({"error": "Database error occurred"}), 500
 
 @app.route('/api/cases/generate-feedback', methods=['POST'])
 def generate_case_feedback():
