@@ -3096,46 +3096,50 @@ class CaseManager {
         }
         
         try {
-            // Get list of user's cases
-            const response = await fetch('/api/cases/user-cases');
+            // Check external CRM status for open cases
+            const response = await fetch('/api/cases/check-external-status', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
             if (!response.ok) {
-                console.log('Could not fetch user cases for closed case check');
+                console.log('Could not check external CRM status');
                 return;
             }
             
             const responseData = await response.json();
-            console.log('🔍 Response data:', responseData);
-            const userCases = responseData.cases || [];
-            console.log('📋 User cases:', userCases);
-            const closedCases = userCases.filter(caseData => caseData.needs_feedback);
-            console.log('🔒 Cases needing feedback found:', closedCases);
+            console.log('🔍 External CRM check response:', responseData);
+            const casesNeedingFeedback = responseData.cases_needing_feedback || [];
+            console.log('🔒 Cases closed in external CRM:', casesNeedingFeedback);
             
-            if (closedCases.length === 0) {
-                console.log('No closed cases found');
+            if (casesNeedingFeedback.length === 0) {
+                console.log('✅ No cases closed in external CRM');
                 return;
             }
             
-            // Check which closed cases still need feedback
-            const casesNeedingFeedback = [];
-            for (const caseData of closedCases) {
-                const feedbackProvided = localStorage.getItem(`feedback-provided-${caseData.case_number}`);
-                console.log(`🔍 Checking feedback for case ${caseData.case_number}:`, feedbackProvided ? 'Already provided' : 'Needs feedback');
+            // Check which cases still need feedback
+            const casesStillNeedingFeedback = [];
+            for (const caseData of casesNeedingFeedback) {
+                const feedbackProvided = localStorage.getItem(`feedback-provided-${caseData.case_id}`);
+                console.log(`🔍 Checking feedback for case ${caseData.case_id}:`, feedbackProvided ? 'Already provided' : 'Needs feedback');
                 if (!feedbackProvided) {
-                    casesNeedingFeedback.push(caseData);
+                    casesStillNeedingFeedback.push(caseData);
                 }
             }
             
-            console.log(`📝 Cases needing feedback:`, casesNeedingFeedback);
+            console.log(`📝 Cases still needing feedback:`, casesStillNeedingFeedback);
             
-            if (casesNeedingFeedback.length > 0) {
-                console.log(`Found ${casesNeedingFeedback.length} closed cases needing feedback`);
-                this.showFeedbackPopup(casesNeedingFeedback);
+            if (casesStillNeedingFeedback.length > 0) {
+                console.log(`Found ${casesStillNeedingFeedback.length} cases closed in external CRM needing feedback`);
+                this.showFeedbackPopup(casesStillNeedingFeedback);
             } else {
-                console.log('All closed cases already have feedback provided');
+                console.log('All cases closed in external CRM already have feedback provided');
             }
             
         } catch (error) {
-            console.error('Error checking for closed cases:', error);
+            console.error('Error checking external CRM status:', error);
         }
     }
     

@@ -25,6 +25,45 @@ from utils import (
     CONNECTION_PAYLOAD
 )
 from snowflakeconnection import snowflake_query
+
+# ==================== EXTERNAL CRM INTEGRATION ====================
+# Placeholder functions for external CRM integration
+# TODO: Replace with actual external CRM API calls
+
+def check_external_crm_exists(case_number):
+    """
+    Placeholder function to check if a case exists in external CRM.
+    TODO: Implement actual external CRM API call.
+    """
+    # For now, return True for all cases (assume they exist in CRM)
+    return True
+
+def check_external_crm_status_for_case(case_id):
+    """
+    Placeholder function to check case status in external CRM.
+    TODO: Implement actual external CRM API call.
+    
+    Returns:
+        'open' - Case is still open in external CRM
+        'closed' - Case has been closed in external CRM
+    """
+    # For testing purposes, simulate some cases being closed in external CRM
+    # In production, this would make an actual API call to the external CRM
+    
+    # Simulate case 2024003 being closed in external CRM
+    if case_id == 2024003:
+        return "closed"
+    
+    # All other cases are still open
+    return "open"
+
+def get_external_case_id(case_number):
+    """
+    Placeholder function to get external case ID from CRM.
+    TODO: Implement actual external CRM API call.
+    """
+    # For now, return the same case number
+    return case_number
 import yaml
 from werkzeug.middleware.proxy_fix import ProxyFix
 # --- Start / connect to your running LanguageTool server ---------------
@@ -256,7 +295,7 @@ def get_user_cases():
                     "case_status": row["CASE_STATUS"],
                     "last_sync_time": row["CRM_LAST_SYNC_TIME"],
                     "is_closed": row["CASE_STATUS"] == "closed",
-                    "needs_feedback": row["CASE_STATUS"] == "closed"
+                    "needs_feedback": False  # Will be determined by external CRM check
                 }
                 cases.append(case_info)
                 print(f"📝 [Backend] Case {case_info['case_id']}: status={case_info['case_status']}")
@@ -275,7 +314,69 @@ def get_user_cases():
         print(f"❌ [Backend] Error fetching user cases for user {user_id}: {e}")
         return jsonify({"error": "Database error occurred"}), 500
 
-# Removed: /api/cases/status - No longer needed, status is provided by database endpoints
+@app.route('/api/cases/check-external-status', methods=['POST'])
+def check_external_crm_status():
+    """
+    Check external CRM status for user's open cases.
+    Returns cases that are closed in external CRM but still open in database.
+    These cases need feedback from the user.
+    """
+    user_data = session.get('user_data')
+    if not user_data:
+        print("❌ [Backend] /api/cases/check-external-status: Not authenticated")
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    user_id = user_data.get('user_id')
+    print(f"🚀 [Backend] /api/cases/check-external-status: Checking external CRM for user {user_id}")
+    
+    try:
+        # Get all open cases for the user
+        query = f"""
+            SELECT CASE_ID, CASE_STATUS, CRM_LAST_SYNC_TIME
+            FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+            WHERE CREATED_BY_USER = %s AND CASE_STATUS = 'open'
+        """
+        print(f"📊 [Backend] Executing query: {query}")
+        result = snowflake_query(query, CONNECTION_PAYLOAD, (user_id,))
+        
+        cases_needing_feedback = []
+        if result is not None and not result.empty:
+            print(f"✅ [Backend] Found {len(result)} open cases to check")
+            
+            for _, row in result.iterrows():
+                case_id = row["CASE_ID"]
+                print(f"🔍 [Backend] Checking external CRM status for case {case_id}")
+                
+                # Check external CRM status (placeholder function)
+                external_status = check_external_crm_status_for_case(case_id)
+                print(f"📋 [Backend] Case {case_id} external status: {external_status}")
+                
+                # If case is closed in external CRM but open in database, needs feedback
+                if external_status == "closed":
+                    cases_needing_feedback.append({
+                        "case_id": case_id,
+                        "case_status": row["CASE_STATUS"],
+                        "last_sync_time": row["CRM_LAST_SYNC_TIME"],
+                        "external_status": external_status,
+                        "needs_feedback": True
+                    })
+                    print(f"⚠️ [Backend] Case {case_id} closed in external CRM - needs feedback")
+                else:
+                    print(f"✅ [Backend] Case {case_id} still open in external CRM")
+        else:
+            print("ℹ️ [Backend] No open cases found for user")
+        
+        response_data = {
+            "user_id": user_id,
+            "cases_needing_feedback": cases_needing_feedback,
+            "count": len(cases_needing_feedback)
+        }
+        print(f"📤 [Backend] Returning {len(cases_needing_feedback)} cases needing feedback")
+        return jsonify(response_data)
+        
+    except Exception as e:
+        print(f"❌ [Backend] Error checking external CRM status for user {user_id}: {e}")
+        return jsonify({"error": "Database error occurred"}), 500
 
 @app.route('/api/cases/data', methods=['GET'])
 def get_user_case_data():
@@ -1608,10 +1709,10 @@ def submit_case_feedback():
                         feedback.get('fix', '').strip()),
                        return_df=False)
         
-        # Update case status to indicate feedback has been provided
+        # Update case status to 'closed' since feedback has been provided
         update_case_status_query = f"""
             UPDATE {DATABASE}.{SCHEMA}.CASE_SESSIONS 
-            SET CASE_STATUS = 'feedback_provided'
+            SET CASE_STATUS = 'closed'
             WHERE CASE_ID = %s AND CREATED_BY_USER = %s
         """
         snowflake_query(update_case_status_query, CONNECTION_PAYLOAD, 
@@ -1622,7 +1723,7 @@ def submit_case_feedback():
         print(f"   Symptom: {feedback.get('symptom', '')[:50]}...")
         print(f"   Fault: {feedback.get('fault', '')[:50]}...")
         print(f"   Fix: {feedback.get('fix', '')[:50]}...")
-        print(f"✅ Case {case_number} status updated to 'feedback_provided'")
+        print(f"✅ Case {case_number} status updated to 'closed'")
         
         return jsonify({
             "success": True,
