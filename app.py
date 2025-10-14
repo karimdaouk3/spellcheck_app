@@ -231,13 +231,19 @@ def validate_case_number(case_number):
         return jsonify({"error": "Not authenticated"}), 401
     
     try:
+        # Convert case_number to integer if it's a string
+        try:
+            case_id = int(case_number)
+        except ValueError:
+            return jsonify({"error": "Invalid case number format"}), 400
+            
         query = f"""
             SELECT CASE_ID, CASE_STATUS, CRM_LAST_SYNC_TIME
             FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
             WHERE CASE_ID = %s
             LIMIT 1
         """
-        result = snowflake_query(query, CONNECTION_PAYLOAD, (case_number,))
+        result = snowflake_query(query, CONNECTION_PAYLOAD, (case_id,))
         
         if result is not None and not result.empty:
             case_data = result.iloc[0]

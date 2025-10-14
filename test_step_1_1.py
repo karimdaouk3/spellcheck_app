@@ -53,7 +53,7 @@ except Exception as e:
 
 # Configuration
 BASE_URL = "http://127.0.0.1:8055"
-TEST_CASE_NUMBER = "CASE-2024-001"  # This will be created if it doesn't exist
+TEST_CASE_NUMBER = 2024001  # This will be created if it doesn't exist
 
 def ensure_test_data():
     """Ensure test data exists in the database"""

@@ -137,10 +137,10 @@ def add_test_cases():
     print("=" * 40)
     
     test_cases = [
-        ("CASE-2024-001", 0, 'open'),
-        ("CASE-2024-002", 0, 'open'),
-        ("CASE-2024-003", 0, 'closed'),
-        ("TEST-CASE-001", 0, 'open'),
+        (2024001, 0, 'open'),
+        (2024002, 0, 'open'),
+        (2024003, 0, 'closed'),
+        (9999001, 0, 'open'),
     ]
     
     added_count = 0
