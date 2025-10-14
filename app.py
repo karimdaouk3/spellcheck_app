@@ -229,7 +229,41 @@ def validate_case_number(case_number):
     user_data = session.get('user_data')
     if not user_data:
         return jsonify({"error": "Not authenticated"}), 401
-
+    
+    user_id = user_data.get('user_id')
+    
+    try:
+        # Convert case_number to int (database expects numeric)
+        case_number_int = int(case_number)
+        
+        # Check if case exists for this user
+        query = f"""
+            SELECT CASE_ID, CASE_STATUS, CRM_LAST_SYNC_TIME
+            FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+            WHERE CASE_ID = %s AND CREATED_BY_USER = %s
+        """
+        result = snowflake_query(query, CONNECTION_PAYLOAD, (case_number_int, user_id))
+        
+        if result is None or result.empty:
+            return jsonify({
+                "valid": False,
+                "case_number": case_number,
+                "message": "Case not found"
+            }), 404
+        
+        case_row = result.iloc[0]
+        return jsonify({
+            "valid": True,
+            "case_number": case_number,
+            "case_status": case_row["CASE_STATUS"],
+            "last_sync": case_row["CRM_LAST_SYNC_TIME"].isoformat() if case_row["CRM_LAST_SYNC_TIME"] else None
+        })
+        
+    except ValueError:
+        return jsonify({"error": "Invalid case number format"}), 400
+    except Exception as e:
+        print(f"Error validating case {case_number} for user {user_id}: {e}")
+        return jsonify({"error": "Database error occurred"}), 500
 
 @app.route('/api/cases/user-cases', methods=['GET'])
 def get_user_cases():
@@ -1889,6 +1923,173 @@ def create_case():
         
     except Exception as e:
         print(f"Error creating case {case_number} for user {user_id}: {e}")
+        return jsonify({"error": "Database error occurred"}), 500
+
+@app.route('/api/cases/input-state', methods=['GET'])
+def get_input_state():
+    """
+    Database endpoint to get input state for a specific case.
+    Returns the current input state (problem statement, FSR notes) for a case.
+    """
+    user_data = session.get('user_data')
+    if not user_data:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    case_number = request.args.get('case_number')
+    if not case_number:
+        return jsonify({"error": "Case number required"}), 400
+    
+    user_id = user_data.get('user_id')
+    
+    try:
+        case_number_int = int(case_number)
+        
+        # Get case session ID
+        session_query = f"""
+            SELECT ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+            WHERE CASE_ID = %s AND CREATED_BY_USER = %s
+        """
+        session_result = snowflake_query(session_query, CONNECTION_PAYLOAD, (case_number_int, user_id))
+        
+        if session_result is None or session_result.empty:
+            return jsonify({"error": "Case not found"}), 404
+        
+        case_session_id = session_result.iloc[0]["ID"]
+        
+        # Get problem statement (INPUT_FIELD_ID = 1)
+        problem_query = f"""
+            SELECT INPUT_FIELD_VALUE, LAST_UPDATED
+            FROM {DATABASE}.{SCHEMA}.LAST_INPUT_STATE
+            WHERE CASE_SESSION_ID = %s AND INPUT_FIELD_ID = 1
+        """
+        problem_result = snowflake_query(problem_query, CONNECTION_PAYLOAD, (case_session_id,))
+        
+        # Get FSR notes (INPUT_FIELD_ID = 2)
+        fsr_query = f"""
+            SELECT LINE_ITEM_ID, INPUT_FIELD_VALUE, LAST_UPDATED
+            FROM {DATABASE}.{SCHEMA}.LAST_INPUT_STATE
+            WHERE CASE_SESSION_ID = %s AND INPUT_FIELD_ID = 2
+            ORDER BY LINE_ITEM_ID
+        """
+        fsr_result = snowflake_query(fsr_query, CONNECTION_PAYLOAD, (case_session_id,))
+        
+        # Build response
+        response_data = {
+            "case_number": case_number,
+            "problem_statement": "",
+            "fsr_notes": "",
+            "fsr_line_items": []
+        }
+        
+        if problem_result is not None and not problem_result.empty:
+            problem_row = problem_result.iloc[0]
+            response_data["problem_statement"] = problem_row["INPUT_FIELD_VALUE"] or ""
+        
+        if fsr_result is not None and not fsr_result.empty:
+            # Get all FSR line items
+            for _, fsr_row in fsr_result.iterrows():
+                line_item = {
+                    "line_item_id": fsr_row["LINE_ITEM_ID"],
+                    "value": fsr_row["INPUT_FIELD_VALUE"],
+                    "last_updated": fsr_row["LAST_UPDATED"].isoformat() if fsr_row["LAST_UPDATED"] else None
+                }
+                response_data["fsr_line_items"].append(line_item)
+            
+            # Get the last FSR line item for the main fsr_notes field
+            last_fsr = fsr_result.iloc[-1]
+            response_data["fsr_notes"] = last_fsr["INPUT_FIELD_VALUE"] or ""
+        
+        return jsonify(response_data)
+        
+    except ValueError:
+        return jsonify({"error": "Invalid case number format"}), 400
+    except Exception as e:
+        print(f"Error getting input state for case {case_number}: {e}")
+        return jsonify({"error": "Database error occurred"}), 500
+
+@app.route('/api/cases/input-state', methods=['PUT'])
+def update_input_state():
+    """
+    Database endpoint to update input state for a specific case.
+    Saves problem statement and FSR notes to LAST_INPUT_STATE table.
+    """
+    user_data = session.get('user_data')
+    if not user_data:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    data = request.get_json()
+    case_number = data.get('case_number')
+    problem_statement = data.get('problem_statement', '')
+    fsr_notes = data.get('fsr_notes', '')
+    
+    if not case_number:
+        return jsonify({"error": "Case number required"}), 400
+    
+    user_id = user_data.get('user_id')
+    
+    try:
+        case_number_int = int(case_number)
+        
+        # Get case session ID
+        session_query = f"""
+            SELECT ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+            WHERE CASE_ID = %s AND CREATED_BY_USER = %s
+        """
+        session_result = snowflake_query(session_query, CONNECTION_PAYLOAD, (case_number_int, user_id))
+        
+        if session_result is None or session_result.empty:
+            return jsonify({"error": "Case not found"}), 404
+        
+        case_session_id = session_result.iloc[0]["ID"]
+        
+        # Update problem statement using MERGE (Snowflake upsert)
+        if problem_statement:
+            problem_merge = f"""
+                MERGE INTO {DATABASE}.{SCHEMA}.LAST_INPUT_STATE AS target
+                USING (SELECT %s as CASE_SESSION_ID, %s as INPUT_FIELD_ID, %s as INPUT_FIELD_VALUE, %s as LINE_ITEM_ID, %s as INPUT_FIELD_EVAL_ID) AS source
+                ON target.CASE_SESSION_ID = source.CASE_SESSION_ID 
+                   AND target.INPUT_FIELD_ID = source.INPUT_FIELD_ID 
+                   AND target.LINE_ITEM_ID = source.LINE_ITEM_ID
+                WHEN MATCHED THEN UPDATE SET 
+                    INPUT_FIELD_VALUE = source.INPUT_FIELD_VALUE,
+                    LAST_UPDATED = CURRENT_TIMESTAMP()
+                WHEN NOT MATCHED THEN INSERT 
+                    (CASE_SESSION_ID, INPUT_FIELD_ID, INPUT_FIELD_VALUE, LINE_ITEM_ID, INPUT_FIELD_EVAL_ID, LAST_UPDATED)
+                    VALUES (source.CASE_SESSION_ID, source.INPUT_FIELD_ID, source.INPUT_FIELD_VALUE, source.LINE_ITEM_ID, source.INPUT_FIELD_EVAL_ID, CURRENT_TIMESTAMP())
+            """
+            snowflake_query(problem_merge, CONNECTION_PAYLOAD, 
+                           (case_session_id, 1, problem_statement, None, None), 
+                           return_df=False)
+        
+        # Update FSR notes using MERGE (Snowflake upsert)
+        if fsr_notes:
+            fsr_merge = f"""
+                MERGE INTO {DATABASE}.{SCHEMA}.LAST_INPUT_STATE AS target
+                USING (SELECT %s as CASE_SESSION_ID, %s as INPUT_FIELD_ID, %s as INPUT_FIELD_VALUE, %s as LINE_ITEM_ID, %s as INPUT_FIELD_EVAL_ID) AS source
+                ON target.CASE_SESSION_ID = source.CASE_SESSION_ID 
+                   AND target.INPUT_FIELD_ID = source.INPUT_FIELD_ID 
+                   AND target.LINE_ITEM_ID = source.LINE_ITEM_ID
+                WHEN MATCHED THEN UPDATE SET 
+                    INPUT_FIELD_VALUE = source.INPUT_FIELD_VALUE,
+                    LAST_UPDATED = CURRENT_TIMESTAMP()
+                WHEN NOT MATCHED THEN INSERT 
+                    (CASE_SESSION_ID, INPUT_FIELD_ID, INPUT_FIELD_VALUE, LINE_ITEM_ID, INPUT_FIELD_EVAL_ID, LAST_UPDATED)
+                    VALUES (source.CASE_SESSION_ID, source.INPUT_FIELD_ID, source.INPUT_FIELD_VALUE, source.LINE_ITEM_ID, source.INPUT_FIELD_EVAL_ID, CURRENT_TIMESTAMP())
+            """
+            snowflake_query(fsr_merge, CONNECTION_PAYLOAD, 
+                           (case_session_id, 2, fsr_notes, 1, None), 
+                           return_df=False)
+        
+        return jsonify({
+            "success": True,
+            "case_number": case_number,
+            "message": "Input state updated successfully"
+        })
+        
+    except ValueError:
+        return jsonify({"error": "Invalid case number format"}), 400
+    except Exception as e:
+        print(f"Error updating input state for case {case_number}: {e}")
         return jsonify({"error": "Database error occurred"}), 500
 
 @app.route('/api/cases/clear-feedback-flags', methods=['POST'])
