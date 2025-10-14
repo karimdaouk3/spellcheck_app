@@ -230,54 +230,12 @@ def validate_case_number(case_number):
     if not user_data:
         return jsonify({"error": "Not authenticated"}), 401
 
-@app.route('/api/cases/validate-test/<case_number>', methods=['GET'])
-def validate_case_number_test(case_number):
-    """
-    TEST ENDPOINT: Same as validate_case_number but without authentication requirement.
-    This is for testing purposes only - remove in production.
-    """
-    try:
-        # Convert case_number to integer if it's a string
-        try:
-            case_id = int(case_number)
-        except ValueError:
-            return jsonify({"error": "Invalid case number format"}), 400
-            
-        query = f"""
-            SELECT CASE_ID, CASE_STATUS, CRM_LAST_SYNC_TIME
-            FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
-            WHERE CASE_ID = %s
-            LIMIT 1
-        """
-        result = snowflake_query(query, CONNECTION_PAYLOAD, (case_id,))
-        
-        if result is not None and not result.empty:
-            case_data = result.iloc[0]
-            return jsonify({
-                "valid": True,
-                "case_id": case_data["CASE_ID"],
-                "case_status": case_data["CASE_STATUS"],
-                "last_sync_time": case_data["CRM_LAST_SYNC_TIME"],
-                "is_closed": case_data["CASE_STATUS"] == "closed",
-                "status": case_data["CASE_STATUS"]
-            })
-        else:
-            return jsonify({
-                "valid": False,
-                "message": f"Case number '{case_number}' does not exist in the system."
-            }), 404
-            
-    except Exception as e:
-        print(f"Error validating case {case_number}: {e}")
-        return jsonify({"error": "Database error occurred"}), 500
 
 @app.route('/api/cases/user-cases', methods=['GET'])
 def get_user_cases():
     """
-    Mock endpoint to get all open cases for the current user.
-    Returns list of case numbers that are open and belong to the user.
-    
-    TODO: Replace with actual database query filtering by user_id and status
+    Database endpoint to get all cases for the current user.
+    Returns list of cases that belong to the user with their status.
     """
     user_data = session.get('user_data')
     if not user_data:
@@ -285,22 +243,33 @@ def get_user_cases():
     
     user_id = user_data.get('user_id')
     
-    # Mock: Return all valid cases (both open and closed) for testing
-    # In real implementation, this would filter by user_id from database
-    all_cases = []
-    for case in MOCK_VALID_CASES:
-        case_data = {
-            "case_number": case,
-            "is_closed": case in MOCK_CLOSED_CASES,
-            "closed_date": "2024-01-15T10:30:00Z" if case in MOCK_CLOSED_CASES else None
-        }
-        all_cases.append(case_data)
-    
-    return jsonify({
-        "user_id": user_id,
-        "cases": all_cases,
-        "count": len(all_cases)
-    })
+    try:
+        query = f"""
+            SELECT CASE_ID, CASE_STATUS, CRM_LAST_SYNC_TIME
+            FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+            WHERE CREATED_BY_USER = %s
+        """
+        result = snowflake_query(query, CONNECTION_PAYLOAD, (user_id,))
+        
+        cases = []
+        if result is not None and not result.empty:
+            for _, row in result.iterrows():
+                cases.append({
+                    "case_id": row["CASE_ID"],
+                    "case_status": row["CASE_STATUS"],
+                    "last_sync_time": row["CRM_LAST_SYNC_TIME"],
+                    "is_closed": row["CASE_STATUS"] == "closed"
+                })
+        
+        return jsonify({
+            "user_id": user_id,
+            "cases": cases,
+            "count": len(cases)
+        })
+        
+    except Exception as e:
+        print(f"Error fetching user cases for user {user_id}: {e}")
+        return jsonify({"error": "Database error occurred"}), 500
 
 @app.route('/api/cases/status', methods=['POST'])
 def check_cases_status():
