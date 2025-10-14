@@ -35,7 +35,14 @@ def check_external_crm_exists(case_number):
     Placeholder function to check if a case exists in external CRM.
     TODO: Implement actual external CRM API call.
     """
-    # For now, return True for all cases (assume they exist in CRM)
+    # For testing purposes, simulate some cases not existing in external CRM
+    # In production, this would make an actual API call to the external CRM
+    
+    # Simulate case 2024004 not existing in external CRM
+    if case_number == 2024004:
+        return False
+    
+    # All other cases exist in external CRM
     return True
 
 def check_external_crm_status_for_case(case_id):
@@ -1931,6 +1938,7 @@ def create_case():
         
         # Check external CRM (placeholder function)
         exists_in_crm = check_external_crm_exists(case_number)
+        print(f"🔍 [Backend] Case {case_number} exists in external CRM: {exists_in_crm}")
         
         # Insert new case session
         insert_query = f"""
@@ -1942,11 +1950,21 @@ def create_case():
                        (case_number, user_id), 
                        return_df=False)
         
-        return jsonify({
+        # Prepare response with CRM status
+        response_data = {
             "success": True,
             "case_number": case_number,
-            "message": "Case created successfully"
-        })
+            "message": "Case created successfully",
+            "exists_in_crm": exists_in_crm
+        }
+        
+        if not exists_in_crm:
+            response_data["warning"] = "Case not found in external CRM. This case will be tracked locally but may not sync with external systems."
+            print(f"⚠️ [Backend] Case {case_number} not found in external CRM - showing warning")
+        else:
+            print(f"✅ [Backend] Case {case_number} found in external CRM")
+        
+        return jsonify(response_data)
         
     except Exception as e:
         print(f"Error creating case {case_number} for user {user_id}: {e}")

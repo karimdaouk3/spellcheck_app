@@ -2751,6 +2751,12 @@ class CaseManager {
             if (createResponse.ok) {
                 const createData = await createResponse.json();
                 console.log(`✅ [CaseManager] Successfully created case ${caseNumberInt} in database:`, createData);
+                
+                // Check for CRM warning
+                if (createData.warning) {
+                    console.log(`⚠️ [CaseManager] CRM warning for case ${caseNumberInt}:`, createData.warning);
+                    await this.showCustomAlert('External CRM Warning', createData.warning);
+                }
             } else if (createResponse.status === 409) {
                 // Case already exists - this is actually good, means it's tracked
                 console.log(`ℹ️ [CaseManager] Case ${caseNumberInt} already exists in database (tracked)`);
