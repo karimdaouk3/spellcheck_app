@@ -185,7 +185,7 @@ MOCK_VALID_CASES = [
 
 # Mock data for closed cases (hardcoded)
 MOCK_CLOSED_CASES = [
-    "CASE-2024-002"  # This case is closed
+    2024002  # This case is closed
 ]
 
 # Mock in-memory storage for user case data
@@ -193,20 +193,20 @@ MOCK_CLOSED_CASES = [
 MOCK_USER_CASE_DATA = {
     # Example: Pre-populated data for testing (user_id = 0)
     "0": {
-        "CASE-2024-001": {
-            "caseNumber": "CASE-2024-001",
+        2024001: {
+            "caseNumber": 2024001,
             "problemStatement": "Customer experiencing slow response times during peak hours.",
             "fsrNotes": "Initial analysis shows database query optimization needed. Customer has 500+ concurrent users.",
             "updatedAt": "2024-01-15T10:30:00Z"
         },
-        "CASE-2024-003": {
-            "caseNumber": "CASE-2024-003",
+        2024003: {
+            "caseNumber": 2024003,
             "problemStatement": "Authentication failures for external users accessing the portal.",
             "fsrNotes": "SSO configuration issue identified. Working with IT security team to resolve.",
             "updatedAt": "2024-01-14T15:45:00Z"
         },
-        "CASE-2024-002": {
-            "caseNumber": "CASE-2024-002",
+        2024002: {
+            "caseNumber": 2024002,
             "problemStatement": "Database connection timeouts during peak hours.",
             "fsrNotes": "Connection pool exhausted. Need to increase pool size and optimize queries.",
             "updatedAt": "2024-01-13T09:30:00Z"

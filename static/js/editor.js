@@ -2602,6 +2602,28 @@ class CaseManager {
         
         if (savedCases) {
             this.cases = JSON.parse(savedCases);
+            
+            // Migrate string case numbers to integers if needed
+            let needsMigration = false;
+            this.cases.forEach(caseData => {
+                if (typeof caseData.caseNumber === 'string' && caseData.caseNumber.startsWith('CASE-')) {
+                    // Convert "CASE-2024-001" to 2024001
+                    const parts = caseData.caseNumber.split('-');
+                    if (parts.length === 3) {
+                        const year = parts[1];
+                        const number = parts[2].padStart(3, '0');
+                        caseData.caseNumber = parseInt(year + number);
+                        needsMigration = true;
+                        console.log(`🔄 [CaseManager] Migrated case number: ${caseData.caseNumber}`);
+                    }
+                }
+            });
+            
+            if (needsMigration) {
+                console.log('💾 [CaseManager] Migrating localStorage case numbers to integer format');
+                this.saveCasesLocally();
+            }
+            
             console.log(`Loaded ${this.cases.length} cases from localStorage`);
         } else {
             this.cases = [];
@@ -2727,8 +2749,20 @@ class CaseManager {
         
         const trimmedCaseNumber = caseNumber.trim();
         
+        // Convert to integer if it's a valid number
+        let caseNumberInt;
+        try {
+            caseNumberInt = parseInt(trimmedCaseNumber);
+            if (isNaN(caseNumberInt)) {
+                throw new Error('Invalid number');
+            }
+        } catch (error) {
+            await this.showCustomAlert('Error', 'Case number must be a valid number.');
+            return;
+        }
+        
         // Check if case number already exists locally
-        const existingCase = this.cases.find(c => c.caseNumber === trimmedCaseNumber);
+        const existingCase = this.cases.find(c => c.caseNumber === caseNumberInt);
         if (existingCase) {
             await this.showCustomAlert('Case Already Exists', 'This case number already exists in your list.');
             // Switch to existing case
@@ -2738,7 +2772,7 @@ class CaseManager {
         
         // Try to create case in database first
         try {
-            console.log(`🚀 [CaseManager] Attempting to create case ${trimmedCaseNumber} in database...`);
+            console.log(`🚀 [CaseManager] Attempting to create case ${caseNumberInt} in database...`);
             
             const createResponse = await fetch('/api/cases/create', {
                 method: 'POST',
@@ -2746,7 +2780,7 @@ class CaseManager {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    case_number: trimmedCaseNumber
+                    case_number: caseNumberInt
                 })
             });
             
@@ -2754,17 +2788,17 @@ class CaseManager {
             
             if (createResponse.ok) {
                 const createData = await createResponse.json();
-                console.log(`✅ [CaseManager] Successfully created case ${trimmedCaseNumber} in database:`, createData);
+                console.log(`✅ [CaseManager] Successfully created case ${caseNumberInt} in database:`, createData);
             } else if (createResponse.status === 409) {
                 // Case already exists - this is actually good, means it's tracked
-                console.log(`ℹ️ [CaseManager] Case ${trimmedCaseNumber} already exists in database (tracked)`);
+                console.log(`ℹ️ [CaseManager] Case ${caseNumberInt} already exists in database (tracked)`);
             } else {
                 // Case creation failed - show confirmation popup for untracked case
-                console.log(`⚠️ [CaseManager] Failed to create case ${trimmedCaseNumber} in database:`, createResponse.status);
+                console.log(`⚠️ [CaseManager] Failed to create case ${caseNumberInt} in database:`, createResponse.status);
                 
                 const confirmed = await this.showCustomConfirm(
                     'Case Not Found in Database',
-                    `Case number '${trimmedCaseNumber}' could not be created in the database.\n\nAre you sure you want to create this case? It will not be tracked in the system.`
+                    `Case number '${caseNumberInt}' could not be created in the database.\n\nAre you sure you want to create this case? It will not be tracked in the system.`
                 );
                 
                 if (!confirmed) {
@@ -2777,7 +2811,7 @@ class CaseManager {
             // Create the case (either tracked or untracked)
             const newCase = {
                 id: Date.now(),
-                caseNumber: trimmedCaseNumber,
+                caseNumber: caseNumberInt,
                 problemStatement: '',
                 fsrNotes: '',
                 createdAt: new Date(),
@@ -2801,7 +2835,7 @@ class CaseManager {
                 sidebar.classList.remove('open');
             }
             
-            console.log(`✅ [CaseManager] Case ${trimmedCaseNumber} created successfully`);
+            console.log(`✅ [CaseManager] Case ${caseNumberInt} created successfully`);
             
         } catch (error) {
             console.error('❌ [CaseManager] Error creating case:', error);
