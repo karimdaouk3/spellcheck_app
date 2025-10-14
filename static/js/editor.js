@@ -3168,7 +3168,7 @@ class CaseManager {
         const closedDateSpan = document.getElementById('feedback-closed-date');
         
         progressText.textContent = `Case ${this.currentFeedbackIndex + 1} of ${this.pendingFeedbackCases.length}`;
-        caseNumberSpan.textContent = currentCase.case_number;
+        caseNumberSpan.textContent = currentCase.case_id;
         closedDateSpan.textContent = new Date(currentCase.closed_date || new Date()).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'long',
@@ -3187,7 +3187,7 @@ class CaseManager {
         document.getElementById('feedback-fix').value = '';
         
         try {
-            console.log('🤖 Generating LLM feedback for case:', currentCase.case_number);
+            console.log('🤖 Generating LLM feedback for case:', currentCase.case_id);
             
             // Generate LLM feedback
             const response = await fetch('/api/cases/generate-feedback', {
@@ -3196,7 +3196,7 @@ class CaseManager {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    case_number: currentCase.case_number
+                    case_number: currentCase.case_id
                 })
             });
             
@@ -3209,7 +3209,7 @@ class CaseManager {
                 document.getElementById('feedback-fault').value = generatedFeedback.fault || '';
                 document.getElementById('feedback-fix').value = generatedFeedback.fix || '';
                 
-                console.log('✅ Generated feedback for case:', currentCase.case_number);
+                console.log('✅ Generated feedback for case:', currentCase.case_id);
                 console.log('📝 Generated content:', generatedFeedback);
             } else {
                 console.error('Failed to generate feedback');
@@ -3281,7 +3281,7 @@ class CaseManager {
         const fix = document.getElementById('feedback-fix').value.trim();
         
         const feedbackData = {
-            case_number: currentCase.case_number,
+            case_number: currentCase.case_id,
             closed_date: currentCase.closed_date,
             feedback: {
                 symptom: symptom,
@@ -3302,10 +3302,10 @@ class CaseManager {
             });
             
             if (response.ok) {
-                console.log(`Feedback submitted for case ${currentCase.case_number}`);
+                console.log(`Feedback submitted for case ${currentCase.case_id}`);
                 
                 // Mark as feedback provided
-                localStorage.setItem(`feedback-provided-${currentCase.case_number}`, 'true');
+                localStorage.setItem(`feedback-provided-${currentCase.case_id}`, 'true');
                 
                 // Move to next case or close popup
                 this.currentFeedbackIndex++;
