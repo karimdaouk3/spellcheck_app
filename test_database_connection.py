@@ -6,16 +6,48 @@ This script tests the database connection and adds test data if needed
 
 import sys
 import os
+import yaml
 
 # Add the current directory to Python path so we can import from app.py
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 try:
-    from app import snowflake_query, CONNECTION_PAYLOAD, DATABASE, SCHEMA
-    print("✅ Successfully imported database connection from app.py")
+    from snowflakeconnection import snowflake_query
+    print("✅ Successfully imported snowflake_query")
 except ImportError as e:
-    print(f"❌ ERROR: Could not import database connection: {e}")
-    print("Make sure you're running this from the app directory")
+    print(f"❌ ERROR: Could not import snowflake_query: {e}")
+    print("Make sure snowflakeconnection.py is in the current directory")
+    sys.exit(1)
+
+# Load configuration like app.py does
+try:
+    with open("./config.yaml", 'r') as f:
+        config = yaml.safe_load(f)
+    CONNECTION_PAYLOAD = config.get("Engineering_SAGE_SVC", {})
+    DEV_MODE = config.get("AppConfig", {}).get("DEV_MODE", False)
+    
+    DATABASE = "SAGE"
+    SCHEMA = "TEXTIO_SERVICES_INPUTS"
+    if DEV_MODE:
+        SCHEMA = f"DEV_{SCHEMA}"
+    
+    print(f"✅ Database configuration loaded")
+    print(f"   Database: {DATABASE}")
+    print(f"   Schema: {SCHEMA}")
+    print(f"   Dev Mode: {DEV_MODE}")
+    
+    # Ensure we're using DEV database
+    if not DEV_MODE:
+        print("⚠️  WARNING: Not in DEV_MODE! This will use PROD database!")
+        print("   Set DEV_MODE: true in config.yaml to use dev database")
+        response = input("Continue anyway? (y/N): ")
+        if response.lower() != 'y':
+            print("❌ Aborting to protect production database")
+            sys.exit(1)
+    
+except Exception as e:
+    print(f"❌ ERROR: Could not load configuration: {e}")
+    print("Make sure config.yaml exists and is properly formatted")
     sys.exit(1)
 
 def test_database_connection():
@@ -99,42 +131,52 @@ def get_sample_cases():
         print(f"❌ Error getting sample cases: {e}")
         return False
 
-def add_test_case():
-    """Add a test case to the database"""
-    print("\n➕ Adding Test Case")
+def add_test_cases():
+    """Add test cases to the database"""
+    print("\n➕ Adding Test Cases")
     print("=" * 40)
     
-    test_case_id = "CASE-2024-001"
+    test_cases = [
+        ("CASE-2024-001", 0, False, 'open'),
+        ("CASE-2024-002", 0, True, 'open'),
+        ("CASE-2024-003", 0, False, 'closed'),
+        ("TEST-CASE-001", 0, False, 'open'),
+    ]
     
-    try:
-        # Check if test case already exists
-        check_query = f"""
-            SELECT COUNT(*) as exists_count
-            FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS
-            WHERE CASE_ID = %s
-        """
-        check_result = snowflake_query(check_query, CONNECTION_PAYLOAD, (test_case_id,))
-        
-        if check_result is not None and check_result.iloc[0]["EXISTS_COUNT"] > 0:
-            print(f"✅ Test case {test_case_id} already exists")
-            return True
-        
-        # Insert test case
-        insert_query = f"""
-            INSERT INTO {DATABASE}.{SCHEMA}.CASE_SESSIONS 
-            (CASE_ID, CREATED_BY_USER, EXISTS_IN_CRM, CASE_STATUS, CREATION_TIME, LAST_SYNC_TIME)
-            VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
-        """
-        snowflake_query(insert_query, CONNECTION_PAYLOAD, 
-                       (test_case_id, 0, False, 'open'), 
-                       return_df=False)
-        
-        print(f"✅ Test case {test_case_id} added successfully")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Error adding test case: {e}")
-        return False
+    added_count = 0
+    
+    for test_case_id, user_id, exists_in_crm, status in test_cases:
+        try:
+            # Check if test case already exists
+            check_query = f"""
+                SELECT COUNT(*) as exists_count
+                FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS
+                WHERE CASE_ID = %s
+            """
+            check_result = snowflake_query(check_query, CONNECTION_PAYLOAD, (test_case_id,))
+            
+            if check_result is not None and check_result.iloc[0]["EXISTS_COUNT"] > 0:
+                print(f"✅ Test case {test_case_id} already exists")
+                continue
+            
+            # Insert test case
+            insert_query = f"""
+                INSERT INTO {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+                (CASE_ID, CREATED_BY_USER, EXISTS_IN_CRM, CASE_STATUS, CREATION_TIME, LAST_SYNC_TIME)
+                VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
+            """
+            snowflake_query(insert_query, CONNECTION_PAYLOAD, 
+                           (test_case_id, user_id, exists_in_crm, status), 
+                           return_df=False)
+            
+            print(f"✅ Test case {test_case_id} added successfully")
+            added_count += 1
+            
+        except Exception as e:
+            print(f"❌ Error adding test case {test_case_id}: {e}")
+    
+    print(f"✅ Added {added_count} new test cases")
+    return added_count > 0
 
 def main():
     """Main test function"""
@@ -149,11 +191,11 @@ def main():
     # Test 2: Check CASE_SESSIONS table
     if not check_case_sessions_table():
         print("\n⚠️  CASE_SESSIONS table is empty or doesn't exist.")
-        print("Adding a test case...")
-        if add_test_case():
-            print("✅ Test case added successfully")
+        print("Adding test cases...")
+        if add_test_cases():
+            print("✅ Test cases added successfully")
         else:
-            print("❌ Failed to add test case")
+            print("❌ Failed to add test cases")
             return False
     
     # Test 3: Get sample cases

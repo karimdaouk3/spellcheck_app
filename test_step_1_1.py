@@ -7,10 +7,87 @@ This script tests the updated /api/cases/validate/<case_number> endpoint
 import requests
 import json
 import sys
+import yaml
+import os
+
+# Add the current directory to Python path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+# Import database functions
+try:
+    from snowflakeconnection import snowflake_query
+    print("✅ Successfully imported snowflake_query")
+except ImportError as e:
+    print(f"❌ ERROR: Could not import snowflake_query: {e}")
+    sys.exit(1)
+
+# Load configuration
+try:
+    with open("./config.yaml", 'r') as f:
+        config = yaml.safe_load(f)
+    CONNECTION_PAYLOAD = config.get("Engineering_SAGE_SVC", {})
+    DEV_MODE = config.get("AppConfig", {}).get("DEV_MODE", False)
+    
+    DATABASE = "SAGE"
+    SCHEMA = "TEXTIO_SERVICES_INPUTS"
+    if DEV_MODE:
+        SCHEMA = f"DEV_{SCHEMA}"
+    
+    print(f"✅ Database configuration loaded")
+    print(f"   Database: {DATABASE}")
+    print(f"   Schema: {SCHEMA}")
+    print(f"   Dev Mode: {DEV_MODE}")
+    
+    # Ensure we're using DEV database
+    if not DEV_MODE:
+        print("⚠️  WARNING: Not in DEV_MODE! This will use PROD database!")
+        print("   Set DEV_MODE: true in config.yaml to use dev database")
+        response = input("Continue anyway? (y/N): ")
+        if response.lower() != 'y':
+            print("❌ Aborting to protect production database")
+            sys.exit(1)
+    
+except Exception as e:
+    print(f"❌ ERROR: Could not load configuration: {e}")
+    sys.exit(1)
 
 # Configuration
 BASE_URL = "http://127.0.0.1:8055"
-TEST_CASE_NUMBER = "CASE-2024-001"  # Change this to a case that exists in your database
+TEST_CASE_NUMBER = "CASE-2024-001"  # This will be created if it doesn't exist
+
+def ensure_test_data():
+    """Ensure test data exists in the database"""
+    print("🔧 Ensuring test data exists...")
+    
+    try:
+        # Check if test case exists
+        check_query = f"""
+            SELECT COUNT(*) as exists_count
+            FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS
+            WHERE CASE_ID = %s
+        """
+        check_result = snowflake_query(check_query, CONNECTION_PAYLOAD, (TEST_CASE_NUMBER,))
+        
+        if check_result is not None and check_result.iloc[0]["EXISTS_COUNT"] > 0:
+            print(f"✅ Test case {TEST_CASE_NUMBER} already exists")
+            return True
+        
+        # Insert test case
+        insert_query = f"""
+            INSERT INTO {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+            (CASE_ID, CREATED_BY_USER, EXISTS_IN_CRM, CASE_STATUS, CREATION_TIME, LAST_SYNC_TIME)
+            VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
+        """
+        snowflake_query(insert_query, CONNECTION_PAYLOAD, 
+                       (TEST_CASE_NUMBER, 0, False, 'open'), 
+                       return_df=False)
+        
+        print(f"✅ Test case {TEST_CASE_NUMBER} created successfully")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error ensuring test data: {e}")
+        return False
 
 def test_case_validation():
     """Test the case validation endpoint"""
@@ -106,6 +183,11 @@ if __name__ == "__main__":
     print("Make sure the Flask app is running!")
     print("Press Enter to continue or Ctrl+C to cancel...")
     input()
+    
+    # Ensure test data exists
+    if not ensure_test_data():
+        print("❌ Failed to create test data. Aborting.")
+        sys.exit(1)
     
     success = test_case_validation()
     
