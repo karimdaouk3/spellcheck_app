@@ -34,29 +34,29 @@ if DEV_MODE:
     SCHEMA = f"DEV_{SCHEMA}"
 
 # Configuration
-BASE_URL = "http://localhost:5000"
+BASE_URL = "http://localhost:8055"
 TEST_USER_ID = 0
 TEST_CASE_NUMBER = 2024004
 
 def ensure_test_user():
     """Ensure test user exists in USER_INFORMATION table."""
     try:
-        # Check if user exists
+        # Check if user exists (using EMPLOYEEID as the lookup field)
         check_query = f"""
             SELECT COUNT(*) FROM {DATABASE}.{SCHEMA}.USER_INFORMATION 
-            WHERE USER_ID = %s
+            WHERE EMPLOYEEID = %s
         """
-        result = snowflake_query(check_query, CONNECTION_PAYLOAD, (TEST_USER_ID,))
+        result = snowflake_query(check_query, CONNECTION_PAYLOAD, (str(TEST_USER_ID),))
         
         if result is None or result.iloc[0, 0] == 0:
-            # Create test user
+            # Create test user (using the same structure as app.py)
             insert_query = f"""
                 INSERT INTO {DATABASE}.{SCHEMA}.USER_INFORMATION 
-                (USER_ID, USERNAME, EMAIL, FIRST_NAME, LAST_NAME, CREATED_AT, LAST_LOGIN)
-                VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
+                (FIRST_NAME, LAST_NAME, EMAIL, EMPLOYEEID)
+                VALUES (%s, %s, %s, %s)
             """
             snowflake_query(insert_query, CONNECTION_PAYLOAD, 
-                           (TEST_USER_ID, 'test_user', 'test@example.com', 'Test', 'User'), 
+                           ('Test', 'User', 'test@example.com', str(TEST_USER_ID)), 
                            return_df=False)
             print("✅ Test user created")
         else:
