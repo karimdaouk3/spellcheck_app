@@ -1570,6 +1570,7 @@ def submit_case_feedback():
             return jsonify({"error": f"Missing or empty feedback field: {field}"}), 400
     
     try:
+        from datetime import datetime
         case_number = int(data.get('case_number'))
         
         # Check if case exists for this user
@@ -1593,7 +1594,6 @@ def submit_case_feedback():
         if closed_date:
             # Parse ISO format date if provided
             try:
-                from datetime import datetime
                 closed_date_parsed = datetime.fromisoformat(closed_date.replace('Z', '+00:00'))
             except:
                 closed_date_parsed = None
