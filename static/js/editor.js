@@ -3107,8 +3107,8 @@ class CaseManager {
             console.log('🔍 Response data:', responseData);
             const userCases = responseData.cases || [];
             console.log('📋 User cases:', userCases);
-            const closedCases = userCases.filter(caseData => caseData.is_closed);
-            console.log('🔒 Closed cases found:', closedCases);
+            const closedCases = userCases.filter(caseData => caseData.needs_feedback);
+            console.log('🔒 Cases needing feedback found:', closedCases);
             
             if (closedCases.length === 0) {
                 console.log('No closed cases found');

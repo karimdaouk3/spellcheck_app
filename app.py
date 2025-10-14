@@ -255,7 +255,8 @@ def get_user_cases():
                     "case_id": row["CASE_ID"],
                     "case_status": row["CASE_STATUS"],
                     "last_sync_time": row["CRM_LAST_SYNC_TIME"],
-                    "is_closed": row["CASE_STATUS"] == "closed"
+                    "is_closed": row["CASE_STATUS"] == "closed",
+                    "needs_feedback": row["CASE_STATUS"] == "closed"
                 }
                 cases.append(case_info)
                 print(f"📝 [Backend] Case {case_info['case_id']}: status={case_info['case_status']}")
@@ -1607,10 +1608,21 @@ def submit_case_feedback():
                         feedback.get('fix', '').strip()),
                        return_df=False)
         
+        # Update case status to indicate feedback has been provided
+        update_case_status_query = f"""
+            UPDATE {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+            SET CASE_STATUS = 'feedback_provided'
+            WHERE CASE_ID = %s AND CREATED_BY_USER = %s
+        """
+        snowflake_query(update_case_status_query, CONNECTION_PAYLOAD, 
+                       (case_number, user_id), 
+                       return_df=False)
+        
         print(f"📝 Feedback submitted for case {case_number} by user {user_id}")
         print(f"   Symptom: {feedback.get('symptom', '')[:50]}...")
         print(f"   Fault: {feedback.get('fault', '')[:50]}...")
         print(f"   Fix: {feedback.get('fix', '')[:50]}...")
+        print(f"✅ Case {case_number} status updated to 'feedback_provided'")
         
         return jsonify({
             "success": True,
