@@ -260,7 +260,7 @@ CREATE TABLE LAST_INPUT_STATE (
     
     -- Foreign Keys
     FOREIGN KEY (CASE_SESSION_ID) REFERENCES CASE_SESSIONS(ID),
-    FOREIGN KEY (INPUT_FIELD_EVAL_ID) REFERENCES LLM_EVALUATION(REWRITE_UUID),
+    FOREIGN KEY (INPUT_FIELD_EVAL_ID) REFERENCES LLM_EVALUATION(ID),
     
     -- Constraints
     UNIQUE(CASE_SESSION_ID, INPUT_FIELD_ID, LINE_ITEM_ID, INPUT_FIELD_EVAL_ID),
@@ -279,12 +279,12 @@ CREATE TABLE LAST_INPUT_STATE (
 - `INPUT_FIELD_ID` - Type of input field: 1 for 'problem_statement', 2 for 'fsr'
 - `INPUT_FIELD_VALUE` - The actual text content of the input
 - `LINE_ITEM_ID` - For FSR notes: line item number (1, 2, 3...). NULL for problem statement
-- `INPUT_FIELD_EVAL_ID` - ID of the last LLM evaluation for this input (links to LLM_EVALUATION.REWRITE_UUID)
+- `INPUT_FIELD_EVAL_ID` - ID of the last LLM evaluation for this input (links to LLM_EVALUATION.ID)
 - `LAST_UPDATED` - When this input state was last updated
 
 **Foreign Keys**:
 - `CASE_SESSION_ID` → `CASE_SESSIONS(ID)` - Links to the case session
-- `INPUT_FIELD_EVAL_ID` → `LLM_EVALUATION(REWRITE_UUID)` - Links to the LLM evaluation
+- `INPUT_FIELD_EVAL_ID` → `LLM_EVALUATION(ID)` - Links to the LLM evaluation
 
 **Unique Constraint**:
 - `(CASE_SESSION_ID, INPUT_FIELD_ID, LINE_ITEM_ID, INPUT_FIELD_EVAL_ID)` - Ensures one state per case/field/line/evaluation combination

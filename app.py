@@ -1283,27 +1283,40 @@ def llm():
             print(f"[DBG] /llm LLM_REWRITE_PROMPTS error: {e}")
 
         # LLM_EVALUATION (step1 minimal)
+        evaluation_id = None
         try:
             total = len(evaluation) if isinstance(evaluation, dict) else 0
             passed = sum(1 for v in evaluation.values() if v.get("passed")) if total else 0
             score_num = (passed / total) * 100 if total else 0
-            snowflake_query(
-                f"""
+            
+            # Insert and get the evaluation ID
+            insert_query = f"""
                 INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
                 (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP)
                 VALUES (%s, %s, %s, %s, %s, TO_TIMESTAMP_NTZ(%s))
-                """,
-                CONNECTION_PAYLOAD,
-                (user_input_id, input_text, input_text, score_num, None, timestamp),
-                return_df=False,
-            )
+            """
+            snowflake_query(insert_query, CONNECTION_PAYLOAD,
+                          (user_input_id, input_text, input_text, score_num, None, timestamp),
+                          return_df=False)
+            
+            # Get the evaluation ID that was just inserted
+            id_query = f"""
+                SELECT ID FROM {DATABASE}.{SCHEMA}.LLM_EVALUATION 
+                WHERE USER_INPUT_ID = %s AND TIMESTAMP = %s
+                ORDER BY ID DESC LIMIT 1
+            """
+            id_result = snowflake_query(id_query, CONNECTION_PAYLOAD, (user_input_id, timestamp))
+            if id_result is not None and not id_result.empty:
+                evaluation_id = id_result.iloc[0]["ID"]
+                print(f"[DBG] /llm LLM_EVALUATION step1 created with ID: {evaluation_id}")
         except Exception as e:
             print(f"[DBG] /llm LLM_EVALUATION step1 error: {e}")
 
         llm_result["rewrite_uuid"] = rewrite_uuid
+        llm_result["evaluation_id"] = evaluation_id
         if 'user_input_id' not in llm_result and 'evaluation' in llm_result:
             llm_result["user_input_id"] = user_input_id
-        print(f"[DBG] /llm returning step1 result uid={user_input_id} batch={rewrite_uuid}")
+        print(f"[DBG] /llm returning step1 result uid={user_input_id} batch={rewrite_uuid} eval_id={evaluation_id}")
         return jsonify({"result": llm_result})
 
     elif step == 2:
@@ -2069,6 +2082,7 @@ def update_input_state():
     case_number = data.get('case_number')
     problem_statement = data.get('problem_statement', '')
     fsr_notes = data.get('fsr_notes', '')
+    evaluation_id = data.get('evaluation_id')  # LLM evaluation ID to link to
     
     if not case_number:
         return jsonify({"error": "Case number required"}), 400
@@ -2106,7 +2120,7 @@ def update_input_state():
                     VALUES (source.CASE_SESSION_ID, source.INPUT_FIELD_ID, source.INPUT_FIELD_VALUE, source.LINE_ITEM_ID, source.INPUT_FIELD_EVAL_ID, CURRENT_TIMESTAMP())
             """
             snowflake_query(problem_merge, CONNECTION_PAYLOAD, 
-                           (case_session_id, 1, problem_statement, None, None), 
+                           (case_session_id, 1, problem_statement, None, evaluation_id), 
                            return_df=False)
         
         # Update FSR notes using MERGE (Snowflake upsert)
@@ -2125,7 +2139,7 @@ def update_input_state():
                     VALUES (source.CASE_SESSION_ID, source.INPUT_FIELD_ID, source.INPUT_FIELD_VALUE, source.LINE_ITEM_ID, source.INPUT_FIELD_EVAL_ID, CURRENT_TIMESTAMP())
             """
             snowflake_query(fsr_merge, CONNECTION_PAYLOAD, 
-                           (case_session_id, 2, fsr_notes, 1, None), 
+                           (case_session_id, 2, fsr_notes, 1, evaluation_id), 
                            return_df=False)
         
         return jsonify({

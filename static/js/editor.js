@@ -1261,6 +1261,13 @@ class LanguageToolEditor {
             if (data.result && data.result.rewrite_uuid) {
                 fieldObj.rewriteUuid = data.result.rewrite_uuid;
             }
+            if (data.result && data.result.evaluation_id) {
+                fieldObj.evaluationId = data.result.evaluation_id;
+                // Store evaluation ID in current case for input state update
+                if (this.currentCase) {
+                    this.currentCase.lastEvaluationId = data.result.evaluation_id;
+                }
+            }
             
             // Add to history when submitting for evaluation (not rewrite)
             if (!answers) {
@@ -2675,7 +2682,8 @@ class CaseManager {
                 body: JSON.stringify({
                     case_number: caseData.caseNumber,
                     problem_statement: caseData.problemStatement || '',
-                    fsr_notes: caseData.fsrNotes || ''
+                    fsr_notes: caseData.fsrNotes || '',
+                    evaluation_id: caseData.lastEvaluationId || null
                 })
             });
             
