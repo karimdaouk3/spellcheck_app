@@ -292,7 +292,7 @@ def get_user_case_data():
         # Get case sessions with problem statements
         query = f"""
             SELECT cs.CASE_ID, cs.CASE_STATUS,
-                   lis_problem.INPUT_FIELD_VALUE as problem_statement
+                   lis_problem.INPUT_FIELD_VALUE as PROBLEM_STATEMENT
             FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS cs
             LEFT JOIN {DATABASE}.{SCHEMA}.LAST_INPUT_STATE lis_problem 
                 ON cs.ID = lis_problem.CASE_SESSION_ID 
@@ -326,7 +326,7 @@ def get_user_case_data():
                 
                 cases[case_id] = {
                     "caseNumber": case_id,
-                    "problemStatement": case_row["problem_statement"] or "",
+                    "problemStatement": case_row["PROBLEM_STATEMENT"] or "",
                     "fsrNotes": fsr_notes,
                     "updatedAt": datetime.utcnow().isoformat() + 'Z'
                 }
@@ -1642,24 +1642,66 @@ def generate_case_feedback():
     case_number = data.get('case_number')
     user_id = str(user_data.get('user_id', '0'))
     
-    # Get case information
-    user_cases = MOCK_USER_CASE_DATA.get(user_id, {})
-    case_data = user_cases.get(case_number)
-    
-    if not case_data:
-        return jsonify({"error": "Case not found"}), 404
+    # Get case information from database
+    try:
+        case_number_int = int(case_number)
+        
+        # Get case session ID
+        session_query = f"""
+            SELECT ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+            WHERE CASE_ID = %s AND CREATED_BY_USER = %s
+        """
+        session_result = snowflake_query(session_query, CONNECTION_PAYLOAD, (case_number_int, user_id))
+        
+        if session_result is None or session_result.empty:
+            return jsonify({"error": "Case not found"}), 404
+        
+        case_session_id = session_result.iloc[0]["ID"]
+        
+        # Get problem statement
+        problem_query = f"""
+            SELECT INPUT_FIELD_VALUE
+            FROM {DATABASE}.{SCHEMA}.LAST_INPUT_STATE
+            WHERE CASE_SESSION_ID = %s AND INPUT_FIELD_ID = 1
+        """
+        problem_result = snowflake_query(problem_query, CONNECTION_PAYLOAD, (case_session_id,))
+        
+        # Get FSR notes
+        fsr_query = f"""
+            SELECT INPUT_FIELD_VALUE
+            FROM {DATABASE}.{SCHEMA}.LAST_INPUT_STATE
+            WHERE CASE_SESSION_ID = %s AND INPUT_FIELD_ID = 2
+            ORDER BY LINE_ITEM_ID DESC
+            LIMIT 1
+        """
+        fsr_result = snowflake_query(fsr_query, CONNECTION_PAYLOAD, (case_session_id,))
+        
+        problem_statement = ""
+        if problem_result is not None and not problem_result.empty:
+            problem_statement = problem_result.iloc[0]["INPUT_FIELD_VALUE"] or ""
+        
+        fsr_notes = ""
+        if fsr_result is not None and not fsr_result.empty:
+            fsr_notes = fsr_result.iloc[0]["INPUT_FIELD_VALUE"] or ""
+            
+    except ValueError:
+        return jsonify({"error": "Invalid case number format"}), 400
+    except Exception as e:
+        print(f"Error fetching case data for feedback generation: {e}")
+        return jsonify({"error": "Database error occurred"}), 500
     
     try:
-        # Use mock data for LLM input (as requested)
-        mock_problem_statement = "Customer experiencing database connection timeouts during peak hours, causing application crashes and data loss. Users unable to complete transactions."
-        mock_fsr_notes = "Root cause identified: Connection pool exhausted due to unoptimized queries. Implemented connection pooling, query optimization, and added monitoring. Case resolved successfully."
+        # Use actual database data for LLM input
+        # If no data found, use fallback mock data
+        if not problem_statement and not fsr_notes:
+            problem_statement = "Customer experiencing database connection timeouts during peak hours, causing application crashes and data loss. Users unable to complete transactions."
+            fsr_notes = "Root cause identified: Connection pool exhausted due to unoptimized queries. Implemented connection pooling, query optimization, and added monitoring. Case resolved successfully."
         
-        # Prepare case information for LLM using mock data
+        # Prepare case information for LLM using database data
         case_info = f"""
 Case Number: {case_number}
-Problem Statement: {mock_problem_statement}
-FSR Notes: {mock_fsr_notes}
-Last Updated: {case_data.get('updatedAt', '')}
+Problem Statement: {problem_statement}
+FSR Notes: {fsr_notes}
 """
         
         # Create LLM prompt
