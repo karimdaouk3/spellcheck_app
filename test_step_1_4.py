@@ -14,12 +14,24 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 try:
-    from snowflake_query import snowflake_query, CONNECTION_PAYLOAD
-    from config import DATABASE, SCHEMA, DEV_MODE
+    from snowflakeconnection import snowflake_query
+    from utils import CONNECTION_PAYLOAD
 except ImportError as e:
     print(f"❌ Error importing required modules: {e}")
     print("Make sure you're running this from the project root directory.")
     sys.exit(1)
+
+# Load configuration like app.py does
+with open("./config.yaml", 'r') as f:
+    config = yaml.safe_load(f)
+
+CONNECTION_PAYLOAD = config.get("Engineering_SAGE_SVC", {})
+DEV_MODE = config.get("AppConfig", {}).get("DEV_MODE", False)
+
+DATABASE = "SAGE"
+SCHEMA = "TEXTIO_SERVICES_INPUTS"
+if DEV_MODE:
+    SCHEMA = f"DEV_{SCHEMA}"
 
 # Configuration
 BASE_URL = "http://localhost:5000"
