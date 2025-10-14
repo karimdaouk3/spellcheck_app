@@ -305,10 +305,8 @@ def check_cases_status():
 @app.route('/api/cases/data', methods=['GET'])
 def get_user_case_data():
     """
-    Mock endpoint to get all case data for the current user.
-    Returns all cases with their problem statements and FSR notes.
-    
-    TODO: Replace with actual database query
+    Database endpoint to get all case data for the current user.
+    Returns all open cases with their problem statements and FSR notes.
     """
     user_data = session.get('user_data')
     if not user_data:
@@ -316,33 +314,58 @@ def get_user_case_data():
     
     user_id = user_data.get('user_id')
     
-    # Debug logging
-    print("=" * 50)
-    print(f"🔍 GET /api/cases/data - User ID: {user_id} (type: {type(user_id).__name__})")
-    print(f"📊 Available user IDs in MOCK_USER_CASE_DATA: {list(MOCK_USER_CASE_DATA.keys())}")
-    
-    # Convert user_id to string for comparison
-    user_id_str = str(user_id)
-    print(f"🔄 Converted user_id to string: '{user_id_str}'")
-    
-    # Get user's case data from mock storage
-    user_cases = MOCK_USER_CASE_DATA.get(user_id_str, {})
-    print(f"📁 Found {len(user_cases)} cases for user '{user_id_str}'")
-    
-    # Filter out closed cases
-    open_cases = {}
-    for case_number, case_data in user_cases.items():
-        if case_number not in MOCK_CLOSED_CASES:
-            open_cases[case_number] = case_data
-    
-    print(f"✅ Returning {len(open_cases)} open cases")
-    print("=" * 50)
-    
-    return jsonify({
-        "user_id": user_id_str,
-        "cases": open_cases,
-        "count": len(open_cases)
-    })
+    try:
+        # Get case sessions with problem statements
+        query = f"""
+            SELECT cs.CASE_ID, cs.CASE_STATUS,
+                   lis_problem.INPUT_FIELD_VALUE as problem_statement
+            FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS cs
+            LEFT JOIN {DATABASE}.{SCHEMA}.LAST_INPUT_STATE lis_problem 
+                ON cs.ID = lis_problem.CASE_SESSION_ID 
+                AND lis_problem.INPUT_FIELD_ID = 'problem_statement'
+            WHERE cs.CREATED_BY_USER = %s AND cs.CASE_STATUS = 'open'
+        """
+        cases_result = snowflake_query(query, CONNECTION_PAYLOAD, (user_id,))
+        
+        cases = {}
+        if cases_result is not None and not cases_result.empty:
+            for _, case_row in cases_result.iterrows():
+                case_id = case_row["CASE_ID"]
+                
+                # Get FSR line items for this case
+                fsr_query = f"""
+                    SELECT LINE_ITEM_ID, INPUT_FIELD_VALUE, INPUT_FIELD_EVAL_ID, LAST_UPDATED
+                    FROM {DATABASE}.{SCHEMA}.LAST_INPUT_STATE
+                    WHERE CASE_SESSION_ID = (
+                        SELECT ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+                        WHERE CASE_ID = %s AND CREATED_BY_USER = %s
+                    ) AND INPUT_FIELD_ID = 'fsr'
+                    ORDER BY LINE_ITEM_ID
+                """
+                fsr_result = snowflake_query(fsr_query, CONNECTION_PAYLOAD, (case_id, user_id))
+                
+                fsr_notes = ""
+                if fsr_result is not None and not fsr_result.empty:
+                    # Get the last FSR line item for the text box
+                    last_fsr = fsr_result.iloc[-1]
+                    fsr_notes = last_fsr["INPUT_FIELD_VALUE"]
+                
+                cases[case_id] = {
+                    "caseNumber": case_id,
+                    "problemStatement": case_row["problem_statement"] or "",
+                    "fsrNotes": fsr_notes,
+                    "updatedAt": datetime.utcnow().isoformat() + 'Z'
+                }
+        
+        return jsonify({
+            "user_id": str(user_id),
+            "cases": cases,
+            "count": len(cases)
+        })
+        
+    except Exception as e:
+        print(f"Error fetching case data for user {user_id}: {e}")
+        return jsonify({"error": "Database error occurred"}), 500
 
 @app.route('/api/cases/data/<case_number>', methods=['GET'])
 def get_case_data(case_number):
