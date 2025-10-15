@@ -1697,6 +1697,56 @@ def llm():
                 ),
                 return_df=False,
             )
+            
+            # Update LAST_INPUT_STATE with the rewritten text for persistence
+            if rewritten and data.get("user_input_id"):
+                user_data = session.get("user_data", {})
+                user_id = user_data.get("user_id")
+                
+                # Get the case session ID from the user input
+                case_query = f"""
+                    SELECT CASE_ID, INPUT_FIELD_TYPE 
+                    FROM {DATABASE}.{SCHEMA}.USER_SESSION_INPUTS 
+                    WHERE ID = %s
+                """
+                case_result = snowflake_query(case_query, CONNECTION_PAYLOAD, (data.get("user_input_id"),))
+                
+                if case_result is not None and not case_result.empty:
+                    case_id = case_result.iloc[0]["CASE_ID"]
+                    input_field_type = case_result.iloc[0]["INPUT_FIELD_TYPE"]
+                    
+                    # Get case session ID
+                    session_query = f"""
+                        SELECT ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+                        WHERE CASE_ID = %s AND CREATED_BY_USER = %s
+                    """
+                    session_result = snowflake_query(session_query, CONNECTION_PAYLOAD, (case_id, user_id))
+                    
+                    if session_result is not None and not session_result.empty:
+                        case_session_id = session_result.iloc[0]["ID"]
+                        
+                        # Determine input field ID based on type
+                        input_field_id = 1 if input_field_type == "problem_statement" else 2
+                        
+                        # Update LAST_INPUT_STATE with rewritten text
+                        update_query = f"""
+                            MERGE INTO {DATABASE}.{SCHEMA}.LAST_INPUT_STATE AS target
+                            USING (SELECT %s as CASE_SESSION_ID, %s as INPUT_FIELD_ID, %s as INPUT_FIELD_VALUE, %s as LINE_ITEM_ID, %s as INPUT_FIELD_EVAL_ID) AS source
+                            ON target.CASE_SESSION_ID = source.CASE_SESSION_ID 
+                               AND target.INPUT_FIELD_ID = source.INPUT_FIELD_ID 
+                               AND target.LINE_ITEM_ID = source.LINE_ITEM_ID
+                            WHEN MATCHED THEN UPDATE SET 
+                                INPUT_FIELD_VALUE = source.INPUT_FIELD_VALUE,
+                                LAST_UPDATED = CURRENT_TIMESTAMP()
+                            WHEN NOT MATCHED THEN INSERT 
+                                (CASE_SESSION_ID, INPUT_FIELD_ID, INPUT_FIELD_VALUE, LINE_ITEM_ID, INPUT_FIELD_EVAL_ID, LAST_UPDATED)
+                                VALUES (source.CASE_SESSION_ID, source.INPUT_FIELD_ID, source.INPUT_FIELD_VALUE, source.LINE_ITEM_ID, source.INPUT_FIELD_EVAL_ID, CURRENT_TIMESTAMP())
+                        """
+                        snowflake_query(update_query, CONNECTION_PAYLOAD, 
+                                       (case_session_id, input_field_id, rewritten, 1, None), 
+                                       return_df=False)
+                        print(f"[DBG] /llm Updated LAST_INPUT_STATE with rewritten text for case {case_id}")
+                        
         except Exception as e:
             print(f"[DBG] /llm LLM_EVALUATION step2 error: {e}")
 
