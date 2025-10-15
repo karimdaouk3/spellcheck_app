@@ -668,23 +668,40 @@ def get_user_case_data():
     try:
         print(f"🚀 [Backend] /api/cases/data: Getting case data for user {user_id}")
         
-        # Optimized single query to get all case data at once
+        # Optimized query to get the most recent data for each case
         query = f"""
+            WITH latest_problem AS (
+                SELECT 
+                    CASE_SESSION_ID,
+                    INPUT_FIELD_VALUE as PROBLEM_STATEMENT,
+                    LAST_UPDATED as PROBLEM_LAST_UPDATED,
+                    ROW_NUMBER() OVER (PARTITION BY CASE_SESSION_ID ORDER BY LAST_UPDATED DESC) as rn
+                FROM {DATABASE}.{SCHEMA}.LAST_INPUT_STATE 
+                WHERE INPUT_FIELD_ID = 1
+            ),
+            latest_fsr AS (
+                SELECT 
+                    CASE_SESSION_ID,
+                    INPUT_FIELD_VALUE as FSR_NOTES,
+                    LINE_ITEM_ID as FSR_LINE_ITEM_ID,
+                    LAST_UPDATED as FSR_LAST_UPDATED,
+                    ROW_NUMBER() OVER (PARTITION BY CASE_SESSION_ID ORDER BY LAST_UPDATED DESC) as rn
+                FROM {DATABASE}.{SCHEMA}.LAST_INPUT_STATE 
+                WHERE INPUT_FIELD_ID = 2
+            )
             SELECT 
                 cs.CASE_ID,
                 cs.CASE_STATUS,
-                lis_problem.INPUT_FIELD_VALUE as PROBLEM_STATEMENT,
-                lis_fsr.INPUT_FIELD_VALUE as FSR_NOTES,
-                lis_fsr.LINE_ITEM_ID as FSR_LINE_ITEM_ID
+                lp.PROBLEM_STATEMENT,
+                lf.FSR_NOTES,
+                lf.FSR_LINE_ITEM_ID,
+                lp.PROBLEM_LAST_UPDATED,
+                lf.FSR_LAST_UPDATED
             FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS cs
-            LEFT JOIN {DATABASE}.{SCHEMA}.LAST_INPUT_STATE lis_problem 
-                ON cs.ID = lis_problem.CASE_SESSION_ID 
-                AND lis_problem.INPUT_FIELD_ID = 1
-            LEFT JOIN {DATABASE}.{SCHEMA}.LAST_INPUT_STATE lis_fsr 
-                ON cs.ID = lis_fsr.CASE_SESSION_ID 
-                AND lis_fsr.INPUT_FIELD_ID = 2
+            LEFT JOIN latest_problem lp ON cs.ID = lp.CASE_SESSION_ID AND lp.rn = 1
+            LEFT JOIN latest_fsr lf ON cs.ID = lf.CASE_SESSION_ID AND lf.rn = 1
             WHERE cs.CREATED_BY_USER = %s AND cs.CASE_STATUS = 'open'
-            ORDER BY cs.CASE_ID, lis_fsr.LINE_ITEM_ID
+            ORDER BY cs.CASE_ID
         """
         print(f"📊 [Backend] Executing optimized query: {query}")
         cases_result = snowflake_query(query, CONNECTION_PAYLOAD, (user_id,))
@@ -699,25 +716,38 @@ def get_user_case_data():
                 problem_statement = row["PROBLEM_STATEMENT"] or ""
                 fsr_notes = row["FSR_NOTES"] or ""
                 line_item_id = row["FSR_LINE_ITEM_ID"]
+                problem_last_updated = row["PROBLEM_LAST_UPDATED"]
+                fsr_last_updated = row["FSR_LAST_UPDATED"]
                 
-                print(f"📊 [Backend] /api/cases/data: Row {idx}: case_id={case_id}, problem_length={len(problem_statement)}, fsr_length={len(fsr_notes)}, line_item_id={line_item_id}")
+                print(f"📊 [Backend] /api/cases/data: Row {idx}: case_id={case_id}, problem_length={len(problem_statement)}, fsr_length={len(fsr_notes)}")
                 print(f"📊 [Backend] /api/cases/data: Row {idx}: problem_preview={problem_statement[:50]}...")
                 print(f"📊 [Backend] /api/cases/data: Row {idx}: fsr_preview={fsr_notes[:50]}...")
+                print(f"📊 [Backend] /api/cases/data: Row {idx}: problem_last_updated={problem_last_updated}, fsr_last_updated={fsr_last_updated}")
                 
                 if case_id not in case_data:
+                    # Use the most recent timestamp for updatedAt
+                    latest_timestamp = None
+                    if problem_last_updated and fsr_last_updated:
+                        latest_timestamp = max(problem_last_updated, fsr_last_updated)
+                    elif problem_last_updated:
+                        latest_timestamp = problem_last_updated
+                    elif fsr_last_updated:
+                        latest_timestamp = fsr_last_updated
+                    else:
+                        latest_timestamp = datetime.utcnow()
+                    
                     case_data[case_id] = {
                         "caseNumber": case_id,
                         "problemStatement": problem_statement,
-                        "fsrNotes": "",
-                        "updatedAt": datetime.utcnow().isoformat() + 'Z'
+                        "fsrNotes": fsr_notes,
+                        "updatedAt": latest_timestamp.isoformat() + 'Z' if latest_timestamp else datetime.utcnow().isoformat() + 'Z'
                     }
-                    print(f"📊 [Backend] /api/cases/data: Created new case_data entry for case_id={case_id}")
-                
-                # Use the last FSR line item (highest LINE_ITEM_ID)
-                if fsr_notes and (not case_data[case_id]["fsrNotes"] or line_item_id > case_data[case_id].get("lastLineItemId", 0)):
+                    print(f"📊 [Backend] /api/cases/data: Created new case_data entry for case_id={case_id} with latest timestamp")
+                else:
+                    # Update existing case with latest data
+                    case_data[case_id]["problemStatement"] = problem_statement
                     case_data[case_id]["fsrNotes"] = fsr_notes
-                    case_data[case_id]["lastLineItemId"] = line_item_id
-                    print(f"📊 [Backend] /api/cases/data: Updated FSR notes for case_id={case_id} with line_item_id={line_item_id}")
+                    print(f"📊 [Backend] /api/cases/data: Updated existing case_data for case_id={case_id}")
             
             # Convert to the expected format
             cases = {case_id: data for case_id, data in case_data.items()}
@@ -734,7 +764,9 @@ def get_user_case_data():
         return jsonify({
             "user_id": str(user_id),
             "cases": cases,
-            "count": len(cases)
+            "count": len(cases),
+            "timestamp": datetime.utcnow().isoformat() + 'Z',
+            "cache_bust": request.args.get('cache_bust', 'none')
         })
         
     except Exception as e:

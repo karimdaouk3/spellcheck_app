@@ -2539,7 +2539,8 @@ class CaseManager {
         try {
             // Step 1: Get user cases (list of case numbers and status)
             console.log('📋 [CaseManager] Step 1: Fetching user cases from /api/cases/user-cases');
-            const userCasesResponse = await fetch('/api/cases/user-cases');
+            const cacheBust = Date.now();
+            const userCasesResponse = await fetch(`/api/cases/user-cases?cache_bust=${cacheBust}`);
             
             if (!userCasesResponse.ok) {
                 throw new Error(`Failed to fetch user cases: ${userCasesResponse.status} ${userCasesResponse.statusText}`);
@@ -2550,7 +2551,8 @@ class CaseManager {
             
             // Step 2: Get detailed case data (problem statements and FSR notes)
             console.log('📋 [CaseManager] Step 2: Fetching detailed case data from /api/cases/data');
-            const caseDataResponse = await fetch('/api/cases/data');
+            const cacheBust = Date.now();
+            const caseDataResponse = await fetch(`/api/cases/data?cache_bust=${cacheBust}`);
             
             if (!caseDataResponse.ok) {
                 throw new Error(`Failed to fetch case data: ${caseDataResponse.status} ${caseDataResponse.statusText}`);
@@ -2561,6 +2563,8 @@ class CaseManager {
             console.log('🔍 [CaseManager] Case data keys:', Object.keys(caseData));
             console.log('🔍 [CaseManager] Cases object type:', typeof caseData.cases);
             console.log('🔍 [CaseManager] Cases object keys:', Object.keys(caseData.cases || {}));
+            console.log('🔍 [CaseManager] Response timestamp:', caseData.timestamp);
+            console.log('🔍 [CaseManager] Cache bust value:', caseData.cache_bust);
             
             // Convert backend format to frontend format
             const backendCases = caseData.cases || {};
