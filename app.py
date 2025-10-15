@@ -27,8 +27,11 @@ from utils import (
 from snowflakeconnection import snowflake_query
 
 # ==================== EXTERNAL CRM INTEGRATION ====================
-# Placeholder functions for external CRM integration
-# TODO: Replace with actual external CRM API calls
+# CRM functions with caching and batch processing optimizations
+
+# CRM Cache for performance optimization
+_crm_cache = {}
+CRM_CACHE_TTL = 300  # 5 minutes
 
 def check_external_crm_exists(case_number):
     """
@@ -116,6 +119,107 @@ def check_external_crm_status_for_case(case_id):
         else:
             print(f"❌ [CRM] Unexpected error for case {case_id}: {e}")
             return "open"  # Default to open if error occurs
+
+def check_external_crm_status_batch(case_ids):
+    """
+    Batch check case status in external CRM for multiple cases at once.
+    This is much more efficient than individual queries.
+    Includes caching to avoid repeated database calls.
+    
+    Args:
+        case_ids: List of case IDs to check
+        
+    Returns:
+        dict: {case_id: status} mapping
+    """
+    if not case_ids:
+        return {}
+    
+    current_time = time.time()
+    status_map = {}
+    uncached_cases = []
+    
+    # Check cache first
+    for case_id in case_ids:
+        cache_key = f"crm_status_{case_id}"
+        if (cache_key in _crm_cache and 
+            current_time - _crm_cache[cache_key]['timestamp'] < CRM_CACHE_TTL):
+            status_map[case_id] = _crm_cache[cache_key]['status']
+            print(f"📦 [CRM] Using cached status for case {case_id}: {status_map[case_id]}")
+        else:
+            uncached_cases.append(case_id)
+    
+    # Only query database for uncached cases
+    if uncached_cases:
+        try:
+            print(f"🔍 [CRM] Batch checking status for {len(uncached_cases)} uncached cases in external CRM")
+            
+            # Create IN clause for batch query
+            case_ids_str = ','.join([str(cid) for cid in uncached_cases])
+            
+            # Optimized batch query to check all cases at once
+            query = f"""
+                SELECT DISTINCT "[Case Number]"
+                FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_CASE_SUMMARY
+                WHERE "Verify Closure Date/Time" IS NULL
+                AND "Case Creation Date" > DATEADD(YEAR, -1, CURRENT_DATE)
+                AND "[Case Number]" IN ({case_ids_str})
+            """
+            
+            result = snowflake_query(query, CONNECTION_PAYLOAD)
+            
+            # Build status mapping for uncached cases
+            open_cases = set()
+            
+            if result is not None and not result.empty:
+                open_cases = set(result["Case Number"].tolist())
+                print(f"✅ [CRM] Found {len(open_cases)} open cases in external CRM: {list(open_cases)}")
+            else:
+                print(f"ℹ️ [CRM] No open cases found in external CRM")
+            
+            # Map uncached cases to their status and cache results
+            for case_id in uncached_cases:
+                if case_id in open_cases:
+                    status = "open"
+                else:
+                    status = "closed"
+                
+                status_map[case_id] = status
+                
+                # Cache the result
+                cache_key = f"crm_status_{case_id}"
+                _crm_cache[cache_key] = {
+                    'status': status,
+                    'timestamp': current_time
+                }
+            
+            print(f"📊 [CRM] Batch status results for uncached cases: {status_map}")
+            
+        except Exception as e:
+            print(f"❌ [CRM] Error in batch status check: {e}")
+            # Check if it's a database access error
+            if "Database 'GEAR' does not exist or not authorized" in str(e):
+                print(f"⚠️ [CRM] GEAR database not accessible, defaulting all uncached cases to 'open'")
+                for case_id in uncached_cases:
+                    status_map[case_id] = "open"
+                    # Cache the default result
+                    cache_key = f"crm_status_{case_id}"
+                    _crm_cache[cache_key] = {
+                        'status': "open",
+                        'timestamp': current_time
+                    }
+            else:
+                print(f"❌ [CRM] Unexpected error in batch check: {e}")
+                for case_id in uncached_cases:
+                    status_map[case_id] = "open"
+                    # Cache the default result
+                    cache_key = f"crm_status_{case_id}"
+                    _crm_cache[cache_key] = {
+                        'status': "open",
+                        'timestamp': current_time
+                    }
+    
+    return status_map
 
 def get_external_case_id(case_number):
     """
@@ -510,12 +614,16 @@ def check_external_crm_status():
         if result is not None and not result.empty:
             print(f"✅ [Backend] Found {len(result)} open cases to check")
             
+            # Extract case IDs for batch processing
+            case_ids = [row["CASE_ID"] for _, row in result.iterrows()]
+            print(f"🔍 [Backend] Batch checking CRM status for cases: {case_ids}")
+            
+            # Batch check external CRM status for all cases at once
+            external_statuses = check_external_crm_status_batch(case_ids)
+            
             for _, row in result.iterrows():
                 case_id = row["CASE_ID"]
-                print(f"🔍 [Backend] Checking external CRM status for case {case_id}")
-                
-                # Check external CRM status (placeholder function)
-                external_status = check_external_crm_status_for_case(case_id)
+                external_status = external_statuses.get(case_id, "open")  # Default to open if not found
                 print(f"📋 [Backend] Case {case_id} external status: {external_status}")
                 
                 # If case is closed in external CRM but open in database, needs feedback
