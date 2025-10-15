@@ -876,7 +876,7 @@ def overall_feedback():
     helpfulness_rating = request.form.get('helpfulness_rating')
     future_interest = request.form.get('future_interest')
     feedback_text = request.form.get('feedback_text', '')
-    timestamp = time.time()
+    timestamp = datetime.utcnow()
  
     if not experience_rating or not helpfulness_rating or not future_interest:
         return render_template("feedback.html", 
@@ -918,7 +918,7 @@ def overall_feedback():
     insert_query = f"""
         INSERT INTO {DATABASE}.{SCHEMA}.OVERALL_FEEDBACK
         (USER_ID, EXPERIENCE_RATING, HELPFULNESS_RATING, FUTURE_INTEREST, FEEDBACK_TEXT, TIMESTAMP)
-        VALUES (%s, %s, %s, %s, %s, TO_TIMESTAMP_NTZ(%s))
+        VALUES (%s, %s, %s, %s, %s, %s)
     """
     params = (
         user_data["user_id"],
@@ -1523,7 +1523,7 @@ def llm():
             })
 
     print(f"[DBG] /llm parsed OK; type={type(llm_result)} keys={list(llm_result.keys()) if isinstance(llm_result, dict) else None}")
-    timestamp = time.time()
+    timestamp = datetime.utcnow()
 
     if step == 1:
         evaluation = llm_result.get("evaluation", {}) if isinstance(llm_result, dict) else {}
@@ -1563,7 +1563,7 @@ def llm():
                 f"""
                 INSERT INTO {DATABASE}.{SCHEMA}.USER_SESSION_INPUTS
                 (USER_ID, APP_SESSION_ID, CASE_ID, LINE_ITEM_ID, INPUT_FIELD_TYPE, INPUT_TEXT, TIMESTAMP)
-                VALUES (%s, %s, %s, %s, %s, %s, TO_TIMESTAMP_NTZ(%s))
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
                 CONNECTION_PAYLOAD,
                 (user_id, app_session_id, case_id, line_item_id, input_field, input_text, timestamp),
@@ -1596,7 +1596,7 @@ def llm():
                     f"""
                     INSERT INTO {DATABASE}.{SCHEMA}.LLM_REWRITE_PROMPTS
                     (REWRITE_UUID, CRITERIA_ID, CRITERIA_SCORE, REWRITE_QUESTION, TIMESTAMP)
-                    VALUES (%s, %s, %s, %s, TO_TIMESTAMP_NTZ(%s))
+                    VALUES (%s, %s, %s, %s, %s)
                     """,
                     CONNECTION_PAYLOAD,
                     (rewrite_uuid, crit_id, 0, q, timestamp),
@@ -1628,7 +1628,7 @@ def llm():
             insert_query = f"""
                 INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
                 (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP)
-                VALUES (%s, %s, %s, %s, %s, TO_TIMESTAMP_NTZ(%s))
+                VALUES (%s, %s, %s, %s, %s, %s)
             """
             snowflake_query(insert_query, CONNECTION_PAYLOAD,
                           (user_input_id, input_text, input_text, score_num, None, timestamp),
@@ -1668,7 +1668,7 @@ def llm():
                         f"""
                         INSERT INTO {DATABASE}.{SCHEMA}.USER_REWRITE_INPUTS
                         (REWRITE_ID, USER_REWRITE_INPUT, TIMESTAMP)
-                        VALUES (%s, %s, TO_TIMESTAMP_NTZ(%s))
+                        VALUES (%s, %s, %s)
                         """,
                         CONNECTION_PAYLOAD,
                         (pid, ans, timestamp),
@@ -1684,7 +1684,7 @@ def llm():
                 f"""
                 INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
                 (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP)
-                VALUES (%s, %s, %s, %s, %s, TO_TIMESTAMP_NTZ(%s))
+                VALUES (%s, %s, %s, %s, %s, %s)
                 """,
                 CONNECTION_PAYLOAD,
                 (
