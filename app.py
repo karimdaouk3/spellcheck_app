@@ -1642,13 +1642,13 @@ def llm():
             """
             id_result = snowflake_query(id_query, CONNECTION_PAYLOAD, (user_input_id, timestamp))
             if id_result is not None and not id_result.empty:
-                evaluation_id = id_result.iloc[0]["ID"]
+                evaluation_id = int(id_result.iloc[0]["ID"])  # Convert to int for JSON serialization
                 print(f"[DBG] /llm LLM_EVALUATION step1 created with ID: {evaluation_id}")
         except Exception as e:
             print(f"[DBG] /llm LLM_EVALUATION step1 error: {e}")
 
-        llm_result["rewrite_uuid"] = rewrite_uuid
-        llm_result["evaluation_id"] = evaluation_id
+        llm_result["rewrite_uuid"] = str(rewrite_uuid)  # Ensure string for JSON serialization
+        llm_result["evaluation_id"] = int(evaluation_id) if evaluation_id is not None else None
         if 'user_input_id' not in llm_result and 'evaluation' in llm_result:
             llm_result["user_input_id"] = user_input_id
         print(f"[DBG] /llm returning step1 result uid={user_input_id} batch={rewrite_uuid} eval_id={evaluation_id}")
