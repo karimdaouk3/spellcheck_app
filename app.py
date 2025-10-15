@@ -693,8 +693,10 @@ def get_user_case_data():
                 AND lis_fsr.INPUT_FIELD_ID = 2
             LEFT JOIN {DATABASE}.{SCHEMA}.LLM_EVALUATION le_problem
                 ON lis_problem.INPUT_FIELD_EVAL_ID = le_problem.ID
+                AND lis_problem.INPUT_FIELD_EVAL_ID IS NOT NULL
             LEFT JOIN {DATABASE}.{SCHEMA}.LLM_EVALUATION le_fsr
                 ON lis_fsr.INPUT_FIELD_EVAL_ID = le_fsr.ID
+                AND lis_fsr.INPUT_FIELD_EVAL_ID IS NOT NULL
             WHERE cs.CREATED_BY_USER = %s AND cs.CASE_STATUS = 'open'
             ORDER BY cs.CASE_ID, lis_fsr.LINE_ITEM_ID
         """
@@ -726,6 +728,7 @@ def get_user_case_data():
                 print(f"🔍 [EVAL DEBUG] - FSR eval_id={fsr_eval_id}, score={fsr_score}")
                 print(f"🔍 [EVAL DEBUG] - Problem original length={len(problem_original)}, rewritten length={len(problem_rewritten)}")
                 print(f"🔍 [EVAL DEBUG] - FSR original length={len(fsr_original)}, rewritten length={len(fsr_rewritten)}")
+                print(f"🔍 [EVAL DEBUG] - Raw row data: {dict(row)}")
                 
                 if case_id not in case_data:
                     case_data[case_id] = {
