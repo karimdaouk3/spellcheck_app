@@ -2578,7 +2578,7 @@ class CaseManager {
             
             this.cases = Object.values(backendCases).map(caseData => {
                 const caseInfo = {
-                    id: Date.now() + Math.random(), // Generate unique ID
+                    id: caseData.caseNumber, // Use actual case number as ID
                     caseNumber: caseData.caseNumber,
                     problemStatement: caseData.problemStatement || '',
                     fsrNotes: caseData.fsrNotes || '',
@@ -2597,6 +2597,19 @@ class CaseManager {
             });
             
             console.log(`✅ [CaseManager] Successfully loaded ${this.cases.length} cases from database`);
+            
+            // Debug: Show final loaded cases
+            console.log(`🔍 [CaseManager] Final loaded cases:`);
+            this.cases.forEach((caseInfo, index) => {
+                console.log(`🔍 [CaseManager] Case ${index}:`, {
+                    id: caseInfo.id,
+                    caseNumber: caseInfo.caseNumber,
+                    problemStatement_length: caseInfo.problemStatement ? caseInfo.problemStatement.length : 0,
+                    fsrNotes_length: caseInfo.fsrNotes ? caseInfo.fsrNotes.length : 0,
+                    problemStatement_preview: caseInfo.problemStatement ? caseInfo.problemStatement.substring(0, 50) + '...' : 'None',
+                    fsrNotes_preview: caseInfo.fsrNotes ? caseInfo.fsrNotes.substring(0, 50) + '...' : 'None'
+                });
+            });
             
             // Also sync with localStorage for offline access
             this.saveCasesLocally();
@@ -2636,6 +2649,12 @@ class CaseManager {
                         needsMigration = true;
                         console.log(`🔄 [CaseManager] Migrated case number: ${caseData.caseNumber}`);
                     }
+                }
+                // Also migrate the ID to match the case number
+                if (typeof caseData.id === 'number' && caseData.id !== caseData.caseNumber) {
+                    caseData.id = caseData.caseNumber;
+                    needsMigration = true;
+                    console.log(`🔄 [CaseManager] Migrated case ID to match case number: ${caseData.id}`);
                 }
             });
             
@@ -2799,7 +2818,7 @@ class CaseManager {
             
             // Create the case (either tracked or untracked)
             const newCase = {
-                id: Date.now(),
+                id: caseNumberInt, // Use case number as ID
                 caseNumber: caseNumberInt,
                 problemStatement: '',
                 fsrNotes: '',
