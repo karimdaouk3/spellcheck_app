@@ -668,40 +668,41 @@ def get_user_case_data():
     try:
         print(f"🚀 [Backend] /api/cases/data: Getting case data for user {user_id}")
         
-        # Optimized query to get the most recent data for each case
+        # Optimized single query to get all case data at once
+        # Use ROW_NUMBER() to get the most recent data for each case/field combination
         query = f"""
-            WITH latest_problem AS (
+            WITH latest_input_state AS (
                 SELECT 
                     CASE_SESSION_ID,
-                    INPUT_FIELD_VALUE as PROBLEM_STATEMENT,
-                    LAST_UPDATED as PROBLEM_LAST_UPDATED,
-                    ROW_NUMBER() OVER (PARTITION BY CASE_SESSION_ID ORDER BY LAST_UPDATED DESC) as rn
-                FROM {DATABASE}.{SCHEMA}.LAST_INPUT_STATE 
-                WHERE INPUT_FIELD_ID = 1
-            ),
-            latest_fsr AS (
-                SELECT 
-                    CASE_SESSION_ID,
-                    INPUT_FIELD_VALUE as FSR_NOTES,
-                    LINE_ITEM_ID as FSR_LINE_ITEM_ID,
-                    LAST_UPDATED as FSR_LAST_UPDATED,
-                    ROW_NUMBER() OVER (PARTITION BY CASE_SESSION_ID ORDER BY LAST_UPDATED DESC) as rn
-                FROM {DATABASE}.{SCHEMA}.LAST_INPUT_STATE 
-                WHERE INPUT_FIELD_ID = 2
+                    INPUT_FIELD_ID,
+                    INPUT_FIELD_VALUE,
+                    LINE_ITEM_ID,
+                    LAST_UPDATED,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY CASE_SESSION_ID, INPUT_FIELD_ID 
+                        ORDER BY LAST_UPDATED DESC, LINE_ITEM_ID DESC
+                    ) as rn
+                FROM {DATABASE}.{SCHEMA}.LAST_INPUT_STATE
             )
             SELECT 
                 cs.CASE_ID,
                 cs.CASE_STATUS,
-                lp.PROBLEM_STATEMENT,
-                lf.FSR_NOTES,
-                lf.FSR_LINE_ITEM_ID,
-                lp.PROBLEM_LAST_UPDATED,
-                lf.FSR_LAST_UPDATED
+                lis_problem.INPUT_FIELD_VALUE as PROBLEM_STATEMENT,
+                lis_fsr.INPUT_FIELD_VALUE as FSR_NOTES,
+                lis_fsr.LINE_ITEM_ID as FSR_LINE_ITEM_ID,
+                lis_problem.LAST_UPDATED as PROBLEM_LAST_UPDATED,
+                lis_fsr.LAST_UPDATED as FSR_LAST_UPDATED
             FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS cs
-            LEFT JOIN latest_problem lp ON cs.ID = lp.CASE_SESSION_ID AND lp.rn = 1
-            LEFT JOIN latest_fsr lf ON cs.ID = lf.CASE_SESSION_ID AND lf.rn = 1
+            LEFT JOIN latest_input_state lis_problem 
+                ON cs.ID = lis_problem.CASE_SESSION_ID 
+                AND lis_problem.INPUT_FIELD_ID = 1
+                AND lis_problem.rn = 1
+            LEFT JOIN latest_input_state lis_fsr 
+                ON cs.ID = lis_fsr.CASE_SESSION_ID 
+                AND lis_fsr.INPUT_FIELD_ID = 2
+                AND lis_fsr.rn = 1
             WHERE cs.CREATED_BY_USER = %s AND cs.CASE_STATUS = 'open'
-            ORDER BY cs.CASE_ID
+            ORDER BY cs.CASE_ID, lis_fsr.LINE_ITEM_ID
         """
         print(f"📊 [Backend] Executing optimized query: {query}")
         cases_result = snowflake_query(query, CONNECTION_PAYLOAD, (user_id,))
@@ -716,38 +717,29 @@ def get_user_case_data():
                 problem_statement = row["PROBLEM_STATEMENT"] or ""
                 fsr_notes = row["FSR_NOTES"] or ""
                 line_item_id = row["FSR_LINE_ITEM_ID"]
-                problem_last_updated = row["PROBLEM_LAST_UPDATED"]
-                fsr_last_updated = row["FSR_LAST_UPDATED"]
                 
-                print(f"📊 [Backend] /api/cases/data: Row {idx}: case_id={case_id}, problem_length={len(problem_statement)}, fsr_length={len(fsr_notes)}")
+                problem_last_updated = row.get("PROBLEM_LAST_UPDATED", "N/A")
+                fsr_last_updated = row.get("FSR_LAST_UPDATED", "N/A")
+                
+                print(f"📊 [Backend] /api/cases/data: Row {idx}: case_id={case_id}, problem_length={len(problem_statement)}, fsr_length={len(fsr_notes)}, line_item_id={line_item_id}")
                 print(f"📊 [Backend] /api/cases/data: Row {idx}: problem_preview={problem_statement[:50]}...")
                 print(f"📊 [Backend] /api/cases/data: Row {idx}: fsr_preview={fsr_notes[:50]}...")
                 print(f"📊 [Backend] /api/cases/data: Row {idx}: problem_last_updated={problem_last_updated}, fsr_last_updated={fsr_last_updated}")
                 
                 if case_id not in case_data:
-                    # Use the most recent timestamp for updatedAt
-                    latest_timestamp = None
-                    if problem_last_updated and fsr_last_updated:
-                        latest_timestamp = max(problem_last_updated, fsr_last_updated)
-                    elif problem_last_updated:
-                        latest_timestamp = problem_last_updated
-                    elif fsr_last_updated:
-                        latest_timestamp = fsr_last_updated
-                    else:
-                        latest_timestamp = datetime.utcnow()
-                    
                     case_data[case_id] = {
                         "caseNumber": case_id,
                         "problemStatement": problem_statement,
-                        "fsrNotes": fsr_notes,
-                        "updatedAt": latest_timestamp.isoformat() + 'Z' if latest_timestamp else datetime.utcnow().isoformat() + 'Z'
+                        "fsrNotes": "",
+                        "updatedAt": datetime.utcnow().isoformat() + 'Z'
                     }
-                    print(f"📊 [Backend] /api/cases/data: Created new case_data entry for case_id={case_id} with latest timestamp")
-                else:
-                    # Update existing case with latest data
-                    case_data[case_id]["problemStatement"] = problem_statement
+                    print(f"📊 [Backend] /api/cases/data: Created new case_data entry for case_id={case_id}")
+                
+                # Use the last FSR line item (highest LINE_ITEM_ID)
+                if fsr_notes and (not case_data[case_id]["fsrNotes"] or line_item_id > case_data[case_id].get("lastLineItemId", 0)):
                     case_data[case_id]["fsrNotes"] = fsr_notes
-                    print(f"📊 [Backend] /api/cases/data: Updated existing case_data for case_id={case_id}")
+                    case_data[case_id]["lastLineItemId"] = line_item_id
+                    print(f"📊 [Backend] /api/cases/data: Updated FSR notes for case_id={case_id} with line_item_id={line_item_id}")
             
             # Convert to the expected format
             cases = {case_id: data for case_id, data in case_data.items()}

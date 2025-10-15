@@ -2527,14 +2527,14 @@ class CaseManager {
         });
     }
     
-    async loadCases() {
+    async loadCases(forceRefresh = false) {
         if (this.userId === null || this.userId === undefined) {
             console.warn('⚠️ [CaseManager] No user ID available, cannot load cases');
             this.cases = [];
             return;
         }
         
-        console.log(`🚀 [CaseManager] Loading cases for user ${this.userId} from database...`);
+        console.log(`🚀 [CaseManager] Loading cases for user ${this.userId} from database... (forceRefresh: ${forceRefresh})`);
         
         try {
             // Step 1: Get user cases (list of case numbers and status)
@@ -2551,7 +2551,6 @@ class CaseManager {
             
             // Step 2: Get detailed case data (problem statements and FSR notes)
             console.log('📋 [CaseManager] Step 2: Fetching detailed case data from /api/cases/data');
-            const cacheBust = Date.now();
             const caseDataResponse = await fetch(`/api/cases/data?cache_bust=${cacheBust}`);
             
             if (!caseDataResponse.ok) {
@@ -2619,6 +2618,15 @@ class CaseManager {
             console.log(`🎯 [CaseManager] Setting current case to: ${this.cases[0].caseNumber} (ID: ${this.cases[0].id})`);
             console.log(`🎯 [CaseManager] Available cases:`, this.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber })));
             this.switchToCase(this.cases[0].id);
+        }
+    }
+    
+    async refreshCases() {
+        console.log('🔄 [CaseManager] Force refreshing cases from database...');
+        await this.loadCases(true);
+        this.renderCasesList();
+        if (this.currentCase) {
+            this.updateActiveCaseHeader();
         }
     }
     
