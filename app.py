@@ -70,7 +70,13 @@ def check_external_crm_exists(case_number):
             
     except Exception as e:
         print(f"❌ [CRM] Error checking case {case_number} in CRM: {e}")
-        return False
+        # Check if it's a database access error
+        if "Database 'IT_SF_SHARE_REPLICA' does not exist or not authorized" in str(e):
+            print(f"⚠️ [CRM] IT_SF_SHARE_REPLICA database not accessible, defaulting to False for case {case_number}")
+            return False
+        else:
+            print(f"❌ [CRM] Unexpected error for case {case_number}: {e}")
+            return False
 
 def check_external_crm_status_for_case(case_id):
     """
@@ -103,7 +109,13 @@ def check_external_crm_status_for_case(case_id):
             
     except Exception as e:
         print(f"❌ [CRM] Error checking status for case {case_id}: {e}")
-        return "open"  # Default to open if error occurs
+        # Check if it's a database access error
+        if "Database 'GEAR' does not exist or not authorized" in str(e):
+            print(f"⚠️ [CRM] GEAR database not accessible, defaulting to 'open' for case {case_id}")
+            return "open"  # Default to open if database not accessible
+        else:
+            print(f"❌ [CRM] Unexpected error for case {case_id}: {e}")
+            return "open"  # Default to open if error occurs
 
 def get_external_case_id(case_number):
     """
@@ -153,7 +165,13 @@ def get_available_case_numbers():
             
     except Exception as e:
         print(f"❌ [CRM] Error getting available case numbers: {e}")
-        return []
+        # Check if it's a database access error
+        if "Database 'IT_SF_SHARE_REPLICA' does not exist or not authorized" in str(e):
+            print(f"⚠️ [CRM] IT_SF_SHARE_REPLICA database not accessible, returning empty list")
+            return []
+        else:
+            print(f"❌ [CRM] Unexpected error getting case numbers: {e}")
+            return []
 
 def get_case_details(case_number):
     """
@@ -195,7 +213,13 @@ def get_case_details(case_number):
             
     except Exception as e:
         print(f"❌ [CRM] Error getting case details for case {case_number}: {e}")
-        return []
+        # Check if it's a database access error
+        if "Database 'GEAR' does not exist or not authorized" in str(e):
+            print(f"⚠️ [CRM] GEAR database not accessible, returning empty list for case {case_number}")
+            return []
+        else:
+            print(f"❌ [CRM] Unexpected error getting case details for case {case_number}: {e}")
+            return []
 import yaml
 from werkzeug.middleware.proxy_fix import ProxyFix
 # --- Start / connect to your running LanguageTool server ---------------
@@ -523,6 +547,8 @@ def get_user_case_data():
     user_id = user_data.get('user_id')
     
     try:
+        print(f"🚀 [Backend] /api/cases/data: Getting case data for user {user_id}")
+        
         # Get case sessions with problem statements
         query = f"""
             SELECT cs.CASE_ID, cs.CASE_STATUS,
@@ -533,6 +559,7 @@ def get_user_case_data():
                 AND lis_problem.INPUT_FIELD_ID = 1
             WHERE cs.CREATED_BY_USER = %s AND cs.CASE_STATUS = 'open'
         """
+        print(f"📊 [Backend] Executing query: {query}")
         cases_result = snowflake_query(query, CONNECTION_PAYLOAD, (user_id,))
         
         cases = {}
@@ -572,8 +599,19 @@ def get_user_case_data():
         })
         
     except Exception as e:
-        print(f"Error fetching case data for user {user_id}: {e}")
-        return jsonify({"error": "Database error occurred"}), 500
+        print(f"❌ [Backend] Error fetching case data for user {user_id}: {e}")
+        # Check if it's a table not found error
+        if "does not exist" in str(e) or "not found" in str(e):
+            print(f"⚠️ [Backend] Database tables not found, returning empty cases for user {user_id}")
+            return jsonify({
+                "user_id": str(user_id),
+                "cases": {},
+                "count": 0,
+                "message": "Database tables not yet created"
+            })
+        else:
+            print(f"❌ [Backend] Unexpected database error for user {user_id}: {e}")
+            return jsonify({"error": "Database error occurred"}), 500
 
 @app.route('/api/cases/data/<case_number>', methods=['GET'])
 def get_case_data(case_number):
