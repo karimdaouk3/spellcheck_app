@@ -560,48 +560,50 @@ def get_user_case_data():
     try:
         print(f"🚀 [Backend] /api/cases/data: Getting case data for user {user_id}")
         
-        # Get case sessions with problem statements
+        # Optimized single query to get all case data at once
         query = f"""
-            SELECT cs.CASE_ID, cs.CASE_STATUS,
-                   lis_problem.INPUT_FIELD_VALUE as PROBLEM_STATEMENT
+            SELECT 
+                cs.CASE_ID,
+                cs.CASE_STATUS,
+                lis_problem.INPUT_FIELD_VALUE as PROBLEM_STATEMENT,
+                lis_fsr.INPUT_FIELD_VALUE as FSR_NOTES,
+                lis_fsr.LINE_ITEM_ID as FSR_LINE_ITEM_ID
             FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS cs
             LEFT JOIN {DATABASE}.{SCHEMA}.LAST_INPUT_STATE lis_problem 
                 ON cs.ID = lis_problem.CASE_SESSION_ID 
                 AND lis_problem.INPUT_FIELD_ID = 1
+            LEFT JOIN {DATABASE}.{SCHEMA}.LAST_INPUT_STATE lis_fsr 
+                ON cs.ID = lis_fsr.CASE_SESSION_ID 
+                AND lis_fsr.INPUT_FIELD_ID = 2
             WHERE cs.CREATED_BY_USER = %s AND cs.CASE_STATUS = 'open'
+            ORDER BY cs.CASE_ID, lis_fsr.LINE_ITEM_ID
         """
-        print(f"📊 [Backend] Executing query: {query}")
+        print(f"📊 [Backend] Executing optimized query: {query}")
         cases_result = snowflake_query(query, CONNECTION_PAYLOAD, (user_id,))
         
         cases = {}
         if cases_result is not None and not cases_result.empty:
-            for _, case_row in cases_result.iterrows():
-                case_id = case_row["CASE_ID"]
+            # Group by case_id to handle multiple FSR line items per case
+            case_data = {}
+            for _, row in cases_result.iterrows():
+                case_id = row["CASE_ID"]
                 
-                # Get FSR line items for this case
-                fsr_query = f"""
-                    SELECT LINE_ITEM_ID, INPUT_FIELD_VALUE, INPUT_FIELD_EVAL_ID, LAST_UPDATED
-                    FROM {DATABASE}.{SCHEMA}.LAST_INPUT_STATE
-                    WHERE CASE_SESSION_ID = (
-                        SELECT ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
-                        WHERE CASE_ID = %s AND CREATED_BY_USER = %s
-                    ) AND INPUT_FIELD_ID = 2
-                    ORDER BY LINE_ITEM_ID
-                """
-                fsr_result = snowflake_query(fsr_query, CONNECTION_PAYLOAD, (case_id, user_id))
+                if case_id not in case_data:
+                    case_data[case_id] = {
+                        "caseNumber": case_id,
+                        "problemStatement": row["PROBLEM_STATEMENT"] or "",
+                        "fsrNotes": "",
+                        "updatedAt": datetime.utcnow().isoformat() + 'Z'
+                    }
                 
-                fsr_notes = ""
-                if fsr_result is not None and not fsr_result.empty:
-                    # Get the last FSR line item for the text box
-                    last_fsr = fsr_result.iloc[-1]
-                    fsr_notes = last_fsr["INPUT_FIELD_VALUE"]
-                
-                cases[case_id] = {
-                    "caseNumber": case_id,
-                    "problemStatement": case_row["PROBLEM_STATEMENT"] or "",
-                    "fsrNotes": fsr_notes,
-                    "updatedAt": datetime.utcnow().isoformat() + 'Z'
-                }
+                # Use the last FSR line item (highest LINE_ITEM_ID)
+                if row["FSR_NOTES"] and (not case_data[case_id]["fsrNotes"] or row["FSR_LINE_ITEM_ID"] > case_data[case_id].get("lastLineItemId", 0)):
+                    case_data[case_id]["fsrNotes"] = row["FSR_NOTES"]
+                    case_data[case_id]["lastLineItemId"] = row["FSR_LINE_ITEM_ID"]
+            
+            # Convert to the expected format
+            cases = {case_id: data for case_id, data in case_data.items()}
+            print(f"✅ [Backend] Processed {len(cases)} cases with optimized query")
         
         return jsonify({
             "user_id": str(user_id),
