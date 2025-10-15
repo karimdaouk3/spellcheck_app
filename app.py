@@ -468,7 +468,18 @@ def get_user_cases():
         
     except Exception as e:
         print(f"❌ [Backend] Error fetching user cases for user {user_id}: {e}")
-        return jsonify({"error": "Database error occurred"}), 500
+        # Check if it's a table not found error
+        if "does not exist" in str(e) or "not found" in str(e):
+            print(f"⚠️ [Backend] Database tables not found, returning empty cases for user {user_id}")
+            return jsonify({
+                "user_id": user_id,
+                "cases": [],
+                "count": 0,
+                "message": "Database tables not yet created"
+            })
+        else:
+            print(f"❌ [Backend] Unexpected database error for user {user_id}: {e}")
+            return jsonify({"error": "Database error occurred"}), 500
 
 @app.route('/api/cases/check-external-status', methods=['POST'])
 def check_external_crm_status():
