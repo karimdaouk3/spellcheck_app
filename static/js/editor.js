@@ -2584,7 +2584,8 @@ class CaseManager {
                     fsrNotes: caseData.fsrNotes || '',
                     createdAt: new Date(caseData.updatedAt || Date.now()),
                     updatedAt: new Date(caseData.updatedAt || Date.now()),
-                    isTrackedInDatabase: true // All cases from database are tracked
+                    isTrackedInDatabase: true, // All cases from database are tracked
+                    evaluation: caseData.evaluation || null // Include evaluation data
                 };
                 
                 console.log(`📝 [CaseManager] Processed case ${caseInfo.caseNumber}:`, {
@@ -2893,6 +2894,14 @@ class CaseManager {
             console.log(`📝 [CaseManager] Set editor2 innerText to: ${editor2.innerText.substring(0, 50)}...`);
         }
         
+        // Load evaluation data if available
+        if (caseData.evaluation) {
+            console.log(`📊 [CaseManager] Loading evaluation data for case ${caseData.caseNumber}:`, caseData.evaluation);
+            this.loadEvaluationData(caseData.evaluation);
+        } else {
+            console.log(`📊 [CaseManager] No evaluation data available for case ${caseData.caseNumber}`);
+        }
+        
         // Update UI
         this.renderCasesList();
         this.updateActiveCaseHeader();
@@ -2981,6 +2990,69 @@ class CaseManager {
             day: 'numeric',
             year: 'numeric'
         });
+    }
+    
+    loadEvaluationData(evaluationData) {
+        console.log(`📊 [CaseManager] Loading evaluation data:`, evaluationData);
+        
+        // Load problem statement evaluation if available
+        if (evaluationData.problemStatement && evaluationData.problemStatement.evalId) {
+            console.log(`📊 [CaseManager] Loading problem statement evaluation:`, evaluationData.problemStatement);
+            this.loadFieldEvaluation('editor', evaluationData.problemStatement);
+        }
+        
+        // Load FSR notes evaluation if available
+        if (evaluationData.fsrNotes && evaluationData.fsrNotes.evalId) {
+            console.log(`📊 [CaseManager] Loading FSR notes evaluation:`, evaluationData.fsrNotes);
+            this.loadFieldEvaluation('editor2', evaluationData.fsrNotes);
+        }
+    }
+    
+    loadFieldEvaluation(field, evalData) {
+        console.log(`📊 [CaseManager] Loading evaluation for field ${field}:`, evalData);
+        
+        // Store evaluation data in the field object
+        if (window.spellCheckEditor && window.spellCheckEditor.fields[field]) {
+            const fieldObj = window.spellCheckEditor.fields[field];
+            fieldObj.evaluationId = evalData.evalId;
+            fieldObj.calculatedScore = evalData.score;
+            
+            // Create a mock evaluation result structure
+            const mockEvaluation = {
+                evaluation: this.createMockEvaluationFromScore(evalData.score),
+                score: evalData.score,
+                evaluation_id: evalData.evalId
+            };
+            
+            // Display the evaluation results
+            if (window.spellCheckEditor.displayLLMResult) {
+                window.spellCheckEditor.displayLLMResult(mockEvaluation, false, field, true);
+                console.log(`📊 [CaseManager] Displayed evaluation for field ${field} with score ${evalData.score}`);
+            }
+        }
+    }
+    
+    createMockEvaluationFromScore(score) {
+        // Create a basic evaluation structure based on score
+        // This is a simplified version - in reality you'd want to store the full evaluation criteria
+        const evaluation = {};
+        
+        // Add some basic criteria based on score
+        if (score >= 80) {
+            evaluation.clarity = { passed: true, feedback: "Clear and well-structured" };
+            evaluation.completeness = { passed: true, feedback: "Comprehensive information provided" };
+            evaluation.technical_accuracy = { passed: true, feedback: "Technically accurate" };
+        } else if (score >= 60) {
+            evaluation.clarity = { passed: true, feedback: "Generally clear" };
+            evaluation.completeness = { passed: false, feedback: "Could be more comprehensive" };
+            evaluation.technical_accuracy = { passed: true, feedback: "Mostly accurate" };
+        } else {
+            evaluation.clarity = { passed: false, feedback: "Needs improvement in clarity" };
+            evaluation.completeness = { passed: false, feedback: "Incomplete information" };
+            evaluation.technical_accuracy = { passed: false, feedback: "Technical accuracy issues" };
+        }
+        
+        return evaluation;
     }
     
     // Custom popup functions
