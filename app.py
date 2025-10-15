@@ -668,22 +668,14 @@ def get_user_case_data():
     try:
         print(f"🚀 [Backend] /api/cases/data: Getting case data for user {user_id}")
         
-        # Optimized single query to get all case data at once, including latest evaluation
+        # Optimized single query to get all case data at once
         query = f"""
             SELECT 
                 cs.CASE_ID,
                 cs.CASE_STATUS,
                 lis_problem.INPUT_FIELD_VALUE as PROBLEM_STATEMENT,
                 lis_fsr.INPUT_FIELD_VALUE as FSR_NOTES,
-                lis_fsr.LINE_ITEM_ID as FSR_LINE_ITEM_ID,
-                lis_problem.INPUT_FIELD_EVAL_ID as PROBLEM_EVAL_ID,
-                lis_fsr.INPUT_FIELD_EVAL_ID as FSR_EVAL_ID,
-                le_problem.SCORE as PROBLEM_SCORE,
-                le_fsr.SCORE as FSR_SCORE,
-                le_problem.ORIGINAL_TEXT as PROBLEM_ORIGINAL,
-                le_fsr.ORIGINAL_TEXT as FSR_ORIGINAL,
-                le_problem.REWRITTEN_TEXT as PROBLEM_REWRITTEN,
-                le_fsr.REWRITTEN_TEXT as FSR_REWRITTEN
+                lis_fsr.LINE_ITEM_ID as FSR_LINE_ITEM_ID
             FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS cs
             LEFT JOIN {DATABASE}.{SCHEMA}.LAST_INPUT_STATE lis_problem 
                 ON cs.ID = lis_problem.CASE_SESSION_ID 
@@ -691,19 +683,15 @@ def get_user_case_data():
             LEFT JOIN {DATABASE}.{SCHEMA}.LAST_INPUT_STATE lis_fsr 
                 ON cs.ID = lis_fsr.CASE_SESSION_ID 
                 AND lis_fsr.INPUT_FIELD_ID = 2
-            LEFT JOIN {DATABASE}.{SCHEMA}.LLM_EVALUATION le_problem
-                ON lis_problem.INPUT_FIELD_EVAL_ID = le_problem.ID
-                AND lis_problem.INPUT_FIELD_EVAL_ID IS NOT NULL
-            LEFT JOIN {DATABASE}.{SCHEMA}.LLM_EVALUATION le_fsr
-                ON lis_fsr.INPUT_FIELD_EVAL_ID = le_fsr.ID
-                AND lis_fsr.INPUT_FIELD_EVAL_ID IS NOT NULL
             WHERE cs.CREATED_BY_USER = %s AND cs.CASE_STATUS = 'open'
             ORDER BY cs.CASE_ID, lis_fsr.LINE_ITEM_ID
         """
+        print(f"📊 [Backend] Executing optimized query: {query}")
         cases_result = snowflake_query(query, CONNECTION_PAYLOAD, (user_id,))
         
         cases = {}
         if cases_result is not None and not cases_result.empty:
+            print(f"📊 [Backend] /api/cases/data: Processing {len(cases_result)} rows from database")
             # Group by case_id to handle multiple FSR line items per case
             case_data = {}
             for idx, row in cases_result.iterrows():
@@ -712,69 +700,36 @@ def get_user_case_data():
                 fsr_notes = row["FSR_NOTES"] or ""
                 line_item_id = row["FSR_LINE_ITEM_ID"]
                 
-                # Get evaluation data
-                problem_eval_id = row["PROBLEM_EVAL_ID"]
-                fsr_eval_id = row["FSR_EVAL_ID"]
-                problem_score = row["PROBLEM_SCORE"]
-                fsr_score = row["FSR_SCORE"]
-                problem_original = row["PROBLEM_ORIGINAL"] or ""
-                fsr_original = row["FSR_ORIGINAL"] or ""
-                problem_rewritten = row["PROBLEM_REWRITTEN"] or ""
-                fsr_rewritten = row["FSR_REWRITTEN"] or ""
-                
-                # EVALUATION DEBUG: Print evaluation data for each row
-                print(f"🔍 [EVAL DEBUG] Row {idx} - Case {case_id}:")
-                print(f"🔍 [EVAL DEBUG] - Problem eval_id={problem_eval_id}, score={problem_score}")
-                print(f"🔍 [EVAL DEBUG] - FSR eval_id={fsr_eval_id}, score={fsr_score}")
-                print(f"🔍 [EVAL DEBUG] - Problem original length={len(problem_original)}, rewritten length={len(problem_rewritten)}")
-                print(f"🔍 [EVAL DEBUG] - FSR original length={len(fsr_original)}, rewritten length={len(fsr_rewritten)}")
-                print(f"🔍 [EVAL DEBUG] - Raw row data: {dict(row)}")
+                print(f"📊 [Backend] /api/cases/data: Row {idx}: case_id={case_id}, problem_length={len(problem_statement)}, fsr_length={len(fsr_notes)}, line_item_id={line_item_id}")
+                print(f"📊 [Backend] /api/cases/data: Row {idx}: problem_preview={problem_statement[:50]}...")
+                print(f"📊 [Backend] /api/cases/data: Row {idx}: fsr_preview={fsr_notes[:50]}...")
                 
                 if case_id not in case_data:
                     case_data[case_id] = {
                         "caseNumber": case_id,
                         "problemStatement": problem_statement,
                         "fsrNotes": "",
-                        "updatedAt": datetime.utcnow().isoformat() + 'Z',
-                        "evaluation": {
-                            "problemStatement": {
-                                "evalId": problem_eval_id,
-                                "score": problem_score,
-                                "originalText": problem_original,
-                                "rewrittenText": problem_rewritten
-                            },
-                            "fsrNotes": {
-                                "evalId": fsr_eval_id,
-                                "score": fsr_score,
-                                "originalText": fsr_original,
-                                "rewrittenText": fsr_rewritten
-                            }
-                        }
+                        "updatedAt": datetime.utcnow().isoformat() + 'Z'
                     }
-                    print(f"🔍 [EVAL DEBUG] Created case_data for {case_id} with evaluation data")
+                    print(f"📊 [Backend] /api/cases/data: Created new case_data entry for case_id={case_id}")
                 
                 # Use the last FSR line item (highest LINE_ITEM_ID)
                 if fsr_notes and (not case_data[case_id]["fsrNotes"] or line_item_id > case_data[case_id].get("lastLineItemId", 0)):
                     case_data[case_id]["fsrNotes"] = fsr_notes
                     case_data[case_id]["lastLineItemId"] = line_item_id
-                    # Update FSR evaluation data for the latest line item
-                    case_data[case_id]["evaluation"]["fsrNotes"] = {
-                        "evalId": fsr_eval_id,
-                        "score": fsr_score,
-                        "originalText": fsr_original,
-                        "rewrittenText": fsr_rewritten
-                    }
-                    print(f"🔍 [EVAL DEBUG] Updated FSR evaluation for case {case_id}")
+                    print(f"📊 [Backend] /api/cases/data: Updated FSR notes for case_id={case_id} with line_item_id={line_item_id}")
             
             # Convert to the expected format
             cases = {case_id: data for case_id, data in case_data.items()}
+            print(f"✅ [Backend] Processed {len(cases)} cases with optimized query")
             
-            # EVALUATION DEBUG: Print final evaluation data
+            # Debug: Print final case data
             for case_id, data in cases.items():
-                print(f"🔍 [EVAL DEBUG] Final case {case_id} evaluation data:")
-                print(f"🔍 [EVAL DEBUG] - Problem: evalId={data['evaluation']['problemStatement']['evalId']}, score={data['evaluation']['problemStatement']['score']}")
-                print(f"🔍 [EVAL DEBUG] - FSR: evalId={data['evaluation']['fsrNotes']['evalId']}, score={data['evaluation']['fsrNotes']['score']}")
-                print(f"🔍 [EVAL DEBUG] - Full evaluation object: {data['evaluation']}")
+                print(f"📊 [Backend] /api/cases/data: Final case {case_id}:")
+                print(f"📊 [Backend] /api/cases/data: - problemStatement_length={len(data['problemStatement'])}")
+                print(f"📊 [Backend] /api/cases/data: - fsrNotes_length={len(data['fsrNotes'])}")
+                print(f"📊 [Backend] /api/cases/data: - problemStatement_preview={data['problemStatement'][:100]}...")
+                print(f"📊 [Backend] /api/cases/data: - fsrNotes_preview={data['fsrNotes'][:100]}...")
         
         return jsonify({
             "user_id": str(user_id),

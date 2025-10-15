@@ -2415,6 +2415,7 @@ class CaseManager {
         console.log('✅ User info fetched, userId:', this.userId);
         await this.loadCases();
         console.log('✅ Cases loaded');
+        console.log(`📊 [CaseManager] Loaded ${this.cases.length} cases:`, this.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber, problemLength: c.problemStatement.length })));
         this.setupEventListeners();
         this.renderCasesList();
         this.startAutoSave();
@@ -2423,6 +2424,11 @@ class CaseManager {
         await this.checkForClosedCases();
         
         console.log('✅ CaseManager initialization complete');
+        console.log(`📊 [CaseManager] Final state:`, {
+            userId: this.userId,
+            casesCount: this.cases.length,
+            currentCase: this.currentCase ? this.currentCase.caseNumber : 'None'
+        });
     }
     
     async fetchUserInfo() {
@@ -2557,32 +2563,34 @@ class CaseManager {
             }
             
             const caseData = await caseDataResponse.json();
+            console.log('✅ [CaseManager] Case data response:', caseData);
+            console.log('🔍 [CaseManager] Case data keys:', Object.keys(caseData));
+            console.log('🔍 [CaseManager] Cases object type:', typeof caseData.cases);
+            console.log('🔍 [CaseManager] Cases object keys:', Object.keys(caseData.cases || {}));
             
             // Convert backend format to frontend format
             const backendCases = caseData.cases || {};
+            console.log(`📊 [CaseManager] Processing ${Object.keys(backendCases).length} cases from database`);
             
-            // EVALUATION DEBUG: Check evaluation data in backend response
-            console.log('🔍 [EVAL DEBUG] Backend response cases:', Object.keys(backendCases));
+            // Debug each case in detail
             for (const [caseId, caseInfo] of Object.entries(backendCases)) {
-                console.log(`🔍 [EVAL DEBUG] Case ${caseId} evaluation data:`, caseInfo.evaluation);
-                if (caseInfo.evaluation) {
-                    console.log(`🔍 [EVAL DEBUG] - Problem evalId: ${caseInfo.evaluation.problemStatement?.evalId}, score: ${caseInfo.evaluation.problemStatement?.score}`);
-                    console.log(`🔍 [EVAL DEBUG] - FSR evalId: ${caseInfo.evaluation.fsrNotes?.evalId}, score: ${caseInfo.evaluation.fsrNotes?.score}`);
-                } else {
-                    console.log(`🔍 [EVAL DEBUG] - No evaluation data for case ${caseId}`);
-                }
+                console.log(`🔍 [CaseManager] Case ${caseId} details:`);
+                console.log(`🔍 [CaseManager] - caseNumber: ${caseInfo.caseNumber}`);
+                console.log(`🔍 [CaseManager] - problemStatement length: ${caseInfo.problemStatement ? caseInfo.problemStatement.length : 0}`);
+                console.log(`🔍 [CaseManager] - fsrNotes length: ${caseInfo.fsrNotes ? caseInfo.fsrNotes.length : 0}`);
+                console.log(`🔍 [CaseManager] - problemStatement preview: ${caseInfo.problemStatement ? caseInfo.problemStatement.substring(0, 100) + '...' : 'None'}`);
+                console.log(`🔍 [CaseManager] - fsrNotes preview: ${caseInfo.fsrNotes ? caseInfo.fsrNotes.substring(0, 100) + '...' : 'None'}`);
             }
             
             this.cases = Object.values(backendCases).map(caseData => {
                 const caseInfo = {
-                    id: caseData.caseNumber, // Use actual case number as ID
+                    id: caseData.caseNumber, // Use case number as ID for consistency
                     caseNumber: caseData.caseNumber,
                     problemStatement: caseData.problemStatement || '',
                     fsrNotes: caseData.fsrNotes || '',
                     createdAt: new Date(caseData.updatedAt || Date.now()),
                     updatedAt: new Date(caseData.updatedAt || Date.now()),
-                    isTrackedInDatabase: true, // All cases from database are tracked
-                    evaluation: caseData.evaluation || null // Include evaluation data
+                    isTrackedInDatabase: true // All cases from database are tracked
                 };
                 
                 console.log(`📝 [CaseManager] Processed case ${caseInfo.caseNumber}:`, {
@@ -2596,20 +2604,9 @@ class CaseManager {
             
             console.log(`✅ [CaseManager] Successfully loaded ${this.cases.length} cases from database`);
             
-            // EVALUATION DEBUG: Check final loaded cases for evaluation data
-            console.log(`🔍 [EVAL DEBUG] Final loaded cases with evaluation data:`);
-            this.cases.forEach((caseInfo, index) => {
-                console.log(`🔍 [EVAL DEBUG] Case ${index} (${caseInfo.caseNumber}):`, {
-                    hasEvaluation: !!caseInfo.evaluation,
-                    problemEvalId: caseInfo.evaluation?.problemStatement?.evalId,
-                    problemScore: caseInfo.evaluation?.problemStatement?.score,
-                    fsrEvalId: caseInfo.evaluation?.fsrNotes?.evalId,
-                    fsrScore: caseInfo.evaluation?.fsrNotes?.score
-                });
-            });
-            
             // Also sync with localStorage for offline access
             this.saveCasesLocally();
+            console.log('💾 [CaseManager] Cases synced to localStorage for offline access');
             
         } catch (error) {
             console.error('❌ [CaseManager] Error loading cases from database:', error);
@@ -2620,7 +2617,8 @@ class CaseManager {
         
         // Set first case as current if none selected
         if (this.cases.length > 0 && !this.currentCase) {
-            console.log(`🎯 [CaseManager] Setting current case to: ${this.cases[0].caseNumber}`);
+            console.log(`🎯 [CaseManager] Setting current case to: ${this.cases[0].caseNumber} (ID: ${this.cases[0].id})`);
+            console.log(`🎯 [CaseManager] Available cases:`, this.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber })));
             this.switchToCase(this.cases[0].id);
         }
     }
@@ -2645,12 +2643,6 @@ class CaseManager {
                         needsMigration = true;
                         console.log(`🔄 [CaseManager] Migrated case number: ${caseData.caseNumber}`);
                     }
-                }
-                // Also migrate the ID to match the case number
-                if (typeof caseData.id === 'number' && caseData.id !== caseData.caseNumber) {
-                    caseData.id = caseData.caseNumber;
-                    needsMigration = true;
-                    console.log(`🔄 [CaseManager] Migrated case ID to match case number: ${caseData.id}`);
                 }
             });
             
@@ -2814,7 +2806,7 @@ class CaseManager {
             
             // Create the case (either tracked or untracked)
             const newCase = {
-                id: caseNumberInt, // Use case number as ID
+                id: caseNumberInt, // Use case number as ID for consistency
                 caseNumber: caseNumberInt,
                 problemStatement: '',
                 fsrNotes: '',
@@ -2848,14 +2840,25 @@ class CaseManager {
     }
     
     switchToCase(caseId) {
+        console.log(`🔄 [CaseManager] switchToCase called with caseId: ${caseId}`);
         const caseData = this.cases.find(c => c.id === caseId);
         if (!caseData) {
             console.log(`❌ [CaseManager] Case not found for caseId: ${caseId}`);
             return;
         }
         
+        console.log(`📝 [CaseManager] Switching to case:`, {
+            id: caseData.id,
+            caseNumber: caseData.caseNumber,
+            problemStatement_length: caseData.problemStatement ? caseData.problemStatement.length : 0,
+            fsrNotes_length: caseData.fsrNotes ? caseData.fsrNotes.length : 0,
+            problemStatement_preview: caseData.problemStatement ? caseData.problemStatement.substring(0, 100) + '...' : 'None',
+            fsrNotes_preview: caseData.fsrNotes ? caseData.fsrNotes.substring(0, 100) + '...' : 'None'
+        });
+        
         // Save current case data before switching
         if (this.currentCase) {
+            console.log(`💾 [CaseManager] Saving current case data before switching`);
             this.saveCurrentCaseData();
         }
         
@@ -2865,23 +2868,17 @@ class CaseManager {
         const editor1 = document.getElementById('editor');
         const editor2 = document.getElementById('editor2');
         
+        console.log(`📝 [CaseManager] Loading text into editors:`);
+        console.log(`📝 [CaseManager] - Editor1 (problem statement): ${caseData.problemStatement ? caseData.problemStatement.substring(0, 50) + '...' : 'None'}`);
+        console.log(`📝 [CaseManager] - Editor2 (FSR notes): ${caseData.fsrNotes ? caseData.fsrNotes.substring(0, 50) + '...' : 'None'}`);
+        
         if (editor1) {
             editor1.innerText = caseData.problemStatement || '';
+            console.log(`📝 [CaseManager] Set editor1 innerText to: ${editor1.innerText.substring(0, 50)}...`);
         }
         if (editor2) {
             editor2.innerText = caseData.fsrNotes || '';
-        }
-        
-        // EVALUATION DEBUG: Check and load evaluation data
-        console.log(`🔍 [EVAL DEBUG] switchToCase for case ${caseData.caseNumber}:`);
-        console.log(`🔍 [EVAL DEBUG] - Has evaluation data: ${!!caseData.evaluation}`);
-        if (caseData.evaluation) {
-            console.log(`🔍 [EVAL DEBUG] - Full evaluation object:`, caseData.evaluation);
-            console.log(`🔍 [EVAL DEBUG] - Problem evalId: ${caseData.evaluation.problemStatement?.evalId}, score: ${caseData.evaluation.problemStatement?.score}`);
-            console.log(`🔍 [EVAL DEBUG] - FSR evalId: ${caseData.evaluation.fsrNotes?.evalId}, score: ${caseData.evaluation.fsrNotes?.score}`);
-            this.loadEvaluationData(caseData.evaluation);
-        } else {
-            console.log(`🔍 [EVAL DEBUG] - No evaluation data available for case ${caseData.caseNumber}`);
+            console.log(`📝 [CaseManager] Set editor2 innerText to: ${editor2.innerText.substring(0, 50)}...`);
         }
         
         // Update UI
@@ -2972,89 +2969,6 @@ class CaseManager {
             day: 'numeric',
             year: 'numeric'
         });
-    }
-    
-    loadEvaluationData(evaluationData) {
-        console.log(`🔍 [EVAL DEBUG] loadEvaluationData called with:`, evaluationData);
-        
-        // Load problem statement evaluation if available
-        if (evaluationData.problemStatement && evaluationData.problemStatement.evalId) {
-            console.log(`🔍 [EVAL DEBUG] Loading problem statement evaluation:`, evaluationData.problemStatement);
-            this.loadFieldEvaluation('editor', evaluationData.problemStatement);
-        } else {
-            console.log(`🔍 [EVAL DEBUG] No problem statement evaluation data available`);
-        }
-        
-        // Load FSR notes evaluation if available
-        if (evaluationData.fsrNotes && evaluationData.fsrNotes.evalId) {
-            console.log(`🔍 [EVAL DEBUG] Loading FSR notes evaluation:`, evaluationData.fsrNotes);
-            this.loadFieldEvaluation('editor2', evaluationData.fsrNotes);
-        } else {
-            console.log(`🔍 [EVAL DEBUG] No FSR notes evaluation data available`);
-        }
-    }
-    
-    loadFieldEvaluation(field, evalData) {
-        console.log(`🔍 [EVAL DEBUG] loadFieldEvaluation called for field ${field} with:`, evalData);
-        
-        // Check if spellCheckEditor exists
-        if (!window.spellCheckEditor) {
-            console.log(`🔍 [EVAL DEBUG] spellCheckEditor not available`);
-            return;
-        }
-        
-        // Check if field exists
-        if (!window.spellCheckEditor.fields[field]) {
-            console.log(`🔍 [EVAL DEBUG] Field ${field} not found in spellCheckEditor.fields`);
-            return;
-        }
-        
-        const fieldObj = window.spellCheckEditor.fields[field];
-        fieldObj.evaluationId = evalData.evalId;
-        fieldObj.calculatedScore = evalData.score;
-        
-        console.log(`🔍 [EVAL DEBUG] Set field ${field} evaluationId=${evalData.evalId}, score=${evalData.score}`);
-        
-        // Create a mock evaluation result structure
-        const mockEvaluation = {
-            evaluation: this.createMockEvaluationFromScore(evalData.score),
-            score: evalData.score,
-            evaluation_id: evalData.evalId
-        };
-        
-        console.log(`🔍 [EVAL DEBUG] Created mock evaluation:`, mockEvaluation);
-        
-        // Display the evaluation results
-        if (window.spellCheckEditor.displayLLMResult) {
-            console.log(`🔍 [EVAL DEBUG] Calling displayLLMResult for field ${field}`);
-            window.spellCheckEditor.displayLLMResult(mockEvaluation, false, field, true);
-            console.log(`🔍 [EVAL DEBUG] Successfully displayed evaluation for field ${field} with score ${evalData.score}`);
-        } else {
-            console.log(`🔍 [EVAL DEBUG] displayLLMResult method not available`);
-        }
-    }
-    
-    createMockEvaluationFromScore(score) {
-        // Create a basic evaluation structure based on score
-        // This is a simplified version - in reality you'd want to store the full evaluation criteria
-        const evaluation = {};
-        
-        // Add some basic criteria based on score
-        if (score >= 80) {
-            evaluation.clarity = { passed: true, feedback: "Clear and well-structured" };
-            evaluation.completeness = { passed: true, feedback: "Comprehensive information provided" };
-            evaluation.technical_accuracy = { passed: true, feedback: "Technically accurate" };
-        } else if (score >= 60) {
-            evaluation.clarity = { passed: true, feedback: "Generally clear" };
-            evaluation.completeness = { passed: false, feedback: "Could be more comprehensive" };
-            evaluation.technical_accuracy = { passed: true, feedback: "Mostly accurate" };
-        } else {
-            evaluation.clarity = { passed: false, feedback: "Needs improvement in clarity" };
-            evaluation.completeness = { passed: false, feedback: "Incomplete information" };
-            evaluation.technical_accuracy = { passed: false, feedback: "Technical accuracy issues" };
-        }
-        
-        return evaluation;
     }
     
     // Custom popup functions
