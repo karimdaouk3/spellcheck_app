@@ -2415,7 +2415,6 @@ class CaseManager {
         console.log('✅ User info fetched, userId:', this.userId);
         await this.loadCases();
         console.log('✅ Cases loaded');
-        console.log(`📊 [CaseManager] Loaded ${this.cases.length} cases:`, this.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber, problemLength: c.problemStatement.length })));
         this.setupEventListeners();
         this.renderCasesList();
         this.startAutoSave();
@@ -2424,11 +2423,6 @@ class CaseManager {
         await this.checkForClosedCases();
         
         console.log('✅ CaseManager initialization complete');
-        console.log(`📊 [CaseManager] Final state:`, {
-            userId: this.userId,
-            casesCount: this.cases.length,
-            currentCase: this.currentCase ? this.currentCase.caseNumber : 'None'
-        });
     }
     
     async fetchUserInfo() {
@@ -2603,6 +2597,7 @@ class CaseManager {
             });
             
             console.log(`✅ [CaseManager] Successfully loaded ${this.cases.length} cases from database`);
+            console.log(`📊 [CaseManager] Loaded ${this.cases.length} cases:`, this.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber, problemLength: c.problemStatement.length })));
             
             // Also sync with localStorage for offline access
             this.saveCasesLocally();
@@ -2804,16 +2799,16 @@ class CaseManager {
                 isTrackedInDatabase = false;
             }
             
-            // Create the case (either tracked or untracked)
-            const newCase = {
-                id: caseNumberInt, // Use case number as ID for consistency
-                caseNumber: caseNumberInt,
-                problemStatement: '',
-                fsrNotes: '',
-                createdAt: new Date(),
-                updatedAt: new Date(),
-                isTrackedInDatabase: isTrackedInDatabase
-            };
+        // Create the case (either tracked or untracked)
+        const newCase = {
+            id: caseNumberInt, // Use case number as ID for consistency
+            caseNumber: caseNumberInt,
+            problemStatement: '',
+            fsrNotes: '',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            isTrackedInDatabase: isTrackedInDatabase
+        };
             
             console.log(`📝 [CaseManager] Creating new case:`, {
                 caseNumber: newCase.caseNumber,
