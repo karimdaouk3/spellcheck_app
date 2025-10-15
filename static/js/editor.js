@@ -2558,10 +2558,23 @@ class CaseManager {
             
             const caseData = await caseDataResponse.json();
             console.log('✅ [CaseManager] Case data response:', caseData);
+            console.log('🔍 [CaseManager] Case data keys:', Object.keys(caseData));
+            console.log('🔍 [CaseManager] Cases object type:', typeof caseData.cases);
+            console.log('🔍 [CaseManager] Cases object keys:', Object.keys(caseData.cases || {}));
             
             // Convert backend format to frontend format
             const backendCases = caseData.cases || {};
             console.log(`📊 [CaseManager] Processing ${Object.keys(backendCases).length} cases from database`);
+            
+            // Debug each case in detail
+            for (const [caseId, caseInfo] of Object.entries(backendCases)) {
+                console.log(`🔍 [CaseManager] Case ${caseId} details:`);
+                console.log(`🔍 [CaseManager] - caseNumber: ${caseInfo.caseNumber}`);
+                console.log(`🔍 [CaseManager] - problemStatement length: ${caseInfo.problemStatement ? caseInfo.problemStatement.length : 0}`);
+                console.log(`🔍 [CaseManager] - fsrNotes length: ${caseInfo.fsrNotes ? caseInfo.fsrNotes.length : 0}`);
+                console.log(`🔍 [CaseManager] - problemStatement preview: ${caseInfo.problemStatement ? caseInfo.problemStatement.substring(0, 100) + '...' : 'None'}`);
+                console.log(`🔍 [CaseManager] - fsrNotes preview: ${caseInfo.fsrNotes ? caseInfo.fsrNotes.substring(0, 100) + '...' : 'None'}`);
+            }
             
             this.cases = Object.values(backendCases).map(caseData => {
                 const caseInfo = {
@@ -2820,11 +2833,25 @@ class CaseManager {
     }
     
     switchToCase(caseId) {
+        console.log(`🔄 [CaseManager] switchToCase called with caseId: ${caseId}`);
         const caseData = this.cases.find(c => c.id === caseId);
-        if (!caseData) return;
+        if (!caseData) {
+            console.log(`❌ [CaseManager] Case not found for caseId: ${caseId}`);
+            return;
+        }
+        
+        console.log(`📝 [CaseManager] Switching to case:`, {
+            id: caseData.id,
+            caseNumber: caseData.caseNumber,
+            problemStatement_length: caseData.problemStatement ? caseData.problemStatement.length : 0,
+            fsrNotes_length: caseData.fsrNotes ? caseData.fsrNotes.length : 0,
+            problemStatement_preview: caseData.problemStatement ? caseData.problemStatement.substring(0, 100) + '...' : 'None',
+            fsrNotes_preview: caseData.fsrNotes ? caseData.fsrNotes.substring(0, 100) + '...' : 'None'
+        });
         
         // Save current case data before switching
         if (this.currentCase) {
+            console.log(`💾 [CaseManager] Saving current case data before switching`);
             this.saveCurrentCaseData();
         }
         
@@ -2834,8 +2861,18 @@ class CaseManager {
         const editor1 = document.getElementById('editor');
         const editor2 = document.getElementById('editor2');
         
-        if (editor1) editor1.innerText = caseData.problemStatement || '';
-        if (editor2) editor2.innerText = caseData.fsrNotes || '';
+        console.log(`📝 [CaseManager] Loading text into editors:`);
+        console.log(`📝 [CaseManager] - Editor1 (problem statement): ${caseData.problemStatement ? caseData.problemStatement.substring(0, 50) + '...' : 'None'}`);
+        console.log(`📝 [CaseManager] - Editor2 (FSR notes): ${caseData.fsrNotes ? caseData.fsrNotes.substring(0, 50) + '...' : 'None'}`);
+        
+        if (editor1) {
+            editor1.innerText = caseData.problemStatement || '';
+            console.log(`📝 [CaseManager] Set editor1 innerText to: ${editor1.innerText.substring(0, 50)}...`);
+        }
+        if (editor2) {
+            editor2.innerText = caseData.fsrNotes || '';
+            console.log(`📝 [CaseManager] Set editor2 innerText to: ${editor2.innerText.substring(0, 50)}...`);
+        }
         
         // Update UI
         this.renderCasesList();

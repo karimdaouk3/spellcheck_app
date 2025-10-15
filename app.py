@@ -691,27 +691,45 @@ def get_user_case_data():
         
         cases = {}
         if cases_result is not None and not cases_result.empty:
+            print(f"📊 [Backend] /api/cases/data: Processing {len(cases_result)} rows from database")
             # Group by case_id to handle multiple FSR line items per case
             case_data = {}
-            for _, row in cases_result.iterrows():
+            for idx, row in cases_result.iterrows():
                 case_id = row["CASE_ID"]
+                problem_statement = row["PROBLEM_STATEMENT"] or ""
+                fsr_notes = row["FSR_NOTES"] or ""
+                line_item_id = row["FSR_LINE_ITEM_ID"]
+                
+                print(f"📊 [Backend] /api/cases/data: Row {idx}: case_id={case_id}, problem_length={len(problem_statement)}, fsr_length={len(fsr_notes)}, line_item_id={line_item_id}")
+                print(f"📊 [Backend] /api/cases/data: Row {idx}: problem_preview={problem_statement[:50]}...")
+                print(f"📊 [Backend] /api/cases/data: Row {idx}: fsr_preview={fsr_notes[:50]}...")
                 
                 if case_id not in case_data:
                     case_data[case_id] = {
                         "caseNumber": case_id,
-                        "problemStatement": row["PROBLEM_STATEMENT"] or "",
+                        "problemStatement": problem_statement,
                         "fsrNotes": "",
                         "updatedAt": datetime.utcnow().isoformat() + 'Z'
                     }
+                    print(f"📊 [Backend] /api/cases/data: Created new case_data entry for case_id={case_id}")
                 
                 # Use the last FSR line item (highest LINE_ITEM_ID)
-                if row["FSR_NOTES"] and (not case_data[case_id]["fsrNotes"] or row["FSR_LINE_ITEM_ID"] > case_data[case_id].get("lastLineItemId", 0)):
-                    case_data[case_id]["fsrNotes"] = row["FSR_NOTES"]
-                    case_data[case_id]["lastLineItemId"] = row["FSR_LINE_ITEM_ID"]
+                if fsr_notes and (not case_data[case_id]["fsrNotes"] or line_item_id > case_data[case_id].get("lastLineItemId", 0)):
+                    case_data[case_id]["fsrNotes"] = fsr_notes
+                    case_data[case_id]["lastLineItemId"] = line_item_id
+                    print(f"📊 [Backend] /api/cases/data: Updated FSR notes for case_id={case_id} with line_item_id={line_item_id}")
             
             # Convert to the expected format
             cases = {case_id: data for case_id, data in case_data.items()}
             print(f"✅ [Backend] Processed {len(cases)} cases with optimized query")
+            
+            # Debug: Print final case data
+            for case_id, data in cases.items():
+                print(f"📊 [Backend] /api/cases/data: Final case {case_id}:")
+                print(f"📊 [Backend] /api/cases/data: - problemStatement_length={len(data['problemStatement'])}")
+                print(f"📊 [Backend] /api/cases/data: - fsrNotes_length={len(data['fsrNotes'])}")
+                print(f"📊 [Backend] /api/cases/data: - problemStatement_preview={data['problemStatement'][:100]}...")
+                print(f"📊 [Backend] /api/cases/data: - fsrNotes_preview={data['fsrNotes'][:100]}...")
         
         return jsonify({
             "user_id": str(user_id),
@@ -1699,9 +1717,11 @@ def llm():
             )
             
             # Update LAST_INPUT_STATE with the rewritten text for persistence
+            print(f"[DBG] /llm step2 PERSISTENCE CHECK: rewritten={bool(rewritten)}, user_input_id={data.get('user_input_id')}")
             if rewritten and data.get("user_input_id"):
                 user_data = session.get("user_data", {})
                 user_id = user_data.get("user_id")
+                print(f"[DBG] /llm step2 PERSISTENCE: user_id={user_id}, session_data={user_data}")
                 
                 # Get the case session ID from the user input
                 case_query = f"""
@@ -1709,26 +1729,39 @@ def llm():
                     FROM {DATABASE}.{SCHEMA}.USER_SESSION_INPUTS 
                     WHERE ID = %s
                 """
+                print(f"[DBG] /llm step2 PERSISTENCE: Querying USER_SESSION_INPUTS for user_input_id={data.get('user_input_id')}")
                 case_result = snowflake_query(case_query, CONNECTION_PAYLOAD, (data.get("user_input_id"),))
+                print(f"[DBG] /llm step2 PERSISTENCE: case_result={case_result is not None}, empty={case_result.empty if case_result is not None else 'N/A'}")
                 
                 if case_result is not None and not case_result.empty:
                     case_id = case_result.iloc[0]["CASE_ID"]
                     input_field_type = case_result.iloc[0]["INPUT_FIELD_TYPE"]
+                    print(f"[DBG] /llm step2 PERSISTENCE: Found case_id={case_id}, input_field_type={input_field_type}")
                     
                     # Get case session ID
                     session_query = f"""
                         SELECT ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
                         WHERE CASE_ID = %s AND CREATED_BY_USER = %s
                     """
+                    print(f"[DBG] /llm step2 PERSISTENCE: Querying CASE_SESSIONS for case_id={case_id}, user_id={user_id}")
                     session_result = snowflake_query(session_query, CONNECTION_PAYLOAD, (case_id, user_id))
+                    print(f"[DBG] /llm step2 PERSISTENCE: session_result={session_result is not None}, empty={session_result.empty if session_result is not None else 'N/A'}")
                     
                     if session_result is not None and not session_result.empty:
                         case_session_id = session_result.iloc[0]["ID"]
+                        print(f"[DBG] /llm step2 PERSISTENCE: Found case_session_id={case_session_id}")
                         
                         # Determine input field ID based on type
                         input_field_id = 1 if input_field_type == "problem_statement" else 2
+                        print(f"[DBG] /llm step2 PERSISTENCE: input_field_id={input_field_id} (1=problem_statement, 2=fsr_notes)")
                         
                         # Update LAST_INPUT_STATE with rewritten text
+                        print(f"[DBG] /llm step2 PERSISTENCE: About to update LAST_INPUT_STATE with:")
+                        print(f"[DBG] /llm step2 PERSISTENCE: - case_session_id={case_session_id}")
+                        print(f"[DBG] /llm step2 PERSISTENCE: - input_field_id={input_field_id}")
+                        print(f"[DBG] /llm step2 PERSISTENCE: - rewritten_text_length={len(rewritten) if rewritten else 0}")
+                        print(f"[DBG] /llm step2 PERSISTENCE: - rewritten_text_preview={rewritten[:100] if rewritten else 'None'}...")
+                        
                         update_query = f"""
                             MERGE INTO {DATABASE}.{SCHEMA}.LAST_INPUT_STATE AS target
                             USING (SELECT %s as CASE_SESSION_ID, %s as INPUT_FIELD_ID, %s as INPUT_FIELD_VALUE, %s as LINE_ITEM_ID, %s as INPUT_FIELD_EVAL_ID) AS source
@@ -1742,10 +1775,17 @@ def llm():
                                 (CASE_SESSION_ID, INPUT_FIELD_ID, INPUT_FIELD_VALUE, LINE_ITEM_ID, INPUT_FIELD_EVAL_ID, LAST_UPDATED)
                                 VALUES (source.CASE_SESSION_ID, source.INPUT_FIELD_ID, source.INPUT_FIELD_VALUE, source.LINE_ITEM_ID, source.INPUT_FIELD_EVAL_ID, CURRENT_TIMESTAMP())
                         """
+                        print(f"[DBG] /llm step2 PERSISTENCE: Executing MERGE query...")
                         snowflake_query(update_query, CONNECTION_PAYLOAD, 
                                        (case_session_id, input_field_id, rewritten, 1, None), 
                                        return_df=False)
-                        print(f"[DBG] /llm Updated LAST_INPUT_STATE with rewritten text for case {case_id}")
+                        print(f"[DBG] /llm step2 PERSISTENCE: ✅ Successfully updated LAST_INPUT_STATE with rewritten text for case {case_id}")
+                    else:
+                        print(f"[DBG] /llm step2 PERSISTENCE: ❌ No case session found for case_id={case_id}, user_id={user_id}")
+                else:
+                    print(f"[DBG] /llm step2 PERSISTENCE: ❌ No user session input found for user_input_id={data.get('user_input_id')}")
+            else:
+                print(f"[DBG] /llm step2 PERSISTENCE: ❌ Skipping persistence - rewritten={bool(rewritten)}, user_input_id={data.get('user_input_id')}")
                         
         except Exception as e:
             print(f"[DBG] /llm LLM_EVALUATION step2 error: {e}")
@@ -2408,7 +2448,12 @@ def get_input_state():
             FROM {DATABASE}.{SCHEMA}.LAST_INPUT_STATE
             WHERE CASE_SESSION_ID = %s AND INPUT_FIELD_ID = 1
         """
+        print(f"[DBG] /api/cases/input-state GET: Querying problem statement for case_session_id={case_session_id}")
         problem_result = snowflake_query(problem_query, CONNECTION_PAYLOAD, (case_session_id,))
+        print(f"[DBG] /api/cases/input-state GET: problem_result={problem_result is not None}, empty={problem_result.empty if problem_result is not None else 'N/A'}")
+        if problem_result is not None and not problem_result.empty:
+            problem_text = problem_result.iloc[0]["INPUT_FIELD_VALUE"] or ""
+            print(f"[DBG] /api/cases/input-state GET: problem_text_length={len(problem_text)}, preview={problem_text[:100]}...")
         
         # Get FSR notes (INPUT_FIELD_ID = 2)
         fsr_query = f"""
@@ -2417,7 +2462,13 @@ def get_input_state():
             WHERE CASE_SESSION_ID = %s AND INPUT_FIELD_ID = 2
             ORDER BY LINE_ITEM_ID
         """
+        print(f"[DBG] /api/cases/input-state GET: Querying FSR notes for case_session_id={case_session_id}")
         fsr_result = snowflake_query(fsr_query, CONNECTION_PAYLOAD, (case_session_id,))
+        print(f"[DBG] /api/cases/input-state GET: fsr_result={fsr_result is not None}, empty={fsr_result.empty if fsr_result is not None else 'N/A'}")
+        if fsr_result is not None and not fsr_result.empty:
+            for idx, row in fsr_result.iterrows():
+                fsr_text = row["INPUT_FIELD_VALUE"] or ""
+                print(f"[DBG] /api/cases/input-state GET: fsr_line_{row['LINE_ITEM_ID']}_length={len(fsr_text)}, preview={fsr_text[:100]}...")
         
         # Build response
         response_data = {
