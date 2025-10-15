@@ -2590,14 +2590,28 @@ class CaseManager {
                     fsrNotes: caseData.fsrNotes || '',
                     createdAt: new Date(caseData.updatedAt || Date.now()),
                     updatedAt: new Date(caseData.updatedAt || Date.now()),
-                    isTrackedInDatabase: true // All cases from database are tracked
+                    isTrackedInDatabase: true, // All cases from database are tracked
+                    evaluation: caseData.evaluation || null // Include evaluation data
                 };
                 
                 console.log(`📝 [CaseManager] Processed case ${caseInfo.caseNumber}:`, {
                     problemStatement: caseInfo.problemStatement.substring(0, 50) + '...',
                     fsrNotes: caseInfo.fsrNotes.substring(0, 50) + '...',
-                    isTracked: caseInfo.isTrackedInDatabase
+                    isTracked: caseInfo.isTrackedInDatabase,
+                    hasEvaluation: !!caseInfo.evaluation
                 });
+                
+                // Debug evaluation data
+                if (caseInfo.evaluation) {
+                    console.log(`🔍 [CaseManager] Case ${caseInfo.caseNumber} evaluation data:`, {
+                        problemEvalId: caseInfo.evaluation.problemStatement?.evalId,
+                        problemScore: caseInfo.evaluation.problemStatement?.score,
+                        fsrEvalId: caseInfo.evaluation.fsrNotes?.evalId,
+                        fsrScore: caseInfo.evaluation.fsrNotes?.score
+                    });
+                } else {
+                    console.log(`🔍 [CaseManager] Case ${caseInfo.caseNumber} has no evaluation data`);
+                }
                 
                 return caseInfo;
             });
@@ -2891,11 +2905,102 @@ class CaseManager {
         if (evalBox) evalBox.style.display = 'none';
         if (rewritePopup) rewritePopup.style.display = 'none';
         
+        // Load evaluation data if available
+        if (caseData.evaluation) {
+            console.log(`🔍 [CaseManager] Loading evaluation data for case ${caseData.caseNumber}`);
+            this.loadEvaluationData(caseData.evaluation);
+        } else {
+            console.log(`🔍 [CaseManager] No evaluation data for case ${caseData.caseNumber}`);
+        }
+        
         // Trigger text check for new content
         if (window.spellCheckEditor) {
             window.spellCheckEditor.checkText('editor');
             window.spellCheckEditor.checkText('editor2');
         }
+    }
+    
+    loadEvaluationData(evaluationData) {
+        console.log(`🔍 [CaseManager] loadEvaluationData called with:`, evaluationData);
+        
+        // Load problem statement evaluation if available
+        if (evaluationData.problemStatement && evaluationData.problemStatement.evalId) {
+            console.log(`🔍 [CaseManager] Loading problem statement evaluation:`, evaluationData.problemStatement);
+            this.loadFieldEvaluation('editor', evaluationData.problemStatement);
+        } else {
+            console.log(`🔍 [CaseManager] No problem statement evaluation data available`);
+        }
+        
+        // Load FSR notes evaluation if available
+        if (evaluationData.fsrNotes && evaluationData.fsrNotes.evalId) {
+            console.log(`🔍 [CaseManager] Loading FSR notes evaluation:`, evaluationData.fsrNotes);
+            this.loadFieldEvaluation('editor2', evaluationData.fsrNotes);
+        } else {
+            console.log(`🔍 [CaseManager] No FSR notes evaluation data available`);
+        }
+    }
+    
+    loadFieldEvaluation(field, evalData) {
+        console.log(`🔍 [CaseManager] loadFieldEvaluation called for field ${field} with:`, evalData);
+        
+        // Check if spellCheckEditor exists
+        if (!window.spellCheckEditor) {
+            console.log(`🔍 [CaseManager] spellCheckEditor not available`);
+            return;
+        }
+        
+        // Check if field exists
+        if (!window.spellCheckEditor.fields[field]) {
+            console.log(`🔍 [CaseManager] Field ${field} not found in spellCheckEditor.fields`);
+            return;
+        }
+        
+        const fieldObj = window.spellCheckEditor.fields[field];
+        fieldObj.evaluationId = evalData.evalId;
+        fieldObj.calculatedScore = evalData.score;
+        
+        console.log(`🔍 [CaseManager] Set field ${field} evaluationId=${evalData.evalId}, score=${evalData.score}`);
+        
+        // Create a mock evaluation result structure
+        const mockEvaluation = {
+            evaluation: this.createMockEvaluationFromScore(evalData.score),
+            score: evalData.score,
+            evaluation_id: evalData.evalId
+        };
+        
+        console.log(`🔍 [CaseManager] Created mock evaluation:`, mockEvaluation);
+        
+        // Display the evaluation results
+        if (window.spellCheckEditor.displayLLMResult) {
+            console.log(`🔍 [CaseManager] Calling displayLLMResult for field ${field}`);
+            window.spellCheckEditor.displayLLMResult(mockEvaluation, false, field, true);
+            console.log(`🔍 [CaseManager] Successfully displayed evaluation for field ${field} with score ${evalData.score}`);
+        } else {
+            console.log(`🔍 [CaseManager] displayLLMResult method not available`);
+        }
+    }
+    
+    createMockEvaluationFromScore(score) {
+        // Create a basic evaluation structure based on score
+        // This is a simplified version - in reality you'd want to store the full evaluation criteria
+        const evaluation = {};
+        
+        // Add some basic criteria based on score
+        if (score >= 80) {
+            evaluation.clarity = { passed: true, feedback: "Clear and well-structured" };
+            evaluation.completeness = { passed: true, feedback: "Comprehensive information provided" };
+            evaluation.technical_accuracy = { passed: true, feedback: "Technically accurate" };
+        } else if (score >= 60) {
+            evaluation.clarity = { passed: true, feedback: "Generally clear" };
+            evaluation.completeness = { passed: false, feedback: "Could be more comprehensive" };
+            evaluation.technical_accuracy = { passed: true, feedback: "Mostly accurate" };
+        } else {
+            evaluation.clarity = { passed: false, feedback: "Needs improvement in clarity" };
+            evaluation.completeness = { passed: false, feedback: "Incomplete information" };
+            evaluation.technical_accuracy = { passed: false, feedback: "Technical accuracy issues" };
+        }
+        
+        return evaluation;
     }
     
     async saveCurrentCaseData() {
