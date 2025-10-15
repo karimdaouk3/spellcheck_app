@@ -32,45 +32,170 @@ from snowflakeconnection import snowflake_query
 
 def check_external_crm_exists(case_number):
     """
-    Placeholder function to check if a case exists in external CRM.
-    TODO: Implement actual external CRM API call.
+    Check if a case exists in external CRM by querying available case numbers.
+    Returns True if case exists in CRM, False otherwise.
     """
-    # For testing purposes, simulate some cases not existing in external CRM
-    # In production, this would make an actual API call to the external CRM
-    
-    # Simulate case 2024004 not existing in external CRM
-    if case_number == 2024004:
+    try:
+        user_data = session.get('user_data')
+        if not user_data:
+            print("❌ [CRM] No user data available for CRM check")
+            return False
+        
+        user_email = user_data.get('email', '')
+        if not user_email:
+            print("❌ [CRM] No user email available for CRM check")
+            return False
+        
+        # Convert email to uppercase format as required by CRM
+        user_email_upper = user_email.upper()
+        print(f"🔍 [CRM] Checking if case {case_number} exists for user {user_email_upper}")
+        
+        # Query 1: Get available case numbers for this user
+        query = f"""
+            SELECT DISTINCT "Case Number"
+            FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
+            WHERE "USER_EMAILS" LIKE '%~{user_email_upper}~%'
+            AND "Case Number" IS NOT NULL
+            AND "Case Number" = %s
+        """
+        
+        result = snowflake_query(query, CONNECTION_PAYLOAD, (case_number,))
+        
+        if result is not None and not result.empty:
+            print(f"✅ [CRM] Case {case_number} found in CRM for user {user_email_upper}")
+            return True
+        else:
+            print(f"❌ [CRM] Case {case_number} not found in CRM for user {user_email_upper}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ [CRM] Error checking case {case_number} in CRM: {e}")
         return False
-    
-    # All other cases exist in external CRM
-    return True
 
 def check_external_crm_status_for_case(case_id):
     """
-    Placeholder function to check case status in external CRM.
-    TODO: Implement actual external CRM API call.
+    Check case status in external CRM to determine if case is open or closed.
     
     Returns:
         'open' - Case is still open in external CRM
         'closed' - Case has been closed in external CRM
     """
-    # For testing purposes, simulate some cases being closed in external CRM
-    # In production, this would make an actual API call to the external CRM
-    
-    # Simulate case 2024003 being closed in external CRM
-    if case_id == 2024003:
-        return "closed"
-    
-    # All other cases are still open
-    return "open"
+    try:
+        print(f"🔍 [CRM] Checking status for case {case_id} in external CRM")
+        
+        # Query 2: Check if case is open (not closed)
+        query = f"""
+            SELECT DISTINCT "[Case Number]"
+            FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_CASE_SUMMARY
+            WHERE "Verify Closure Date/Time" IS NULL
+            AND "Case Creation Date" > DATEADD(YEAR, -1, CURRENT_DATE)
+            AND "[Case Number]" = %s
+        """
+        
+        result = snowflake_query(query, CONNECTION_PAYLOAD, (case_id,))
+        
+        if result is not None and not result.empty:
+            print(f"✅ [CRM] Case {case_id} is OPEN in external CRM")
+            return "open"
+        else:
+            print(f"❌ [CRM] Case {case_id} is CLOSED in external CRM")
+            return "closed"
+            
+    except Exception as e:
+        print(f"❌ [CRM] Error checking status for case {case_id}: {e}")
+        return "open"  # Default to open if error occurs
 
 def get_external_case_id(case_number):
     """
-    Placeholder function to get external case ID from CRM.
-    TODO: Implement actual external CRM API call.
+    Get external case ID from CRM.
+    For now, return the same case number.
     """
-    # For now, return the same case number
     return case_number
+
+def get_available_case_numbers():
+    """
+    Get list of available case numbers for the current user from CRM.
+    Used to suggest case numbers when creating a new case.
+    """
+    try:
+        user_data = session.get('user_data')
+        if not user_data:
+            print("❌ [CRM] No user data available for case number suggestions")
+            return []
+        
+        user_email = user_data.get('email', '')
+        if not user_email:
+            print("❌ [CRM] No user email available for case number suggestions")
+            return []
+        
+        # Convert email to uppercase format as required by CRM
+        user_email_upper = user_email.upper()
+        print(f"🔍 [CRM] Getting available case numbers for user {user_email_upper}")
+        
+        # Query 1: Get available case numbers for this user
+        query = f"""
+            SELECT DISTINCT "Case Number"
+            FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
+            WHERE "USER_EMAILS" LIKE '%~{user_email_upper}~%'
+            AND "Case Number" IS NOT NULL
+            ORDER BY "Case Number" DESC
+        """
+        
+        result = snowflake_query(query, CONNECTION_PAYLOAD)
+        
+        if result is not None and not result.empty:
+            case_numbers = result["Case Number"].tolist()
+            print(f"✅ [CRM] Found {len(case_numbers)} available case numbers for user {user_email_upper}")
+            return case_numbers
+        else:
+            print(f"ℹ️ [CRM] No case numbers found for user {user_email_upper}")
+            return []
+            
+    except Exception as e:
+        print(f"❌ [CRM] Error getting available case numbers: {e}")
+        return []
+
+def get_case_details(case_number):
+    """
+    Get detailed case information from CRM for a specific case.
+    Returns case details including FSR information, symptoms, etc.
+    """
+    try:
+        print(f"🔍 [CRM] Getting case details for case {case_number}")
+        
+        # Query 3: Get case information
+        query = f"""
+            SELECT DISTINCT
+            "Case Number",
+            "FSR Number",
+            "FSR Creation Date",
+            "FSR Current Symptom",
+            "FSR Current Problem Statement",
+            "FSR Daily Notes",
+            "Part Number",
+            "Part Description",
+            "Part Disposition Code 1",
+            "Part Disposition Code 2",
+            "Part Disposition Code 3"
+            FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_FSR_DETAIL
+            WHERE "Case Number" = %s
+            ORDER BY "FSR Number", "FSR Creation Date" ASC
+        """
+        
+        result = snowflake_query(query, CONNECTION_PAYLOAD, (case_number,))
+        
+        if result is not None and not result.empty:
+            print(f"✅ [CRM] Found case details for case {case_number}")
+            # Convert to list of dictionaries for JSON serialization
+            case_details = result.to_dict('records')
+            return case_details
+        else:
+            print(f"ℹ️ [CRM] No case details found for case {case_number}")
+            return []
+            
+    except Exception as e:
+        print(f"❌ [CRM] Error getting case details for case {case_number}: {e}")
+        return []
 import yaml
 from werkzeug.middleware.proxy_fix import ProxyFix
 # --- Start / connect to your running LanguageTool server ---------------
@@ -481,6 +606,57 @@ def get_case_data(case_number):
 # Removed: /api/cases/data/<case_number> PUT - Replaced by /api/cases/input-state PUT
 
 # Removed: /api/cases/data POST - No longer needed, individual cases handled by database endpoints
+
+@app.route('/api/cases/suggestions', methods=['GET'])
+def get_case_suggestions():
+    """
+    Get available case numbers from CRM to suggest to users.
+    Returns list of case numbers the user has access to.
+    """
+    user_data = session.get('user_data')
+    if not user_data:
+        print("❌ [Backend] /api/cases/suggestions: Not authenticated")
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    try:
+        case_numbers = get_available_case_numbers()
+        print(f"📋 [Backend] Returning {len(case_numbers)} case number suggestions")
+        
+        return jsonify({
+            "success": True,
+            "case_numbers": case_numbers,
+            "count": len(case_numbers)
+        })
+        
+    except Exception as e:
+        print(f"❌ [Backend] Error getting case suggestions: {e}")
+        return jsonify({"error": "Failed to get case suggestions"}), 500
+
+@app.route('/api/cases/details/<case_number>', methods=['GET'])
+def get_case_details_endpoint(case_number):
+    """
+    Get detailed case information from CRM for a specific case.
+    Returns FSR details, symptoms, problem statements, etc.
+    """
+    user_data = session.get('user_data')
+    if not user_data:
+        print("❌ [Backend] /api/cases/details: Not authenticated")
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    try:
+        case_details = get_case_details(case_number)
+        print(f"📋 [Backend] Returning case details for case {case_number}")
+        
+        return jsonify({
+            "success": True,
+            "case_number": case_number,
+            "details": case_details,
+            "count": len(case_details)
+        })
+        
+    except Exception as e:
+        print(f"❌ [Backend] Error getting case details for {case_number}: {e}")
+        return jsonify({"error": "Failed to get case details"}), 500
 
 # ==================== END MOCK ENDPOINTS ====================
 
