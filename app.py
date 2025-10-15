@@ -1776,9 +1776,27 @@ def llm():
                                 VALUES (source.CASE_SESSION_ID, source.INPUT_FIELD_ID, source.INPUT_FIELD_VALUE, source.LINE_ITEM_ID, source.INPUT_FIELD_EVAL_ID, CURRENT_TIMESTAMP())
                         """
                         print(f"[DBG] /llm step2 PERSISTENCE: Executing MERGE query...")
+                        print(f"[DBG] /llm step2 PERSISTENCE: MERGE will UPDATE existing record or INSERT new one")
+                        print(f"[DBG] /llm step2 PERSISTENCE: Match conditions: CASE_SESSION_ID={case_session_id}, INPUT_FIELD_ID={input_field_id}, LINE_ITEM_ID=1")
+                        
                         snowflake_query(update_query, CONNECTION_PAYLOAD, 
                                        (case_session_id, input_field_id, rewritten, 1, None), 
                                        return_df=False)
+                        
+                        # Verify the update by checking the record
+                        verify_query = f"""
+                            SELECT INPUT_FIELD_VALUE, LAST_UPDATED 
+                            FROM {DATABASE}.{SCHEMA}.LAST_INPUT_STATE
+                            WHERE CASE_SESSION_ID = %s AND INPUT_FIELD_ID = %s AND LINE_ITEM_ID = 1
+                        """
+                        verify_result = snowflake_query(verify_query, CONNECTION_PAYLOAD, (case_session_id, input_field_id))
+                        if verify_result is not None and not verify_result.empty:
+                            stored_text = verify_result.iloc[0]["INPUT_FIELD_VALUE"]
+                            print(f"[DBG] /llm step2 PERSISTENCE: ✅ VERIFIED - Stored text length: {len(stored_text)}")
+                            print(f"[DBG] /llm step2 PERSISTENCE: ✅ VERIFIED - Stored text preview: {stored_text[:50]}...")
+                        else:
+                            print(f"[DBG] /llm step2 PERSISTENCE: ❌ VERIFICATION FAILED - No record found after MERGE")
+                        
                         print(f"[DBG] /llm step2 PERSISTENCE: ✅ Successfully updated LAST_INPUT_STATE with rewritten text for case {case_id}")
                     else:
                         print(f"[DBG] /llm step2 PERSISTENCE: ❌ No case session found for case_id={case_id}, user_id={user_id}")
@@ -2555,9 +2573,24 @@ def update_input_state():
                     (CASE_SESSION_ID, INPUT_FIELD_ID, INPUT_FIELD_VALUE, LINE_ITEM_ID, INPUT_FIELD_EVAL_ID, LAST_UPDATED)
                     VALUES (source.CASE_SESSION_ID, source.INPUT_FIELD_ID, source.INPUT_FIELD_VALUE, source.LINE_ITEM_ID, source.INPUT_FIELD_EVAL_ID, CURRENT_TIMESTAMP())
             """
+            print(f"[DBG] /api/cases/input-state PUT: Updating problem statement for case {case_number}")
+            print(f"[DBG] /api/cases/input-state PUT: Using MERGE to UPDATE existing or INSERT new record")
             snowflake_query(problem_merge, CONNECTION_PAYLOAD, 
                            (case_session_id, 1, problem_statement, None, evaluation_id), 
                            return_df=False)
+            
+            # Verify the update
+            verify_problem = f"""
+                SELECT INPUT_FIELD_VALUE, LAST_UPDATED 
+                FROM {DATABASE}.{SCHEMA}.LAST_INPUT_STATE
+                WHERE CASE_SESSION_ID = %s AND INPUT_FIELD_ID = 1
+            """
+            verify_result = snowflake_query(verify_problem, CONNECTION_PAYLOAD, (case_session_id,))
+            if verify_result is not None and not verify_result.empty:
+                stored_text = verify_result.iloc[0]["INPUT_FIELD_VALUE"]
+                print(f"[DBG] /api/cases/input-state PUT: ✅ VERIFIED - Problem statement updated, length: {len(stored_text)}")
+            else:
+                print(f"[DBG] /api/cases/input-state PUT: ❌ VERIFICATION FAILED - Problem statement not found after MERGE")
         
         # Update FSR notes using MERGE (Snowflake upsert)
         if fsr_notes:
@@ -2574,9 +2607,24 @@ def update_input_state():
                     (CASE_SESSION_ID, INPUT_FIELD_ID, INPUT_FIELD_VALUE, LINE_ITEM_ID, INPUT_FIELD_EVAL_ID, LAST_UPDATED)
                     VALUES (source.CASE_SESSION_ID, source.INPUT_FIELD_ID, source.INPUT_FIELD_VALUE, source.LINE_ITEM_ID, source.INPUT_FIELD_EVAL_ID, CURRENT_TIMESTAMP())
             """
+            print(f"[DBG] /api/cases/input-state PUT: Updating FSR notes for case {case_number}")
+            print(f"[DBG] /api/cases/input-state PUT: Using MERGE to UPDATE existing or INSERT new record")
             snowflake_query(fsr_merge, CONNECTION_PAYLOAD, 
                            (case_session_id, 2, fsr_notes, 1, evaluation_id), 
                            return_df=False)
+            
+            # Verify the update
+            verify_fsr = f"""
+                SELECT INPUT_FIELD_VALUE, LAST_UPDATED 
+                FROM {DATABASE}.{SCHEMA}.LAST_INPUT_STATE
+                WHERE CASE_SESSION_ID = %s AND INPUT_FIELD_ID = 2 AND LINE_ITEM_ID = 1
+            """
+            verify_result = snowflake_query(verify_fsr, CONNECTION_PAYLOAD, (case_session_id,))
+            if verify_result is not None and not verify_result.empty:
+                stored_text = verify_result.iloc[0]["INPUT_FIELD_VALUE"]
+                print(f"[DBG] /api/cases/input-state PUT: ✅ VERIFIED - FSR notes updated, length: {len(stored_text)}")
+            else:
+                print(f"[DBG] /api/cases/input-state PUT: ❌ VERIFICATION FAILED - FSR notes not found after MERGE")
         
         return jsonify({
             "success": True,
