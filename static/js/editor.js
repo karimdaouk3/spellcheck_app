@@ -2030,14 +2030,9 @@ class LanguageToolEditor {
             if (typeof item === 'object' && item.crmSource) {
                 // Format date to show only date part (remove time)
                 const dateOnly = item.creationDate ? item.creationDate.split(' ')[0] : item.creationDate;
-                const formattedDate = dateOnly ? new Date(dateOnly).toLocaleDateString('en-US', {
-                    weekday: 'short',
-                    day: 'numeric',
-                    month: 'short'
-                }) : dateOnly;
                 
                 sourceIndicator = `<div style="font-size: 11px; color: #666; margin-bottom: 4px; font-weight: bold;">
-                    📋 CRM Data - FSR ${item.fsrNumber} (${formattedDate})
+                    📋 CRM Data - FSR ${item.fsrNumber} (${dateOnly})
                 </div>`;
             }
             
