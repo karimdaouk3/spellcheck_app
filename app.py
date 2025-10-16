@@ -2771,5 +2771,24 @@ if __name__ == "__main__":
         SCHEMA = f"DEV_{SCHEMA}"
     print(f"SSO Enabled: {app.config['ENABLE_SSO']}")
     print(f"Development Mode Enabled: {app.config['DEV_MODE']}")
+    
+    # Handle legacy CGI requests gracefully
+    @app.route('/cgi-bin/<path:filename>')
+    def handle_cgi_requests(filename):
+        """Handle legacy CGI requests with a helpful message"""
+        print(f"🔍 [Legacy] CGI request for: /cgi-bin/{filename}")
+        return jsonify({
+            "error": "CGI endpoints not supported",
+            "message": "This application uses REST API endpoints. Please use /api/ endpoints instead.",
+            "available_endpoints": [
+                "/api/cases/data",
+                "/api/cases/suggestions", 
+                "/api/cases/check-external-status",
+                "/api/cases/details/<case_number>",
+                "/api/cases/feedback",
+                "/api/cases/input-state"
+            ]
+        }), 404
+    
     app.run(host='127.0.0.1', port=8055)
 
