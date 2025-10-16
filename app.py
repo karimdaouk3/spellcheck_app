@@ -512,8 +512,8 @@ def validate_case_number(case_number):
     user_id = user_data.get('user_id')
     
     try:
-        # Convert case_number to int (database expects numeric)
-        case_number_int = int(case_number)
+        # Case number can be alphanumeric (like P236506-02)
+        # Database schema supports VARCHAR for CASE_ID
         
         # Check if case exists for this user
         query = f"""
@@ -521,7 +521,7 @@ def validate_case_number(case_number):
             FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
             WHERE CASE_ID = %s AND CREATED_BY_USER = %s
         """
-        result = snowflake_query(query, CONNECTION_PAYLOAD, (case_number_int, user_id))
+        result = snowflake_query(query, CONNECTION_PAYLOAD, (case_number, user_id))
         
         if result is None or result.empty:
             return jsonify({
@@ -2274,7 +2274,7 @@ def submit_case_feedback():
     
     try:
         from datetime import datetime
-        case_number = int(data.get('case_number'))
+        case_number = data.get('case_number')  # Keep as string for alphanumeric case numbers
         
         # Check if case exists for this user
         case_check_query = f"""
@@ -2358,14 +2358,15 @@ def generate_case_feedback():
     
     # Get case information from database
     try:
-        case_number_int = int(case_number)
+        # Case number can be alphanumeric (like P236506-02)
+        # Database schema supports VARCHAR for CASE_ID
         
         # Get case session ID
         session_query = f"""
             SELECT ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
             WHERE CASE_ID = %s AND CREATED_BY_USER = %s
         """
-        session_result = snowflake_query(session_query, CONNECTION_PAYLOAD, (case_number_int, user_id))
+        session_result = snowflake_query(session_query, CONNECTION_PAYLOAD, (case_number, user_id))
         
         if session_result is None or session_result.empty:
             return jsonify({"error": "Case not found"}), 404
@@ -2584,14 +2585,15 @@ def get_input_state():
     print(f"🚀 [Backend] /api/cases/input-state GET: Fetching input state for case {case_number}, user {user_id}")
     
     try:
-        case_number_int = int(case_number)
+        # Case number can be alphanumeric (like P236506-02)
+        # Database schema supports VARCHAR for CASE_ID
         
         # Get case session ID
         session_query = f"""
             SELECT ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
             WHERE CASE_ID = %s AND CREATED_BY_USER = %s
         """
-        session_result = snowflake_query(session_query, CONNECTION_PAYLOAD, (case_number_int, user_id))
+        session_result = snowflake_query(session_query, CONNECTION_PAYLOAD, (case_number, user_id))
         
         if session_result is None or session_result.empty:
             return jsonify({"error": "Case not found"}), 404
@@ -2682,14 +2684,15 @@ def update_input_state():
     user_id = user_data.get('user_id')
     
     try:
-        case_number_int = int(case_number)
+        # Case number can be alphanumeric (like P236506-02)
+        # Database schema supports VARCHAR for CASE_ID
         
         # Get case session ID
         session_query = f"""
             SELECT ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
             WHERE CASE_ID = %s AND CREATED_BY_USER = %s
         """
-        session_result = snowflake_query(session_query, CONNECTION_PAYLOAD, (case_number_int, user_id))
+        session_result = snowflake_query(session_query, CONNECTION_PAYLOAD, (case_number, user_id))
         
         if session_result is None or session_result.empty:
             return jsonify({"error": "Case not found"}), 404
