@@ -103,10 +103,18 @@ def check_external_crm_status_for_case(case_id):
         
         result = snowflake_query(query, PROD_PAYLOAD, (case_id,))
         
+        print(f"📊 [CRM] Query result for case {case_id}:")
+        print(f"   - Result is None: {result is None}")
+        print(f"   - Result is empty: {result.empty if result is not None else 'N/A'}")
         if result is not None and not result.empty:
+            print(f"   - Number of rows returned: {len(result)}")
+            print(f"   - Columns: {list(result.columns)}")
+            print(f"   - Sample data: {result.head(3).to_dict('records')}")
             print(f"✅ [CRM] Case {case_id} is OPEN in external CRM")
             return "open"
         else:
+            print(f"   - No matching records found in GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_CASE_SUMMARY")
+            print(f"   - This means case {case_id} is either CLOSED or doesn't exist in CRM")
             print(f"❌ [CRM] Case {case_id} is CLOSED in external CRM")
             return "closed"
             
@@ -168,6 +176,14 @@ def check_external_crm_status_batch(case_ids):
             
             result = snowflake_query(query, PROD_PAYLOAD)
             
+            print(f"📊 [CRM] Batch query result:")
+            print(f"   - Result is None: {result is None}")
+            print(f"   - Result is empty: {result.empty if result is not None else 'N/A'}")
+            if result is not None and not result.empty:
+                print(f"   - Number of rows returned: {len(result)}")
+                print(f"   - Columns: {list(result.columns)}")
+                print(f"   - Sample data: {result.head(5).to_dict('records')}")
+            
             # Build status mapping for uncached cases
             open_cases = set()
             
@@ -176,13 +192,16 @@ def check_external_crm_status_batch(case_ids):
                 print(f"✅ [CRM] Found {len(open_cases)} open cases in external CRM: {list(open_cases)}")
             else:
                 print(f"ℹ️ [CRM] No open cases found in external CRM")
+                print(f"   - This means all {len(uncached_cases)} cases are CLOSED or don't exist in CRM")
             
             # Map uncached cases to their status and cache results
             for case_id in uncached_cases:
                 if case_id in open_cases:
                     status = "open"
+                    print(f"✅ [CRM] Case {case_id}: OPEN (found in GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_CASE_SUMMARY)")
                 else:
                     status = "closed"
+                    print(f"❌ [CRM] Case {case_id}: CLOSED (not found in open cases query)")
                 
                 status_map[case_id] = status
                 
