@@ -2573,6 +2573,65 @@ def create_case():
         print(f"Error creating case {case_number} for user {user_id}: {e}")
         return jsonify({"error": "Database error occurred"}), 500
 
+@app.route('/api/cases/delete/<case_number>', methods=['DELETE'])
+def delete_case(case_number):
+    """
+    Delete a case from the database.
+    """
+    user_data = session.get('user_data')
+    if not user_data:
+        print("❌ [Backend] /api/cases/delete: Not authenticated")
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    user_id = user_data.get('user_id')
+    print(f"🗑️ [Backend] /api/cases/delete: Deleting case {case_number} for user {user_id}")
+    
+    try:
+        # Convert case_number to int (database expects numeric)
+        case_number_int = int(case_number)
+        
+        # Check if case exists for this user
+        check_query = f"""
+            SELECT ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+            WHERE CASE_ID = %s AND CREATED_BY_USER = %s
+        """
+        result = snowflake_query(check_query, CONNECTION_PAYLOAD, (case_number_int, user_id))
+        
+        if result is None or result.empty:
+            print(f"❌ [Backend] Case {case_number} not found for user {user_id}")
+            return jsonify({"error": "Case not found"}), 404
+        
+        case_session_id = result.iloc[0]["ID"]
+        print(f"📊 [Backend] Found case session ID: {case_session_id}")
+        
+        # Delete from LAST_INPUT_STATE first (foreign key constraint)
+        delete_input_state_query = f"""
+            DELETE FROM {DATABASE}.{SCHEMA}.LAST_INPUT_STATE 
+            WHERE CASE_SESSION_ID = %s
+        """
+        snowflake_query(delete_input_state_query, CONNECTION_PAYLOAD, (case_session_id,), return_df=False)
+        print(f"✅ [Backend] Deleted input state records for case {case_number}")
+        
+        # Delete from CASE_SESSIONS
+        delete_case_query = f"""
+            DELETE FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+            WHERE ID = %s
+        """
+        snowflake_query(delete_case_query, CONNECTION_PAYLOAD, (case_session_id,), return_df=False)
+        print(f"✅ [Backend] Deleted case session for case {case_number}")
+        
+        return jsonify({
+            "success": True,
+            "message": f"Case {case_number} deleted successfully"
+        })
+        
+    except ValueError:
+        print(f"❌ [Backend] Invalid case number format: {case_number}")
+        return jsonify({"error": "Invalid case number format"}), 400
+    except Exception as e:
+        print(f"❌ [Backend] Error deleting case {case_number} for user {user_id}: {e}")
+        return jsonify({"error": "Database error occurred"}), 500
+
 @app.route('/api/cases/input-state', methods=['GET'])
 def get_input_state():
     """

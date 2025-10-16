@@ -2943,11 +2943,26 @@ class CaseManager {
                     <div class="case-number">${caseData.caseNumber}</div>
                     <div class="case-date">${this.formatDate(caseData.updatedAt)}</div>
                 </div>
-                ${untrackedIndicator}
+                <div class="case-actions">
+                    ${untrackedIndicator}
+                    <button class="delete-case-btn" title="Delete case" data-case-id="${caseData.id}">×</button>
+                </div>
             `;
             
-            caseItem.addEventListener('click', () => {
+            // Add click handler for case item (but not for delete button)
+            caseItem.addEventListener('click', (e) => {
+                // Don't switch case if delete button was clicked
+                if (e.target.classList.contains('delete-case-btn')) {
+                    return;
+                }
                 this.switchToCase(caseData.id);
+            });
+            
+            // Add click handler for delete button
+            const deleteBtn = caseItem.querySelector('.delete-case-btn');
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent case item click
+                this.deleteCase(caseData.id);
             });
             
             casesList.appendChild(caseItem);
@@ -2967,6 +2982,78 @@ class CaseManager {
         const activeHeader = document.getElementById('active-editor-header');
         if (activeHeader) {
             activeHeader.innerHTML = `<div style="color: #41007F; font-weight: 600; margin-bottom: 8px;">Active Case: ${this.currentCase.caseNumber}</div>`;
+        }
+    }
+    
+    async deleteCase(caseId) {
+        try {
+            // Find the case to delete
+            const caseToDelete = this.cases.find(c => c.id === caseId);
+            if (!caseToDelete) {
+                console.error('Case not found:', caseId);
+                return;
+            }
+            
+            // Show confirmation dialog
+            const confirmed = await this.showCustomPopup(
+                'Delete Case',
+                `Are you sure you want to delete case ${caseToDelete.caseNumber}? This action cannot be undone.`,
+                'Delete',
+                'Cancel'
+            );
+            
+            if (!confirmed) {
+                return;
+            }
+            
+            console.log('🗑️ [CaseManager] Deleting case:', caseToDelete.caseNumber);
+            
+            // If it's the current case, switch to another case first
+            if (this.currentCase && this.currentCase.id === caseId) {
+                const otherCases = this.cases.filter(c => c.id !== caseId);
+                if (otherCases.length > 0) {
+                    this.switchToCase(otherCases[0].id);
+                } else {
+                    // No other cases, clear current case
+                    this.currentCase = null;
+                    this.clearEditors();
+                }
+            }
+            
+            // Remove from local array
+            this.cases = this.cases.filter(c => c.id !== caseId);
+            
+            // Save to localStorage
+            this.saveCasesLocally();
+            
+            // If case is tracked in database, delete from backend
+            if (caseToDelete.isTrackedInDatabase) {
+                try {
+                    const response = await fetch(`/api/cases/delete/${caseToDelete.caseNumber}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        console.log('✅ [CaseManager] Case deleted from database');
+                    } else {
+                        console.error('❌ [CaseManager] Failed to delete case from database');
+                    }
+                } catch (error) {
+                    console.error('❌ [CaseManager] Error deleting case from database:', error);
+                }
+            }
+            
+            // Re-render the cases list
+            this.renderCasesList();
+            this.updateActiveCaseHeader();
+            
+            console.log('✅ [CaseManager] Case deleted successfully');
+            
+        } catch (error) {
+            console.error('❌ [CaseManager] Error deleting case:', error);
         }
     }
     
