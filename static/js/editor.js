@@ -2905,6 +2905,9 @@ class CaseManager {
             console.log(`📝 [CaseManager] Set editor2 innerText to: ${editor2.innerText.substring(0, 50)}...`);
         }
         
+        // Clear any existing CRM history first (regardless of whether new CRM data exists)
+        this.clearCRMHistory();
+        
         // Load CRM data and populate history
         await this.loadCRMDataAndPopulateHistory(caseData.caseNumber);
         
@@ -2923,6 +2926,29 @@ class CaseManager {
             window.spellCheckEditor.checkText('editor');
             window.spellCheckEditor.checkText('editor2');
         }
+    }
+    
+    clearCRMHistory() {
+        console.log(`🧹 [CaseManager] Clearing all CRM history`);
+        
+        // Access the global spellCheckEditor instance
+        if (!window.spellCheckEditor) {
+            console.error(`❌ [CaseManager] spellCheckEditor not available`);
+            return;
+        }
+        
+        // Clear ALL existing CRM history
+        window.spellCheckEditor.fields.editor.history = window.spellCheckEditor.fields.editor.history.filter(item => 
+            typeof item === 'string' || !item.crmSource
+        );
+        window.spellCheckEditor.fields.editor2.history = window.spellCheckEditor.fields.editor2.history.filter(item => 
+            typeof item === 'string' || !item.crmSource
+        );
+        
+        console.log(`✅ [CaseManager] Cleared CRM history for both fields`);
+        
+        // Update the history display
+        window.spellCheckEditor.renderHistory();
     }
     
     async loadCRMDataAndPopulateHistory(caseNumber) {
@@ -3007,15 +3033,7 @@ class CaseManager {
             return;
         }
         
-        // Clear ALL existing CRM history when switching to a new case
-        window.spellCheckEditor.fields.editor.history = window.spellCheckEditor.fields.editor.history.filter(item => 
-            typeof item === 'string' || !item.crmSource
-        );
-        window.spellCheckEditor.fields.editor2.history = window.spellCheckEditor.fields.editor2.history.filter(item => 
-            typeof item === 'string' || !item.crmSource
-        );
-        
-        console.log(`🧹 [CaseManager] Cleared existing CRM history for new case`);
+        // CRM history is already cleared in switchToCase() before this function is called
         
         // Add each FSR record to history (in chronological order for history)
         fsrRecords.forEach((fsr, index) => {
