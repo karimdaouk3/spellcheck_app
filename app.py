@@ -94,11 +94,10 @@ def check_external_crm_status_for_case(case_id):
         
         # Query 2: Check if case is open (not closed)
         query = f"""
-            SELECT DISTINCT "[Case Number]"
-            FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_CASE_SUMMARY
-            WHERE "Verify Closure Date/Time" IS NULL
-            AND "Case Creation Date" > DATEADD(YEAR, -1, CURRENT_DATE)
-            AND "[Case Number]" = %s
+            SELECT DISTINCT "Case Number" AS "[Case Number]"
+            FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
+            WHERE "Case Number" = %s
+            AND "Case Number" IS NOT NULL
         """
         
         result = snowflake_query(query, CONNECTION_PAYLOAD, (case_id,))
@@ -159,11 +158,10 @@ def check_external_crm_status_batch(case_ids):
             
             # Optimized batch query to check all cases at once
             query = f"""
-                SELECT DISTINCT "[Case Number]"
-                FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_CASE_SUMMARY
-                WHERE "Verify Closure Date/Time" IS NULL
-                AND "Case Creation Date" > DATEADD(YEAR, -1, CURRENT_DATE)
-                AND "[Case Number]" IN ({case_ids_str})
+                SELECT DISTINCT "Case Number" AS "[Case Number]"
+                FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
+                WHERE "Case Number" IN ({case_ids_str})
+                AND "Case Number" IS NOT NULL
             """
             
             result = snowflake_query(query, CONNECTION_PAYLOAD)
@@ -299,9 +297,9 @@ def get_case_details(case_number):
             "Part Disposition Code 1",
             "Part Disposition Code 2",
             "Part Disposition Code 3"
-            FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_FSR_DETAIL
+            FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
             WHERE "Case Number" = %s
-            ORDER BY "FSR Number", "FSR Creation Date" ASC
+            ORDER BY "Case Number" DESC
         """
         
         result = snowflake_query(query, CONNECTION_PAYLOAD, (case_number,))
@@ -909,12 +907,11 @@ def check_case_status_batch(case_numbers):
         case_list = "', '".join(str(case) for case in case_numbers)
         
         query = f"""
-            SELECT DISTINCT "[Case Number]" AS "Case Number"
-            FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_CASE_SUMMARY 
-            WHERE "Verify Closure Date/Time" IS NULL 
-            AND "Case Creation Date" > DATEADD(YEAR, -1, CURRENT_DATE)
-            AND "[Case Number]" IN ('{case_list}')
-            ORDER BY "[Case Number]" DESC
+            SELECT DISTINCT "Case Number"
+            FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T 
+            WHERE "Case Number" IN ('{case_list}')
+            AND "Case Number" IS NOT NULL
+            ORDER BY "Case Number" DESC
         """
         
         result = snowflake_query(query, CONNECTION_PAYLOAD)
@@ -954,9 +951,9 @@ def get_case_details(case_number):
                 "Part Disposition Code 1",
                 "Part Disposition Code 2",
                 "Part Disposition Code 3"
-            FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_FSR_DETAIL
+            FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
             WHERE "Case Number" = %s
-            ORDER BY "FSR Number", "FSR Creation Date" ASC
+            ORDER BY "Case Number" DESC
         """
         
         result = snowflake_query(query, CONNECTION_PAYLOAD, params=(case_number,))
