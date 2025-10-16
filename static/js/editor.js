@@ -2028,11 +2028,27 @@ class LanguageToolEditor {
             // Add CRM source indicator if this is from CRM
             let sourceIndicator = '';
             if (typeof item === 'object' && item.crmSource) {
-                // Format date to show only date part (remove time)
-                const dateOnly = item.creationDate ? item.creationDate.split(' ')[0] : item.creationDate;
+                // Format date properly from FSR Creation Date
+                let formattedDate = item.creationDate;
+                if (item.creationDate) {
+                    try {
+                        // Try to parse the date and format it nicely
+                        const date = new Date(item.creationDate);
+                        if (!isNaN(date.getTime())) {
+                            formattedDate = date.toLocaleDateString('en-US', {
+                                weekday: 'short',
+                                day: 'numeric',
+                                month: 'short'
+                            });
+                        }
+                    } catch (e) {
+                        // If parsing fails, just use the original date
+                        formattedDate = item.creationDate;
+                    }
+                }
                 
                 sourceIndicator = `<div style="font-size: 11px; color: #666; margin-bottom: 4px; font-weight: bold;">
-                    📋 CRM Data - FSR ${item.fsrNumber} (${dateOnly})
+                    📋 CRM Data - FSR ${item.fsrNumber} (${formattedDate})
                 </div>`;
             }
             
