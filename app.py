@@ -92,12 +92,11 @@ def check_external_crm_status_for_case(case_id):
     try:
         print(f"🔍 [CRM] Checking status for case {case_id} in external CRM")
         
-        # Query 2: Check if case is open (not closed)
-        # We need to check if the case exists in CRM AND is open (Verify Closure Date/Time IS NULL)
+        # Query 2: Check if case is actually closed (has closure date)
         query = f"""
             SELECT DISTINCT "[Case Number]"
             FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_CASE_SUMMARY
-            WHERE "Verify Closure Date/Time" IS NULL
+            WHERE "Verify Closure Date/Time" IS NOT NULL
             AND "Case Creation Date" > DATEADD(YEAR, -1, CURRENT_DATE)
             AND "[Case Number]" = %s
         """
@@ -111,29 +110,13 @@ def check_external_crm_status_for_case(case_id):
             print(f"   - Number of rows returned: {len(result)}")
             print(f"   - Columns: {list(result.columns)}")
             print(f"   - Sample data: {result.head(3).to_dict('records')}")
-            print(f"✅ [CRM] Case {case_id} is OPEN in external CRM (Verify Closure Date/Time IS NULL)")
-            return "open"
+            print(f"❌ [CRM] Case {case_id} is CLOSED in external CRM (has Verify Closure Date/Time)")
+            return "closed"
         else:
-            # Case not found in open cases - need to check if it exists in CRM at all
-            print(f"   - Case {case_id} not found in open cases query")
-            print(f"   - Checking if case exists in CRM at all...")
-            
-            # Check if case exists in CRM (regardless of status)
-            exists_query = f"""
-                SELECT DISTINCT "[Case Number]"
-                FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_CASE_SUMMARY
-                WHERE "[Case Number]" = %s
-            """
-            exists_result = snowflake_query(exists_query, PROD_PAYLOAD, (case_id,))
-            
-            if exists_result is not None and not exists_result.empty:
-                print(f"   - Case {case_id} EXISTS in CRM but is CLOSED (has Verify Closure Date/Time)")
-                print(f"❌ [CRM] Case {case_id} is CLOSED in external CRM")
-                return "closed"
-            else:
-                print(f"   - Case {case_id} does NOT exist in CRM at all")
-                print(f"✅ [CRM] Case {case_id} is OPEN (not tracked in CRM, defaulting to open)")
-                return "open"
+            print(f"   - No matching records found with closure date in GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_CASE_SUMMARY")
+            print(f"   - This means case {case_id} is either OPEN or not tracked in CRM")
+            print(f"✅ [CRM] Case {case_id} is OPEN in external CRM (no closure date or not tracked)")
+            return "open"
             
     except Exception as e:
         print(f"❌ [CRM] Error checking status for case {case_id}: {e}")
@@ -182,65 +165,43 @@ def check_external_crm_status_batch(case_ids):
             # Create IN clause for batch query
             case_ids_str = ','.join([str(cid) for cid in uncached_cases])
             
-            # First query: Get all open cases (Verify Closure Date/Time IS NULL)
-            open_query = f"""
+            # Optimized batch query to check all cases at once
+            query = f"""
                 SELECT DISTINCT "[Case Number]"
                 FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_CASE_SUMMARY
-                WHERE "Verify Closure Date/Time" IS NULL
+                WHERE "Verify Closure Date/Time" IS NOT NULL
                 AND "Case Creation Date" > DATEADD(YEAR, -1, CURRENT_DATE)
                 AND "[Case Number]" IN ({case_ids_str})
             """
             
-            open_result = snowflake_query(open_query, PROD_PAYLOAD)
+            result = snowflake_query(query, PROD_PAYLOAD)
             
-            print(f"📊 [CRM] Open cases query result:")
-            print(f"   - Result is None: {open_result is None}")
-            print(f"   - Result is empty: {open_result.empty if open_result is not None else 'N/A'}")
-            if open_result is not None and not open_result.empty:
-                print(f"   - Number of rows returned: {len(open_result)}")
-                print(f"   - Columns: {list(open_result.columns)}")
-                print(f"   - Sample data: {open_result.head(5).to_dict('records')}")
-            
-            # Second query: Get all cases that exist in CRM (regardless of status)
-            exists_query = f"""
-                SELECT DISTINCT "[Case Number]"
-                FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_CASE_SUMMARY
-                WHERE "[Case Number]" IN ({case_ids_str})
-            """
-            
-            exists_result = snowflake_query(exists_query, PROD_PAYLOAD)
-            
-            print(f"📊 [CRM] All cases in CRM query result:")
-            print(f"   - Result is None: {exists_result is None}")
-            print(f"   - Result is empty: {exists_result.empty if exists_result is not None else 'N/A'}")
-            if exists_result is not None and not exists_result.empty:
-                print(f"   - Number of rows returned: {len(exists_result)}")
-                print(f"   - Columns: {list(exists_result.columns)}")
-                print(f"   - Sample data: {exists_result.head(5).to_dict('records')}")
+            print(f"📊 [CRM] Batch query result:")
+            print(f"   - Result is None: {result is None}")
+            print(f"   - Result is empty: {result.empty if result is not None else 'N/A'}")
+            if result is not None and not result.empty:
+                print(f"   - Number of rows returned: {len(result)}")
+                print(f"   - Columns: {list(result.columns)}")
+                print(f"   - Sample data: {result.head(5).to_dict('records')}")
             
             # Build status mapping for uncached cases
-            open_cases = set()
-            crm_cases = set()
+            closed_cases = set()
             
-            if open_result is not None and not open_result.empty:
-                open_cases = set(open_result["Case Number"].tolist())
-                print(f"✅ [CRM] Found {len(open_cases)} open cases in external CRM: {list(open_cases)}")
-            
-            if exists_result is not None and not exists_result.empty:
-                crm_cases = set(exists_result["Case Number"].tolist())
-                print(f"📋 [CRM] Found {len(crm_cases)} cases that exist in CRM: {list(crm_cases)}")
+            if result is not None and not result.empty:
+                closed_cases = set(result["Case Number"].tolist())
+                print(f"❌ [CRM] Found {len(closed_cases)} closed cases in external CRM: {list(closed_cases)}")
+            else:
+                print(f"ℹ️ [CRM] No closed cases found in external CRM")
+                print(f"   - This means all {len(uncached_cases)} cases are OPEN or not tracked in CRM")
             
             # Map uncached cases to their status and cache results
             for case_id in uncached_cases:
-                if case_id in open_cases:
-                    status = "open"
-                    print(f"✅ [CRM] Case {case_id}: OPEN (Verify Closure Date/Time IS NULL)")
-                elif case_id in crm_cases:
+                if case_id in closed_cases:
                     status = "closed"
-                    print(f"❌ [CRM] Case {case_id}: CLOSED (exists in CRM but has Verify Closure Date/Time)")
+                    print(f"❌ [CRM] Case {case_id}: CLOSED (has Verify Closure Date/Time)")
                 else:
                     status = "open"
-                    print(f"✅ [CRM] Case {case_id}: OPEN (not tracked in CRM, defaulting to open)")
+                    print(f"✅ [CRM] Case {case_id}: OPEN (no closure date or not tracked in CRM)")
                 
                 status_map[case_id] = status
                 
