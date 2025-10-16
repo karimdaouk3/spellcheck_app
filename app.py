@@ -397,11 +397,11 @@ def login():
     if not app.config['ENABLE_SSO']:
         # Simulate login for development or non-SSO mode
         session["user_data"] = {
-            "username": "dev_user",
-            "email": "dev@example.com",
-            "first_name": "Dev",
-            "last_name": "User",
-            "employee_id": "0000",
+            "username": "karim_daouk",
+            "email": "KARIM.DAOUK@KLA.COM",
+            "first_name": "Karim",
+            "last_name": "Daouk",
+            "employee_id": "12345",
             "user_id": 0
         }
         print("[DBG] Login: SSO disabled, using mock user_data")
