@@ -823,9 +823,12 @@ def get_case_suggestions():
     if not user_email:
         return jsonify({"error": "No email found in user data"}), 400
     
+    # Convert email to uppercase to match CRM format
+    user_email_upper = user_email.upper()
+    print(f"🔍 [CRM] Getting case suggestions for user: {user_email} (formatted: {user_email_upper})")
+    
     try:
-        print(f"🔍 [CRM] Getting case suggestions for user: {user_email}")
-        case_numbers = get_available_case_numbers(user_email)
+        case_numbers = get_available_case_numbers(user_email_upper)
         print(f"✅ [CRM] Found {len(case_numbers)} available cases")
         
         return jsonify({
