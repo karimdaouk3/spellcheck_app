@@ -94,13 +94,14 @@ def check_external_crm_status_for_case(case_id):
         
         # Query 2: Check if case is open (not closed)
         query = f"""
-            SELECT DISTINCT "Case Number" AS "[Case Number]"
-            FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
-            WHERE "Case Number" = %s
-            AND "Case Number" IS NOT NULL
+            SELECT DISTINCT "[Case Number]"
+            FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_CASE_SUMMARY
+            WHERE "Verify Closure Date/Time" IS NULL
+            AND "Case Creation Date" > DATEADD(YEAR, -1, CURRENT_DATE)
+            AND "[Case Number]" = %s
         """
         
-        result = snowflake_query(query, CONNECTION_PAYLOAD, (case_id,))
+        result = snowflake_query(query, PROD_PAYLOAD, (case_id,))
         
         if result is not None and not result.empty:
             print(f"✅ [CRM] Case {case_id} is OPEN in external CRM")
@@ -158,13 +159,14 @@ def check_external_crm_status_batch(case_ids):
             
             # Optimized batch query to check all cases at once
             query = f"""
-                SELECT DISTINCT "Case Number" AS "[Case Number]"
-                FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
-                WHERE "Case Number" IN ({case_ids_str})
-                AND "Case Number" IS NOT NULL
+                SELECT DISTINCT "[Case Number]"
+                FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_CASE_SUMMARY
+                WHERE "Verify Closure Date/Time" IS NULL
+                AND "Case Creation Date" > DATEADD(YEAR, -1, CURRENT_DATE)
+                AND "[Case Number]" IN ({case_ids_str})
             """
             
-            result = snowflake_query(query, CONNECTION_PAYLOAD)
+            result = snowflake_query(query, PROD_PAYLOAD)
             
             # Build status mapping for uncached cases
             open_cases = set()
@@ -297,12 +299,12 @@ def get_case_details(case_number):
             "Part Disposition Code 1",
             "Part Disposition Code 2",
             "Part Disposition Code 3"
-            FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
+            FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_FSR_DETAIL
             WHERE "Case Number" = %s
-            ORDER BY "Case Number" DESC
+            ORDER BY "FSR Number", "FSR Creation Date" ASC
         """
         
-        result = snowflake_query(query, CONNECTION_PAYLOAD, (case_number,))
+        result = snowflake_query(query, PROD_PAYLOAD, (case_number,))
         
         if result is not None and not result.empty:
             print(f"✅ [CRM] Found case details for case {case_number}")
@@ -907,14 +909,15 @@ def check_case_status_batch(case_numbers):
         case_list = "', '".join(str(case) for case in case_numbers)
         
         query = f"""
-            SELECT DISTINCT "Case Number"
-            FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T 
-            WHERE "Case Number" IN ('{case_list}')
-            AND "Case Number" IS NOT NULL
-            ORDER BY "Case Number" DESC
+            SELECT DISTINCT "[Case Number]" AS "Case Number"
+            FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_CASE_SUMMARY 
+            WHERE "Verify Closure Date/Time" IS NULL 
+            AND "Case Creation Date" > DATEADD(YEAR, -1, CURRENT_DATE)
+            AND "[Case Number]" IN ('{case_list}')
+            ORDER BY "[Case Number]" DESC
         """
         
-        result = snowflake_query(query, CONNECTION_PAYLOAD)
+        result = snowflake_query(query, PROD_PAYLOAD)
         
         if result is not None and not result.empty:
             open_cases = set(result["Case Number"].tolist())
@@ -951,12 +954,12 @@ def get_case_details(case_number):
                 "Part Disposition Code 1",
                 "Part Disposition Code 2",
                 "Part Disposition Code 3"
-            FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
+            FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_FSR_DETAIL
             WHERE "Case Number" = %s
-            ORDER BY "Case Number" DESC
+            ORDER BY "FSR Number", "FSR Creation Date" ASC
         """
         
-        result = snowflake_query(query, CONNECTION_PAYLOAD, params=(case_number,))
+        result = snowflake_query(query, PROD_PAYLOAD, params=(case_number,))
         
         if result is not None and not result.empty:
             return result.to_dict('records')
@@ -2739,6 +2742,7 @@ if __name__ == "__main__":
     with open("./config.yaml", 'r') as f:
         config = yaml.safe_load(f)
     CONNECTION_PAYLOAD = config.get("Engineering_SAGE_SVC", {})
+    PROD_PAYLOAD = config.get("Production_SAGE_SVC", {})
     app.config['ENABLE_SSO'] = config.get("AppConfig", {}).get("ENABLE_SSO", True)
     app.config['DEV_MODE'] = config.get("AppConfig", {}).get("DEV_MODE", False)
     
