@@ -2028,8 +2028,10 @@ class LanguageToolEditor {
             // Add CRM source indicator if this is from CRM
             let sourceIndicator = '';
             if (typeof item === 'object' && item.crmSource) {
+                // Format date to show only date part (remove time)
+                const dateOnly = item.creationDate ? item.creationDate.split(' ')[0] : item.creationDate;
                 sourceIndicator = `<div style="font-size: 11px; color: #666; margin-bottom: 4px; font-weight: bold;">
-                    📋 CRM Data - FSR ${item.fsrNumber} (${item.creationDate})
+                    📋 CRM Data - FSR ${item.fsrNumber} (${dateOnly})
                 </div>`;
             }
             
@@ -2999,13 +3001,15 @@ class CaseManager {
             return;
         }
         
-        // Clear existing CRM history but keep user-submitted history
+        // Clear ALL existing CRM history when switching to a new case
         window.spellCheckEditor.fields.editor.history = window.spellCheckEditor.fields.editor.history.filter(item => 
             typeof item === 'string' || !item.crmSource
         );
         window.spellCheckEditor.fields.editor2.history = window.spellCheckEditor.fields.editor2.history.filter(item => 
             typeof item === 'string' || !item.crmSource
         );
+        
+        console.log(`🧹 [CaseManager] Cleared existing CRM history for new case`);
         
         // Add each FSR record to history (in chronological order for history)
         fsrRecords.forEach((fsr, index) => {
