@@ -2993,11 +2993,17 @@ class CaseManager {
     populateHistoryWithCRMData(fsrRecords) {
         console.log(`📚 [CaseManager] Populating history with ${fsrRecords.length} FSR records`);
         
+        // Access the global spellCheckEditor instance
+        if (!window.spellCheckEditor) {
+            console.error(`❌ [CaseManager] spellCheckEditor not available`);
+            return;
+        }
+        
         // Clear existing CRM history but keep user-submitted history
-        this.fields.editor.history = this.fields.editor.history.filter(item => 
+        window.spellCheckEditor.fields.editor.history = window.spellCheckEditor.fields.editor.history.filter(item => 
             typeof item === 'string' || !item.crmSource
         );
-        this.fields.editor2.history = this.fields.editor2.history.filter(item => 
+        window.spellCheckEditor.fields.editor2.history = window.spellCheckEditor.fields.editor2.history.filter(item => 
             typeof item === 'string' || !item.crmSource
         );
         
@@ -3027,7 +3033,7 @@ class CaseManager {
                     fsrNumber: fsrNumber,
                     creationDate: creationDate
                 };
-                this.fields.editor.history.push(problemHistoryEntry);
+                window.spellCheckEditor.fields.editor.history.push(problemHistoryEntry);
             }
             
             // Add daily notes to history if they exist
@@ -3043,19 +3049,17 @@ class CaseManager {
                     fsrNumber: fsrNumber,
                     creationDate: creationDate
                 };
-                this.fields.editor2.history.push(dailyNotesHistoryEntry);
+                window.spellCheckEditor.fields.editor2.history.push(dailyNotesHistoryEntry);
             }
         });
         
         console.log(`✅ [CaseManager] History populated:`, {
-            problemStatement_history_count: this.fields.editor.history.length,
-            fsrNotes_history_count: this.fields.editor2.history.length
+            problemStatement_history_count: window.spellCheckEditor.fields.editor.history.length,
+            fsrNotes_history_count: window.spellCheckEditor.fields.editor2.history.length
         });
         
         // Update the history display
-        if (window.spellCheckEditor) {
-            window.spellCheckEditor.renderHistory();
-        }
+        window.spellCheckEditor.renderHistory();
     }
     
     async saveCurrentCaseData() {
