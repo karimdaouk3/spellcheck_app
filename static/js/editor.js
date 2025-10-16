@@ -2995,11 +2995,8 @@ class CaseManager {
             }
             
             // Show confirmation dialog
-            const confirmed = await this.showCustomPopup(
-                'Delete Case',
-                `Are you sure you want to delete case ${caseToDelete.caseNumber}? This action cannot be undone.`,
-                'Delete',
-                'Cancel'
+            const confirmed = confirm(
+                `Are you sure you want to delete case ${caseToDelete.caseNumber}? This action cannot be undone.`
             );
             
             if (!confirmed) {
