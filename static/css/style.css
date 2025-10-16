@@ -1161,6 +1161,44 @@ body {
     transform: scale(1.1);
 }
 
+.history-buttons {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.history-btn {
+    background: none;
+    border: none;
+    padding: 4px 6px;
+    cursor: pointer;
+    border-radius: 4px;
+    color: #666;
+    font-size: 14px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+}
+
+.history-btn:hover {
+    background: #e3f2fd;
+    color: #1976d2;
+    transform: scale(1.1);
+}
+
+.fsr-history-btn:hover {
+    background: #e8f5e8;
+    color: #2e7d32;
+}
+
+.problem-history-btn:hover {
+    background: #fff3e0;
+    color: #f57c00;
+}
+
 .case-actions {
     display: flex;
     align-items: center;

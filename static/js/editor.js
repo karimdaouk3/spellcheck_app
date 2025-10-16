@@ -2587,13 +2587,18 @@ class CaseManager {
                     fsrNotes: caseData.fsrNotes || '',
                     createdAt: new Date(caseData.updatedAt || Date.now()),
                     updatedAt: new Date(caseData.updatedAt || Date.now()),
-                    isTrackedInDatabase: true // All cases from database are tracked
+                    isTrackedInDatabase: true, // All cases from database are tracked
+                    // CRM data (if available)
+                    fsrHistory: caseData.fsrHistory || [],
+                    problemStatementHistory: caseData.problemStatementHistory || []
                 };
                 
                 console.log(`📝 [CaseManager] Processed case ${caseInfo.caseNumber}:`, {
                     problemStatement: caseInfo.problemStatement.substring(0, 50) + '...',
                     fsrNotes: caseInfo.fsrNotes.substring(0, 50) + '...',
-                    isTracked: caseInfo.isTrackedInDatabase
+                    isTracked: caseInfo.isTrackedInDatabase,
+                    fsrHistoryCount: caseInfo.fsrHistory.length,
+                    problemStatementHistoryCount: caseInfo.problemStatementHistory.length
                 });
                 
                 return caseInfo;
@@ -2938,6 +2943,16 @@ class CaseManager {
             const untrackedIndicator = caseData.isTrackedInDatabase === false ? 
                 '<div class="untracked-indicator" title="Not tracked in database">⚠️</div>' : '';
             
+            // Add history buttons if CRM data is available
+            const historyButtons = (caseData.fsrHistory && caseData.fsrHistory.length > 0) || 
+                                 (caseData.problemStatementHistory && caseData.problemStatementHistory.length > 0) ?
+                `<div class="history-buttons">
+                    ${caseData.fsrHistory && caseData.fsrHistory.length > 0 ? 
+                        `<button class="history-btn fsr-history-btn" title="View FSR History" data-case-id="${caseData.id}">📋</button>` : ''}
+                    ${caseData.problemStatementHistory && caseData.problemStatementHistory.length > 0 ? 
+                        `<button class="history-btn problem-history-btn" title="View Problem Statement History" data-case-id="${caseData.id}">📝</button>` : ''}
+                </div>` : '';
+            
             caseItem.innerHTML = `
                 <div>
                     <div class="case-number">${caseData.caseNumber}</div>
@@ -2945,14 +2960,17 @@ class CaseManager {
                 </div>
                 <div class="case-actions">
                     ${untrackedIndicator}
+                    ${historyButtons}
                     <button class="delete-case-btn" title="Delete case" data-case-id="${caseData.id}">×</button>
                 </div>
             `;
             
-            // Add click handler for case item (but not for delete button)
+            // Add click handler for case item (but not for action buttons)
             caseItem.addEventListener('click', (e) => {
-                // Don't switch case if delete button was clicked
-                if (e.target.classList.contains('delete-case-btn')) {
+                // Don't switch case if action buttons were clicked
+                if (e.target.classList.contains('delete-case-btn') || 
+                    e.target.classList.contains('history-btn') ||
+                    e.target.closest('.case-actions')) {
                     return;
                 }
                 this.switchToCase(caseData.id);
@@ -2960,10 +2978,29 @@ class CaseManager {
             
             // Add click handler for delete button
             const deleteBtn = caseItem.querySelector('.delete-case-btn');
-            deleteBtn.addEventListener('click', (e) => {
-                e.stopPropagation(); // Prevent case item click
-                this.deleteCase(caseData.id);
-            });
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent case item click
+                    this.deleteCase(caseData.id);
+                });
+            }
+            
+            // Add click handlers for history buttons
+            const fsrHistoryBtn = caseItem.querySelector('.fsr-history-btn');
+            if (fsrHistoryBtn) {
+                fsrHistoryBtn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent case item click
+                    this.showFSRHistory(caseData.id);
+                });
+            }
+            
+            const problemHistoryBtn = caseItem.querySelector('.problem-history-btn');
+            if (problemHistoryBtn) {
+                problemHistoryBtn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent case item click
+                    this.showProblemStatementHistory(caseData.id);
+                });
+            }
             
             casesList.appendChild(caseItem);
         });
@@ -3052,6 +3089,39 @@ class CaseManager {
         } catch (error) {
             console.error('❌ [CaseManager] Error deleting case:', error);
         }
+    }
+    
+    showFSRHistory(caseId) {
+        const caseData = this.cases.find(c => c.id === caseId);
+        if (!caseData || !caseData.fsrHistory || caseData.fsrHistory.length === 0) {
+            alert('No FSR history available for this case.');
+            return;
+        }
+        
+        let historyText = `FSR History for Case ${caseData.caseNumber}:\n\n`;
+        caseData.fsrHistory.forEach((fsr, index) => {
+            historyText += `${index + 1}. FSR ${fsr.fsrNumber} (${fsr.fsrCreationDate})\n`;
+            historyText += `   Symptom: ${fsr.fsrSymptom}\n`;
+            historyText += `   Notes: ${fsr.fsrDailyNotes}\n\n`;
+        });
+        
+        alert(historyText);
+    }
+    
+    showProblemStatementHistory(caseId) {
+        const caseData = this.cases.find(c => c.id === caseId);
+        if (!caseData || !caseData.problemStatementHistory || caseData.problemStatementHistory.length === 0) {
+            alert('No problem statement history available for this case.');
+            return;
+        }
+        
+        let historyText = `Problem Statement History for Case ${caseData.caseNumber}:\n\n`;
+        caseData.problemStatementHistory.forEach((stmt, index) => {
+            historyText += `${index + 1}. FSR ${stmt.fsrNumber} (${stmt.fsrCreationDate})\n`;
+            historyText += `   Statement: ${stmt.problemStatement}\n\n`;
+        });
+        
+        alert(historyText);
     }
     
     formatDate(date) {
