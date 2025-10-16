@@ -819,9 +819,14 @@ def get_case_suggestions():
         print("❌ [Backend] /api/cases/suggestions: Not authenticated")
         return jsonify({"error": "Not authenticated"}), 401
     
+    user_email = user_data.get('email')
+    if not user_email:
+        return jsonify({"error": "No email found in user data"}), 400
+    
     try:
-        case_numbers = get_available_case_numbers()
-        print(f"📋 [Backend] Returning {len(case_numbers)} case number suggestions")
+        print(f"🔍 [CRM] Getting case suggestions for user: {user_email}")
+        case_numbers = get_available_case_numbers(user_email)
+        print(f"✅ [CRM] Found {len(case_numbers)} available cases")
         
         return jsonify({
             "success": True,
@@ -845,8 +850,9 @@ def get_case_details_endpoint(case_number):
         return jsonify({"error": "Not authenticated"}), 401
     
     try:
+        print(f"🔍 [CRM] Getting case details for case: {case_number}")
         case_details = get_case_details(case_number)
-        print(f"📋 [Backend] Returning case details for case {case_number}")
+        print(f"✅ [CRM] Found {len(case_details)} FSR records for case {case_number}")
         
         return jsonify({
             "success": True,
@@ -858,6 +864,108 @@ def get_case_details_endpoint(case_number):
     except Exception as e:
         print(f"❌ [Backend] Error getting case details for {case_number}: {e}")
         return jsonify({"error": "Failed to get case details"}), 500
+
+# ==================== CRM INTEGRATION FUNCTIONS ====================
+
+def get_available_case_numbers(user_email):
+    """
+    CRM Query 1: Get available case numbers for suggestions
+    Use this in: /api/cases/suggestions
+    """
+    try:
+        query = """
+            SELECT DISTINCT "Case Number" 
+            FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T 
+            WHERE "USER_EMAILS" LIKE %s 
+            AND "Case Number" IS NOT NULL 
+            ORDER BY "Case Number" DESC
+        """
+        
+        like_pattern = f"%{user_email}%"
+        result = snowflake_query(query, CONNECTION_PAYLOAD, params=(like_pattern,))
+        
+        if result is not None and not result.empty:
+            return result["Case Number"].tolist()
+        else:
+            return []
+            
+    except Exception as e:
+        print(f"Error getting available case numbers: {e}")
+        return []
+
+def check_case_status_batch(case_numbers):
+    """
+    CRM Query 2 (Batch): Check multiple cases at once
+    Use this in: /api/cases/check-external-status (optimized)
+    """
+    try:
+        if not case_numbers:
+            return {}
+        
+        # Create IN clause for batch query
+        case_list = "', '".join(str(case) for case in case_numbers)
+        
+        query = f"""
+            SELECT DISTINCT "[Case Number]" AS "Case Number"
+            FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_CASE_SUMMARY 
+            WHERE "Verify Closure Date/Time" IS NULL 
+            AND "Case Creation Date" > DATEADD(YEAR, -1, CURRENT_DATE)
+            AND "[Case Number]" IN ('{case_list}')
+            ORDER BY "[Case Number]" DESC
+        """
+        
+        result = snowflake_query(query, CONNECTION_PAYLOAD)
+        
+        if result is not None and not result.empty:
+            open_cases = set(result["Case Number"].tolist())
+            
+            # Return status for each case
+            case_status = {}
+            for case_num in case_numbers:
+                case_status[case_num] = 'open' if case_num in open_cases else 'closed'
+            
+            return case_status
+        else:
+            return {case_num: 'closed' for case_num in case_numbers}
+            
+    except Exception as e:
+        print(f"Error in batch case status check: {e}")
+        return {case_num: 'unknown' for case_num in case_numbers}
+
+def get_case_details(case_number):
+    """
+    CRM Query 3: Get detailed case information
+    Use this in: /api/cases/details/<case_number>
+    """
+    try:
+        query = """
+            SELECT DISTINCT
+                "Case Number",
+                "FSR Number",
+                "FSR Creation Date",
+                "FSR Current Symptom",
+                "FSR Current Problem Statement",
+                "FSR Daily Notes",
+                "Part Number",
+                "Part Description",
+                "Part Disposition Code 1",
+                "Part Disposition Code 2",
+                "Part Disposition Code 3"
+            FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_FSR_DETAIL
+            WHERE "Case Number" = %s
+            ORDER BY "FSR Number", "FSR Creation Date" ASC
+        """
+        
+        result = snowflake_query(query, CONNECTION_PAYLOAD, params=(case_number,))
+        
+        if result is not None and not result.empty:
+            return result.to_dict('records')
+        else:
+            return []
+            
+    except Exception as e:
+        print(f"Error getting case details: {e}")
+        return []
 
 # ==================== END MOCK ENDPOINTS ====================
 
