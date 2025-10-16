@@ -53,20 +53,18 @@ def check_external_crm_exists(case_number):
         user_email_upper = user_email.upper()
         print(f"🔍 [CRM] Checking if case {case_number} exists for user {user_email_upper}")
         
-        # Query 1: Get available case numbers for this user
+        # Query 1: Check if case exists in CRM (no email restriction)
         query = f"""
             SELECT DISTINCT "Case Number"
             FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
-            WHERE "USER_EMAILS" LIKE %s
-            AND "Case Number" IS NOT NULL
+            WHERE "Case Number" IS NOT NULL
             AND "Case Number" = %s
         """
         
-        like_pattern = f"%~{user_email_upper}~%"
         # Convert case_number to string to match database column type
         case_number_str = str(case_number)
-        print(f"🔍 [CRM] Query parameters: like_pattern='{like_pattern}', case_number_str='{case_number_str}'")
-        result = snowflake_query(query, CONNECTION_PAYLOAD, (like_pattern, case_number_str))
+        print(f"🔍 [CRM] Query parameters: case_number_str='{case_number_str}'")
+        result = snowflake_query(query, CONNECTION_PAYLOAD, (case_number_str,))
         
         print(f"📊 [CRM] Query result for case {case_number}:")
         print(f"   - Result is None: {result is None}")
@@ -277,17 +275,15 @@ def get_available_case_numbers():
         user_email_upper = user_email.upper()
         print(f"🔍 [CRM] Getting available case numbers for user {user_email_upper}")
         
-        # Query 1: Get available case numbers for this user
+        # Query 1: Get available case numbers (no email restriction)
         query = f"""
             SELECT DISTINCT "Case Number"
             FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
-            WHERE "USER_EMAILS" LIKE %s
-            AND "Case Number" IS NOT NULL
+            WHERE "Case Number" IS NOT NULL
             ORDER BY "Case Number" DESC
         """
         
-        like_pattern = f"%~{user_email_upper}~%"
-        result = snowflake_query(query, CONNECTION_PAYLOAD, (like_pattern,))
+        result = snowflake_query(query, CONNECTION_PAYLOAD)
         
         if result is not None and not result.empty:
             case_numbers = result["Case Number"].tolist()
@@ -775,61 +771,6 @@ def get_user_case_data():
             cases = {case_id: data for case_id, data in case_data.items()}
             print(f"✅ [Backend] Processed {len(cases)} cases with optimized query")
             
-            # Integrate CRM data for cases that exist in external CRM
-            for case_id, case_info in cases.items():
-                try:
-                    print(f"🔍 [Backend] /api/cases/data: Checking CRM data for case {case_id}")
-                    crm_details = get_case_details(case_id)
-                    
-                    if crm_details and len(crm_details) > 0:
-                        print(f"✅ [Backend] /api/cases/data: Found {len(crm_details)} CRM records for case {case_id}")
-                        
-                        # Sort by FSR Number (descending) to get latest first
-                        sorted_crm_details = sorted(crm_details, 
-                                                  key=lambda x: int(x.get('FSR Number', '0')), 
-                                                  reverse=True)
-                        
-                        # Get the latest FSR record
-                        latest_fsr = sorted_crm_details[0]
-                        
-                        # Populate with latest CRM data
-                        case_info['problemStatement'] = latest_fsr.get('FSR Current Problem Statement', case_info['problemStatement'])
-                        case_info['fsrNotes'] = latest_fsr.get('FSR Daily Notes', case_info['fsrNotes'])
-                        
-                        # Store all FSR history
-                        case_info['fsrHistory'] = []
-                        case_info['problemStatementHistory'] = []
-                        
-                        for fsr_record in sorted_crm_details:
-                            # Add to FSR history
-                            case_info['fsrHistory'].append({
-                                'fsrNumber': fsr_record.get('FSR Number', ''),
-                                'fsrCreationDate': fsr_record.get('FSR Creation Date', ''),
-                                'fsrDailyNotes': fsr_record.get('FSR Daily Notes', ''),
-                                'fsrSymptom': fsr_record.get('FSR Current Symptom', '')
-                            })
-                            
-                            # Add to problem statement history
-                            problem_stmt = fsr_record.get('FSR Current Problem Statement', '')
-                            if problem_stmt and problem_stmt not in [h['problemStatement'] for h in case_info['problemStatementHistory']]:
-                                case_info['problemStatementHistory'].append({
-                                    'fsrNumber': fsr_record.get('FSR Number', ''),
-                                    'fsrCreationDate': fsr_record.get('FSR Creation Date', ''),
-                                    'problemStatement': problem_stmt
-                                })
-                        
-                        print(f"📊 [Backend] /api/cases/data: CRM integration complete for case {case_id}")
-                        print(f"📊 [Backend] /api/cases/data: - Latest FSR: {latest_fsr.get('FSR Number', 'N/A')}")
-                        print(f"📊 [Backend] /api/cases/data: - FSR History count: {len(case_info['fsrHistory'])}")
-                        print(f"📊 [Backend] /api/cases/data: - Problem Statement History count: {len(case_info['problemStatementHistory'])}")
-                        
-                    else:
-                        print(f"ℹ️ [Backend] /api/cases/data: No CRM data found for case {case_id}")
-                        
-                except Exception as e:
-                    print(f"⚠️ [Backend] /api/cases/data: Error getting CRM data for case {case_id}: {e}")
-                    # Continue without CRM data
-            
             # Debug: Print final case data
             for case_id, data in cases.items():
                 print(f"📊 [Backend] /api/cases/data: Final case {case_id}:")
@@ -837,10 +778,6 @@ def get_user_case_data():
                 print(f"📊 [Backend] /api/cases/data: - fsrNotes_length={len(data['fsrNotes'])}")
                 print(f"📊 [Backend] /api/cases/data: - problemStatement_preview={data['problemStatement'][:100]}...")
                 print(f"📊 [Backend] /api/cases/data: - fsrNotes_preview={data['fsrNotes'][:100]}...")
-                if 'fsrHistory' in data:
-                    print(f"📊 [Backend] /api/cases/data: - fsrHistory_count={len(data['fsrHistory'])}")
-                if 'problemStatementHistory' in data:
-                    print(f"📊 [Backend] /api/cases/data: - problemStatementHistory_count={len(data['problemStatementHistory'])}")
         
         return jsonify({
             "user_id": str(user_id),
@@ -966,15 +903,13 @@ def get_available_case_numbers(user_email):
     """
     try:
         query = """
-            SELECT DISTINCT "Case Number" 
-            FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T 
-            WHERE "USER_EMAILS" LIKE %s 
-            AND "Case Number" IS NOT NULL 
+            SELECT DISTINCT "Case Number"
+            FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
+            WHERE "Case Number" IS NOT NULL 
             ORDER BY "Case Number" DESC
         """
         
-        like_pattern = f"%{user_email}%"
-        result = snowflake_query(query, CONNECTION_PAYLOAD, params=(like_pattern,))
+        result = snowflake_query(query, CONNECTION_PAYLOAD)
         
         if result is not None and not result.empty:
             return result["Case Number"].tolist()

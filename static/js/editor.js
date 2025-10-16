@@ -2025,7 +2025,16 @@ class LanguageToolEditor {
             // Replace newlines with <br> tags for proper rendering
             const textWithNewlines = text.replace(/\n/g, '<br>');
             
+            // Add CRM source indicator if this is from CRM
+            let sourceIndicator = '';
+            if (typeof item === 'object' && item.crmSource) {
+                sourceIndicator = `<div style="font-size: 11px; color: #666; margin-bottom: 4px; font-weight: bold;">
+                    📋 CRM Data - FSR ${item.fsrNumber} (${item.creationDate})
+                </div>`;
+            }
+            
             historyItem.innerHTML = `
+                ${sourceIndicator}
                 <div style="white-space:pre-wrap;">${textWithNewlines}</div>
             `;
             
@@ -2587,18 +2596,13 @@ class CaseManager {
                     fsrNotes: caseData.fsrNotes || '',
                     createdAt: new Date(caseData.updatedAt || Date.now()),
                     updatedAt: new Date(caseData.updatedAt || Date.now()),
-                    isTrackedInDatabase: true, // All cases from database are tracked
-                    // CRM data (if available)
-                    fsrHistory: caseData.fsrHistory || [],
-                    problemStatementHistory: caseData.problemStatementHistory || []
+                    isTrackedInDatabase: true // All cases from database are tracked
                 };
                 
                 console.log(`📝 [CaseManager] Processed case ${caseInfo.caseNumber}:`, {
                     problemStatement: caseInfo.problemStatement.substring(0, 50) + '...',
                     fsrNotes: caseInfo.fsrNotes.substring(0, 50) + '...',
-                    isTracked: caseInfo.isTrackedInDatabase,
-                    fsrHistoryCount: caseInfo.fsrHistory.length,
-                    problemStatementHistoryCount: caseInfo.problemStatementHistory.length
+                    isTracked: caseInfo.isTrackedInDatabase
                 });
                 
                 return caseInfo;
@@ -2851,7 +2855,7 @@ class CaseManager {
         }
     }
     
-    switchToCase(caseId) {
+    async switchToCase(caseId) {
         console.log(`🔄 [CaseManager] switchToCase called with caseId: ${caseId}`);
         const caseData = this.cases.find(c => c.id === caseId);
         if (!caseData) {
@@ -2893,6 +2897,9 @@ class CaseManager {
             console.log(`📝 [CaseManager] Set editor2 innerText to: ${editor2.innerText.substring(0, 50)}...`);
         }
         
+        // Load CRM data and populate history
+        await this.loadCRMDataAndPopulateHistory(caseData.caseNumber);
+        
         // Update UI
         this.renderCasesList();
         this.updateActiveCaseHeader();
@@ -2907,6 +2914,147 @@ class CaseManager {
         if (window.spellCheckEditor) {
             window.spellCheckEditor.checkText('editor');
             window.spellCheckEditor.checkText('editor2');
+        }
+    }
+    
+    async loadCRMDataAndPopulateHistory(caseNumber) {
+        console.log(`🔍 [CaseManager] Loading CRM data for case ${caseNumber}`);
+        
+        try {
+            // Fetch CRM details for this case
+            const response = await fetch(`/api/cases/details/${caseNumber}`);
+            
+            if (!response.ok) {
+                console.log(`⚠️ [CaseManager] No CRM data available for case ${caseNumber}: ${response.status}`);
+                return;
+            }
+            
+            const crmData = await response.json();
+            console.log(`📊 [CaseManager] CRM data for case ${caseNumber}:`, crmData);
+            
+            if (crmData.success && crmData.details && crmData.details.length > 0) {
+                console.log(`✅ [CaseManager] Found ${crmData.details.length} FSR records in CRM`);
+                
+                // Sort FSR records by FSR Number (descending) to get latest first
+                const sortedFSR = crmData.details.sort((a, b) => {
+                    const fsrA = parseInt(a["FSR Number"]) || 0;
+                    const fsrB = parseInt(b["FSR Number"]) || 0;
+                    return fsrB - fsrA; // Descending order (latest first)
+                });
+                
+                console.log(`📊 [CaseManager] Sorted FSR records:`, sortedFSR.map(fsr => ({
+                    fsrNumber: fsr["FSR Number"],
+                    creationDate: fsr["FSR Creation Date"],
+                    problemStatement: fsr["FSR Current Problem Statement"]?.substring(0, 50) + '...',
+                    dailyNotes: fsr["FSR Daily Notes"]?.substring(0, 50) + '...'
+                })));
+                
+                // Get the most recent data
+                const latestFSR = sortedFSR[0];
+                const latestProblemStatement = latestFSR["FSR Current Problem Statement"];
+                const latestDailyNotes = latestFSR["FSR Daily Notes"];
+                
+                console.log(`📝 [CaseManager] Latest FSR ${latestFSR["FSR Number"]}:`);
+                console.log(`📝 [CaseManager] - Problem Statement: ${latestProblemStatement?.substring(0, 100)}...`);
+                console.log(`📝 [CaseManager] - Daily Notes: ${latestDailyNotes?.substring(0, 100)}...`);
+                
+                // Update current fields with latest CRM data if they're empty or different
+                const editor1 = document.getElementById('editor');
+                const editor2 = document.getElementById('editor2');
+                
+                if (editor1 && latestProblemStatement && latestProblemStatement.trim()) {
+                    const currentProblem = editor1.innerText.trim();
+                    if (!currentProblem || currentProblem !== latestProblemStatement.trim()) {
+                        console.log(`📝 [CaseManager] Updating problem statement with CRM data`);
+                        editor1.innerText = latestProblemStatement;
+                    }
+                }
+                
+                if (editor2 && latestDailyNotes && latestDailyNotes.trim()) {
+                    const currentFSR = editor2.innerText.trim();
+                    if (!currentFSR || currentFSR !== latestDailyNotes.trim()) {
+                        console.log(`📝 [CaseManager] Updating FSR notes with CRM data`);
+                        editor2.innerText = latestDailyNotes;
+                    }
+                }
+                
+                // Populate history with all FSR records
+                this.populateHistoryWithCRMData(sortedFSR);
+                
+            } else {
+                console.log(`ℹ️ [CaseManager] No CRM details found for case ${caseNumber}`);
+            }
+            
+        } catch (error) {
+            console.error(`❌ [CaseManager] Error loading CRM data for case ${caseNumber}:`, error);
+        }
+    }
+    
+    populateHistoryWithCRMData(fsrRecords) {
+        console.log(`📚 [CaseManager] Populating history with ${fsrRecords.length} FSR records`);
+        
+        // Clear existing CRM history but keep user-submitted history
+        this.fields.editor.history = this.fields.editor.history.filter(item => 
+            typeof item === 'string' || !item.crmSource
+        );
+        this.fields.editor2.history = this.fields.editor2.history.filter(item => 
+            typeof item === 'string' || !item.crmSource
+        );
+        
+        // Add each FSR record to history (in chronological order for history)
+        fsrRecords.forEach((fsr, index) => {
+            const problemStatement = fsr["FSR Current Problem Statement"];
+            const dailyNotes = fsr["FSR Daily Notes"];
+            const fsrNumber = fsr["FSR Number"];
+            const creationDate = fsr["FSR Creation Date"];
+            
+            console.log(`📚 [CaseManager] Adding FSR ${fsrNumber} to history:`, {
+                problemStatement_length: problemStatement?.length || 0,
+                dailyNotes_length: dailyNotes?.length || 0,
+                creationDate: creationDate
+            });
+            
+            // Add problem statement to history if it exists
+            if (problemStatement && problemStatement.trim()) {
+                const problemHistoryEntry = {
+                    text: problemStatement.trim(),
+                    llmLastResult: null,
+                    userInputId: null,
+                    rewriteUuid: null,
+                    reviewId: null,
+                    timestamp: new Date(creationDate).toISOString(),
+                    crmSource: true,
+                    fsrNumber: fsrNumber,
+                    creationDate: creationDate
+                };
+                this.fields.editor.history.push(problemHistoryEntry);
+            }
+            
+            // Add daily notes to history if they exist
+            if (dailyNotes && dailyNotes.trim()) {
+                const dailyNotesHistoryEntry = {
+                    text: dailyNotes.trim(),
+                    llmLastResult: null,
+                    userInputId: null,
+                    rewriteUuid: null,
+                    reviewId: null,
+                    timestamp: new Date(creationDate).toISOString(),
+                    crmSource: true,
+                    fsrNumber: fsrNumber,
+                    creationDate: creationDate
+                };
+                this.fields.editor2.history.push(dailyNotesHistoryEntry);
+            }
+        });
+        
+        console.log(`✅ [CaseManager] History populated:`, {
+            problemStatement_history_count: this.fields.editor.history.length,
+            fsrNotes_history_count: this.fields.editor2.history.length
+        });
+        
+        // Update the history display
+        if (window.spellCheckEditor) {
+            window.spellCheckEditor.renderHistory();
         }
     }
     
@@ -2943,16 +3091,6 @@ class CaseManager {
             const untrackedIndicator = caseData.isTrackedInDatabase === false ? 
                 '<div class="untracked-indicator" title="Not tracked in database">⚠️</div>' : '';
             
-            // Add history buttons if CRM data is available
-            const historyButtons = (caseData.fsrHistory && caseData.fsrHistory.length > 0) || 
-                                 (caseData.problemStatementHistory && caseData.problemStatementHistory.length > 0) ?
-                `<div class="history-buttons">
-                    ${caseData.fsrHistory && caseData.fsrHistory.length > 0 ? 
-                        `<button class="history-btn fsr-history-btn" title="View FSR History" data-case-id="${caseData.id}">📋</button>` : ''}
-                    ${caseData.problemStatementHistory && caseData.problemStatementHistory.length > 0 ? 
-                        `<button class="history-btn problem-history-btn" title="View Problem Statement History" data-case-id="${caseData.id}">📝</button>` : ''}
-                </div>` : '';
-            
             caseItem.innerHTML = `
                 <div>
                     <div class="case-number">${caseData.caseNumber}</div>
@@ -2960,17 +3098,14 @@ class CaseManager {
                 </div>
                 <div class="case-actions">
                     ${untrackedIndicator}
-                    ${historyButtons}
                     <button class="delete-case-btn" title="Delete case" data-case-id="${caseData.id}">×</button>
                 </div>
             `;
             
-            // Add click handler for case item (but not for action buttons)
+            // Add click handler for case item (but not for delete button)
             caseItem.addEventListener('click', (e) => {
-                // Don't switch case if action buttons were clicked
-                if (e.target.classList.contains('delete-case-btn') || 
-                    e.target.classList.contains('history-btn') ||
-                    e.target.closest('.case-actions')) {
+                // Don't switch case if delete button was clicked
+                if (e.target.classList.contains('delete-case-btn')) {
                     return;
                 }
                 this.switchToCase(caseData.id);
@@ -2978,29 +3113,10 @@ class CaseManager {
             
             // Add click handler for delete button
             const deleteBtn = caseItem.querySelector('.delete-case-btn');
-            if (deleteBtn) {
-                deleteBtn.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent case item click
-                    this.deleteCase(caseData.id);
-                });
-            }
-            
-            // Add click handlers for history buttons
-            const fsrHistoryBtn = caseItem.querySelector('.fsr-history-btn');
-            if (fsrHistoryBtn) {
-                fsrHistoryBtn.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent case item click
-                    this.showFSRHistory(caseData.id);
-                });
-            }
-            
-            const problemHistoryBtn = caseItem.querySelector('.problem-history-btn');
-            if (problemHistoryBtn) {
-                problemHistoryBtn.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent case item click
-                    this.showProblemStatementHistory(caseData.id);
-                });
-            }
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent case item click
+                this.deleteCase(caseData.id);
+            });
             
             casesList.appendChild(caseItem);
         });
@@ -3089,39 +3205,6 @@ class CaseManager {
         } catch (error) {
             console.error('❌ [CaseManager] Error deleting case:', error);
         }
-    }
-    
-    showFSRHistory(caseId) {
-        const caseData = this.cases.find(c => c.id === caseId);
-        if (!caseData || !caseData.fsrHistory || caseData.fsrHistory.length === 0) {
-            alert('No FSR history available for this case.');
-            return;
-        }
-        
-        let historyText = `FSR History for Case ${caseData.caseNumber}:\n\n`;
-        caseData.fsrHistory.forEach((fsr, index) => {
-            historyText += `${index + 1}. FSR ${fsr.fsrNumber} (${fsr.fsrCreationDate})\n`;
-            historyText += `   Symptom: ${fsr.fsrSymptom}\n`;
-            historyText += `   Notes: ${fsr.fsrDailyNotes}\n\n`;
-        });
-        
-        alert(historyText);
-    }
-    
-    showProblemStatementHistory(caseId) {
-        const caseData = this.cases.find(c => c.id === caseId);
-        if (!caseData || !caseData.problemStatementHistory || caseData.problemStatementHistory.length === 0) {
-            alert('No problem statement history available for this case.');
-            return;
-        }
-        
-        let historyText = `Problem Statement History for Case ${caseData.caseNumber}:\n\n`;
-        caseData.problemStatementHistory.forEach((stmt, index) => {
-            historyText += `${index + 1}. FSR ${stmt.fsrNumber} (${stmt.fsrCreationDate})\n`;
-            historyText += `   Statement: ${stmt.problemStatement}\n\n`;
-        });
-        
-        alert(historyText);
     }
     
     formatDate(date) {
