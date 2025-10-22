@@ -3704,28 +3704,33 @@ class CaseManager {
             
             let suggestionsData = [];
             let selectedIndex = -1;
+            let debounceTimer = null;
+            let isFiltering = false;
             
             // Function to filter preloaded suggestions
             const filterSuggestions = async (query) => {
+                // Prevent multiple simultaneous filtering operations
+                if (isFiltering) {
+                    console.log('⏸️ [CaseManager] Skipping - already filtering');
+                    return;
+                }
+                
                 if (!query || query.length < 1) {
                     suggestionsData = [];
                     displaySuggestions();
                     return;
                 }
                 
+                isFiltering = true;
+                
                 const filteredCases = this.preloadedSuggestions.filter(caseNum => {
-                    const startsWith = caseNum.toString().toLowerCase().startsWith(query.toLowerCase());
-                    if (caseNum === 599994 || caseNum === 509055) {
-                        console.log(`🔍 [DEBUG] Case ${caseNum} starts with "${query}": ${startsWith}`);
-                    }
-                    return startsWith;
+                    return caseNum.toString().toLowerCase().startsWith(query.toLowerCase());
                 }).slice(0, 10); // Limit to 10 suggestions
                 
                 console.log(`🔍 [CaseManager] Query: "${query}" -> ${filteredCases.length} cases`);
                 
                 // Fetch case details for each suggestion to get case names
                 suggestionsData = [];
-                console.log(`🔍 [CaseManager] Processing ${filteredCases.length} filtered cases:`, filteredCases.slice(0, 3));
                 
                 for (const caseNum of filteredCases) {
                     try {
@@ -3749,17 +3754,11 @@ class CaseManager {
                                 caseNumber: caseNum,
                                 caseName: caseName
                             });
-                            if (suggestionsData.length > filteredCases.length) {
-                                console.log(`🚨 [CaseManager] Array overflow! Length: ${suggestionsData.length}, Expected: ${filteredCases.length}`);
-                            }
                         } else {
                             suggestionsData.push({
                                 caseNumber: caseNum,
                                 caseName: null
                             });
-                            if (suggestionsData.length > filteredCases.length) {
-                                console.log(`🚨 [CaseManager] Array overflow! Length: ${suggestionsData.length}, Expected: ${filteredCases.length}`);
-                            }
                         }
                     } catch (error) {
                         console.error(`❌ [CaseManager] Error fetching case ${caseNum}:`, error);
@@ -3767,34 +3766,21 @@ class CaseManager {
                             caseNumber: caseNum,
                             caseName: null
                         });
-                        if (suggestionsData.length > filteredCases.length) {
-                            console.log(`🚨 [CaseManager] Array overflow! Length: ${suggestionsData.length}, Expected: ${filteredCases.length}`);
-                        }
                     }
                 }
                 
-                console.log(`📊 [CaseManager] Final: ${suggestionsData.length} suggestions (expected: ${filteredCases.length})`);
+                console.log(`📊 [CaseManager] Showing ${suggestionsData.length} suggestions`);
                 
-                // Debug: Check if suggestionsData contains cases not in filteredCases
-                const unexpectedCases = suggestionsData.filter(suggestion => 
-                    !filteredCases.includes(suggestion.caseNumber)
-                );
-                if (unexpectedCases.length > 0) {
-                    console.log(`🚨 [CaseManager] Found ${unexpectedCases.length} unexpected cases:`, 
-                        unexpectedCases.map(c => c.caseNumber).slice(0, 5));
-                }
+                isFiltering = false;
                 displaySuggestions();
             };
             
             // Function to display suggestions
             const displaySuggestions = () => {
-                
                 if (suggestionsData.length === 0) {
                     suggestions.style.display = 'none';
                     return;
                 }
-                
-                console.log(`🎨 [CaseManager] Rendering ${suggestionsData.length} suggestions`);
                 
                 suggestions.innerHTML = suggestionsData.map((suggestion, index) => {
                     const caseNum = suggestion.caseNumber;
@@ -3842,10 +3828,19 @@ class CaseManager {
                 });
             };
             
-            // Input event handler
+            // Input event handler with debouncing
             input.addEventListener('input', (e) => {
                 const query = e.target.value.trim();
-                filterSuggestions(query);
+                
+                // Clear previous debounce timer
+                if (debounceTimer) {
+                    clearTimeout(debounceTimer);
+                }
+                
+                // Debounce the filtering to avoid multiple simultaneous calls
+                debounceTimer = setTimeout(() => {
+                    filterSuggestions(query);
+                }, 300); // 300ms debounce delay
             });
             
             // Add focus and blur effects
