@@ -4338,6 +4338,24 @@ class CaseManager {
                 // Mark as feedback provided
                 localStorage.setItem(`feedback-provided-${currentCase.case_id}`, 'true');
                 
+                // Immediately remove the case from local cache and sidebar
+                if (this.caseManager) {
+                    console.log('🔄 [Feedback] Removing case from sidebar immediately...');
+                    // Remove from local cases array
+                    this.caseManager.cases = this.caseManager.cases.filter(caseData => caseData.caseNumber !== currentCase.case_id);
+                    // Re-render the sidebar
+                    this.caseManager.renderCasesList();
+                    // Update active case if needed
+                    if (this.caseManager.currentCase && this.caseManager.currentCase.caseNumber === currentCase.case_id) {
+                        if (this.caseManager.cases.length > 0) {
+                            this.caseManager.switchToCase(this.caseManager.cases[0].id);
+                        } else {
+                            this.caseManager.currentCase = null;
+                            this.caseManager.updateActiveCaseHeader();
+                        }
+                    }
+                }
+                
                 // Move to next case or close popup after a short delay
                 setTimeout(() => {
                     this.currentFeedbackIndex++;
@@ -4347,9 +4365,9 @@ class CaseManager {
                         this.closeFeedbackPopup();
                     }
                     
-                    // Refresh the sidebar to remove the case that was just submitted
+                    // Also refresh from database to ensure consistency
                     if (this.caseManager) {
-                        console.log('🔄 [Feedback] Refreshing sidebar after feedback submission...');
+                        console.log('🔄 [Feedback] Refreshing from database for consistency...');
                         this.caseManager.refreshCases();
                     }
                 }, 2000); // 2 second delay to show success message
