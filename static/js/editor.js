@@ -3713,32 +3713,18 @@ class CaseManager {
                     return;
                 }
                 
-                const filteredCases = this.preloadedSuggestions.filter(caseNum => {
-                    const caseStr = caseNum.toString().toLowerCase();
-                    const queryStr = query.toLowerCase();
-                    const startsWith = caseStr.startsWith(queryStr);
-                    
-                    // Debug logging for problematic cases
-                    if (caseStr.includes('509055') && queryStr === '5024') {
-                        console.log(`🔍 [DEBUG] Case: ${caseNum}, String: "${caseStr}", Query: "${queryStr}", StartsWith: ${startsWith}`);
-                    }
-                    
-                    return startsWith;
-                }).slice(0, 10); // Limit to 10 suggestions
+                const filteredCases = this.preloadedSuggestions.filter(caseNum => 
+                    caseNum.toString().toLowerCase().startsWith(query.toLowerCase())
+                ).slice(0, 10); // Limit to 10 suggestions
                 
-                console.log(`🔍 [CaseManager] Found ${filteredCases.length} filtered cases (max 10)`);
-                console.log(`🔍 [CaseManager] Query: "${query}"`);
-                console.log('🔍 [CaseManager] Filtered cases:', filteredCases);
                 
                 // Fetch case details for each suggestion to get case names
                 suggestionsData = [];
                 for (const caseNum of filteredCases) {
                     try {
-                        console.log(`🔍 [CaseManager] Fetching details for case ${caseNum}`);
                         const response = await fetch(`/api/cases/details/${caseNum}`);
                         if (response.ok) {
                             const data = await response.json();
-                            console.log(`✅ [CaseManager] Case ${caseNum} details:`, data);
                             
                             let caseName = null;
                             if (data.success && data.details && data.details.length > 0) {
@@ -3750,7 +3736,6 @@ class CaseManager {
                                 });
                                 const latestFSR = sortedFSR[0];
                                 caseName = latestFSR["FSR Current Symptom"];
-                                console.log(`📝 [CaseManager] Case ${caseNum} name: ${caseName}`);
                             }
                             
                             suggestionsData.push({
@@ -3758,7 +3743,6 @@ class CaseManager {
                                 caseName: caseName
                             });
                         } else {
-                            console.log(`⚠️ [CaseManager] No CRM data for case ${caseNum}`);
                             suggestionsData.push({
                                 caseNumber: caseNum,
                                 caseName: null
@@ -3772,16 +3756,11 @@ class CaseManager {
                         });
                     }
                 }
-                
-                console.log('📊 [CaseManager] Final suggestions data:', suggestionsData);
                 displaySuggestions();
             };
             
             // Function to display suggestions
             const displaySuggestions = () => {
-                console.log(`🎨 [CaseManager] displaySuggestions called with ${suggestionsData.length} suggestions`);
-                console.log(`🎨 [CaseManager] Suggestions data:`, suggestionsData);
-                
                 if (suggestionsData.length === 0) {
                     suggestions.style.display = 'none';
                     return;
