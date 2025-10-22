@@ -2553,6 +2553,49 @@ class CaseManager {
         }
     }
     
+    showFeedbackLoadingOverlay() {
+        // Create loading overlay for feedback generation
+        const loadingOverlay = document.createElement('div');
+        loadingOverlay.id = 'feedback-loading-overlay';
+        loadingOverlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10001;
+            backdrop-filter: blur(4px);
+        `;
+        
+        loadingOverlay.innerHTML = `
+            <div style="text-align: center; padding: 40px;">
+                <div style="width: 40px; height: 40px; border: 4px solid #e5e7eb; border-top: 4px solid #41007F; 
+                     border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px;"></div>
+                <div style="font-size: 16px; font-weight: 600; color: #374151; margin-bottom: 8px;">Generating Feedback</div>
+                <div style="font-size: 14px; color: #6b7280;">AI is analyzing the case and generating symptom, fault, and fix...</div>
+            </div>
+            <style>
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            </style>
+        `;
+        
+        document.body.appendChild(loadingOverlay);
+    }
+    
+    hideFeedbackLoadingOverlay() {
+        const loadingOverlay = document.getElementById('feedback-loading-overlay');
+        if (loadingOverlay) {
+            loadingOverlay.remove();
+        }
+    }
+    
     async showDeleteConfirmation(caseToDelete) {
         return new Promise((resolve) => {
             // Create modal overlay
@@ -4030,11 +4073,8 @@ class CaseManager {
             day: 'numeric'
         });
         
-        // Show loading state immediately
-        const submitBtn = document.getElementById('feedback-submit');
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Generating...';
-        submitBtn.classList.add('loading');
+        // Show loading overlay during LLM generation
+        this.showFeedbackLoadingOverlay();
         
         // Clear form first
         document.getElementById('feedback-symptom').value = '';
@@ -4081,9 +4121,12 @@ class CaseManager {
             document.getElementById('feedback-fix').value = '';
         }
         
+        // Hide loading overlay
+        this.hideFeedbackLoadingOverlay();
+        
         // Reset button state
+        const submitBtn = document.getElementById('feedback-submit');
         submitBtn.textContent = 'Submit Feedback';
-        submitBtn.classList.remove('loading');
         this.validateFeedbackForm();
     }
     
