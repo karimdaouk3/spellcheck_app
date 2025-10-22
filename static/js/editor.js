@@ -2604,34 +2604,59 @@ class CaseManager {
             existingError.remove();
         }
         
-        // Create error message
+        // Create full popup error overlay
         const errorDiv = document.createElement('div');
         errorDiv.id = 'feedback-validation-error';
         errorDiv.style.cssText = `
-            background: #fef2f2;
-            border: 1px solid #fecaca;
-            color: #dc2626;
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin: 16px 0;
-            font-size: 14px;
-            font-weight: 500;
-            text-align: center;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(254, 242, 242, 0.95);
+            border: 2px solid #fecaca;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1001;
+            backdrop-filter: blur(2px);
             animation: feedbackErrorSlideIn 0.3s ease-out;
         `;
-        errorDiv.textContent = message;
+        errorDiv.innerHTML = `
+            <div style="text-align: center; padding: 40px;">
+                <div style="width: 60px; height: 60px; background: #dc2626; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                    <div style="color: white; font-size: 24px; font-weight: bold;">!</div>
+                </div>
+                <div style="font-size: 18px; font-weight: 600; color: #dc2626; margin-bottom: 12px;">Validation Error</div>
+                <div style="font-size: 16px; color: #991b1b; margin-bottom: 20px;">${message}</div>
+                <button onclick="this.closest('#feedback-validation-error').remove()" style="
+                    background: #dc2626;
+                    color: white;
+                    border: none;
+                    padding: 12px 24px;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: background 0.2s;
+                " onmouseover="this.style.background='#b91c1c'" onmouseout="this.style.background='#dc2626'">
+                    Dismiss
+                </button>
+            </div>
+        `;
         
-        // Insert after the form
-        const form = document.querySelector('.feedback-form');
-        form.parentNode.insertBefore(errorDiv, form.nextSibling);
+        // Insert into feedback content
+        const feedbackContent = document.querySelector('.feedback-content');
+        feedbackContent.appendChild(errorDiv);
         
-        // Auto-remove after 5 seconds
+        // Auto-remove after 8 seconds
         setTimeout(() => {
             if (errorDiv.parentNode) {
                 errorDiv.style.animation = 'feedbackErrorSlideOut 0.3s ease-in';
                 setTimeout(() => errorDiv.remove(), 300);
             }
-        }, 5000);
+        }, 8000);
     }
     
     showFeedbackSuccessMessage(message) {
@@ -2641,39 +2666,47 @@ class CaseManager {
         if (existingError) existingError.remove();
         if (existingSuccess) existingSuccess.remove();
         
-        // Create success message
+        // Create full popup success overlay
         const successDiv = document.createElement('div');
         successDiv.id = 'feedback-success-message';
         successDiv.style.cssText = `
-            background: #f0fdf4;
-            border: 1px solid #bbf7d0;
-            color: #166534;
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin: 16px 0;
-            font-size: 14px;
-            font-weight: 500;
-            text-align: center;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(240, 253, 244, 0.95);
+            border: 2px solid #bbf7d0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1001;
+            backdrop-filter: blur(2px);
             animation: feedbackSuccessSlideIn 0.3s ease-out;
         `;
         successDiv.innerHTML = `
-            <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
-                <div style="width: 16px; height: 16px; background: #22c55e; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold;">✓</div>
-                ${message}
+            <div style="text-align: center; padding: 40px;">
+                <div style="width: 60px; height: 60px; background: #22c55e; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                    <div style="color: white; font-size: 24px; font-weight: bold;">✓</div>
+                </div>
+                <div style="font-size: 18px; font-weight: 600; color: #166534; margin-bottom: 12px;">Success!</div>
+                <div style="font-size: 16px; color: #15803d; margin-bottom: 20px;">${message}</div>
+                <div style="font-size: 14px; color: #16a34a;">Moving to next case...</div>
             </div>
         `;
         
-        // Insert after the form
-        const form = document.querySelector('.feedback-form');
-        form.parentNode.insertBefore(successDiv, form.nextSibling);
+        // Insert into feedback content
+        const feedbackContent = document.querySelector('.feedback-content');
+        feedbackContent.appendChild(successDiv);
         
-        // Auto-remove after 3 seconds
+        // Auto-remove after 2 seconds (will be handled by submitFeedback timeout)
         setTimeout(() => {
             if (successDiv.parentNode) {
                 successDiv.style.animation = 'feedbackSuccessSlideOut 0.3s ease-in';
                 setTimeout(() => successDiv.remove(), 300);
             }
-        }, 3000);
+        }, 2000);
     }
     
     async showDeleteConfirmation(caseToDelete) {
@@ -4312,6 +4345,11 @@ class CaseManager {
                         this.updateFeedbackForm();
                     } else {
                         this.closeFeedbackPopup();
+                    }
+                    
+                    // Refresh the sidebar to remove the case that was just submitted
+                    if (this.caseManager) {
+                        this.caseManager.loadCases();
                     }
                 }, 2000); // 2 second delay to show success message
             } else {
