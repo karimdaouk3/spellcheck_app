@@ -2952,6 +2952,12 @@ class CaseManager {
         // Show case number input with suggestions
         const caseNumber = await this.showCaseNumberInputWithSuggestions();
         
+        // Check if user cancelled (null means cancelled, empty string means no input)
+        if (caseNumber === null) {
+            // User cancelled, just return without error
+            return;
+        }
+        
         // Validate input
         if (!caseNumber || caseNumber.trim() === '') {
             await this.showCustomAlert('Error', 'Case number is required.');
