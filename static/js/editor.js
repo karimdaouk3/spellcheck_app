@@ -2999,10 +2999,22 @@ class CaseManager {
                 const latestFSR = sortedFSR[0];
                 const latestProblemStatement = latestFSR["FSR Current Problem Statement"];
                 const latestDailyNotes = latestFSR["FSR Daily Notes"];
+                const latestSymptom = latestFSR["FSR Current Symptom"];
                 
                 console.log(`📝 [CaseManager] Latest FSR ${latestFSR["FSR Number"]}:`);
                 console.log(`📝 [CaseManager] - Problem Statement: ${latestProblemStatement?.substring(0, 100)}...`);
                 console.log(`📝 [CaseManager] - Daily Notes: ${latestDailyNotes?.substring(0, 100)}...`);
+                console.log(`📝 [CaseManager] - Symptom: ${latestSymptom?.substring(0, 100)}...`);
+                
+                // Store the symptom for display in sidebar
+                if (latestSymptom && latestSymptom.trim()) {
+                    // Find the case in our cases array and update it with the symptom
+                    const caseIndex = this.cases.findIndex(c => c.caseNumber == caseNumber);
+                    if (caseIndex !== -1) {
+                        this.cases[caseIndex].caseTitle = latestSymptom.trim();
+                        console.log(`📝 [CaseManager] Updated case ${caseNumber} with title: ${latestSymptom.trim()}`);
+                    }
+                }
                 
                 // Update current fields with latest CRM data if they're empty or different
                 const editor1 = document.getElementById('editor');
@@ -3135,9 +3147,12 @@ class CaseManager {
             const untrackedIndicator = caseData.isTrackedInDatabase === false ? 
                 '<div class="untracked-indicator" title="Not tracked in database">⚠️</div>' : '';
             
+            // Use case title (symptom) if available, otherwise fall back to case number
+            const displayTitle = caseData.caseTitle || caseData.caseNumber;
+            
             caseItem.innerHTML = `
                 <div>
-                    <div class="case-number">${caseData.caseNumber}</div>
+                    <div class="case-number" title="${caseData.caseNumber}">${displayTitle}</div>
                     <div class="case-date">${this.formatDate(caseData.updatedAt)}</div>
                 </div>
                 <div class="case-actions">
@@ -3169,16 +3184,20 @@ class CaseManager {
     updateActiveCaseHeader() {
         if (!this.currentCase) return;
         
+        // Use case title (symptom) if available, otherwise fall back to case number
+        const displayTitle = this.currentCase.caseTitle || this.currentCase.caseNumber;
+        
         // Update the active case box display
         const caseNumberDisplay = document.getElementById('case-number-display');
         if (caseNumberDisplay) {
-            caseNumberDisplay.textContent = this.currentCase.caseNumber;
+            caseNumberDisplay.textContent = displayTitle;
+            caseNumberDisplay.title = this.currentCase.caseNumber; // Show case number in tooltip
         }
         
         // Update any case-specific UI elements
         const activeHeader = document.getElementById('active-editor-header');
         if (activeHeader) {
-            activeHeader.innerHTML = `<div style="color: #41007F; font-weight: 600; margin-bottom: 8px;">Active Case: ${this.currentCase.caseNumber}</div>`;
+            activeHeader.innerHTML = `<div style="color: #41007F; font-weight: 600; margin-bottom: 8px;">Active Case: ${displayTitle}</div>`;
         }
     }
     
