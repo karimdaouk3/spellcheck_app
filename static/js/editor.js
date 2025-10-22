@@ -3481,12 +3481,21 @@ class CaseManager {
     
     
     renderCasesList() {
+        console.log('🔄 [CaseManager] renderCasesList() called');
+        console.log('🔍 [CaseManager] Cases to render:', this.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber, caseTitle: c.caseTitle })));
+        console.log('🔍 [CaseManager] Cases count:', this.cases.length);
+        
         const casesList = document.getElementById('cases-list');
-        if (!casesList) return;
+        if (!casesList) {
+            console.error('❌ [CaseManager] cases-list element not found');
+            return;
+        }
         
         casesList.innerHTML = '';
+        console.log('🔄 [CaseManager] Cleared cases list HTML');
         
         this.cases.forEach(caseData => {
+            console.log(`🔄 [CaseManager] Rendering case: ${caseData.caseNumber} (ID: ${caseData.id})`);
             const caseItem = document.createElement('div');
             caseItem.className = `case-item ${this.currentCase && this.currentCase.id === caseData.id ? 'active' : ''}`;
             
@@ -4341,19 +4350,43 @@ class CaseManager {
                 // Immediately remove the case from local cache and sidebar
                 if (this.caseManager) {
                     console.log('🔄 [Feedback] Removing case from sidebar immediately...');
+                    console.log('🔍 [Feedback] CaseManager exists:', !!this.caseManager);
+                    console.log('🔍 [Feedback] Case to remove:', currentCase.case_id);
+                    console.log('🔍 [Feedback] Cases before removal:', this.caseManager.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber, caseTitle: c.caseTitle })));
+                    console.log('🔍 [Feedback] Cases count before:', this.caseManager.cases.length);
+                    
                     // Remove from local cases array
-                    this.caseManager.cases = this.caseManager.cases.filter(caseData => caseData.caseNumber !== currentCase.case_id);
+                    const originalLength = this.caseManager.cases.length;
+                    this.caseManager.cases = this.caseManager.cases.filter(caseData => {
+                        const shouldKeep = caseData.caseNumber !== currentCase.case_id;
+                        console.log(`🔍 [Feedback] Case ${caseData.caseNumber} (ID: ${caseData.id}): ${shouldKeep ? 'KEEPING' : 'REMOVING'}`);
+                        return shouldKeep;
+                    });
+                    
+                    console.log('🔍 [Feedback] Cases after removal:', this.caseManager.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber, caseTitle: c.caseTitle })));
+                    console.log('🔍 [Feedback] Cases count after:', this.caseManager.cases.length);
+                    console.log('🔍 [Feedback] Removed cases count:', originalLength - this.caseManager.cases.length);
+                    
                     // Re-render the sidebar
+                    console.log('🔄 [Feedback] Re-rendering sidebar...');
                     this.caseManager.renderCasesList();
+                    
                     // Update active case if needed
                     if (this.caseManager.currentCase && this.caseManager.currentCase.caseNumber === currentCase.case_id) {
+                        console.log('🔄 [Feedback] Current case was removed, switching to next case...');
                         if (this.caseManager.cases.length > 0) {
+                            console.log('🔄 [Feedback] Switching to first available case:', this.caseManager.cases[0].id);
                             this.caseManager.switchToCase(this.caseManager.cases[0].id);
                         } else {
+                            console.log('🔄 [Feedback] No cases left, clearing current case');
                             this.caseManager.currentCase = null;
                             this.caseManager.updateActiveCaseHeader();
                         }
+                    } else {
+                        console.log('🔄 [Feedback] Current case not affected, no switching needed');
                     }
+                } else {
+                    console.error('❌ [Feedback] CaseManager not available for sidebar removal');
                 }
                 
                 // Move to next case or close popup after a short delay
@@ -4368,7 +4401,10 @@ class CaseManager {
                     // Also refresh from database to ensure consistency
                     if (this.caseManager) {
                         console.log('🔄 [Feedback] Refreshing from database for consistency...');
-                        this.caseManager.refreshCases();
+                        console.log('🔍 [Feedback] Cases before database refresh:', this.caseManager.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber, caseTitle: c.caseTitle })));
+                        this.caseManager.refreshCases().then(() => {
+                            console.log('🔍 [Feedback] Cases after database refresh:', this.caseManager.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber, caseTitle: c.caseTitle })));
+                        });
                     }
                 }, 2000); // 2 second delay to show success message
             } else {
