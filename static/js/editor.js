@@ -2597,6 +2597,85 @@ class CaseManager {
         }
     }
     
+    showFeedbackValidationError(message) {
+        // Remove any existing error message
+        const existingError = document.getElementById('feedback-validation-error');
+        if (existingError) {
+            existingError.remove();
+        }
+        
+        // Create error message
+        const errorDiv = document.createElement('div');
+        errorDiv.id = 'feedback-validation-error';
+        errorDiv.style.cssText = `
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin: 16px 0;
+            font-size: 14px;
+            font-weight: 500;
+            text-align: center;
+            animation: feedbackErrorSlideIn 0.3s ease-out;
+        `;
+        errorDiv.textContent = message;
+        
+        // Insert after the form
+        const form = document.querySelector('.feedback-form');
+        form.parentNode.insertBefore(errorDiv, form.nextSibling);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (errorDiv.parentNode) {
+                errorDiv.style.animation = 'feedbackErrorSlideOut 0.3s ease-in';
+                setTimeout(() => errorDiv.remove(), 300);
+            }
+        }, 5000);
+    }
+    
+    showFeedbackSuccessMessage(message) {
+        // Remove any existing messages
+        const existingError = document.getElementById('feedback-validation-error');
+        const existingSuccess = document.getElementById('feedback-success-message');
+        if (existingError) existingError.remove();
+        if (existingSuccess) existingSuccess.remove();
+        
+        // Create success message
+        const successDiv = document.createElement('div');
+        successDiv.id = 'feedback-success-message';
+        successDiv.style.cssText = `
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin: 16px 0;
+            font-size: 14px;
+            font-weight: 500;
+            text-align: center;
+            animation: feedbackSuccessSlideIn 0.3s ease-out;
+        `;
+        successDiv.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <div style="width: 16px; height: 16px; background: #22c55e; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold;">✓</div>
+                ${message}
+            </div>
+        `;
+        
+        // Insert after the form
+        const form = document.querySelector('.feedback-form');
+        form.parentNode.insertBefore(successDiv, form.nextSibling);
+        
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            if (successDiv.parentNode) {
+                successDiv.style.animation = 'feedbackSuccessSlideOut 0.3s ease-in';
+                setTimeout(() => successDiv.remove(), 300);
+            }
+        }, 3000);
+    }
+    
     async showDeleteConfirmation(caseToDelete) {
         return new Promise((resolve) => {
             // Create modal overlay
@@ -4185,6 +4264,17 @@ class CaseManager {
         const fault = document.getElementById('feedback-fault').value.trim();
         const fix = document.getElementById('feedback-fix').value.trim();
         
+        // Validation
+        if (!symptom || !fault || !fix) {
+            this.showFeedbackValidationError('Please fill in all fields before submitting.');
+            return;
+        }
+        
+        if (symptom.length < 10 || fault.length < 10 || fix.length < 10) {
+            this.showFeedbackValidationError('Please provide more detailed feedback (at least 10 characters per field).');
+            return;
+        }
+        
         const feedbackData = {
             case_number: currentCase.case_id,
             closed_date: currentCase.closed_date,
@@ -4209,24 +4299,29 @@ class CaseManager {
             if (response.ok) {
                 console.log(`Feedback submitted for case ${currentCase.case_id}`);
                 
+                // Show success message
+                this.showFeedbackSuccessMessage(`Feedback submitted successfully for case ${currentCase.case_id}!`);
+                
                 // Mark as feedback provided
                 localStorage.setItem(`feedback-provided-${currentCase.case_id}`, 'true');
                 
-                // Move to next case or close popup
-                this.currentFeedbackIndex++;
-                if (this.currentFeedbackIndex < this.pendingFeedbackCases.length) {
-                    this.updateFeedbackForm();
-                } else {
-                    this.closeFeedbackPopup();
-                }
+                // Move to next case or close popup after a short delay
+                setTimeout(() => {
+                    this.currentFeedbackIndex++;
+                    if (this.currentFeedbackIndex < this.pendingFeedbackCases.length) {
+                        this.updateFeedbackForm();
+                    } else {
+                        this.closeFeedbackPopup();
+                    }
+                }, 2000); // 2 second delay to show success message
             } else {
                 console.error('Failed to submit feedback');
-                alert('Failed to submit feedback. Please try again.');
+                this.showFeedbackValidationError('Failed to submit feedback. Please try again.');
             }
             
         } catch (error) {
             console.error('Error submitting feedback:', error);
-            alert('Error submitting feedback. Please try again.');
+            this.showFeedbackValidationError('Error submitting feedback. Please try again.');
         }
     }
     
