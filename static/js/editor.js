@@ -4095,10 +4095,10 @@ class CaseManager {
         console.log('🎭 [DEBUG] Set pendingFeedbackCases:', this.pendingFeedbackCases);
         console.log('🎭 [DEBUG] Set currentFeedbackIndex:', this.currentFeedbackIndex);
         
-        // Disable all page interactions
+        // Disable page scrolling but keep pointer events for popup
         document.body.style.overflow = 'hidden';
-        document.body.style.pointerEvents = 'none';
-        console.log('🎭 [DEBUG] Disabled page interactions');
+        // Don't disable pointer events on body as it might affect popup
+        console.log('🎭 [DEBUG] Disabled page scrolling');
         
         // Show the feedback popup
         const feedbackPopup = document.getElementById('feedback-popup');
@@ -4111,8 +4111,29 @@ class CaseManager {
         
         feedbackPopup.style.display = 'flex';
         feedbackPopup.style.pointerEvents = 'auto';
+        feedbackPopup.style.visibility = 'visible';
+        feedbackPopup.style.opacity = '1';
         console.log('🎭 [DEBUG] Set popup display to flex and pointer events to auto');
         console.log('🎭 [DEBUG] Popup computed style display:', window.getComputedStyle(feedbackPopup).display);
+        
+        // Additional debugging for popup visibility
+        const rect = feedbackPopup.getBoundingClientRect();
+        console.log('🎭 [DEBUG] Popup bounding rect:', {
+            top: rect.top,
+            left: rect.left,
+            width: rect.width,
+            height: rect.height,
+            visible: rect.width > 0 && rect.height > 0
+        });
+        
+        const computedStyle = window.getComputedStyle(feedbackPopup);
+        console.log('🎭 [DEBUG] Popup computed styles:', {
+            display: computedStyle.display,
+            visibility: computedStyle.visibility,
+            opacity: computedStyle.opacity,
+            zIndex: computedStyle.zIndex,
+            position: computedStyle.position
+        });
         
         // Setup event listeners first
         console.log('🎭 [DEBUG] Setting up event listeners...');
