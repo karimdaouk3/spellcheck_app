@@ -3713,12 +3713,21 @@ class CaseManager {
                     return;
                 }
                 
-                const filteredCases = this.preloadedSuggestions.filter(caseNum => 
-                    caseNum.toString().toLowerCase().startsWith(query.toLowerCase())
-                ).slice(0, 10); // Limit to 10 suggestions
+                const filteredCases = this.preloadedSuggestions.filter(caseNum => {
+                    const caseStr = caseNum.toString().toLowerCase();
+                    const queryStr = query.toLowerCase();
+                    const startsWith = caseStr.startsWith(queryStr);
+                    
+                    // Debug logging for problematic cases
+                    if (caseStr.includes('509055') && queryStr === '5024') {
+                        console.log(`🔍 [DEBUG] Case: ${caseNum}, String: "${caseStr}", Query: "${queryStr}", StartsWith: ${startsWith}`);
+                    }
+                    
+                    return startsWith;
+                }).slice(0, 10); // Limit to 10 suggestions
                 
                 console.log(`🔍 [CaseManager] Found ${filteredCases.length} filtered cases (max 10)`);
-                
+                console.log(`🔍 [CaseManager] Query: "${query}"`);
                 console.log('🔍 [CaseManager] Filtered cases:', filteredCases);
                 
                 // Fetch case details for each suggestion to get case names
@@ -3770,6 +3779,9 @@ class CaseManager {
             
             // Function to display suggestions
             const displaySuggestions = () => {
+                console.log(`🎨 [CaseManager] displaySuggestions called with ${suggestionsData.length} suggestions`);
+                console.log(`🎨 [CaseManager] Suggestions data:`, suggestionsData);
+                
                 if (suggestionsData.length === 0) {
                     suggestions.style.display = 'none';
                     return;
