@@ -2764,8 +2764,8 @@ class CaseManager {
     }
     
     async createNewCase() {
-        // Prompt user for case number using custom popup
-        const caseNumber = await this.showCustomPrompt('Enter Case Number', 'Please enter the case number:');
+        // Show case number input with suggestions
+        const caseNumber = await this.showCaseNumberInputWithSuggestions();
         
         // Validate input
         if (!caseNumber || caseNumber.trim() === '') {
@@ -3275,6 +3275,167 @@ class CaseManager {
             month: 'short',
             day: 'numeric',
             year: 'numeric'
+        });
+    }
+    
+    async showCaseNumberInputWithSuggestions() {
+        return new Promise((resolve) => {
+            // Create modal overlay
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10000;
+            `;
+            
+            // Create modal content
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                background: white;
+                padding: 30px;
+                border-radius: 12px;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+                max-width: 500px;
+                width: 90%;
+                max-height: 80vh;
+                overflow-y: auto;
+            `;
+            
+            modal.innerHTML = `
+                <h3 style="margin: 0 0 20px 0; color: #333; font-size: 20px;">Enter Case Number</h3>
+                <p style="margin: 0 0 15px 0; color: #666;">Type to search for available case numbers:</p>
+                <input type="text" id="case-number-input" placeholder="Start typing case number..." 
+                       style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 16px; margin-bottom: 10px;">
+                <div id="case-suggestions" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 20px; display: none;">
+                    <!-- Suggestions will be populated here -->
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button id="cancel-case-btn" style="padding: 10px 20px; border: 1px solid #ddd; background: #f5f5f5; border-radius: 6px; cursor: pointer;">Cancel</button>
+                    <button id="confirm-case-btn" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer;">Create Case</button>
+                </div>
+            `;
+            
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+            
+            const input = modal.querySelector('#case-number-input');
+            const suggestions = modal.querySelector('#case-suggestions');
+            const cancelBtn = modal.querySelector('#cancel-case-btn');
+            const confirmBtn = modal.querySelector('#confirm-case-btn');
+            
+            let suggestionsData = [];
+            let selectedIndex = -1;
+            
+            // Function to fetch suggestions
+            const fetchSuggestions = async (query) => {
+                try {
+                    const response = await fetch(`/api/cases/suggestions?q=${encodeURIComponent(query)}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        suggestionsData = data.case_numbers || [];
+                        displaySuggestions();
+                    }
+                } catch (error) {
+                    console.error('Error fetching suggestions:', error);
+                    suggestionsData = [];
+                    displaySuggestions();
+                }
+            };
+            
+            // Function to display suggestions
+            const displaySuggestions = () => {
+                if (suggestionsData.length === 0) {
+                    suggestions.style.display = 'none';
+                    return;
+                }
+                
+                suggestions.innerHTML = suggestionsData.map((caseNum, index) => `
+                    <div class="suggestion-item" data-index="${index}" 
+                         style="padding: 10px; cursor: pointer; border-bottom: 1px solid #eee; 
+                                ${index === selectedIndex ? 'background: #f0f8ff;' : ''}">
+                        ${caseNum}
+                    </div>
+                `).join('');
+                
+                suggestions.style.display = 'block';
+                
+                // Add click handlers for suggestions
+                suggestions.querySelectorAll('.suggestion-item').forEach((item, index) => {
+                    item.addEventListener('click', () => {
+                        input.value = suggestionsData[index];
+                        suggestions.style.display = 'none';
+                        selectedIndex = -1;
+                    });
+                });
+            };
+            
+            // Input event handler
+            let debounceTimer;
+            input.addEventListener('input', (e) => {
+                const query = e.target.value.trim();
+                clearTimeout(debounceTimer);
+                
+                if (query.length >= 1) {
+                    debounceTimer = setTimeout(() => {
+                        fetchSuggestions(query);
+                    }, 300);
+                } else {
+                    suggestions.style.display = 'none';
+                    suggestionsData = [];
+                }
+            });
+            
+            // Keyboard navigation
+            input.addEventListener('keydown', (e) => {
+                if (suggestions.style.display === 'none') return;
+                
+                switch (e.key) {
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        selectedIndex = Math.min(selectedIndex + 1, suggestionsData.length - 1);
+                        displaySuggestions();
+                        break;
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        selectedIndex = Math.max(selectedIndex - 1, -1);
+                        displaySuggestions();
+                        break;
+                    case 'Enter':
+                        e.preventDefault();
+                        if (selectedIndex >= 0 && selectedIndex < suggestionsData.length) {
+                            input.value = suggestionsData[selectedIndex];
+                            suggestions.style.display = 'none';
+                            selectedIndex = -1;
+                        }
+                        break;
+                    case 'Escape':
+                        suggestions.style.display = 'none';
+                        selectedIndex = -1;
+                        break;
+                }
+            });
+            
+            // Button handlers
+            cancelBtn.addEventListener('click', () => {
+                document.body.removeChild(overlay);
+                resolve(null);
+            });
+            
+            confirmBtn.addEventListener('click', () => {
+                const value = input.value.trim();
+                document.body.removeChild(overlay);
+                resolve(value);
+            });
+            
+            // Focus input
+            input.focus();
         });
     }
     

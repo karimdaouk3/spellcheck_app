@@ -859,18 +859,24 @@ def get_case_suggestions():
     if not user_email:
         return jsonify({"error": "No email found in user data"}), 400
     
+    # Get search query parameter for filtering
+    search_query = request.args.get('q', '').strip()
+    
     # Convert email to uppercase to match CRM format
     user_email_upper = user_email.upper()
     print(f"🔍 [CRM] Getting case suggestions for user: {user_email} (formatted: {user_email_upper})")
+    if search_query:
+        print(f"🔍 [CRM] Filtering by search query: '{search_query}'")
     
     try:
-        case_numbers = get_available_case_numbers(user_email_upper)
+        case_numbers = get_available_case_numbers(user_email_upper, search_query)
         print(f"✅ [CRM] Found {len(case_numbers)} available cases")
         
         return jsonify({
             "success": True,
             "case_numbers": case_numbers,
-            "count": len(case_numbers)
+            "count": len(case_numbers),
+            "search_query": search_query
         })
         
     except Exception as e:
@@ -906,29 +912,38 @@ def get_case_details_endpoint(case_number):
 
 # ==================== CRM INTEGRATION FUNCTIONS ====================
 
-def get_available_case_numbers(user_email):
+def get_available_case_numbers(user_email, search_query=""):
     """
     CRM Query 1: Get available case numbers for suggestions
     Use this in: /api/cases/suggestions
     """
     try:
-        query = """
+        # Base query without email restriction (for testing)
+        base_query = """
             SELECT DISTINCT "Case Number"
             FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
-            WHERE "Case Number" IS NOT NULL 
-            ORDER BY "Case Number" DESC
+            WHERE "Case Number" IS NOT NULL
         """
+        
+        # Add search filtering if provided
+        if search_query:
+            base_query += f' AND "Case Number" LIKE \'%{search_query}%\''
+        
+        base_query += " ORDER BY \"Case Number\" DESC"
         
         # TODO: Uncomment for production - email restriction
         # WHERE "USER_EMAILS" LIKE %s
         # like_pattern = f"%~{user_email.upper()}~%"
         # result = snowflake_query(query, CONNECTION_PAYLOAD, (like_pattern,))
         
-        result = snowflake_query(query, CONNECTION_PAYLOAD)
+        result = snowflake_query(base_query, CONNECTION_PAYLOAD)
         
         if result is not None and not result.empty:
-            return result["Case Number"].tolist()
+            case_numbers = result["Case Number"].tolist()
+            print(f"🔍 [CRM] Found {len(case_numbers)} cases matching search: '{search_query}'")
+            return case_numbers
         else:
+            print(f"ℹ️ [CRM] No cases found matching search: '{search_query}'")
             return []
             
     except Exception as e:
