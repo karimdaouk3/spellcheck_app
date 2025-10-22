@@ -105,11 +105,6 @@ def check_external_crm_status_for_case(case_id):
     try:
         print(f"🔍 [CRM] Checking status for case {case_id} in external CRM")
         
-        # SIMULATION: Force case 502771541 to be closed for testing
-        if str(case_id) == '502771541':
-            print(f"🎭 [CRM] SIMULATION: Forcing case {case_id} to be CLOSED for testing")
-            return "closed"
-        
         # Query 2: Check if case is actually closed (has closure date)
         query = f"""
             SELECT DISTINCT "[Case Number]"
@@ -167,12 +162,6 @@ def check_external_crm_status_batch(case_ids):
     
     # Check cache first
     for case_id in case_ids:
-        # SIMULATION: Force case 502771541 to be closed for testing
-        if str(case_id) == '502771541':
-            print(f"🎭 [CRM] SIMULATION: Forcing case {case_id} to be CLOSED for testing")
-            status_map[case_id] = "closed"
-            continue
-            
         cache_key = f"crm_status_{case_id}"
         if (cache_key in _crm_cache and 
             current_time - _crm_cache[cache_key]['timestamp'] < CRM_CACHE_TTL):
