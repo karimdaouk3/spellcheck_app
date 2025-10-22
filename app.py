@@ -953,7 +953,7 @@ def get_available_case_numbers(user_email, search_query="", limit=5):
     try:
         # Base query without email restriction (for testing)
         base_query = """
-            SELECT DISTINCT "Case Number"
+            SELECT DISTINCT "Case Number" as CASE_NUMBER
             FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
             WHERE "Case Number" IS NOT NULL
         """
@@ -969,10 +969,19 @@ def get_available_case_numbers(user_email, search_query="", limit=5):
         # like_pattern = f"%~{user_email.upper()}~%"
         # result = snowflake_query(query, CONNECTION_PAYLOAD, (like_pattern,))
         
+        print(f"🔍 [CRM] Executing query: {base_query}")
         result = snowflake_query(base_query, CONNECTION_PAYLOAD)
         
+        print(f"📊 [CRM] Query result:")
+        print(f"   - Result is None: {result is None}")
+        print(f"   - Result is empty: {result.empty if result is not None else 'N/A'}")
         if result is not None and not result.empty:
-            case_numbers = result["Case Number"].tolist()
+            print(f"   - Number of rows: {len(result)}")
+            print(f"   - Columns: {list(result.columns)}")
+            print(f"   - Sample data: {result.head(3).to_dict('records')}")
+        
+        if result is not None and not result.empty:
+            case_numbers = result["CASE_NUMBER"].tolist()
             print(f"🔍 [CRM] Found {len(case_numbers)} cases matching search: '{search_query}'")
             return case_numbers
         else:
@@ -980,7 +989,9 @@ def get_available_case_numbers(user_email, search_query="", limit=5):
             return []
             
     except Exception as e:
-        print(f"Error getting available case numbers: {e}")
+        print(f"❌ [CRM] Error getting available case numbers: {e}")
+        import traceback
+        traceback.print_exc()
         return []
 
 def check_case_status_batch(case_numbers):
