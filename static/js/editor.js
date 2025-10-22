@@ -3714,7 +3714,7 @@ class CaseManager {
                 }
                 
                 const filteredCases = this.preloadedSuggestions.filter(caseNum => 
-                    caseNum.toString().toLowerCase().includes(query.toLowerCase())
+                    caseNum.toString().toLowerCase().startsWith(query.toLowerCase())
                 ).slice(0, 10); // Limit to 10 suggestions
                 
                 console.log(`🔍 [CaseManager] Found ${filteredCases.length} filtered cases (max 10)`);
