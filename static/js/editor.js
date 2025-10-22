@@ -2597,6 +2597,24 @@ class CaseManager {
         }
     }
     
+    clearValidationStates() {
+        // Clear validation classes from all fields
+        const fields = ['feedback-symptom', 'feedback-fault', 'feedback-fix'];
+        fields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            const fieldContainer = field.closest('.feedback-field');
+            
+            field.classList.remove('valid', 'invalid');
+            fieldContainer.classList.remove('success', 'error');
+        });
+        
+        // Remove validation message
+        const validationMessage = document.getElementById('feedback-validation-message');
+        if (validationMessage) {
+            validationMessage.remove();
+        }
+    }
+    
     async showDeleteConfirmation(caseToDelete) {
         return new Promise((resolve) => {
             // Create modal overlay
@@ -4088,6 +4106,9 @@ class CaseManager {
         document.getElementById('feedback-fault').value = '';
         document.getElementById('feedback-fix').value = '';
         
+        // Clear validation states and message
+        this.clearValidationStates();
+        
         try {
             console.log('🤖 Generating LLM feedback for case:', currentCase.case_id);
             
@@ -4174,16 +4195,98 @@ class CaseManager {
         const fix = document.getElementById('feedback-fix').value.trim();
         const submitBtn = document.getElementById('feedback-submit');
         
-        const isValid = symptom.length > 0 && fault.length > 0 && fix.length > 0;
+        // Check individual field validity
+        const symptomValid = symptom.length > 0;
+        const faultValid = fault.length > 0;
+        const fixValid = fix.length > 0;
+        const isValid = symptomValid && faultValid && fixValid;
+        
+        // Update field styling based on validation
+        this.updateFieldValidation('feedback-symptom', symptomValid, symptom);
+        this.updateFieldValidation('feedback-fault', faultValid, fault);
+        this.updateFieldValidation('feedback-fix', fixValid, fix);
+        
+        // Update submit button
         submitBtn.disabled = !isValid;
+        
+        // Update validation message
+        this.updateValidationMessage(symptomValid, faultValid, fixValid);
+    }
+    
+    updateFieldValidation(fieldId, isValid, value) {
+        const field = document.getElementById(fieldId);
+        const fieldContainer = field.closest('.feedback-field');
+        
+        if (isValid) {
+            field.classList.remove('invalid');
+            field.classList.add('valid');
+            fieldContainer.classList.remove('error');
+            fieldContainer.classList.add('success');
+        } else {
+            field.classList.remove('valid');
+            field.classList.add('invalid');
+            fieldContainer.classList.remove('success');
+            fieldContainer.classList.add('error');
+        }
+    }
+    
+    updateValidationMessage(symptomValid, faultValid, fixValid) {
+        let validationMessage = document.getElementById('feedback-validation-message');
+        
+        if (!validationMessage) {
+            // Create validation message element
+            validationMessage = document.createElement('div');
+            validationMessage.id = 'feedback-validation-message';
+            validationMessage.style.cssText = `
+                margin-top: 12px;
+                padding: 8px 12px;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: 500;
+                text-align: center;
+                transition: all 0.3s ease;
+            `;
+            
+            // Insert after the form
+            const form = document.querySelector('.feedback-form');
+            form.parentNode.insertBefore(validationMessage, form.nextSibling);
+        }
+        
+        if (symptomValid && faultValid && fixValid) {
+            validationMessage.textContent = '✅ All fields completed. Ready to submit!';
+            validationMessage.style.cssText += `
+                background: #d1fae5;
+                color: #065f46;
+                border: 1px solid #a7f3d0;
+            `;
+        } else {
+            const missingFields = [];
+            if (!symptomValid) missingFields.push('Symptom');
+            if (!faultValid) missingFields.push('Fault');
+            if (!fixValid) missingFields.push('Fix');
+            
+            validationMessage.textContent = `⚠️ Please complete: ${missingFields.join(', ')}`;
+            validationMessage.style.cssText += `
+                background: #fef3c7;
+                color: #92400e;
+                border: 1px solid #fcd34d;
+            `;
+        }
     }
     
     // Submit feedback for current case
     async submitFeedback() {
-        const currentCase = this.pendingFeedbackCases[this.currentFeedbackIndex];
+        // Validate form before submission
         const symptom = document.getElementById('feedback-symptom').value.trim();
         const fault = document.getElementById('feedback-fault').value.trim();
         const fix = document.getElementById('feedback-fix').value.trim();
+        
+        if (!symptom || !fault || !fix) {
+            console.warn('Form validation failed - missing required fields');
+            return; // Don't submit if validation fails
+        }
+        
+        const currentCase = this.pendingFeedbackCases[this.currentFeedbackIndex];
         
         const feedbackData = {
             case_number: currentCase.case_id,

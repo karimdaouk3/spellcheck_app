@@ -1020,6 +1020,49 @@ body {
     border-color: #dc3545;
 }
 
+/* Feedback form validation styles */
+.feedback-field textarea.valid {
+    border-color: #10b981;
+    background-color: #f0fdf4;
+}
+
+.feedback-field textarea.invalid {
+    border-color: #ef4444;
+    background-color: #fef2f2;
+}
+
+.feedback-field.success {
+    position: relative;
+}
+
+.feedback-field.success::after {
+    content: '✓';
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #10b981;
+    font-weight: bold;
+    font-size: 16px;
+    pointer-events: none;
+}
+
+.feedback-field.error {
+    position: relative;
+}
+
+.feedback-field.error::after {
+    content: '⚠';
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #ef4444;
+    font-weight: bold;
+    font-size: 16px;
+    pointer-events: none;
+}
+
 
 .feedback-footer {
     padding: 20px 24px 24px 24px;
