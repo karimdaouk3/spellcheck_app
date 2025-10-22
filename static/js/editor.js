@@ -2530,7 +2530,7 @@ class CaseManager {
         
         loadingOverlay.innerHTML = `
             <div style="text-align: center; padding: 40px;">
-                <div style="width: 40px; height: 40px; border: 4px solid #e5e7eb; border-top: 4px solid #7c3aed; 
+                <div style="width: 40px; height: 40px; border: 4px solid #e5e7eb; border-top: 4px solid #41007F; 
                      border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px;"></div>
                 <div style="font-size: 16px; font-weight: 600; color: #374151; margin-bottom: 8px;">Loading Cases</div>
                 <div style="font-size: 14px; color: #6b7280;">Fetching your cases and CRM data...</div>
@@ -3394,7 +3394,7 @@ class CaseManager {
             `;
             
             modal.innerHTML = `
-                <div style="background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); padding: 24px; color: white;">
+                <div style="background: linear-gradient(135deg, #41007F 0%, #5a1a9a 100%); padding: 24px; color: white;">
                     <h3 style="margin: 0 0 8px 0; font-size: 24px; font-weight: 600;">Create New Case</h3>
                     <p style="margin: 0; opacity: 0.9; font-size: 14px;">Enter a case number to get started</p>
                 </div>
@@ -3414,7 +3414,7 @@ class CaseManager {
                         <button id="cancel-case-btn" style="padding: 12px 24px; border: 1px solid #d1d5db; background: #f9fafb; 
                                 color: #374151; border-radius: 8px; cursor: pointer; font-weight: 500; 
                                 transition: all 0.2s ease; font-size: 14px;">Cancel</button>
-                        <button id="confirm-case-btn" style="padding: 12px 24px; background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); 
+                        <button id="confirm-case-btn" style="padding: 12px 24px; background: linear-gradient(135deg, #41007F 0%, #5a1a9a 100%); 
                                 color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; 
                                 transition: all 0.2s ease; font-size: 14px;">Create Case</button>
                     </div>
@@ -3452,7 +3452,7 @@ class CaseManager {
                 }
                 
                 suggestions.innerHTML = suggestionsData.map((caseNum, index) => {
-                    // Find case name from preloaded data
+                    // Find case name from existing cases (if user already has this case)
                     const caseData = this.cases.find(c => c.caseNumber == caseNum);
                     const caseName = caseData ? caseData.caseTitle : null;
                     
@@ -3466,7 +3466,8 @@ class CaseManager {
                                 <div style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; flex-shrink: 0;"></div>
                                 <div style="flex: 1;">
                                     <div style="font-weight: 500; color: #111827;">Case ${caseNum}</div>
-                                    ${caseName ? `<div style="font-size: 12px; color: #6b7280; margin-top: 2px;">${caseName}</div>` : ''}
+                                    ${caseName ? `<div style="font-size: 12px; color: #6b7280; margin-top: 2px;">${caseName}</div>` : 
+                                      `<div style="font-size: 12px; color: #6b7280; margin-top: 2px;">Available in CRM</div>`}
                                 </div>
                             </div>
                         </div>
@@ -3505,8 +3506,8 @@ class CaseManager {
             
             // Add focus and blur effects
             input.addEventListener('focus', (e) => {
-                e.target.style.borderColor = '#7c3aed';
-                e.target.style.boxShadow = '0 0 0 3px rgba(124, 58, 237, 0.1)';
+                e.target.style.borderColor = '#41007F';
+                e.target.style.boxShadow = '0 0 0 3px rgba(65, 0, 127, 0.1)';
             });
             
             input.addEventListener('blur', (e) => {
@@ -3530,7 +3531,7 @@ class CaseManager {
             
             confirmBtnHover.addEventListener('mouseenter', () => {
                 confirmBtnHover.style.transform = 'translateY(-1px)';
-                confirmBtnHover.style.boxShadow = '0 4px 12px rgba(124, 58, 237, 0.3)';
+                confirmBtnHover.style.boxShadow = '0 4px 12px rgba(65, 0, 127, 0.3)';
             });
             
             confirmBtnHover.addEventListener('mouseleave', () => {
