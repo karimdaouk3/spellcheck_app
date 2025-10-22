@@ -3333,26 +3333,41 @@ class CaseManager {
             const modal = document.createElement('div');
             modal.style.cssText = `
                 background: white;
-                padding: 30px;
-                border-radius: 12px;
-                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-                max-width: 500px;
+                padding: 0;
+                border-radius: 16px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+                max-width: 600px;
                 width: 90%;
                 max-height: 80vh;
-                overflow-y: auto;
+                overflow: hidden;
+                border: 1px solid #e1e5e9;
             `;
             
             modal.innerHTML = `
-                <h3 style="margin: 0 0 20px 0; color: #333; font-size: 20px;">Enter Case Number</h3>
-                <p style="margin: 0 0 15px 0; color: #666;">Type to search for available case numbers:</p>
-                <input type="text" id="case-number-input" placeholder="Start typing case number..." 
-                       style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 16px; margin-bottom: 10px;">
-                <div id="case-suggestions" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 20px; display: none;">
-                    <!-- Suggestions will be populated here -->
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 24px; color: white;">
+                    <h3 style="margin: 0 0 8px 0; font-size: 24px; font-weight: 600;">Create New Case</h3>
+                    <p style="margin: 0; opacity: 0.9; font-size: 14px;">Enter a case number to get started</p>
                 </div>
-                <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                    <button id="cancel-case-btn" style="padding: 10px 20px; border: 1px solid #ddd; background: #f5f5f5; border-radius: 6px; cursor: pointer;">Cancel</button>
-                    <button id="confirm-case-btn" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer;">Create Case</button>
+                <div style="padding: 32px;">
+                    <div style="margin-bottom: 24px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151; font-size: 14px;">Case Number</label>
+                        <input type="text" id="case-number-input" placeholder="Start typing case number..." 
+                               style="width: 100%; padding: 16px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px; 
+                                      transition: border-color 0.2s ease; box-sizing: border-box;
+                                      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                        <p style="margin: 8px 0 0 0; color: #6b7280; font-size: 13px;">Type to search for available case numbers from CRM</p>
+                    </div>
+                    <div id="case-suggestions" style="max-height: 200px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 24px; display: none; background: #f9fafb;">
+                        <!-- Suggestions will be populated here -->
+                    </div>
+                    <div style="display: flex; gap: 12px; justify-content: flex-end; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+                        <button id="cancel-case-btn" style="padding: 12px 24px; border: 1px solid #d1d5db; background: #f9fafb; 
+                                color: #374151; border-radius: 8px; cursor: pointer; font-weight: 500; 
+                                transition: all 0.2s ease; font-size: 14px;">Cancel</button>
+                        <button id="confirm-case-btn" style="padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; 
+                                transition: all 0.2s ease; font-size: 14px;">Create Case</button>
+                    </div>
                 </div>
             `;
             
@@ -3388,20 +3403,37 @@ class CaseManager {
                 
                 suggestions.innerHTML = suggestionsData.map((caseNum, index) => `
                     <div class="suggestion-item" data-index="${index}" 
-                         style="padding: 10px; cursor: pointer; border-bottom: 1px solid #eee; 
-                                ${index === selectedIndex ? 'background: #f0f8ff;' : ''}">
-                        ${caseNum}
+                         style="padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #e5e7eb; 
+                                transition: all 0.2s ease; font-size: 14px; color: #374151;
+                                ${index === selectedIndex ? 'background: #dbeafe; color: #1e40af; font-weight: 500;' : ''}
+                                &:hover { background: #f3f4f6; }">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; flex-shrink: 0;"></div>
+                            <span>Case ${caseNum}</span>
+                        </div>
                     </div>
                 `).join('');
                 
                 suggestions.style.display = 'block';
                 
-                // Add click handlers for suggestions
+                // Add click handlers and hover effects for suggestions
                 suggestions.querySelectorAll('.suggestion-item').forEach((item, index) => {
                     item.addEventListener('click', () => {
                         input.value = suggestionsData[index];
                         suggestions.style.display = 'none';
                         selectedIndex = -1;
+                    });
+                    
+                    item.addEventListener('mouseenter', () => {
+                        if (index !== selectedIndex) {
+                            item.style.background = '#f3f4f6';
+                        }
+                    });
+                    
+                    item.addEventListener('mouseleave', () => {
+                        if (index !== selectedIndex) {
+                            item.style.background = '';
+                        }
                     });
                 });
             };
@@ -3410,6 +3442,41 @@ class CaseManager {
             input.addEventListener('input', (e) => {
                 const query = e.target.value.trim();
                 filterSuggestions(query);
+            });
+            
+            // Add focus and blur effects
+            input.addEventListener('focus', (e) => {
+                e.target.style.borderColor = '#667eea';
+                e.target.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
+            });
+            
+            input.addEventListener('blur', (e) => {
+                e.target.style.borderColor = '#e5e7eb';
+                e.target.style.boxShadow = 'none';
+            });
+            
+            // Add hover effects to buttons
+            const cancelBtnHover = modal.querySelector('#cancel-case-btn');
+            const confirmBtnHover = modal.querySelector('#confirm-case-btn');
+            
+            cancelBtnHover.addEventListener('mouseenter', () => {
+                cancelBtnHover.style.background = '#f3f4f6';
+                cancelBtnHover.style.borderColor = '#9ca3af';
+            });
+            
+            cancelBtnHover.addEventListener('mouseleave', () => {
+                cancelBtnHover.style.background = '#f9fafb';
+                cancelBtnHover.style.borderColor = '#d1d5db';
+            });
+            
+            confirmBtnHover.addEventListener('mouseenter', () => {
+                confirmBtnHover.style.transform = 'translateY(-1px)';
+                confirmBtnHover.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)';
+            });
+            
+            confirmBtnHover.addEventListener('mouseleave', () => {
+                confirmBtnHover.style.transform = 'translateY(0)';
+                confirmBtnHover.style.boxShadow = 'none';
             });
             
             // Keyboard navigation
