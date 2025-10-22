@@ -3433,14 +3433,63 @@ class CaseManager {
             let selectedIndex = -1;
             
             // Function to filter preloaded suggestions
-            const filterSuggestions = (query) => {
+            const filterSuggestions = async (query) => {
                 if (!query || query.length < 1) {
                     suggestionsData = [];
-                } else {
-                    suggestionsData = this.preloadedSuggestions.filter(caseNum => 
-                        caseNum.toString().toLowerCase().includes(query.toLowerCase())
-                    ).slice(0, 10); // Limit to 10 suggestions
+                    displaySuggestions();
+                    return;
                 }
+                
+                const filteredCases = this.preloadedSuggestions.filter(caseNum => 
+                    caseNum.toString().toLowerCase().includes(query.toLowerCase())
+                ).slice(0, 10); // Limit to 10 suggestions
+                
+                console.log('🔍 [CaseManager] Filtered cases:', filteredCases);
+                
+                // Fetch case details for each suggestion to get case names
+                suggestionsData = [];
+                for (const caseNum of filteredCases) {
+                    try {
+                        console.log(`🔍 [CaseManager] Fetching details for case ${caseNum}`);
+                        const response = await fetch(`/api/cases/details/${caseNum}`);
+                        if (response.ok) {
+                            const data = await response.json();
+                            console.log(`✅ [CaseManager] Case ${caseNum} details:`, data);
+                            
+                            let caseName = null;
+                            if (data.success && data.details && data.details.length > 0) {
+                                // Get the latest FSR record for the case name
+                                const sortedFSR = data.details.sort((a, b) => {
+                                    const fsrA = parseInt(a["FSR Number"]) || 0;
+                                    const fsrB = parseInt(b["FSR Number"]) || 0;
+                                    return fsrB - fsrA;
+                                });
+                                const latestFSR = sortedFSR[0];
+                                caseName = latestFSR["FSR Current Symptom"];
+                                console.log(`📝 [CaseManager] Case ${caseNum} name: ${caseName}`);
+                            }
+                            
+                            suggestionsData.push({
+                                caseNumber: caseNum,
+                                caseName: caseName
+                            });
+                        } else {
+                            console.log(`⚠️ [CaseManager] No CRM data for case ${caseNum}`);
+                            suggestionsData.push({
+                                caseNumber: caseNum,
+                                caseName: null
+                            });
+                        }
+                    } catch (error) {
+                        console.error(`❌ [CaseManager] Error fetching case ${caseNum} details:`, error);
+                        suggestionsData.push({
+                            caseNumber: caseNum,
+                            caseName: null
+                        });
+                    }
+                }
+                
+                console.log('📊 [CaseManager] Final suggestions data:', suggestionsData);
                 displaySuggestions();
             };
             
@@ -3451,10 +3500,11 @@ class CaseManager {
                     return;
                 }
                 
-                suggestions.innerHTML = suggestionsData.map((caseNum, index) => {
-                    // Find case name from existing cases (if user already has this case)
-                    const caseData = this.cases.find(c => c.caseNumber == caseNum);
-                    const caseName = caseData ? caseData.caseTitle : null;
+                suggestions.innerHTML = suggestionsData.map((suggestion, index) => {
+                    const caseNum = suggestion.caseNumber;
+                    const caseName = suggestion.caseName;
+                    
+                    console.log(`🎨 [CaseManager] Rendering suggestion ${index}: Case ${caseNum}, Name: ${caseName}`);
                     
                     return `
                         <div class="suggestion-item" data-index="${index}" 
@@ -3479,7 +3529,7 @@ class CaseManager {
                 // Add click handlers and hover effects for suggestions
                 suggestions.querySelectorAll('.suggestion-item').forEach((item, index) => {
                     item.addEventListener('click', () => {
-                        input.value = suggestionsData[index];
+                        input.value = suggestionsData[index].caseNumber;
                         suggestions.style.display = 'none';
                         selectedIndex = -1;
                     });
@@ -3557,7 +3607,7 @@ class CaseManager {
                     case 'Enter':
                         e.preventDefault();
                         if (selectedIndex >= 0 && selectedIndex < suggestionsData.length) {
-                            input.value = suggestionsData[selectedIndex];
+                            input.value = suggestionsData[selectedIndex].caseNumber;
                             suggestions.style.display = 'none';
                             selectedIndex = -1;
                         }
