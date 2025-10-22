@@ -2553,6 +2553,107 @@ class CaseManager {
         }
     }
     
+    async showDeleteConfirmation(caseToDelete) {
+        return new Promise((resolve) => {
+            // Create modal overlay
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10000;
+            `;
+            
+            // Create modal content
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                background: white;
+                padding: 0;
+                border-radius: 16px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+                max-width: 500px;
+                width: 90%;
+                overflow: hidden;
+                border: 1px solid #e1e5e9;
+            `;
+            
+            const caseName = caseToDelete.caseTitle || `Case ${caseToDelete.caseNumber}`;
+            
+            modal.innerHTML = `
+                <div style="background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); padding: 24px; color: white; position: relative;">
+                    <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+                    <h3 style="margin: 0 0 8px 0; font-size: 24px; font-weight: 600;">Delete Case</h3>
+                    <p style="margin: 0; opacity: 0.9; font-size: 14px;">This action cannot be undone</p>
+                </div>
+                <div style="padding: 32px;">
+                    <div style="margin-bottom: 24px;">
+                        <div style="font-size: 16px; color: #374151; margin-bottom: 8px;">
+                            <strong>Case Number:</strong> ${caseToDelete.caseNumber}
+                        </div>
+                        <div style="font-size: 16px; color: #374151; margin-bottom: 16px;">
+                            <strong>Case Name:</strong> ${caseName}
+                        </div>
+                        <div style="font-size: 14px; color: #6b7280; background: #f9fafb; padding: 16px; border-radius: 8px; border-left: 4px solid #dc2626;">
+                            Are you sure you want to delete this case? All associated data including problem statements, FSR notes, and history will be permanently removed.
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 12px; justify-content: flex-end; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+                        <button id="cancel-delete-btn" style="padding: 12px 24px; border: 1px solid #d1d5db; background: #f9fafb; 
+                                color: #374151; border-radius: 8px; cursor: pointer; font-weight: 500; 
+                                transition: all 0.2s ease; font-size: 14px;">Cancel</button>
+                        <button id="confirm-delete-btn" style="padding: 12px 24px; background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); 
+                                color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; 
+                                transition: all 0.2s ease; font-size: 14px;">Delete Case</button>
+                    </div>
+                </div>
+            `;
+            
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+            
+            const cancelBtn = modal.querySelector('#cancel-delete-btn');
+            const confirmBtn = modal.querySelector('#confirm-delete-btn');
+            
+            // Button handlers
+            cancelBtn.addEventListener('click', () => {
+                document.body.removeChild(overlay);
+                resolve(false);
+            });
+            
+            confirmBtn.addEventListener('click', () => {
+                document.body.removeChild(overlay);
+                resolve(true);
+            });
+            
+            // Add hover effects
+            cancelBtn.addEventListener('mouseenter', () => {
+                cancelBtn.style.background = '#f3f4f6';
+                cancelBtn.style.borderColor = '#9ca3af';
+            });
+            
+            cancelBtn.addEventListener('mouseleave', () => {
+                cancelBtn.style.background = '#f9fafb';
+                cancelBtn.style.borderColor = '#d1d5db';
+            });
+            
+            confirmBtn.addEventListener('mouseenter', () => {
+                confirmBtn.style.transform = 'translateY(-1px)';
+                confirmBtn.style.boxShadow = '0 4px 12px rgba(220, 38, 38, 0.3)';
+            });
+            
+            confirmBtn.addEventListener('mouseleave', () => {
+                confirmBtn.style.transform = 'translateY(0)';
+                confirmBtn.style.boxShadow = 'none';
+            });
+        });
+    }
+    
     setupEventListeners() {
         // New case button
         const newCaseBtn = document.getElementById('new-case-btn');
@@ -3294,10 +3395,8 @@ class CaseManager {
                 return;
             }
             
-            // Show confirmation dialog
-            const confirmed = confirm(
-                `Are you sure you want to delete case ${caseToDelete.caseNumber}? This action cannot be undone.`
-            );
+            // Show styled confirmation popup
+            const confirmed = await this.showDeleteConfirmation(caseToDelete);
             
             if (!confirmed) {
                 return;
@@ -3394,7 +3493,10 @@ class CaseManager {
             `;
             
             modal.innerHTML = `
-                <div style="background: linear-gradient(135deg, #41007F 0%, #5a1a9a 100%); padding: 24px; color: white;">
+                <div style="background: linear-gradient(135deg, #41007F 0%, #5a1a9a 100%); padding: 24px; color: white; position: relative;">
+                    <button id="close-case-btn" style="position: absolute; top: 16px; right: 16px; background: none; border: none; 
+                            color: white; font-size: 24px; cursor: pointer; padding: 4px; border-radius: 4px; 
+                            transition: background 0.2s ease;" title="Close">×</button>
                     <h3 style="margin: 0 0 8px 0; font-size: 24px; font-weight: 600;">Create New Case</h3>
                     <p style="margin: 0; opacity: 0.9; font-size: 14px;">Enter a case number to get started</p>
                 </div>
@@ -3443,6 +3545,8 @@ class CaseManager {
                 const filteredCases = this.preloadedSuggestions.filter(caseNum => 
                     caseNum.toString().toLowerCase().includes(query.toLowerCase())
                 ).slice(0, 10); // Limit to 10 suggestions
+                
+                console.log(`🔍 [CaseManager] Found ${filteredCases.length} filtered cases (max 10)`);
                 
                 console.log('🔍 [CaseManager] Filtered cases:', filteredCases);
                 
@@ -3624,6 +3728,24 @@ class CaseManager {
                 document.body.removeChild(overlay);
                 resolve(null);
             });
+            
+            // Close button (X) handler - just close without error
+            const closeBtn = modal.querySelector('#close-case-btn');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', () => {
+                    document.body.removeChild(overlay);
+                    resolve(null);
+                });
+                
+                // Add hover effects for close button
+                closeBtn.addEventListener('mouseenter', () => {
+                    closeBtn.style.background = 'rgba(255, 255, 255, 0.2)';
+                });
+                
+                closeBtn.addEventListener('mouseleave', () => {
+                    closeBtn.style.background = 'none';
+                });
+            }
             
             confirmBtn.addEventListener('click', () => {
                 const value = input.value.trim();
