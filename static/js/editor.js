@@ -2435,6 +2435,7 @@ class CaseManager {
         this.currentCase = null;
         this.caseCounter = 1;
         this.userId = null;
+        this.preloadedSuggestions = []; // Cache for case suggestions
         // Don't call init() here - will be called from outside
     }
     
@@ -2442,6 +2443,10 @@ class CaseManager {
         console.log('🚀 Initializing CaseManager...');
         await this.fetchUserInfo();
         console.log('✅ User info fetched, userId:', this.userId);
+        
+        // Preload case suggestions for fast lookup
+        await this.preloadCaseSuggestions();
+        
         await this.loadCases();
         console.log('✅ Cases loaded');
         this.setupEventListeners();
@@ -2477,6 +2482,24 @@ class CaseManager {
         } catch (error) {
             console.error('Error fetching user info:', error);
             this.userId = 'guest'; // Fallback
+        }
+    }
+    
+    async preloadCaseSuggestions() {
+        try {
+            console.log('🔍 [CaseManager] Preloading case suggestions...');
+            const response = await fetch('/api/cases/suggestions/preload');
+            if (response.ok) {
+                const data = await response.json();
+                this.preloadedSuggestions = data.case_numbers || [];
+                console.log(`✅ [CaseManager] Preloaded ${this.preloadedSuggestions.length} case suggestions`);
+            } else {
+                console.error('❌ [CaseManager] Failed to preload suggestions:', response.status);
+                this.preloadedSuggestions = [];
+            }
+        } catch (error) {
+            console.error('❌ [CaseManager] Error preloading suggestions:', error);
+            this.preloadedSuggestions = [];
         }
     }
     
@@ -2630,6 +2653,17 @@ class CaseManager {
             
             console.log(`✅ [CaseManager] Successfully loaded ${this.cases.length} cases from database`);
             console.log(`📊 [CaseManager] Loaded ${this.cases.length} cases:`, this.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber, problemLength: c.problemStatement.length })));
+            
+            // Load CRM data for all cases to get case titles
+            console.log('🔍 [CaseManager] Loading CRM data for all cases to get titles...');
+            for (const caseData of this.cases) {
+                if (caseData.caseNumber) {
+                    await this.loadCRMDataAndPopulateHistory(caseData.caseNumber);
+                }
+            }
+            
+            // Re-render to show updated case titles
+            this.renderCasesList();
             
             // Also sync with localStorage for offline access
             this.saveCasesLocally();
@@ -3333,20 +3367,16 @@ class CaseManager {
             let suggestionsData = [];
             let selectedIndex = -1;
             
-            // Function to fetch suggestions
-            const fetchSuggestions = async (query) => {
-                try {
-                    const response = await fetch(`/api/cases/suggestions?q=${encodeURIComponent(query)}`);
-                    if (response.ok) {
-                        const data = await response.json();
-                        suggestionsData = data.case_numbers || [];
-                        displaySuggestions();
-                    }
-                } catch (error) {
-                    console.error('Error fetching suggestions:', error);
+            // Function to filter preloaded suggestions
+            const filterSuggestions = (query) => {
+                if (!query || query.length < 1) {
                     suggestionsData = [];
-                    displaySuggestions();
+                } else {
+                    suggestionsData = this.preloadedSuggestions.filter(caseNum => 
+                        caseNum.toString().toLowerCase().includes(query.toLowerCase())
+                    ).slice(0, 5); // Limit to 5 suggestions
                 }
+                displaySuggestions();
             };
             
             // Function to display suggestions
@@ -3377,19 +3407,9 @@ class CaseManager {
             };
             
             // Input event handler
-            let debounceTimer;
             input.addEventListener('input', (e) => {
                 const query = e.target.value.trim();
-                clearTimeout(debounceTimer);
-                
-                if (query.length >= 1) {
-                    debounceTimer = setTimeout(() => {
-                        fetchSuggestions(query);
-                    }, 300);
-                } else {
-                    suggestions.style.display = 'none';
-                    suggestionsData = [];
-                }
+                filterSuggestions(query);
             });
             
             // Keyboard navigation

@@ -844,6 +844,39 @@ def get_case_data(case_number):
 
 # Removed: /api/cases/data POST - No longer needed, individual cases handled by database endpoints
 
+@app.route('/api/cases/suggestions/preload', methods=['GET'])
+def preload_case_suggestions():
+    """
+    Preload all available case numbers for fast suggestions.
+    """
+    user_data = session.get('user_data')
+    if not user_data:
+        print("❌ [Backend] /api/cases/suggestions/preload: Not authenticated")
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    user_email = user_data.get('email')
+    if not user_email:
+        return jsonify({"error": "No email found in user data"}), 400
+    
+    # Convert email to uppercase to match CRM format
+    user_email_upper = user_email.upper()
+    print(f"🔍 [CRM] Preloading case suggestions for user: {user_email} (formatted: {user_email_upper})")
+    
+    try:
+        # Get all case numbers (no search filter, limited to 20 for performance)
+        case_numbers = get_available_case_numbers(user_email_upper, "", limit=20)
+        print(f"✅ [CRM] Preloaded {len(case_numbers)} case suggestions")
+        
+        return jsonify({
+            "success": True,
+            "case_numbers": case_numbers,
+            "count": len(case_numbers)
+        })
+        
+    except Exception as e:
+        print(f"❌ [Backend] Error preloading case suggestions: {e}")
+        return jsonify({"error": "Failed to preload case suggestions"}), 500
+
 @app.route('/api/cases/suggestions', methods=['GET'])
 def get_case_suggestions():
     """
@@ -912,7 +945,7 @@ def get_case_details_endpoint(case_number):
 
 # ==================== CRM INTEGRATION FUNCTIONS ====================
 
-def get_available_case_numbers(user_email, search_query=""):
+def get_available_case_numbers(user_email, search_query="", limit=5):
     """
     CRM Query 1: Get available case numbers for suggestions
     Use this in: /api/cases/suggestions
@@ -929,7 +962,7 @@ def get_available_case_numbers(user_email, search_query=""):
         if search_query:
             base_query += f' AND "Case Number" LIKE \'%{search_query}%\''
         
-        base_query += " ORDER BY \"Case Number\" DESC"
+        base_query += f" ORDER BY \"Case Number\" DESC LIMIT {limit}"
         
         # TODO: Uncomment for production - email restriction
         # WHERE "USER_EMAILS" LIKE %s
