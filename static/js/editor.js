@@ -4349,7 +4349,8 @@ class CaseManager {
                     
                     // Refresh the sidebar to remove the case that was just submitted
                     if (this.caseManager) {
-                        this.caseManager.loadCases();
+                        console.log('🔄 [Feedback] Refreshing sidebar after feedback submission...');
+                        this.caseManager.refreshCases();
                     }
                 }, 2000); // 2 second delay to show success message
             } else {

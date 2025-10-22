@@ -105,8 +105,8 @@ def check_external_crm_status_for_case(case_id):
     try:
         print(f"🔍 [CRM] Checking status for case {case_id} in external CRM")
         
-        # SIMULATION: Force case 502771546 to be closed for testing
-        if str(case_id) == '502771546':
+        # SIMULATION: Force case 502771544 to be closed for testing
+        if str(case_id) == '502771544':
             print(f"🎭 [CRM] SIMULATION: Forcing case {case_id} to be CLOSED for testing")
             return "closed"
         
@@ -167,8 +167,8 @@ def check_external_crm_status_batch(case_ids):
     
     # Check cache first
     for case_id in case_ids:
-        # SIMULATION: Force case 502771546 to be closed for testing
-        if str(case_id) == '502771546':
+        # SIMULATION: Force case 502771544 to be closed for testing
+        if str(case_id) == '502771544':
             print(f"🎭 [CRM] SIMULATION: Forcing case {case_id} to be CLOSED for testing")
             status_map[case_id] = "closed"
             continue
@@ -586,9 +586,11 @@ def get_user_cases():
     
     try:
         query = f"""
-            SELECT CASE_ID, CASE_STATUS, CRM_LAST_SYNC_TIME
-            FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
-            WHERE CREATED_BY_USER = %s
+            SELECT cs.CASE_ID, cs.CASE_STATUS, cs.CRM_LAST_SYNC_TIME
+            FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS cs
+            LEFT JOIN {DATABASE}.{SCHEMA}.CASE_REVIEW cr ON cs.CASE_ID = cr.CASE_ID
+            WHERE cs.CREATED_BY_USER = %s
+            AND cr.CASE_ID IS NULL
         """
         print(f"📊 [Backend] Executing query: {query}")
         result = snowflake_query(query, CONNECTION_PAYLOAD, (user_id,))
