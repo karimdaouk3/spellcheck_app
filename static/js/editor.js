@@ -2554,21 +2554,22 @@ class CaseManager {
     }
     
     showFeedbackLoadingOverlay() {
-        // Create loading overlay for feedback generation
+        // Create loading overlay within the feedback popup
+        const feedbackPopup = document.getElementById('feedback-popup');
         const loadingOverlay = document.createElement('div');
         loadingOverlay.id = 'feedback-loading-overlay';
         loadingOverlay.style.cssText = `
-            position: fixed;
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.95);
             display: flex;
             justify-content: center;
             align-items: center;
-            z-index: 10001;
-            backdrop-filter: blur(4px);
+            z-index: 1000;
+            border-radius: 16px;
         `;
         
         loadingOverlay.innerHTML = `
@@ -2586,7 +2587,19 @@ class CaseManager {
             </style>
         `;
         
-        document.body.appendChild(loadingOverlay);
+        // Make sure the popup has relative positioning for absolute overlay
+        feedbackPopup.style.position = 'relative';
+        feedbackPopup.appendChild(loadingOverlay);
+        
+        // Disable form fields during loading
+        const formFields = ['feedback-symptom', 'feedback-fault', 'feedback-fix', 'feedback-submit'];
+        formFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.disabled = true;
+                field.style.pointerEvents = 'none';
+            }
+        });
     }
     
     hideFeedbackLoadingOverlay() {
@@ -2594,6 +2607,16 @@ class CaseManager {
         if (loadingOverlay) {
             loadingOverlay.remove();
         }
+        
+        // Re-enable form fields after loading
+        const formFields = ['feedback-symptom', 'feedback-fault', 'feedback-fix', 'feedback-submit'];
+        formFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.disabled = false;
+                field.style.pointerEvents = 'auto';
+            }
+        });
     }
     
     async showDeleteConfirmation(caseToDelete) {
