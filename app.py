@@ -105,8 +105,8 @@ def check_external_crm_status_for_case(case_id):
     try:
         print(f"🔍 [CRM] Checking status for case {case_id} in external CRM")
         
-        # SIMULATION: Force case 502771543 to be closed for testing
-        if str(case_id) == '502771543':
+        # SIMULATION: Force case 502771545 to be closed for testing
+        if str(case_id) == '502771545':
             print(f"🎭 [CRM] SIMULATION: Forcing case {case_id} to be CLOSED for testing")
             return "closed"
         
@@ -167,8 +167,8 @@ def check_external_crm_status_batch(case_ids):
     
     # Check cache first
     for case_id in case_ids:
-        # SIMULATION: Force case 502771543 to be closed for testing
-        if str(case_id) == '502771543':
+        # SIMULATION: Force case 502771545 to be closed for testing
+        if str(case_id) == '502771545':
             print(f"🎭 [CRM] SIMULATION: Forcing case {case_id} to be CLOSED for testing")
             status_map[case_id] = "closed"
             continue
