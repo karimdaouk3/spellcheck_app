@@ -863,9 +863,9 @@ def preload_case_suggestions():
     print(f"🔍 [CRM] Preloading case suggestions for user: {user_email} (formatted: {user_email_upper})")
     
     try:
-        # Get all case numbers (no search filter, limited to 20 for performance)
-        case_numbers = get_available_case_numbers(user_email_upper, "", limit=20)
-        print(f"✅ [CRM] Preloaded {len(case_numbers)} case suggestions")
+        # Get all case numbers (no search filter, no limit - get all cases)
+        case_numbers = get_available_case_numbers(user_email_upper, "", limit=None)
+        print(f"✅ [CRM] Preloaded {len(case_numbers)} case suggestions for user {user_email_upper}")
         
         return jsonify({
             "success": True,
@@ -902,7 +902,7 @@ def get_case_suggestions():
         print(f"🔍 [CRM] Filtering by search query: '{search_query}'")
     
     try:
-        case_numbers = get_available_case_numbers(user_email_upper, search_query)
+        case_numbers = get_available_case_numbers(user_email_upper, search_query, limit=10)
         print(f"✅ [CRM] Found {len(case_numbers)} available cases")
         
         return jsonify({
@@ -945,7 +945,7 @@ def get_case_details_endpoint(case_number):
 
 # ==================== CRM INTEGRATION FUNCTIONS ====================
 
-def get_available_case_numbers(user_email, search_query="", limit=5):
+def get_available_case_numbers(user_email, search_query="", limit=10):
     """
     CRM Query 1: Get available case numbers for suggestions
     Use this in: /api/cases/suggestions
@@ -962,12 +962,27 @@ def get_available_case_numbers(user_email, search_query="", limit=5):
         if search_query:
             base_query += f' AND "Case Number" LIKE \'%{search_query}%\''
         
-        base_query += f" ORDER BY \"Case Number\" DESC LIMIT {limit}"
+        # Add limit only if specified (for suggestions, not preloading)
+        if limit is not None:
+            base_query += f" ORDER BY \"Case Number\" DESC LIMIT {limit}"
+        else:
+            base_query += " ORDER BY \"Case Number\" DESC"
         
-        # TODO: Uncomment for production - email restriction
-        # WHERE "USER_EMAILS" LIKE %s
+        # PRODUCTION VERSION (with email restriction) - uncomment for production:
+        # base_query = """
+        #     SELECT DISTINCT "Case Number" as CASE_NUMBER
+        #     FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
+        #     WHERE "Case Number" IS NOT NULL
+        #     AND "USER_EMAILS" LIKE %s
+        # """
+        # if search_query:
+        #     base_query += f' AND "Case Number" LIKE \'%{search_query}%\''
+        # if limit is not None:
+        #     base_query += f" ORDER BY \"Case Number\" DESC LIMIT {limit}"
+        # else:
+        #     base_query += " ORDER BY \"Case Number\" DESC"
         # like_pattern = f"%~{user_email.upper()}~%"
-        # result = snowflake_query(query, CONNECTION_PAYLOAD, (like_pattern,))
+        # result = snowflake_query(base_query, CONNECTION_PAYLOAD, (like_pattern,))
         
         print(f"🔍 [CRM] Executing query: {base_query}")
         result = snowflake_query(base_query, CONNECTION_PAYLOAD)

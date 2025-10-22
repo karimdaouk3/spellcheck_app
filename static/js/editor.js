@@ -3374,7 +3374,7 @@ class CaseManager {
                 } else {
                     suggestionsData = this.preloadedSuggestions.filter(caseNum => 
                         caseNum.toString().toLowerCase().includes(query.toLowerCase())
-                    ).slice(0, 5); // Limit to 5 suggestions
+                    ).slice(0, 10); // Limit to 10 suggestions
                 }
                 displaySuggestions();
             };
