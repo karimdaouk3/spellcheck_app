@@ -937,28 +937,6 @@ body {
     }
 }
 
-@keyframes feedbackErrorSlideIn {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes feedbackErrorSlideOut {
-    from {
-        opacity: 1;
-        transform: translateY(0);
-    }
-    to {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-}
-
 .feedback-header {
     background: linear-gradient(135deg, #41007F, #6B1A9B);
     color: white;

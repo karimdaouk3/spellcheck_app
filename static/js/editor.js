@@ -2597,43 +2597,6 @@ class CaseManager {
         }
     }
     
-    showFeedbackValidationError(message) {
-        // Remove any existing error message
-        const existingError = document.getElementById('feedback-validation-error');
-        if (existingError) {
-            existingError.remove();
-        }
-        
-        // Create error message
-        const errorDiv = document.createElement('div');
-        errorDiv.id = 'feedback-validation-error';
-        errorDiv.style.cssText = `
-            background: #fef2f2;
-            border: 1px solid #fecaca;
-            color: #dc2626;
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin: 16px 0;
-            font-size: 14px;
-            font-weight: 500;
-            text-align: center;
-            animation: feedbackErrorSlideIn 0.3s ease-out;
-        `;
-        errorDiv.textContent = message;
-        
-        // Insert after the form
-        const form = document.querySelector('.feedback-form');
-        form.parentNode.insertBefore(errorDiv, form.nextSibling);
-        
-        // Auto-remove after 5 seconds
-        setTimeout(() => {
-            if (errorDiv.parentNode) {
-                errorDiv.style.animation = 'feedbackErrorSlideOut 0.3s ease-in';
-                setTimeout(() => errorDiv.remove(), 300);
-            }
-        }, 5000);
-    }
-    
     async showDeleteConfirmation(caseToDelete) {
         return new Promise((resolve) => {
             // Create modal overlay
@@ -4221,12 +4184,6 @@ class CaseManager {
         const symptom = document.getElementById('feedback-symptom').value.trim();
         const fault = document.getElementById('feedback-fault').value.trim();
         const fix = document.getElementById('feedback-fix').value.trim();
-        
-        // Simple validation
-        if (!symptom || !fault || !fix) {
-            this.showFeedbackValidationError('Please fill in all fields before submitting.');
-            return;
-        }
         
         const feedbackData = {
             case_number: currentCase.case_id,
