@@ -3722,10 +3722,10 @@ class CaseManager {
                 }).slice(0, 10); // Limit to 10 suggestions
                 
                 console.log(`🔍 [CaseManager] Query: "${query}" -> ${filteredCases.length} cases`);
-                console.log(`🔍 [CaseManager] Preloaded total: ${this.preloadedSuggestions.length}`);
                 
                 // Fetch case details for each suggestion to get case names
                 suggestionsData = [];
+                console.log(`🔍 [CaseManager] Processing ${filteredCases.length} filtered cases:`, filteredCases.slice(0, 3));
                 
                 for (const caseNum of filteredCases) {
                     try {
@@ -3749,11 +3749,17 @@ class CaseManager {
                                 caseNumber: caseNum,
                                 caseName: caseName
                             });
+                            if (suggestionsData.length > filteredCases.length) {
+                                console.log(`🚨 [CaseManager] Array overflow! Length: ${suggestionsData.length}, Expected: ${filteredCases.length}`);
+                            }
                         } else {
                             suggestionsData.push({
                                 caseNumber: caseNum,
                                 caseName: null
                             });
+                            if (suggestionsData.length > filteredCases.length) {
+                                console.log(`🚨 [CaseManager] Array overflow! Length: ${suggestionsData.length}, Expected: ${filteredCases.length}`);
+                            }
                         }
                     } catch (error) {
                         console.error(`❌ [CaseManager] Error fetching case ${caseNum}:`, error);
@@ -3761,10 +3767,22 @@ class CaseManager {
                             caseNumber: caseNum,
                             caseName: null
                         });
+                        if (suggestionsData.length > filteredCases.length) {
+                            console.log(`🚨 [CaseManager] Array overflow! Length: ${suggestionsData.length}, Expected: ${filteredCases.length}`);
+                        }
                     }
                 }
                 
-                console.log(`📊 [CaseManager] Final: ${suggestionsData.length} suggestions`);
+                console.log(`📊 [CaseManager] Final: ${suggestionsData.length} suggestions (expected: ${filteredCases.length})`);
+                
+                // Debug: Check if suggestionsData contains cases not in filteredCases
+                const unexpectedCases = suggestionsData.filter(suggestion => 
+                    !filteredCases.includes(suggestion.caseNumber)
+                );
+                if (unexpectedCases.length > 0) {
+                    console.log(`🚨 [CaseManager] Found ${unexpectedCases.length} unexpected cases:`, 
+                        unexpectedCases.map(c => c.caseNumber).slice(0, 5));
+                }
                 displaySuggestions();
             };
             
@@ -3776,11 +3794,11 @@ class CaseManager {
                     return;
                 }
                 
+                console.log(`🎨 [CaseManager] Rendering ${suggestionsData.length} suggestions`);
+                
                 suggestions.innerHTML = suggestionsData.map((suggestion, index) => {
                     const caseNum = suggestion.caseNumber;
                     const caseName = suggestion.caseName;
-                    
-                    console.log(`🎨 [CaseManager] Rendering suggestion ${index}: Case ${caseNum}, Name: ${caseName}`);
                     
                     return `
                         <div class="suggestion-item" data-index="${index}" 
