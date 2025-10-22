@@ -3704,24 +3704,18 @@ class CaseManager {
             
             let suggestionsData = [];
             let selectedIndex = -1;
-            let debounceTimer = null;
-            let isFiltering = false;
+            let currentFilteringQuery = null;
             
             // Function to filter preloaded suggestions
             const filterSuggestions = async (query) => {
-                // Prevent multiple simultaneous filtering operations
-                if (isFiltering) {
-                    console.log('⏸️ [CaseManager] Skipping - already filtering');
-                    return;
-                }
+                // Store the current query to detect if it changes during async operations
+                currentFilteringQuery = query;
                 
                 if (!query || query.length < 1) {
                     suggestionsData = [];
                     displaySuggestions();
                     return;
                 }
-                
-                isFiltering = true;
                 
                 const filteredCases = this.preloadedSuggestions.filter(caseNum => {
                     return caseNum.toString().toLowerCase().startsWith(query.toLowerCase());
@@ -3733,8 +3727,21 @@ class CaseManager {
                 suggestionsData = [];
                 
                 for (const caseNum of filteredCases) {
+                    // Check if query changed while we were fetching - if so, abort this operation
+                    if (currentFilteringQuery !== query) {
+                        console.log(`⏸️ [CaseManager] Query changed, aborting fetch for "${query}"`);
+                        return;
+                    }
+                    
                     try {
                         const response = await fetch(`/api/cases/details/${caseNum}`);
+                        
+                        // Check again after async operation
+                        if (currentFilteringQuery !== query) {
+                            console.log(`⏸️ [CaseManager] Query changed during fetch, aborting "${query}"`);
+                            return;
+                        }
+                        
                         if (response.ok) {
                             const data = await response.json();
                             
@@ -3769,9 +3776,13 @@ class CaseManager {
                     }
                 }
                 
-                console.log(`📊 [CaseManager] Showing ${suggestionsData.length} suggestions`);
+                // Final check before displaying
+                if (currentFilteringQuery !== query) {
+                    console.log(`⏸️ [CaseManager] Query changed before display, aborting "${query}"`);
+                    return;
+                }
                 
-                isFiltering = false;
+                console.log(`📊 [CaseManager] Showing ${suggestionsData.length} suggestions`);
                 displaySuggestions();
             };
             
@@ -3828,19 +3839,11 @@ class CaseManager {
                 });
             };
             
-            // Input event handler with debouncing
+            // Input event handler - triggers immediately on each keystroke
             input.addEventListener('input', (e) => {
                 const query = e.target.value.trim();
-                
-                // Clear previous debounce timer
-                if (debounceTimer) {
-                    clearTimeout(debounceTimer);
-                }
-                
-                // Debounce the filtering to avoid multiple simultaneous calls
-                debounceTimer = setTimeout(() => {
-                    filterSuggestions(query);
-                }, 300); // 300ms debounce delay
+                // Trigger filtering immediately - ongoing operations will be cancelled
+                filterSuggestions(query);
             });
             
             // Add focus and blur effects
