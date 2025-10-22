@@ -2458,9 +2458,7 @@ class CaseManager {
         this.startAutoSave();
         
         // Check for closed cases that need feedback
-        console.log('🔍 [DEBUG] About to call checkForClosedCases from init');
         await this.checkForClosedCases();
-        console.log('🔍 [DEBUG] checkForClosedCases completed');
         
         // Hide loading indicator
         this.hideLoadingIndicator();
@@ -2556,17 +2554,8 @@ class CaseManager {
     }
     
     showFeedbackLoadingOverlay() {
-        console.log('🎭 [DEBUG] showFeedbackLoadingOverlay called');
-        
-        // Create loading overlay within the feedback popup
-        const feedbackPopup = document.getElementById('feedback-popup');
-        console.log('🎭 [DEBUG] feedbackPopup element:', feedbackPopup);
-        
-        if (!feedbackPopup) {
-            console.error('❌ [DEBUG] feedback-popup element not found in showFeedbackLoadingOverlay!');
-            return;
-        }
-        
+        // Create loading overlay for feedback popup
+        const feedbackContent = document.querySelector('.feedback-content');
         const loadingOverlay = document.createElement('div');
         loadingOverlay.id = 'feedback-loading-overlay';
         loadingOverlay.style.cssText = `
@@ -2580,7 +2569,7 @@ class CaseManager {
             justify-content: center;
             align-items: center;
             z-index: 1000;
-            border-radius: 16px;
+            backdrop-filter: blur(2px);
         `;
         
         loadingOverlay.innerHTML = `
@@ -2598,25 +2587,7 @@ class CaseManager {
             </style>
         `;
         
-        // Make sure the popup has relative positioning for absolute overlay
-        feedbackPopup.style.position = 'relative';
-        feedbackPopup.appendChild(loadingOverlay);
-        console.log('🎭 [DEBUG] Loading overlay appended to feedback popup');
-        
-        // Disable form fields during loading
-        const formFields = ['feedback-symptom', 'feedback-fault', 'feedback-fix', 'feedback-submit'];
-        formFields.forEach(fieldId => {
-            const field = document.getElementById(fieldId);
-            if (field) {
-                field.disabled = true;
-                field.style.pointerEvents = 'none';
-                console.log(`🎭 [DEBUG] Disabled field: ${fieldId}`);
-            } else {
-                console.log(`🎭 [DEBUG] Field not found: ${fieldId}`);
-            }
-        });
-        
-        console.log('🎭 [DEBUG] Loading overlay setup complete');
+        feedbackContent.appendChild(loadingOverlay);
     }
     
     hideFeedbackLoadingOverlay() {
@@ -2624,16 +2595,6 @@ class CaseManager {
         if (loadingOverlay) {
             loadingOverlay.remove();
         }
-        
-        // Re-enable form fields after loading
-        const formFields = ['feedback-symptom', 'feedback-fault', 'feedback-fix', 'feedback-submit'];
-        formFields.forEach(fieldId => {
-            const field = document.getElementById(fieldId);
-            if (field) {
-                field.disabled = false;
-                field.style.pointerEvents = 'auto';
-            }
-        });
     }
     
     async showDeleteConfirmation(caseToDelete) {
@@ -4024,16 +3985,12 @@ class CaseManager {
     
     // Check for closed cases that need feedback
     async checkForClosedCases() {
-        console.log('🔍 [DEBUG] checkForClosedCases called');
-        console.log('🔍 [DEBUG] userId:', this.userId);
-        
         if (this.userId === null || this.userId === undefined) {
             console.log('No user ID available, skipping closed case check');
             return;
         }
         
         try {
-            console.log('🔍 [DEBUG] Making request to /api/cases/check-external-status');
             // Check external CRM status for open cases
             const response = await fetch('/api/cases/check-external-status', {
                 method: 'POST',
@@ -4041,9 +3998,6 @@ class CaseManager {
                     'Content-Type': 'application/json'
                 }
             });
-            
-            console.log('🔍 [DEBUG] Response status:', response.status);
-            console.log('🔍 [DEBUG] Response ok:', response.ok);
             
             if (!response.ok) {
                 console.log('Could not check external CRM status');
@@ -4054,7 +4008,6 @@ class CaseManager {
             console.log('🔍 External CRM check response:', responseData);
             const casesNeedingFeedback = responseData.cases_needing_feedback || [];
             console.log('🔒 Cases closed in external CRM:', casesNeedingFeedback);
-            console.log('🔍 [DEBUG] casesNeedingFeedback length:', casesNeedingFeedback.length);
             
             if (casesNeedingFeedback.length === 0) {
                 console.log('✅ No cases closed in external CRM');
@@ -4087,81 +4040,31 @@ class CaseManager {
     
     // Show feedback popup for closed cases
     showFeedbackPopup(closedCases) {
-        console.log('🎭 [DEBUG] showFeedbackPopup called with:', closedCases);
-        
         this.pendingFeedbackCases = [...closedCases];
         this.currentFeedbackIndex = 0;
         
-        console.log('🎭 [DEBUG] Set pendingFeedbackCases:', this.pendingFeedbackCases);
-        console.log('🎭 [DEBUG] Set currentFeedbackIndex:', this.currentFeedbackIndex);
-        
-        // Disable page scrolling but keep pointer events for popup
+        // Disable all page interactions
         document.body.style.overflow = 'hidden';
-        // Don't disable pointer events on body as it might affect popup
-        console.log('🎭 [DEBUG] Disabled page scrolling');
+        document.body.style.pointerEvents = 'none';
         
         // Show the feedback popup
         const feedbackPopup = document.getElementById('feedback-popup');
-        console.log('🎭 [DEBUG] Found feedback popup element:', feedbackPopup);
-        
-        if (!feedbackPopup) {
-            console.error('❌ [DEBUG] feedback-popup element not found!');
-            return;
-        }
-        
         feedbackPopup.style.display = 'flex';
         feedbackPopup.style.pointerEvents = 'auto';
-        feedbackPopup.style.visibility = 'visible';
-        feedbackPopup.style.opacity = '1';
-        console.log('🎭 [DEBUG] Set popup display to flex and pointer events to auto');
-        console.log('🎭 [DEBUG] Popup computed style display:', window.getComputedStyle(feedbackPopup).display);
-        
-        // Additional debugging for popup visibility
-        const rect = feedbackPopup.getBoundingClientRect();
-        console.log('🎭 [DEBUG] Popup bounding rect:', {
-            top: rect.top,
-            left: rect.left,
-            width: rect.width,
-            height: rect.height,
-            visible: rect.width > 0 && rect.height > 0
-        });
-        
-        const computedStyle = window.getComputedStyle(feedbackPopup);
-        console.log('🎭 [DEBUG] Popup computed styles:', {
-            display: computedStyle.display,
-            visibility: computedStyle.visibility,
-            opacity: computedStyle.opacity,
-            zIndex: computedStyle.zIndex,
-            position: computedStyle.position
-        });
         
         // Setup event listeners first
-        console.log('🎭 [DEBUG] Setting up event listeners...');
         this.setupFeedbackEventListeners();
         
         // Then update the form (which will generate LLM content)
-        console.log('🎭 [DEBUG] Updating feedback form...');
         this.updateFeedbackForm();
     }
     
     // Update feedback form with current case data
     async updateFeedbackForm() {
-        console.log('🎭 [DEBUG] updateFeedbackForm called');
-        console.log('🎭 [DEBUG] pendingFeedbackCases:', this.pendingFeedbackCases);
-        console.log('🎭 [DEBUG] currentFeedbackIndex:', this.currentFeedbackIndex);
-        
         const currentCase = this.pendingFeedbackCases[this.currentFeedbackIndex];
-        console.log('🎭 [DEBUG] currentCase:', currentCase);
-        
         const progressText = document.getElementById('feedback-progress-text');
         const caseNumberSpan = document.getElementById('feedback-case-number');
         const closedDateSpan = document.getElementById('feedback-closed-date');
-        
-        console.log('🎭 [DEBUG] Found form elements:', {
-            progressText: !!progressText,
-            caseNumberSpan: !!caseNumberSpan,
-            closedDateSpan: !!closedDateSpan
-        });
         
         progressText.textContent = `Case ${this.currentFeedbackIndex + 1} of ${this.pendingFeedbackCases.length}`;
         caseNumberSpan.textContent = currentCase.case_id;
@@ -4171,10 +4074,14 @@ class CaseManager {
             day: 'numeric'
         });
         
-        // Show loading overlay during LLM generation
-        console.log('🎭 [DEBUG] About to show loading overlay');
+        // Show loading state immediately
+        const submitBtn = document.getElementById('feedback-submit');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Generating...';
+        submitBtn.classList.add('loading');
+        
+        // Show loading overlay in popup
         this.showFeedbackLoadingOverlay();
-        console.log('🎭 [DEBUG] Loading overlay should be shown');
         
         // Clear form first
         document.getElementById('feedback-symptom').value = '';
@@ -4225,8 +4132,8 @@ class CaseManager {
         this.hideFeedbackLoadingOverlay();
         
         // Reset button state
-        const submitBtn = document.getElementById('feedback-submit');
         submitBtn.textContent = 'Submit Feedback';
+        submitBtn.classList.remove('loading');
         this.validateFeedbackForm();
     }
     
