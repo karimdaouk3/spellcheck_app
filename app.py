@@ -1130,10 +1130,6 @@ def list_routes():
 
 # Removed /api/user; use only /user
 
-@app.route("/video")
-def video():
-    return render_template("video.html")
- 
 @app.route("/overall-feedback", methods=["GET", "POST"])
 def overall_feedback():
     if request.method == "GET":
