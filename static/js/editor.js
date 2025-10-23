@@ -3256,19 +3256,30 @@ class CaseManager {
         console.log(`📝 [CaseManager] - Editor2 (FSR notes): ${caseData.fsrNotes ? caseData.fsrNotes.substring(0, 50) + '...' : 'None'}`);
         
         if (editor1) {
-            editor1.innerText = caseData.problemStatement || '';
-            console.log(`📝 [CaseManager] Set editor1 innerText to: ${editor1.innerText.substring(0, 50)}...`);
+            const newContent = caseData.problemStatement || '';
+            editor1.innerText = newContent;
+            console.log(`📝 [CaseManager] Set editor1 innerText to: "${newContent.substring(0, 50)}${newContent.length > 50 ? '...' : ''}" (length: ${newContent.length})`);
         }
         if (editor2) {
-            editor2.innerText = caseData.fsrNotes || '';
-            console.log(`📝 [CaseManager] Set editor2 innerText to: ${editor2.innerText.substring(0, 50)}...`);
+            const newContent = caseData.fsrNotes || '';
+            editor2.innerText = newContent;
+            console.log(`📝 [CaseManager] Set editor2 innerText to: "${newContent.substring(0, 50)}${newContent.length > 50 ? '...' : ''}" (length: ${newContent.length})`);
         }
         
         // Clear any existing CRM history first (regardless of whether new CRM data exists)
         this.clearCRMHistory();
         
-        // Load CRM data and populate history
-        await this.loadCRMDataAndPopulateHistory(caseData.caseNumber);
+        // Only load CRM data for cases tracked in the database
+        if (caseData.isTrackedInDatabase !== false) {
+            console.log(`🔍 [CaseManager] Case is tracked, loading CRM data`);
+            await this.loadCRMDataAndPopulateHistory(caseData.caseNumber);
+        } else {
+            console.log(`⏭️ [CaseManager] Case is not tracked in database, skipping CRM data loading`);
+        }
+        
+        // Log editor content after CRM data loading
+        console.log(`📝 [CaseManager] After CRM loading - editor1: "${editor1?.innerText.substring(0, 50) || 'N/A'}..." (length: ${editor1?.innerText.length || 0})`);
+        console.log(`📝 [CaseManager] After CRM loading - editor2: "${editor2?.innerText.substring(0, 50) || 'N/A'}..." (length: ${editor2?.innerText.length || 0})`);
         
         // Update UI
         this.renderCasesList();
