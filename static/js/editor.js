@@ -3586,15 +3586,16 @@ class CaseManager {
             
             console.log('🗑️ [CaseManager] Deleting case:', caseToDelete.caseNumber);
             
-            // If it's the current case, switch to another case first
+            // If it's the current case, handle case switching
             if (this.currentCase && this.currentCase.id === caseId) {
                 const otherCases = this.cases.filter(c => c.id !== caseId);
                 if (otherCases.length > 0) {
-                    this.switchToCase(otherCases[0].id);
+                    // Switch to another case before deleting
+                    await this.switchToCase(otherCases[0].id);
                 } else {
-                    // No other cases, clear current case
+                    // No other cases will remain, clear everything
+                    console.log('🧹 [CaseManager] Last case being deleted, clearing all UI');
                     this.currentCase = null;
-                    this.clearEditors();
                 }
             }
             
@@ -3628,11 +3629,73 @@ class CaseManager {
             this.renderCasesList();
             this.updateActiveCaseHeader();
             
+            // If no cases left, clear all editors and UI
+            if (this.cases.length === 0) {
+                console.log('🧹 [CaseManager] No cases left, clearing all editors and UI');
+                this.clearAllEditorsAndUI();
+            }
+            
             console.log('✅ [CaseManager] Case deleted successfully');
             
         } catch (error) {
             console.error('❌ [CaseManager] Error deleting case:', error);
         }
+    }
+    
+    clearAllEditorsAndUI() {
+        console.log('🧹 [CaseManager] Clearing all editors and UI elements');
+        
+        // Clear editor content
+        const editor1 = document.getElementById('editor');
+        const editor2 = document.getElementById('editor2');
+        
+        if (editor1) {
+            editor1.innerText = '';
+            console.log('✅ [CaseManager] Cleared editor1');
+        }
+        if (editor2) {
+            editor2.innerText = '';
+            console.log('✅ [CaseManager] Cleared editor2');
+        }
+        
+        // Clear CRM history
+        this.clearCRMHistory();
+        
+        // Clear evaluation results
+        const evalBox = document.getElementById('llm-eval-box');
+        const rewritePopup = document.getElementById('rewrite-popup');
+        
+        if (evalBox) {
+            evalBox.style.display = 'none';
+            evalBox.innerHTML = '';
+            console.log('✅ [CaseManager] Cleared evaluation box');
+        }
+        
+        if (rewritePopup) {
+            rewritePopup.style.display = 'none';
+            rewritePopup.innerHTML = '';
+            console.log('✅ [CaseManager] Cleared rewrite popup');
+        }
+        
+        // Clear any lingering UI elements
+        if (window.spellCheckEditor) {
+            // Clear fields data
+            if (window.spellCheckEditor.fields.editor) {
+                window.spellCheckEditor.fields.editor.history = [];
+                window.spellCheckEditor.fields.editor.matches = [];
+            }
+            if (window.spellCheckEditor.fields.editor2) {
+                window.spellCheckEditor.fields.editor2.history = [];
+                window.spellCheckEditor.fields.editor2.matches = [];
+            }
+            
+            // Re-render history to show empty state
+            window.spellCheckEditor.renderHistory();
+            
+            console.log('✅ [CaseManager] Cleared spellCheckEditor fields');
+        }
+        
+        console.log('✅ [CaseManager] All editors and UI cleared');
     }
     
     formatDate(date) {
