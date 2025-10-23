@@ -2691,21 +2691,41 @@ def delete_case(case_number):
         result = snowflake_query(check_query, CONNECTION_PAYLOAD, (case_number_int, user_id))
         
         if result is None or result.empty:
-            print(f"❌ [Backend] Case {case_number} not found for user {user_id}")
+            print(f"❌ [Backend] Case {case_number} not found for user {user_id} (exact match)")
             
-            # Debug: Check what cases exist for this user
-            debug_query = f"""
-                SELECT CASE_ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+            # Try approximate match for precision loss cases (large numbers)
+            # Check if any case number starts with the same first 15 digits
+            approx_query = f"""
+                SELECT ID, CASE_ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
                 WHERE CREATED_BY_USER = %s
+                AND CAST(CASE_ID AS VARCHAR) LIKE %s
             """
-            debug_result = snowflake_query(debug_query, CONNECTION_PAYLOAD, (user_id,))
-            if debug_result is not None and not debug_result.empty:
-                existing_cases = debug_result['CASE_ID'].tolist()
-                print(f"📊 [Backend] Existing cases for user {user_id}: {existing_cases}")
-            else:
-                print(f"📊 [Backend] No cases found for user {user_id}")
+            # Use first 15 digits for approximate matching
+            case_prefix = str(case_number_int)[:15] + '%'
+            print(f"🔍 [Backend] Trying approximate match with prefix: {case_prefix}")
+            approx_result = snowflake_query(approx_query, CONNECTION_PAYLOAD, (user_id, case_prefix))
             
-            return jsonify({"error": "Case not found"}), 404
+            if approx_result is not None and not approx_result.empty:
+                print(f"✅ [Backend] Found approximate match!")
+                result = approx_result
+                actual_case_id = result.iloc[0]["CASE_ID"]
+                print(f"📊 [Backend] Actual CASE_ID in database: {actual_case_id}")
+            else:
+                print(f"❌ [Backend] No approximate match found either")
+                
+                # Debug: Check what cases exist for this user
+                debug_query = f"""
+                    SELECT CASE_ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+                    WHERE CREATED_BY_USER = %s
+                """
+                debug_result = snowflake_query(debug_query, CONNECTION_PAYLOAD, (user_id,))
+                if debug_result is not None and not debug_result.empty:
+                    existing_cases = debug_result['CASE_ID'].tolist()
+                    print(f"📊 [Backend] Existing cases for user {user_id}: {existing_cases}")
+                else:
+                    print(f"📊 [Backend] No cases found for user {user_id}")
+                
+                return jsonify({"error": "Case not found"}), 404
         
         case_session_id = result.iloc[0]["ID"]
         print(f"📊 [Backend] Found case session ID: {case_session_id}")
