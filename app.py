@@ -2684,13 +2684,27 @@ def delete_case(case_number):
         
         # Check if case exists for this user
         check_query = f"""
-            SELECT ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+            SELECT ID, CASE_ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
             WHERE CASE_ID = %s AND CREATED_BY_USER = %s
         """
+        print(f"🔍 [Backend] Looking for case with CASE_ID={case_number_int}, USER={user_id}")
         result = snowflake_query(check_query, CONNECTION_PAYLOAD, (case_number_int, user_id))
         
         if result is None or result.empty:
             print(f"❌ [Backend] Case {case_number} not found for user {user_id}")
+            
+            # Debug: Check what cases exist for this user
+            debug_query = f"""
+                SELECT CASE_ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+                WHERE CREATED_BY_USER = %s
+            """
+            debug_result = snowflake_query(debug_query, CONNECTION_PAYLOAD, (user_id,))
+            if debug_result is not None and not debug_result.empty:
+                existing_cases = debug_result['CASE_ID'].tolist()
+                print(f"📊 [Backend] Existing cases for user {user_id}: {existing_cases}")
+            else:
+                print(f"📊 [Backend] No cases found for user {user_id}")
+            
             return jsonify({"error": "Case not found"}), 404
         
         case_session_id = result.iloc[0]["ID"]
