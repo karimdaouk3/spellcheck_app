@@ -2669,7 +2669,18 @@ def delete_case(case_number):
     
     try:
         # Convert case_number to int (database expects numeric)
-        case_number_int = int(case_number)
+        # Handle scientific notation by converting to float first, then to int
+        try:
+            # If it's already a valid integer string, use it directly
+            case_number_int = int(case_number)
+        except ValueError:
+            # If it fails (e.g., scientific notation), try float first
+            try:
+                case_number_int = int(float(case_number))
+                print(f"⚠️ [Backend] Converted scientific notation '{case_number}' to {case_number_int}")
+            except (ValueError, OverflowError) as e:
+                print(f"❌ [Backend] Invalid case number format: {case_number}")
+                return jsonify({"error": f"Invalid case number format: {case_number}"}), 400
         
         # Check if case exists for this user
         check_query = f"""
