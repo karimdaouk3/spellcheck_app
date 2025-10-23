@@ -54,22 +54,22 @@ def check_external_crm_exists(case_number):
         print(f"🔍 [CRM] Checking if case {case_number} exists for user {user_email_upper}")
         
         # Query 1: Check if case exists in CRM (email restriction commented out for testing)
-        query = f"""
+        # Convert case_number to string to match database column type
+        case_number_str = str(case_number)
+        
+        # Email restriction for production
+        like_pattern = f"%~{user_email_upper}~%"
+        
+        query = """
             SELECT DISTINCT "Case Number"
             FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
             WHERE "Case Number" IS NOT NULL
             AND "Case Number" = %s
+            AND "USER_EMAILS" LIKE %s
         """
         
-        # TODO: Uncomment for production - email restriction
-        # like_pattern = f"%~{user_email_upper}~%"
-        # WHERE "USER_EMAILS" LIKE %s
-        # result = snowflake_query(query, CONNECTION_PAYLOAD, (like_pattern, case_number_str))
-        
-        # Convert case_number to string to match database column type
-        case_number_str = str(case_number)
-        print(f"🔍 [CRM] Query parameters: case_number_str='{case_number_str}' (email restriction disabled for testing)")
-        result = snowflake_query(query, CONNECTION_PAYLOAD, (case_number_str,))
+        print(f"🔍 [CRM] Query parameters: case_number_str='{case_number_str}', email pattern='{like_pattern}'")
+        result = snowflake_query(query, CONNECTION_PAYLOAD, (case_number_str, like_pattern))
         
         print(f"📊 [CRM] Query result for case {case_number}:")
         print(f"   - Result is None: {result is None}")
@@ -281,19 +281,19 @@ def get_available_case_numbers():
         print(f"🔍 [CRM] Getting available case numbers for user {user_email_upper}")
         
         # Query 1: Get available case numbers (email restriction commented out for testing)
-        query = f"""
+        # Email restriction for production
+        like_pattern = f"%~{user_email_upper}~%"
+        
+        query = """
             SELECT DISTINCT "Case Number"
             FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
             WHERE "Case Number" IS NOT NULL
+            AND "USER_EMAILS" LIKE %s
             ORDER BY "Case Number" DESC
         """
         
-        # TODO: Uncomment for production - email restriction
-        # like_pattern = f"%~{user_email_upper}~%"
-        # WHERE "USER_EMAILS" LIKE %s
-        # result = snowflake_query(query, CONNECTION_PAYLOAD, (like_pattern,))
-        
-        result = snowflake_query(query, CONNECTION_PAYLOAD)
+        print(f"🔍 [CRM] Query parameters: email pattern='{like_pattern}'")
+        result = snowflake_query(query, CONNECTION_PAYLOAD, (like_pattern,))
         
         if result is not None and not result.empty:
             case_numbers = result["Case Number"].tolist()
