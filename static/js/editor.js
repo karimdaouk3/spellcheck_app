@@ -3230,6 +3230,9 @@ class CaseManager {
             return;
         }
         
+        // Hide "no cases" placeholder if it's showing
+        this.hideNoCasesPlaceholder();
+        
         console.log(`📝 [CaseManager] Switching to case:`, {
             id: caseData.id,
             caseNumber: caseData.caseNumber,
@@ -3608,7 +3611,11 @@ class CaseManager {
             // If case is tracked in database, delete from backend
             if (caseToDelete.isTrackedInDatabase) {
                 try {
-                    const response = await fetch(`/api/cases/delete/${caseToDelete.caseNumber}`, {
+                    // Convert to string to avoid scientific notation for large numbers
+                    const caseNumberStr = String(caseToDelete.caseNumber);
+                    console.log(`🔍 [CaseManager] Deleting from backend with case number: ${caseNumberStr}`);
+                    
+                    const response = await fetch(`/api/cases/delete/${caseNumberStr}`, {
                         method: 'DELETE',
                         headers: {
                             'Content-Type': 'application/json'
@@ -3695,7 +3702,98 @@ class CaseManager {
             console.log('✅ [CaseManager] Cleared spellCheckEditor fields');
         }
         
+        // Show "no cases" placeholder
+        this.showNoCasesPlaceholder();
+        
         console.log('✅ [CaseManager] All editors and UI cleared');
+    }
+    
+    showNoCasesPlaceholder() {
+        console.log('📄 [CaseManager] Showing no cases placeholder');
+        
+        // Hide the main content areas
+        const leftColumn = document.querySelector('.left-column');
+        const rightColumn = document.querySelector('.right-column');
+        
+        if (leftColumn) leftColumn.style.display = 'none';
+        if (rightColumn) rightColumn.style.display = 'none';
+        
+        // Create placeholder overlay
+        const contentFlex = document.querySelector('.content-flex-columns');
+        if (!contentFlex) return;
+        
+        // Remove any existing placeholder
+        const existingPlaceholder = document.getElementById('no-cases-placeholder');
+        if (existingPlaceholder) existingPlaceholder.remove();
+        
+        // Create new placeholder
+        const placeholder = document.createElement('div');
+        placeholder.id = 'no-cases-placeholder';
+        placeholder.style.cssText = `
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 500px;
+            padding: 40px;
+            text-align: center;
+            width: 100%;
+        `;
+        
+        placeholder.innerHTML = `
+            <div style="font-size: 64px; margin-bottom: 24px; opacity: 0.3;">📁</div>
+            <h2 style="color: #374151; font-size: 24px; font-weight: 600; margin-bottom: 12px;">
+                No Cases Open
+            </h2>
+            <p style="color: #6b7280; font-size: 16px; margin-bottom: 32px; max-width: 400px;">
+                Open or create a case to get started with FSR Coach
+            </p>
+            <button id="open-case-from-placeholder" style="
+                padding: 14px 28px;
+                background: linear-gradient(135deg, #41007F 0%, #5a1a9a 100%);
+                color: white;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                font-weight: 600;
+                font-size: 15px;
+                transition: all 0.2s ease;
+                box-shadow: 0 4px 6px rgba(65, 0, 127, 0.2);
+            " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 12px rgba(65, 0, 127, 0.3)'" 
+               onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 6px rgba(65, 0, 127, 0.2)'">
+                📂 Open a Case
+            </button>
+        `;
+        
+        contentFlex.appendChild(placeholder);
+        
+        // Add click handler to open case
+        const openButton = document.getElementById('open-case-from-placeholder');
+        if (openButton) {
+            openButton.addEventListener('click', () => {
+                console.log('🔘 [CaseManager] Open case button clicked from placeholder');
+                this.createNewCase();
+            });
+        }
+        
+        console.log('✅ [CaseManager] No cases placeholder displayed');
+    }
+    
+    hideNoCasesPlaceholder() {
+        console.log('🔄 [CaseManager] Hiding no cases placeholder');
+        
+        // Show the main content areas
+        const leftColumn = document.querySelector('.left-column');
+        const rightColumn = document.querySelector('.right-column');
+        
+        if (leftColumn) leftColumn.style.display = '';
+        if (rightColumn) rightColumn.style.display = '';
+        
+        // Remove placeholder
+        const placeholder = document.getElementById('no-cases-placeholder');
+        if (placeholder) placeholder.remove();
+        
+        console.log('✅ [CaseManager] No cases placeholder hidden');
     }
     
     formatDate(date) {
