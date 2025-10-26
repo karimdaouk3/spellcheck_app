@@ -3808,7 +3808,11 @@ class CaseManager {
         casesList.innerHTML = '';
         console.log('🔄 [CaseManager] Cleared cases list HTML');
         
-        this.cases.forEach(caseData => {
+        // Sort cases by case number descending (highest first)
+        const sortedCases = [...this.cases].sort((a, b) => b.caseNumber - a.caseNumber);
+        console.log('🔄 [CaseManager] Cases sorted by case number (descending)');
+        
+        sortedCases.forEach(caseData => {
             console.log(`🔄 [CaseManager] Rendering case: ${caseData.caseNumber} (ID: ${caseData.id})`);
             const caseItem = document.createElement('div');
             caseItem.className = `case-item ${this.currentCase && this.currentCase.id === caseData.id ? 'active' : ''}`;
