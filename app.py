@@ -153,6 +153,14 @@ def check_external_crm_status_batch(case_ids):
     Returns:
         dict: {case_id: status} mapping
     """
+    # ========================================
+    # TEMPORARY: Mock case closure for testing
+    # ========================================
+    MOCK_CLOSED_CASE = 502854412
+    if MOCK_CLOSED_CASE in case_ids:
+        print(f"🧪 [MOCK] Simulating case {MOCK_CLOSED_CASE} as CLOSED for testing")
+    # ========================================
+    
     if not case_ids:
         return {}
     
@@ -209,7 +217,11 @@ def check_external_crm_status_batch(case_ids):
             
             # Map uncached cases to their status and cache results
             for case_id in uncached_cases:
-                if case_id in closed_cases:
+                # TEMPORARY: Force mock closed case
+                if case_id == MOCK_CLOSED_CASE:
+                    status = "closed"
+                    print(f"🧪 [MOCK] Case {case_id}: CLOSED (simulated for testing)")
+                elif case_id in closed_cases:
                     status = "closed"
                     print(f"❌ [CRM] Case {case_id}: CLOSED (has Verify Closure Date/Time)")
                 else:
