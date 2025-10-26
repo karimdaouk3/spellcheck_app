@@ -135,6 +135,7 @@ class LanguageToolEditor {
         
         // Case management - initialize asynchronously
         this.caseManager = new CaseManager();
+        window.caseManager = this.caseManager; // Make globally accessible for auto-save
         this.caseManager.init(); // Call init() to start async initialization
         this.currentCase = null;
     }
@@ -1292,6 +1293,12 @@ class LanguageToolEditor {
                 if (Array.isArray(data.result && data.result.user_inputs)) {
                     this.logDb('USER_REWRITE_INPUTS inserted', { user_inputs: data.result.user_inputs });
                 }
+            }
+            
+            // Auto-save case state after LLM evaluation or rewrite
+            if (window.caseManager) {
+                console.log('💾 [Auto-save] Saving case state after LLM call');
+                window.caseManager.saveCurrentCaseState();
             }
         } catch (e) {
             alert('LLM call failed: ' + e);
@@ -3247,73 +3254,87 @@ class CaseManager {
         // Hide "no cases" placeholder if it's showing
         this.hideNoCasesPlaceholder();
         
-        console.log(`📝 [CaseManager] Switching to case:`, {
-            id: caseData.id,
-            caseNumber: caseData.caseNumber,
-            problemStatement_length: caseData.problemStatement ? caseData.problemStatement.length : 0,
-            fsrNotes_length: caseData.fsrNotes ? caseData.fsrNotes.length : 0,
-            problemStatement_preview: caseData.problemStatement ? caseData.problemStatement.substring(0, 100) + '...' : 'None',
-            fsrNotes_preview: caseData.fsrNotes ? caseData.fsrNotes.substring(0, 100) + '...' : 'None'
-        });
+        console.log(`📝 [CaseManager] Switching from case ${this.currentCase?.caseNumber || 'none'} to case ${caseData.caseNumber}`);
         
-        // Save current case data before switching
+        // ============================================================
+        // STEP 1: SAVE current case complete state before switching
+        // ============================================================
         if (this.currentCase) {
-            console.log(`💾 [CaseManager] Saving current case data before switching`);
-            this.saveCurrentCaseData();
+            console.log(`💾 [CaseManager] Saving complete state for case ${this.currentCase.caseNumber}`);
+            await this.saveCurrentCaseState();
         }
         
+        // ============================================================
+        // STEP 2: CLEAR all UI and editor state completely
+        // ============================================================
+        console.log(`🧹 [CaseManager] Clearing all UI and editor state`);
+        this.clearAllEditorState();
+        
+        // ============================================================
+        // STEP 3: SET new current case
+        // ============================================================
         this.currentCase = caseData;
+        console.log(`✅ [CaseManager] Current case set to: ${caseData.caseNumber}`);
         
-        // Load case data into editors
-        const editor1 = document.getElementById('editor');
-        const editor2 = document.getElementById('editor2');
-        
-        console.log(`📝 [CaseManager] Loading text into editors:`);
-        console.log(`📝 [CaseManager] - Editor1 (problem statement): ${caseData.problemStatement ? caseData.problemStatement.substring(0, 50) + '...' : 'None'}`);
-        console.log(`📝 [CaseManager] - Editor2 (FSR notes): ${caseData.fsrNotes ? caseData.fsrNotes.substring(0, 50) + '...' : 'None'}`);
-        
-        if (editor1) {
-            const newContent = caseData.problemStatement || '';
-            editor1.innerText = newContent;
-            console.log(`📝 [CaseManager] Set editor1 innerText to: "${newContent.substring(0, 50)}${newContent.length > 50 ? '...' : ''}" (length: ${newContent.length})`);
-        }
-        if (editor2) {
-            const newContent = caseData.fsrNotes || '';
-            editor2.innerText = newContent;
-            console.log(`📝 [CaseManager] Set editor2 innerText to: "${newContent.substring(0, 50)}${newContent.length > 50 ? '...' : ''}" (length: ${newContent.length})`);
-        }
-        
-        // Clear any existing CRM history first (regardless of whether new CRM data exists)
-        this.clearCRMHistory();
-        
-        // Only load CRM data for cases tracked in the database
-        if (caseData.isTrackedInDatabase !== false) {
-            console.log(`🔍 [CaseManager] Case is tracked, loading CRM data`);
-            await this.loadCRMDataAndPopulateHistory(caseData.caseNumber);
+        // ============================================================
+        // STEP 4: RESTORE the new case's saved state (if it exists)
+        // ============================================================
+        if (caseData.editorStates) {
+            console.log(`🔄 [CaseManager] Restoring saved state for case ${caseData.caseNumber}`);
+            this.restoreEditorState('editor', caseData.editorStates.editor);
+            this.restoreEditorState('editor2', caseData.editorStates.editor2);
         } else {
-            console.log(`⏭️ [CaseManager] Case is not tracked in database, skipping CRM data loading`);
+            console.log(`📝 [CaseManager] No saved state, loading fresh data for case ${caseData.caseNumber}`);
+            
+            // Load text content into editors
+            const editor1 = document.getElementById('editor');
+            const editor2 = document.getElementById('editor2');
+            
+            if (editor1) {
+                editor1.innerText = caseData.problemStatement || '';
+                console.log(`📝 [CaseManager] Loaded problem statement (${editor1.innerText.length} chars)`);
+            }
+            if (editor2) {
+                editor2.innerText = caseData.fsrNotes || '';
+                console.log(`📝 [CaseManager] Loaded FSR notes (${editor2.innerText.length} chars)`);
+            }
+            
+            // Only load CRM data for cases tracked in the database
+            if (caseData.isTrackedInDatabase !== false) {
+                console.log(`🔍 [CaseManager] Case is tracked, loading CRM history`);
+                await this.loadCRMDataAndPopulateHistory(caseData.caseNumber);
+            } else {
+                console.log(`⏭️ [CaseManager] Case is not tracked in database, skipping CRM data loading`);
+            }
         }
         
-        // Log editor content after CRM data loading
-        console.log(`📝 [CaseManager] After CRM loading - editor1: "${editor1?.innerText.substring(0, 50) || 'N/A'}..." (length: ${editor1?.innerText.length || 0})`);
-        console.log(`📝 [CaseManager] After CRM loading - editor2: "${editor2?.innerText.substring(0, 50) || 'N/A'}..." (length: ${editor2?.innerText.length || 0})`);
-        
-        // Update UI
+        // ============================================================
+        // STEP 5: UPDATE UI
+        // ============================================================
         this.renderCasesList();
         this.updateActiveCaseHeader();
         
-        // Clear all evaluation results and UI state
+        console.log(`✅ [CaseManager] Successfully switched to case ${caseData.caseNumber}`);
+    }
+    
+    /**
+     * Clear all editor state completely (for clean case switching)
+     */
+    clearAllEditorState() {
+        console.log('🧹 [CaseManager] Clearing all editor state for clean switch');
+        
+        // Clear evaluation UI elements
         const evalBox = document.getElementById('llm-eval-box');
         const rewritePopup = document.getElementById('rewrite-popup');
         
         if (evalBox) {
             evalBox.style.display = 'none';
-            evalBox.innerHTML = ''; // Clear content
+            evalBox.innerHTML = '';
         }
         
         if (rewritePopup) {
             rewritePopup.style.display = 'none';
-            rewritePopup.innerHTML = ''; // Clear content
+            rewritePopup.innerHTML = '';
         }
         
         // Clear spellCheckEditor internal state for both fields
@@ -3386,13 +3407,14 @@ class CaseManager {
             if (pill1) pill1.style.display = 'none';
             if (pill2) pill2.style.display = 'none';
             
+            // Clear CRM history
+            this.clearCRMHistory();
+            
             // Re-render history to show empty state
             window.spellCheckEditor.renderHistory();
-            
-            // Trigger text check for new content
-            window.spellCheckEditor.checkText('editor');
-            window.spellCheckEditor.checkText('editor2');
         }
+        
+        console.log('✅ [CaseManager] All editor state cleared');
     }
     
     clearCRMHistory() {
@@ -3569,21 +3591,184 @@ class CaseManager {
         window.spellCheckEditor.renderHistory();
     }
     
-    async saveCurrentCaseData() {
-        if (!this.currentCase) return;
+    /**
+     * Capture complete state snapshot from an editor field
+     */
+    captureEditorState(fieldName) {
+        if (!window.spellCheckEditor || !window.spellCheckEditor.fields[fieldName]) {
+            console.warn(`⚠️ [CaseManager] Cannot capture state: field ${fieldName} not found`);
+            return null;
+        }
         
+        const field = window.spellCheckEditor.fields[fieldName];
+        const editor = document.getElementById(fieldName);
+        
+        const state = {
+            // Text content
+            text: editor ? editor.innerText : '',
+            
+            // Evaluation results
+            llmLastResult: field.llmLastResult,
+            llmQuestions: field.llmQuestions || [],
+            llmAnswers: field.llmAnswers || {},
+            calculatedScore: field.calculatedScore,
+            
+            // Database IDs
+            userInputId: field.userInputId,
+            reviewId: field.reviewId,
+            rewriteUuid: field.rewriteUuid,
+            evaluationId: field.evaluationId,
+            
+            // History entries
+            history: field.history || [],
+            
+            // Rewrite state
+            rewriteIdByCriteria: field.rewriteIdByCriteria || {},
+            lastRewriteQA: field.lastRewriteQA,
+            lastRewriteUserInputs: field.lastRewriteUserInputs || [],
+            rewrittenSnapshot: field.rewrittenSnapshot,
+            prevVersionBeforeRewrite: field.prevVersionBeforeRewrite,
+            lastOriginalText: field.lastOriginalText,
+            
+            // UI state
+            isCollapsed: window.spellCheckEditor.evalCollapsed ? window.spellCheckEditor.evalCollapsed[fieldName] : true,
+            
+            // Line item tracking
+            lineItemId: field.lineItemId,
+            problemVersionId: field.problemVersionId
+        };
+        
+        console.log(`📸 [CaseManager] Captured state for ${fieldName}:`, {
+            text_length: state.text.length,
+            has_llmResult: !!state.llmLastResult,
+            history_count: state.history.length,
+            calculatedScore: state.calculatedScore,
+            userInputId: state.userInputId
+        });
+        
+        return state;
+    }
+    
+    /**
+     * Restore complete state snapshot to an editor field
+     */
+    restoreEditorState(fieldName, state) {
+        if (!window.spellCheckEditor || !window.spellCheckEditor.fields[fieldName]) {
+            console.warn(`⚠️ [CaseManager] Cannot restore state: field ${fieldName} not found`);
+            return;
+        }
+        
+        if (!state) {
+            console.log(`ℹ️ [CaseManager] No saved state for ${fieldName}, keeping clean slate`);
+            return;
+        }
+        
+        const field = window.spellCheckEditor.fields[fieldName];
+        const editor = document.getElementById(fieldName);
+        
+        console.log(`🔄 [CaseManager] Restoring state for ${fieldName}:`, {
+            text_length: state.text ? state.text.length : 0,
+            has_llmResult: !!state.llmLastResult,
+            history_count: state.history ? state.history.length : 0,
+            calculatedScore: state.calculatedScore
+        });
+        
+        // Restore text content
+        if (editor && state.text !== undefined) {
+            editor.innerText = state.text;
+        }
+        
+        // Restore evaluation results
+        field.llmLastResult = state.llmLastResult || null;
+        field.llmQuestions = state.llmQuestions || [];
+        field.llmAnswers = state.llmAnswers || {};
+        field.calculatedScore = state.calculatedScore || null;
+        
+        // Restore database IDs
+        field.userInputId = state.userInputId || null;
+        field.reviewId = state.reviewId || null;
+        field.rewriteUuid = state.rewriteUuid || null;
+        field.evaluationId = state.evaluationId || null;
+        
+        // Restore history
+        field.history = state.history || [];
+        
+        // Restore rewrite state
+        field.rewriteIdByCriteria = state.rewriteIdByCriteria || {};
+        field.lastRewriteQA = state.lastRewriteQA || null;
+        field.lastRewriteUserInputs = state.lastRewriteUserInputs || [];
+        field.rewrittenSnapshot = state.rewrittenSnapshot || null;
+        field.prevVersionBeforeRewrite = state.prevVersionBeforeRewrite || null;
+        field.lastOriginalText = state.lastOriginalText || null;
+        
+        // Restore UI state
+        if (window.spellCheckEditor.evalCollapsed && state.isCollapsed !== undefined) {
+            window.spellCheckEditor.evalCollapsed[fieldName] = state.isCollapsed;
+        }
+        
+        // Restore line item tracking
+        field.lineItemId = state.lineItemId || 1;
+        field.problemVersionId = state.problemVersionId || 1;
+        
+        // Re-render evaluation if we have results
+        if (state.llmLastResult) {
+            const hasRewrite = state.llmLastResult.rewrite || state.llmLastResult.rewritten_problem_statement;
+            window.spellCheckEditor.displayLLMResult(state.llmLastResult, hasRewrite, fieldName, false);
+            
+            // Show rewrite pill if we have a rewritten snapshot
+            if (state.rewrittenSnapshot) {
+                const pillId = fieldName === 'editor' ? 'rewrite-feedback-pill' : 'rewrite-feedback-pill-2';
+                const pill = document.getElementById(pillId);
+                if (pill) pill.style.display = 'block';
+            }
+        }
+        
+        // Re-render history
+        window.spellCheckEditor.renderHistory();
+        
+        console.log(`✅ [CaseManager] State restored for ${fieldName}`);
+    }
+    
+    /**
+     * Save complete case state including all editor states
+     */
+    async saveCurrentCaseState() {
+        if (!this.currentCase) {
+            console.log('ℹ️ [CaseManager] No current case to save');
+            return;
+        }
+        
+        console.log(`💾 [CaseManager] Saving complete state for case ${this.currentCase.caseNumber}`);
+        
+        // Capture text content
         const editor1 = document.getElementById('editor');
         const editor2 = document.getElementById('editor2');
         
         if (editor1) this.currentCase.problemStatement = editor1.innerText;
         if (editor2) this.currentCase.fsrNotes = editor2.innerText;
         
+        // Capture complete editor states
+        if (!this.currentCase.editorStates) {
+            this.currentCase.editorStates = {};
+        }
+        
+        this.currentCase.editorStates.editor = this.captureEditorState('editor');
+        this.currentCase.editorStates.editor2 = this.captureEditorState('editor2');
+        
         this.currentCase.updatedAt = new Date();
+        
+        console.log(`✅ [CaseManager] Captured state:`, {
+            caseNumber: this.currentCase.caseNumber,
+            problemStatement_length: this.currentCase.problemStatement.length,
+            fsrNotes_length: this.currentCase.fsrNotes.length,
+            editor_state: !!this.currentCase.editorStates.editor,
+            editor2_state: !!this.currentCase.editorStates.editor2
+        });
         
         // Save to localStorage immediately
         this.saveCases();
         
-        // Also save to backend (async, don't wait)
+        // Also save to backend (async, don't wait) - only text content
         this.saveCaseToBackend(this.currentCase);
     }
     
@@ -4479,7 +4664,8 @@ class CaseManager {
     startAutoSave() {
         setInterval(() => {
             if (this.currentCase) {
-                this.saveCurrentCaseData();
+                console.log('💾 [Auto-save] Periodic save triggered');
+                this.saveCurrentCaseState();
             }
         }, 30000); // Auto-save every 30 seconds
     }
