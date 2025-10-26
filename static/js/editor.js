@@ -3164,10 +3164,22 @@ class CaseManager {
                 const createData = await createResponse.json();
                 console.log(`✅ [CaseManager] Successfully created case ${caseNumberInt} in database:`, createData);
                 
-                // Check for CRM warning
+                // Check for CRM warning (case not found in CRM)
                 if (createData.warning) {
                     console.log(`⚠️ [CaseManager] CRM warning for case ${caseNumberInt}:`, createData.warning);
-                    await this.showCustomAlert('External CRM Warning', createData.warning);
+                    
+                    // Show title prompt for untracked case
+                    const caseTitleInput = await this.showUntrackedCasePrompt(caseNumberInt);
+                    
+                    if (caseTitleInput === null) {
+                        // User cancelled - remove the case we just created
+                        await fetch(`/api/cases/delete/${caseNumberInt}`, { method: 'DELETE' });
+                        return;
+                    }
+                    
+                    // User provided a title (or left it empty)
+                    untrackedCaseTitle = caseTitleInput;
+                    isTrackedInDatabase = false;
                 }
             } else if (createResponse.status === 409) {
                 // Case already exists - this is actually good, means it's tracked
