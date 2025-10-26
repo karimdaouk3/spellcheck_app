@@ -3283,6 +3283,12 @@ class CaseManager {
             console.log(`🔄 [CaseManager] Restoring saved state for case ${caseData.caseNumber}`);
             this.restoreEditorState('editor', caseData.editorStates.editor);
             this.restoreEditorState('editor2', caseData.editorStates.editor2);
+            
+            // Update score bars after restoring state
+            if (window.spellCheckEditor) {
+                window.spellCheckEditor.updateEditorLabelsWithScore();
+                console.log('✅ [CaseManager] Score bars updated after state restoration');
+            }
         } else {
             console.log(`📝 [CaseManager] No saved state, loading fresh data for case ${caseData.caseNumber}`);
             
@@ -3407,11 +3413,26 @@ class CaseManager {
             if (pill1) pill1.style.display = 'none';
             if (pill2) pill2.style.display = 'none';
             
+            // Clear score bars explicitly
+            const score1 = document.getElementById('score-editor');
+            const score2 = document.getElementById('score-editor2');
+            if (score1) {
+                score1.innerHTML = '';
+                score1.className = 'editor-score';
+            }
+            if (score2) {
+                score2.innerHTML = '';
+                score2.className = 'editor-score';
+            }
+            
             // Clear CRM history
             this.clearCRMHistory();
             
             // Re-render history to show empty state
             window.spellCheckEditor.renderHistory();
+            
+            // Update score labels to ensure they're cleared
+            window.spellCheckEditor.updateEditorLabelsWithScore();
         }
         
         console.log('✅ [CaseManager] All editor state cleared');
