@@ -2034,6 +2034,7 @@ class LanguageToolEditor {
             
             // Add CRM source indicator if this is from CRM
             let sourceIndicator = '';
+            let fsrFooter = '';
             if (typeof item === 'object' && item.crmSource) {
                 // Format date properly from FSR Creation Date
                 let formattedDate = item.creationDate;
@@ -2055,14 +2056,31 @@ class LanguageToolEditor {
                     }
                 }
                 
-                sourceIndicator = `<div style="font-size: 11px; color: #666; margin-bottom: 4px; font-weight: bold;">
-                    📋 CRM Data - FSR ${item.fsrNumber} (${formattedDate})
-                </div>`;
+                // Check if this is a grouped entry with multiple FSR numbers
+                if (item.fsrNumbers && Array.isArray(item.fsrNumbers) && item.fsrNumbers.length > 0) {
+                    // Multiple FSR numbers (grouped duplicates)
+                    const fsrCount = item.fsrNumbers.length;
+                    const fsrList = item.fsrNumbers.join(', ');
+                    
+                    sourceIndicator = `<div style="font-size: 11px; color: #666; margin-bottom: 4px; font-weight: bold;">
+                        📋 CRM Data (${formattedDate})
+                    </div>`;
+                    
+                    fsrFooter = `<div style="font-size: 10px; color: #888; margin-top: 6px; padding-top: 6px; border-top: 1px solid #e0e0e0;">
+                        Used in ${fsrCount} FSR${fsrCount > 1 ? 's' : ''}: ${fsrList}
+                    </div>`;
+                } else {
+                    // Single FSR number (backwards compatibility)
+                    sourceIndicator = `<div style="font-size: 11px; color: #666; margin-bottom: 4px; font-weight: bold;">
+                        📋 CRM Data - FSR ${item.fsrNumber} (${formattedDate})
+                    </div>`;
+                }
             }
             
             historyItem.innerHTML = `
                 ${sourceIndicator}
                 <div style="white-space:pre-wrap;">${textWithNewlines}</div>
+                ${fsrFooter}
             `;
             
             historyItem.onclick = () => {
@@ -3566,53 +3584,85 @@ class CaseManager {
         
         // CRM history is already cleared in switchToCase() before this function is called
         
-        // Add each FSR record to history (in chronological order for history)
-        fsrRecords.forEach((fsr, index) => {
+        // Group FSR records by unique text content for problem statements and daily notes
+        const problemStatementGroups = new Map(); // text -> [fsrNumbers]
+        const dailyNotesGroups = new Map(); // text -> [fsrNumbers]
+        
+        fsrRecords.forEach((fsr) => {
             const problemStatement = fsr["FSR Current Problem Statement"];
             const dailyNotes = fsr["FSR Daily Notes"];
             const fsrNumber = fsr["FSR Number"];
             const creationDate = fsr["FSR Creation Date"];
             
-            console.log(`📚 [CaseManager] Adding FSR ${fsrNumber} to history:`, {
-                problemStatement_length: problemStatement?.length || 0,
-                dailyNotes_length: dailyNotes?.length || 0,
-                creationDate: creationDate
-            });
-            
-            // Add problem statement to history if it exists
+            // Group problem statements
             if (problemStatement && problemStatement.trim()) {
-                const problemHistoryEntry = {
-                    text: problemStatement.trim(),
-                    llmLastResult: null,
-                    userInputId: null,
-                    rewriteUuid: null,
-                    reviewId: null,
-                    timestamp: new Date(creationDate).toISOString(),
-                    crmSource: true,
-                    fsrNumber: fsrNumber,
-                    creationDate: creationDate
-                };
-                window.spellCheckEditor.fields.editor.history.push(problemHistoryEntry);
+                const text = problemStatement.trim();
+                if (!problemStatementGroups.has(text)) {
+                    problemStatementGroups.set(text, {
+                        fsrNumbers: [],
+                        dates: [],
+                        text: text
+                    });
+                }
+                problemStatementGroups.get(text).fsrNumbers.push(fsrNumber);
+                problemStatementGroups.get(text).dates.push(creationDate);
             }
             
-            // Add daily notes to history if they exist
+            // Group daily notes
             if (dailyNotes && dailyNotes.trim()) {
-                const dailyNotesHistoryEntry = {
-                    text: dailyNotes.trim(),
-                    llmLastResult: null,
-                    userInputId: null,
-                    rewriteUuid: null,
-                    reviewId: null,
-                    timestamp: new Date(creationDate).toISOString(),
-                    crmSource: true,
-                    fsrNumber: fsrNumber,
-                    creationDate: creationDate
-                };
-                window.spellCheckEditor.fields.editor2.history.push(dailyNotesHistoryEntry);
+                const text = dailyNotes.trim();
+                if (!dailyNotesGroups.has(text)) {
+                    dailyNotesGroups.set(text, {
+                        fsrNumbers: [],
+                        dates: [],
+                        text: text
+                    });
+                }
+                dailyNotesGroups.get(text).fsrNumbers.push(fsrNumber);
+                dailyNotesGroups.get(text).dates.push(creationDate);
             }
         });
         
-        console.log(`✅ [CaseManager] History populated:`, {
+        console.log(`📊 [CaseManager] Grouped duplicates:`, {
+            uniqueProblemStatements: problemStatementGroups.size,
+            totalProblemStatements: fsrRecords.filter(f => f["FSR Current Problem Statement"]).length,
+            uniqueDailyNotes: dailyNotesGroups.size,
+            totalDailyNotes: fsrRecords.filter(f => f["FSR Daily Notes"]).length
+        });
+        
+        // Add grouped problem statements to history
+        problemStatementGroups.forEach((group) => {
+            const problemHistoryEntry = {
+                text: group.text,
+                llmLastResult: null,
+                userInputId: null,
+                rewriteUuid: null,
+                reviewId: null,
+                timestamp: new Date(group.dates[0]).toISOString(), // Use first date
+                crmSource: true,
+                fsrNumbers: group.fsrNumbers, // Array of all FSR numbers with this text
+                creationDate: group.dates[0] // Use first date for display
+            };
+            window.spellCheckEditor.fields.editor.history.push(problemHistoryEntry);
+        });
+        
+        // Add grouped daily notes to history
+        dailyNotesGroups.forEach((group) => {
+            const dailyNotesHistoryEntry = {
+                text: group.text,
+                llmLastResult: null,
+                userInputId: null,
+                rewriteUuid: null,
+                reviewId: null,
+                timestamp: new Date(group.dates[0]).toISOString(), // Use first date
+                crmSource: true,
+                fsrNumbers: group.fsrNumbers, // Array of all FSR numbers with this text
+                creationDate: group.dates[0] // Use first date for display
+            };
+            window.spellCheckEditor.fields.editor2.history.push(dailyNotesHistoryEntry);
+        });
+        
+        console.log(`✅ [CaseManager] History populated with grouped entries:`, {
             problemStatement_history_count: window.spellCheckEditor.fields.editor.history.length,
             fsrNotes_history_count: window.spellCheckEditor.fields.editor2.history.length
         });
