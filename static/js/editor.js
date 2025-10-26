@@ -3320,6 +3320,15 @@ class CaseManager {
         this.renderCasesList();
         this.updateActiveCaseHeader();
         
+        // ============================================================
+        // STEP 6: RUN SPELL CHECK on restored content
+        // ============================================================
+        if (window.spellCheckEditor) {
+            console.log('🔍 [CaseManager] Running spell check on both editors');
+            window.spellCheckEditor.checkText('editor');
+            window.spellCheckEditor.checkText('editor2');
+        }
+        
         console.log(`✅ [CaseManager] Successfully switched to case ${caseData.caseNumber}`);
     }
     
