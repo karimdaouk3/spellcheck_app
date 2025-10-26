@@ -1220,7 +1220,7 @@ class LanguageToolEditor {
             } else {
                 body.line_item_id = this.fields.editor && typeof this.fields.editor.problemVersionId === 'number' ? this.fields.editor.problemVersionId : 1;
             }
-            // For step 1, generate and include a unique case_id for correlation
+            // For step 1, include the actual case number from case manager
             if (answers) {
                 body.answers = answers;
                 body.step = 2;
@@ -1229,8 +1229,17 @@ class LanguageToolEditor {
                 if (fieldObj.rewriteUuid) body.rewrite_uuid = fieldObj.rewriteUuid;
             } else {
                 body.step = 1;
-                fieldObj.caseId = this.generateUUIDv4();
-                body.case_id = fieldObj.caseId;
+                // Use actual case number from case manager if available
+                if (this.caseManager && this.caseManager.currentCase) {
+                    body.case_id = this.caseManager.currentCase.caseNumber;
+                    fieldObj.caseId = this.caseManager.currentCase.caseNumber;
+                    console.log(`📝 [LLM] Using case number: ${body.case_id}`);
+                } else {
+                    // Fallback to UUID if no case is active
+                    fieldObj.caseId = this.generateUUIDv4();
+                    body.case_id = fieldObj.caseId;
+                    console.log(`⚠️ [LLM] No active case, using UUID: ${body.case_id}`);
+                }
             }
             const response = await fetch('/llm', {
                 method: 'POST',
