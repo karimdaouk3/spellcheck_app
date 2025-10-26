@@ -2377,24 +2377,15 @@ def submit_case_feedback():
             return jsonify({"error": "Case not found"}), 404
         
         # Insert feedback into CASE_REVIEW table
+        # Use current timestamp as closed_date (when feedback is submitted)
         insert_feedback_query = f"""
             INSERT INTO {DATABASE}.{SCHEMA}.CASE_REVIEW 
             (CASE_ID, USER_ID, CLOSED_DATE, SYMPTOM, FAULT, FIX, SUBMITTED_AT)
-            VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP())
+            VALUES (%s, %s, CURRENT_TIMESTAMP(), %s, %s, %s, CURRENT_TIMESTAMP())
         """
         
-        closed_date = data.get('closed_date')
-        if closed_date:
-            # Parse ISO format date if provided
-            try:
-                closed_date_parsed = datetime.fromisoformat(closed_date.replace('Z', '+00:00'))
-            except:
-                closed_date_parsed = None
-        else:
-            closed_date_parsed = None
-        
         snowflake_query(insert_feedback_query, CONNECTION_PAYLOAD, 
-                       (case_number, user_id, closed_date_parsed,
+                       (case_number, user_id,
                         feedback.get('symptom', '').strip(),
                         feedback.get('fault', '').strip(),
                         feedback.get('fix', '').strip()),
