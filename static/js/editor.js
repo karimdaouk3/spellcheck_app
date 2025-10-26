@@ -3302,14 +3302,94 @@ class CaseManager {
         this.renderCasesList();
         this.updateActiveCaseHeader();
         
-        // Clear any existing results
+        // Clear all evaluation results and UI state
         const evalBox = document.getElementById('llm-eval-box');
         const rewritePopup = document.getElementById('rewrite-popup');
-        if (evalBox) evalBox.style.display = 'none';
-        if (rewritePopup) rewritePopup.style.display = 'none';
         
-        // Trigger text check for new content
+        if (evalBox) {
+            evalBox.style.display = 'none';
+            evalBox.innerHTML = ''; // Clear content
+        }
+        
+        if (rewritePopup) {
+            rewritePopup.style.display = 'none';
+            rewritePopup.innerHTML = ''; // Clear content
+        }
+        
+        // Clear spellCheckEditor internal state for both fields
         if (window.spellCheckEditor) {
+            // Clear editor field state
+            if (window.spellCheckEditor.fields.editor) {
+                const editorField = window.spellCheckEditor.fields.editor;
+                editorField.history = [];
+                editorField.matches = [];
+                editorField.currentSuggestions = [];
+                editorField.ignoredSuggestions = new Set();
+                editorField.llmLastResult = null;
+                editorField.llmQuestions = [];
+                editorField.llmAnswers = {};
+                editorField.rewriteUuid = null;
+                editorField.userInputId = null;
+                editorField.reviewId = null;
+                editorField.evaluationId = null;
+                editorField.calculatedScore = null;
+                editorField.rewriteIdByCriteria = {};
+                editorField.lastRewriteQA = null;
+                editorField.lastRewriteUserInputs = [];
+                editorField.rewrittenSnapshot = null;
+                editorField.prevVersionBeforeRewrite = null;
+                editorField.lastOriginalText = null;
+                editorField.llmInProgress = false;
+                editorField.isRestoringFromHistory = false;
+                editorField.overlayHidden = false;
+                editorField.awaitingCheck = false;
+                // Clear highlight overlay
+                if (editorField.highlightOverlay) {
+                    editorField.highlightOverlay.innerHTML = '';
+                }
+            }
+            
+            // Clear editor2 field state
+            if (window.spellCheckEditor.fields.editor2) {
+                const editor2Field = window.spellCheckEditor.fields.editor2;
+                editor2Field.history = [];
+                editor2Field.matches = [];
+                editor2Field.currentSuggestions = [];
+                editor2Field.ignoredSuggestions = new Set();
+                editor2Field.llmLastResult = null;
+                editor2Field.llmQuestions = [];
+                editor2Field.llmAnswers = {};
+                editor2Field.rewriteUuid = null;
+                editor2Field.userInputId = null;
+                editor2Field.reviewId = null;
+                editor2Field.evaluationId = null;
+                editor2Field.calculatedScore = null;
+                editor2Field.rewriteIdByCriteria = {};
+                editor2Field.lastRewriteQA = null;
+                editor2Field.lastRewriteUserInputs = [];
+                editor2Field.rewrittenSnapshot = null;
+                editor2Field.prevVersionBeforeRewrite = null;
+                editor2Field.lastOriginalText = null;
+                editor2Field.llmInProgress = false;
+                editor2Field.isRestoringFromHistory = false;
+                editor2Field.overlayHidden = false;
+                editor2Field.awaitingCheck = false;
+                // Clear highlight overlay
+                if (editor2Field.highlightOverlay) {
+                    editor2Field.highlightOverlay.innerHTML = '';
+                }
+            }
+            
+            // Clear rewrite feedback pills
+            const pill1 = document.getElementById('rewrite-feedback-pill');
+            const pill2 = document.getElementById('rewrite-feedback-pill-2');
+            if (pill1) pill1.style.display = 'none';
+            if (pill2) pill2.style.display = 'none';
+            
+            // Re-render history to show empty state
+            window.spellCheckEditor.renderHistory();
+            
+            // Trigger text check for new content
             window.spellCheckEditor.checkText('editor');
             window.spellCheckEditor.checkText('editor2');
         }
