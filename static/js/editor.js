@@ -4307,26 +4307,33 @@ class CaseManager {
             const popupConfirm = document.getElementById('popup-confirm');
             const popupClose = document.getElementById('popup-close');
             
-            popupTitle.textContent = 'Case Not Tracked in CRM';
+            popupTitle.textContent = 'Case Not Found in CRM';
             
             // Create message and input field
             const messageText = document.createElement('p');
-            messageText.textContent = `Case number '${caseNumber}' is not tracked in the CRM system.`;
+            messageText.textContent = `Are you sure case number '${caseNumber}' is correct?`;
             messageText.style.marginBottom = '10px';
+            messageText.style.fontWeight = '600';
+            
+            const warningText = document.createElement('p');
+            warningText.textContent = 'It is not in CRM and will not be tracked.';
+            warningText.style.marginBottom = '15px';
+            warningText.style.color = '#dc2626';
             
             const noteText = document.createElement('p');
-            noteText.textContent = 'Enter a title for this case (optional):';
+            noteText.textContent = 'If you would like to proceed, please enter the case name here:';
             noteText.style.marginBottom = '10px';
             noteText.style.fontWeight = '500';
             
             const input = document.createElement('input');
             input.type = 'text';
-            input.placeholder = 'Case title (optional)...';
+            input.placeholder = 'Enter case name...';
             input.style.cssText = 'width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1em; margin-top: 10px;';
             
             // Replace message with custom content
             popupMessage.innerHTML = '';
             popupMessage.appendChild(messageText);
+            popupMessage.appendChild(warningText);
             popupMessage.appendChild(noteText);
             popupMessage.appendChild(input);
             
@@ -4350,8 +4357,17 @@ class CaseManager {
             
             const handleConfirm = () => {
                 const value = input.value.trim();
+                
+                // Require case name to be entered
+                if (!value) {
+                    input.style.borderColor = '#dc2626';
+                    input.placeholder = 'Case name is required';
+                    input.focus();
+                    return;
+                }
+                
                 cleanup();
-                resolve(value); // Return the title (can be empty string)
+                resolve(value); // Return the title
             };
             
             const handleClose = () => {
