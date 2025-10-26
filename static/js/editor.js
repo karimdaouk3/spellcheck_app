@@ -3172,18 +3172,18 @@ class CaseManager {
                 // Case already exists - this is actually good, means it's tracked
                 console.log(`ℹ️ [CaseManager] Case ${caseNumberInt} already exists in database (tracked)`);
             } else {
-                // Case creation failed - show confirmation popup for untracked case
+                // Case creation failed - show prompt for untracked case with title input
                 console.log(`⚠️ [CaseManager] Failed to create case ${caseNumberInt} in database:`, createResponse.status);
                 
-                const confirmed = await this.showCustomConfirm(
-                    'Case Not Found in Database',
-                    `Case number '${caseNumberInt}' could not be created in the database.\n\nAre you sure you want to create this case? It will not be tracked in the system.`
-                );
+                const caseTitleInput = await this.showUntrackedCasePrompt(caseNumberInt);
                 
-                if (!confirmed) {
+                if (caseTitleInput === null) {
+                    // User cancelled
                     return;
                 }
                 
+                // User provided a title (or left it empty)
+                untrackedCaseTitle = caseTitleInput;
                 isTrackedInDatabase = false;
             }
             
@@ -3191,6 +3191,7 @@ class CaseManager {
         const newCase = {
             id: caseNumberInt, // Use case number as ID for consistency
             caseNumber: caseNumberInt,
+            caseTitle: untrackedCaseTitle || null, // Store the title if provided
             problemStatement: '',
             fsrNotes: '',
             createdAt: new Date(),
@@ -3517,13 +3518,13 @@ class CaseManager {
             const untrackedIndicator = caseData.isTrackedInDatabase === false ? 
                 '<div class="untracked-indicator" title="Not tracked in database">⚠️</div>' : '';
             
-            // Use case title (symptom) if available, otherwise fall back to case number
-            const displayTitle = caseData.caseTitle || caseData.caseNumber;
+            // Use case title if available, otherwise fall back to case number
+            const displayTitle = caseData.caseTitle || `Case ${caseData.caseNumber}`;
             
             caseItem.innerHTML = `
                 <div>
                     <div class="case-number" title="${caseData.caseNumber}">${displayTitle}</div>
-                    <div class="case-date">${this.formatDate(caseData.updatedAt)}</div>
+                    <div class="case-date">Case ${caseData.caseNumber}</div>
                 </div>
                 <div class="case-actions">
                     ${untrackedIndicator}
@@ -4267,6 +4268,87 @@ class CaseManager {
             const handleCancel = () => {
                 cleanup();
                 resolve(null);
+            };
+            
+            const handleKeydown = (e) => {
+                if (e.key === 'Enter') {
+                    handleConfirm();
+                } else if (e.key === 'Escape') {
+                    handleCancel();
+                }
+            };
+            
+            popupConfirm.addEventListener('click', handleConfirm);
+            popupClose.addEventListener('click', handleClose);
+            popupCancel.addEventListener('click', handleCancel);
+            input.addEventListener('keydown', handleKeydown);
+        });
+    }
+    
+    showUntrackedCasePrompt(caseNumber) {
+        return new Promise((resolve) => {
+            const popup = document.getElementById('custom-popup');
+            const popupTitle = document.getElementById('popup-title');
+            const popupMessage = document.getElementById('popup-message');
+            const popupCancel = document.getElementById('popup-cancel');
+            const popupConfirm = document.getElementById('popup-confirm');
+            const popupClose = document.getElementById('popup-close');
+            
+            popupTitle.textContent = 'Case Not Tracked in CRM';
+            
+            // Create message and input field
+            const messageText = document.createElement('p');
+            messageText.textContent = `Case number '${caseNumber}' is not tracked in the CRM system.`;
+            messageText.style.marginBottom = '10px';
+            
+            const noteText = document.createElement('p');
+            noteText.textContent = 'Enter a title for this case (optional):';
+            noteText.style.marginBottom = '10px';
+            noteText.style.fontWeight = '500';
+            
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.placeholder = 'Case title (optional)...';
+            input.style.cssText = 'width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1em; margin-top: 10px;';
+            
+            // Replace message with custom content
+            popupMessage.innerHTML = '';
+            popupMessage.appendChild(messageText);
+            popupMessage.appendChild(noteText);
+            popupMessage.appendChild(input);
+            
+            // Show both buttons
+            popupCancel.style.display = 'inline-block';
+            popupConfirm.textContent = 'Create Case';
+            
+            popup.style.display = 'flex';
+            
+            // Focus input
+            setTimeout(() => input.focus(), 100);
+            
+            const cleanup = () => {
+                popup.style.display = 'none';
+                popupMessage.innerHTML = '<p></p>';
+                popupConfirm.removeEventListener('click', handleConfirm);
+                popupClose.removeEventListener('click', handleClose);
+                popupCancel.removeEventListener('click', handleCancel);
+                input.removeEventListener('keydown', handleKeydown);
+            };
+            
+            const handleConfirm = () => {
+                const value = input.value.trim();
+                cleanup();
+                resolve(value); // Return the title (can be empty string)
+            };
+            
+            const handleClose = () => {
+                cleanup();
+                resolve(null); // User cancelled
+            };
+            
+            const handleCancel = () => {
+                cleanup();
+                resolve(null); // User cancelled
             };
             
             const handleKeydown = (e) => {
