@@ -3158,6 +3158,7 @@ class CaseManager {
             });
             
             let isTrackedInDatabase = true;
+            let untrackedCaseTitle = null;
             
             if (createResponse.ok) {
                 const createData = await createResponse.json();
