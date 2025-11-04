@@ -870,7 +870,8 @@ def get_case_data(case_number):
 @app.route('/api/cases/suggestions/preload', methods=['GET'])
 def preload_case_suggestions():
     """
-    Preload all available case numbers for fast suggestions.
+    Preload all available case numbers with titles for fast suggestions.
+    Returns case numbers and their titles from CRM.
     """
     user_data = session.get('user_data')
     if not user_data:
@@ -880,15 +881,15 @@ def preload_case_suggestions():
     # Get user email with fallback to default test email
     user_email_upper = get_user_email_for_crm()
     user_email = user_email_upper.lower()  # For display purposes
-    print(f"🔍 [CRM] Preloading case suggestions for user: {user_email} (formatted: {user_email_upper})")
+    print(f"🔍 [CRM] Preloading case suggestions with titles for user: {user_email} (formatted: {user_email_upper})")
     print(f"✅ [CRM] Using email filter: {user_email_upper} for preloading cases")
     
     try:
-        # Get all case numbers (no search filter, no limit - get all cases)
+        # Get all case numbers with titles (no search filter, no limit - get all cases)
         # IMPORTANT: This function filters by email - only cases matching user_email_upper will be returned
-        case_numbers = get_available_case_numbers(user_email_upper, "", limit=None)
-        total_cases = len(case_numbers)
-        print(f"✅ [CRM] Preloaded {total_cases} case suggestions from CRM database for user {user_email_upper}")
+        case_data = get_available_case_numbers_with_titles(user_email_upper)
+        total_cases = len(case_data)
+        print(f"✅ [CRM] Preloaded {total_cases} case suggestions with titles from CRM database for user {user_email_upper}")
         print(f"📊 [CRM] Total preloaded cases from CRM database (filtered by email): {total_cases}")
         print(f"🔒 [CRM] All {total_cases} cases are filtered by email: {user_email_upper}")
         
@@ -897,18 +898,21 @@ def preload_case_suggestions():
         else:
             # Verify all cases are filtered by email (log first few for verification)
             sample_count = min(5, total_cases)
-            print(f"🔍 [CRM] Sample of preloaded cases (first {sample_count}): {case_numbers[:sample_count]}")
+            sample_cases = case_data[:sample_count]
+            print(f"🔍 [CRM] Sample of preloaded cases (first {sample_count}): {[{'case_number': c['case_number'], 'title': c.get('case_title', 'N/A')[:50]} for c in sample_cases]}")
             print(f"✅ [CRM] All cases are pre-filtered by email {user_email_upper} - no additional filtering needed")
         
         return jsonify({
             "success": True,
-            "case_numbers": case_numbers,
-            "count": len(case_numbers),
+            "case_data": case_data,  # Array of {case_number, case_title}
+            "count": len(case_data),
             "filtered_by_email": user_email_upper
         })
         
     except Exception as e:
         print(f"❌ [Backend] Error preloading case suggestions: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": "Failed to preload case suggestions"}), 500
 
 @app.route('/api/cases/suggestions', methods=['GET'])
