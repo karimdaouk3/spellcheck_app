@@ -4275,83 +4275,28 @@ class CaseManager {
             let selectedIndex = -1;
             let currentFilteringQuery = null;
             
-            // Function to filter preloaded suggestions
-            const filterSuggestions = async (query) => {
-                // Store the current query to detect if it changes during async operations
-                currentFilteringQuery = query;
-                
+            // Function to filter preloaded suggestions (no database queries - uses only preloaded data)
+            const filterSuggestions = (query) => {
                 if (!query || query.length < 1) {
                     suggestionsData = [];
                     displaySuggestions();
                     return;
                 }
                 
+                // Filter preloaded suggestions (already filtered by email) - no database queries
                 const filteredCases = this.preloadedSuggestions.filter(caseNum => {
                     return caseNum.toString().toLowerCase().startsWith(query.toLowerCase());
                 }).slice(0, 10); // Limit to 10 suggestions
                 
-                console.log(`🔍 [CaseManager] Query: "${query}" -> ${filteredCases.length} cases`);
+                console.log(`🔍 [CaseManager] Query: "${query}" -> ${filteredCases.length} cases from preloaded suggestions (no DB queries)`);
                 
-                // Fetch case details for each suggestion to get case names
-                suggestionsData = [];
+                // Build suggestions data from preloaded cases only - no database calls
+                suggestionsData = filteredCases.map(caseNum => ({
+                    caseNumber: caseNum,
+                    caseName: null // Case name not available from preloaded data, but we can show case number
+                }));
                 
-                for (const caseNum of filteredCases) {
-                    // Check if query changed while we were fetching - if so, abort this operation
-                    if (currentFilteringQuery !== query) {
-                        console.log(`⏸️ [CaseManager] Query changed, aborting fetch for "${query}"`);
-                        return;
-                    }
-                    
-                    try {
-                        const response = await fetch(`/api/cases/details/${caseNum}`);
-                        
-                        // Check again after async operation
-                        if (currentFilteringQuery !== query) {
-                            console.log(`⏸️ [CaseManager] Query changed during fetch, aborting "${query}"`);
-                            return;
-                        }
-                        
-                        if (response.ok) {
-                            const data = await response.json();
-                            
-                            let caseName = null;
-                            if (data.success && data.details && data.details.length > 0) {
-                                // Get the latest FSR record for the case name
-                                const sortedFSR = data.details.sort((a, b) => {
-                                    const fsrA = parseInt(a["FSR Number"]) || 0;
-                                    const fsrB = parseInt(b["FSR Number"]) || 0;
-                                    return fsrB - fsrA;
-                                });
-                                const latestFSR = sortedFSR[0];
-                                caseName = latestFSR["FSR Current Symptom"];
-                            }
-                            
-                            suggestionsData.push({
-                                caseNumber: caseNum,
-                                caseName: caseName
-                            });
-                        } else {
-                            suggestionsData.push({
-                                caseNumber: caseNum,
-                                caseName: null
-                            });
-                        }
-                    } catch (error) {
-                        console.error(`❌ [CaseManager] Error fetching case ${caseNum}:`, error);
-                        suggestionsData.push({
-                            caseNumber: caseNum,
-                            caseName: null
-                        });
-                    }
-                }
-                
-                // Final check before displaying
-                if (currentFilteringQuery !== query) {
-                    console.log(`⏸️ [CaseManager] Query changed before display, aborting "${query}"`);
-                    return;
-                }
-                
-                console.log(`📊 [CaseManager] Showing ${suggestionsData.length} suggestions`);
+                console.log(`📊 [CaseManager] Showing ${suggestionsData.length} suggestions from preloaded data`);
                 displaySuggestions();
             };
             
