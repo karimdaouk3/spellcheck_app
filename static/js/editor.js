@@ -3293,9 +3293,14 @@ class CaseManager {
             updatedAt: new Date(),
             isTrackedInDatabase: isTrackedInDatabase
         };
+        
+        if (preloadedTitle) {
+            console.log(`✅ [CaseManager] Using preloaded case title for case ${caseNumberValue}: ${preloadedTitle.substring(0, 50)}...`);
+        }
             
             console.log(`📝 [CaseManager] Creating new case:`, {
                 caseNumber: newCase.caseNumber,
+                caseTitle: newCase.caseTitle?.substring(0, 50),
                 isTracked: newCase.isTrackedInDatabase
             });
             
@@ -4309,19 +4314,22 @@ class CaseManager {
                 }
                 
                 // Filter preloaded suggestions (already filtered by email) - no database queries
-                const filteredCases = this.preloadedSuggestions.filter(caseNum => {
-                    return caseNum.toString().toLowerCase().startsWith(query.toLowerCase());
-                }).slice(0, 10); // Limit to 10 suggestions
+                // preloadedSuggestions is a Map: {case_number: case_title}
+                const filteredCases = Array.from(this.preloadedSuggestions.entries())
+                    .filter(([caseNum, title]) => {
+                        return caseNum.toString().toLowerCase().startsWith(query.toLowerCase());
+                    })
+                    .slice(0, 10); // Limit to 10 suggestions
                 
                 console.log(`🔍 [CaseManager] Query: "${query}" -> ${filteredCases.length} cases from preloaded suggestions (no DB queries)`);
                 
-                // Build suggestions data from preloaded cases only - no database calls
-                suggestionsData = filteredCases.map(caseNum => ({
+                // Build suggestions data from preloaded cases with titles - no database calls
+                suggestionsData = filteredCases.map(([caseNum, title]) => ({
                     caseNumber: caseNum,
-                    caseName: null // Case name not available from preloaded data, but we can show case number
+                    caseName: title || null // Use preloaded case title if available
                 }));
                 
-                console.log(`📊 [CaseManager] Showing ${suggestionsData.length} suggestions from preloaded data`);
+                console.log(`📊 [CaseManager] Showing ${suggestionsData.length} suggestions from preloaded data with titles`);
                 displaySuggestions();
             };
             
