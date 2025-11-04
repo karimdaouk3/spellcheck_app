@@ -3291,6 +3291,37 @@ class CaseManager {
             this.cases.unshift(newCase); // Add to beginning
             this.saveCases();
             this.renderCasesList();
+            
+            // If this is a tracked CRM case, fetch the title immediately
+            if (isTrackedInDatabase !== false && !untrackedCaseTitle) {
+                // Fetch title for this case immediately
+                fetch('/api/cases/titles', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        case_numbers: [caseNumberValue]
+                    })
+                }).then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    }
+                }).then(data => {
+                    if (data && data.titles && data.titles[String(caseNumberValue)]) {
+                        const caseIndex = this.cases.findIndex(c => c.caseNumber === caseNumberValue);
+                        if (caseIndex !== -1) {
+                            this.cases[caseIndex].caseTitle = data.titles[String(caseNumberValue)];
+                            this.saveCases();
+                            this.renderCasesList();
+                            console.log(`✅ [CaseManager] Updated case ${caseNumberValue} with title immediately`);
+                        }
+                    }
+                }).catch(error => {
+                    console.error(`❌ [CaseManager] Error fetching title for case ${caseNumberValue}:`, error);
+                });
+            }
+            
             this.switchToCase(newCase.id);
             
             // Close mobile sidebar
