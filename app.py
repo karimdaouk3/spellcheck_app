@@ -141,7 +141,7 @@ def check_external_crm_status_for_case(case_id):
             print(f"❌ [CRM] Unexpected error for case {case_id}: {e}")
             return "open"  # Default to open if error occurs
 
-def check_external_crm_status_batch(case_ids):
+def check_external_crm_status_batch(case_ids, user_email=None):
     """
     Batch check case status in external CRM for multiple cases at once.
     This is much more efficient than individual queries.
@@ -149,6 +149,7 @@ def check_external_crm_status_batch(case_ids):
     
     Args:
         case_ids: List of case IDs to check
+        user_email: User email to validate case ownership (optional, but recommended for security)
         
     Returns:
         dict: {case_id: status} mapping
@@ -173,6 +174,38 @@ def check_external_crm_status_batch(case_ids):
     # Only query database for uncached cases
     if uncached_cases:
         try:
+            # If user_email is provided, validate that cases belong to the user first
+            if user_email:
+                user_email_upper = user_email.upper()
+                like_pattern = f"%~{user_email_upper}~%"
+                
+                # First, validate that all cases belong to the user
+                case_list = "', '".join(str(case) for case in uncached_cases)
+                validation_query = f"""
+                    SELECT DISTINCT "Case Number" as CASE_NUMBER
+                    FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
+                    WHERE "Case Number" IS NOT NULL
+                    AND "USER_EMAILS" LIKE %s
+                    AND "Case Number" IN ('{case_list}')
+                """
+                
+                print(f"🔍 [CRM] Validating {len(uncached_cases)} cases belong to user {user_email_upper}")
+                validated_result = snowflake_query(validation_query, CONNECTION_PAYLOAD, (like_pattern,))
+                
+                if validated_result is not None and not validated_result.empty:
+                    validated_cases = set(validated_result["CASE_NUMBER"].astype(str).tolist())
+                    # Filter to only check validated cases
+                    uncached_cases = [case for case in uncached_cases if str(case) in validated_cases]
+                    print(f"✅ [CRM] Validated {len(uncached_cases)} cases for user {user_email_upper}")
+                else:
+                    print(f"⚠️ [CRM] No cases validated for user {user_email_upper}, returning unknown status")
+                    for case_id in uncached_cases:
+                        status_map[case_id] = "unknown"
+                    return status_map
+            
+            if not uncached_cases:
+                return status_map
+            
             print(f"🔍 [CRM] Batch checking status for {len(uncached_cases)} uncached cases in external CRM")
             
             # Create IN clause for batch query
@@ -313,53 +346,6 @@ def get_available_case_numbers():
             print(f"❌ [CRM] Unexpected error getting case numbers: {e}")
             return []
 
-def get_case_details(case_number):
-    """
-    Get detailed case information from CRM for a specific case.
-    Returns case details including FSR information, symptoms, etc.
-    """
-    try:
-        print(f"🔍 [CRM] Getting case details for case {case_number}")
-        
-        # Query 3: Get case information
-        query = f"""
-            SELECT DISTINCT
-            "Case Number",
-            "FSR Number",
-            "FSR Creation Date",
-            "FSR Current Symptom",
-            "FSR Current Problem Statement",
-            "FSR Daily Notes",
-            "Part Number",
-            "Part Description",
-            "Part Disposition Code 1",
-            "Part Disposition Code 2",
-            "Part Disposition Code 3"
-            FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_FSR_DETAIL
-            WHERE "Case Number" = %s
-            ORDER BY "FSR Number", "FSR Creation Date" ASC
-        """
-        
-        result = snowflake_query(query, PROD_PAYLOAD, (case_number,))
-        
-        if result is not None and not result.empty:
-            print(f"✅ [CRM] Found case details for case {case_number}")
-            # Convert to list of dictionaries for JSON serialization
-            case_details = result.to_dict('records')
-            return case_details
-        else:
-            print(f"ℹ️ [CRM] No case details found for case {case_number}")
-            return []
-            
-    except Exception as e:
-        print(f"❌ [CRM] Error getting case details for case {case_number}: {e}")
-        # Check if it's a database access error
-        if "Database 'GEAR' does not exist or not authorized" in str(e):
-            print(f"⚠️ [CRM] GEAR database not accessible, returning empty list for case {case_number}")
-            return []
-        else:
-            print(f"❌ [CRM] Unexpected error getting case details for case {case_number}: {e}")
-            return []
 import yaml
 from werkzeug.middleware.proxy_fix import ProxyFix
 # --- Start / connect to your running LanguageTool server ---------------
@@ -636,6 +622,7 @@ def check_external_crm_status():
         return jsonify({"error": "Not authenticated"}), 401
     
     user_id = user_data.get('user_id')
+    user_email = user_data.get('email')
     print(f"🚀 [Backend] /api/cases/check-external-status: Checking external CRM for user {user_id}")
     
     try:
@@ -656,8 +643,8 @@ def check_external_crm_status():
             case_ids = [row["CASE_ID"] for _, row in result.iterrows()]
             print(f"🔍 [Backend] Batch checking CRM status for cases: {case_ids}")
             
-            # Batch check external CRM status for all cases at once
-            external_statuses = check_external_crm_status_batch(case_ids)
+            # Batch check external CRM status for all cases at once (with email filtering)
+            external_statuses = check_external_crm_status_batch(case_ids, user_email=user_email)
             
             for _, row in result.iterrows():
                 case_id = row["CASE_ID"]
@@ -929,9 +916,11 @@ def get_case_details_endpoint(case_number):
         print("❌ [Backend] /api/cases/details: Not authenticated")
         return jsonify({"error": "Not authenticated"}), 401
     
+    user_email = user_data.get('email')
+    
     try:
         print(f"🔍 [CRM] Getting case details for case: {case_number}")
-        case_details = get_case_details(case_number)
+        case_details = get_case_details(case_number, user_email=user_email)
         print(f"✅ [CRM] Found {len(case_details)} FSR records for case {case_number}")
         
         return jsonify({
@@ -953,11 +942,20 @@ def get_available_case_numbers(user_email, search_query="", limit=10):
     Use this in: /api/cases/suggestions
     """
     try:
-        # Base query without email restriction (for testing)
+        if not user_email:
+            print("❌ [CRM] No user email provided for case number query")
+            return []
+        
+        # Convert email to uppercase to match CRM format
+        user_email_upper = user_email.upper()
+        like_pattern = f"%~{user_email_upper}~%"
+        
+        # Base query with email restriction
         base_query = """
             SELECT DISTINCT "Case Number" as CASE_NUMBER
             FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
             WHERE "Case Number" IS NOT NULL
+            AND "USER_EMAILS" LIKE %s
         """
         
         # Add search filtering if provided
@@ -970,24 +968,9 @@ def get_available_case_numbers(user_email, search_query="", limit=10):
         else:
             base_query += " ORDER BY \"Case Number\" DESC"
         
-        # PRODUCTION VERSION (with email restriction) - uncomment for production:
-        # base_query = """
-        #     SELECT DISTINCT "Case Number" as CASE_NUMBER
-        #     FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
-        #     WHERE "Case Number" IS NOT NULL
-        #     AND "USER_EMAILS" LIKE %s
-        # """
-        # if search_query:
-        #     base_query += f' AND "Case Number" LIKE \'%{search_query}%\''
-        # if limit is not None:
-        #     base_query += f" ORDER BY \"Case Number\" DESC LIMIT {limit}"
-        # else:
-        #     base_query += " ORDER BY \"Case Number\" DESC"
-        # like_pattern = f"%~{user_email.upper()}~%"
-        # result = snowflake_query(base_query, CONNECTION_PAYLOAD, (like_pattern,))
-        
-        print(f"🔍 [CRM] Executing query: {base_query}")
-        result = snowflake_query(base_query, CONNECTION_PAYLOAD)
+        print(f"🔍 [CRM] Executing query with email filter: {user_email_upper}")
+        print(f"🔍 [CRM] Query pattern: {like_pattern}")
+        result = snowflake_query(base_query, CONNECTION_PAYLOAD, (like_pattern,))
         
         print(f"📊 [CRM] Query result:")
         print(f"   - Result is None: {result is None}")
@@ -1011,12 +994,46 @@ def get_available_case_numbers(user_email, search_query="", limit=10):
         traceback.print_exc()
         return []
 
-def check_case_status_batch(case_numbers):
+def check_case_status_batch(case_numbers, user_email=None):
     """
     CRM Query 2 (Batch): Check multiple cases at once
     Use this in: /api/cases/check-external-status (optimized)
+    
+    Args:
+        case_numbers: List of case numbers to check
+        user_email: User email to filter cases (optional, but recommended for security)
     """
     try:
+        if not case_numbers:
+            return {}
+        
+        # If user_email is provided, validate that cases belong to the user first
+        if user_email:
+            user_email_upper = user_email.upper()
+            like_pattern = f"%~{user_email_upper}~%"
+            
+            # First, validate that all cases belong to the user
+            case_list = "', '".join(str(case) for case in case_numbers)
+            validation_query = f"""
+                SELECT DISTINCT "Case Number" as CASE_NUMBER
+                FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
+                WHERE "Case Number" IS NOT NULL
+                AND "USER_EMAILS" LIKE %s
+                AND "Case Number" IN ('{case_list}')
+            """
+            
+            print(f"🔍 [CRM] Validating cases belong to user {user_email_upper}")
+            validated_result = snowflake_query(validation_query, CONNECTION_PAYLOAD, (like_pattern,))
+            
+            if validated_result is not None and not validated_result.empty:
+                validated_cases = set(validated_result["CASE_NUMBER"].astype(str).tolist())
+                # Filter to only check validated cases
+                case_numbers = [case for case in case_numbers if str(case) in validated_cases]
+                print(f"✅ [CRM] Validated {len(case_numbers)} cases for user {user_email_upper}")
+            else:
+                print(f"⚠️ [CRM] No cases validated for user {user_email_upper}, returning empty status")
+                return {case_num: 'unknown' for case_num in case_numbers}
+        
         if not case_numbers:
             return {}
         
@@ -1050,12 +1067,39 @@ def check_case_status_batch(case_numbers):
         print(f"Error in batch case status check: {e}")
         return {case_num: 'unknown' for case_num in case_numbers}
 
-def get_case_details(case_number):
+def get_case_details(case_number, user_email=None):
     """
     CRM Query 3: Get detailed case information
     Use this in: /api/cases/details/<case_number>
+    
+    Args:
+        case_number: Case number to get details for
+        user_email: User email to validate case ownership (optional, but recommended for security)
     """
     try:
+        # If user_email is provided, validate that the case belongs to the user first
+        if user_email:
+            user_email_upper = user_email.upper()
+            like_pattern = f"%~{user_email_upper}~%"
+            
+            # First, validate that the case belongs to the user
+            validation_query = """
+                SELECT DISTINCT "Case Number" as CASE_NUMBER
+                FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
+                WHERE "Case Number" IS NOT NULL
+                AND "USER_EMAILS" LIKE %s
+                AND "Case Number" = %s
+            """
+            
+            print(f"🔍 [CRM] Validating case {case_number} belongs to user {user_email_upper}")
+            validated_result = snowflake_query(validation_query, CONNECTION_PAYLOAD, (like_pattern, str(case_number)))
+            
+            if validated_result is None or validated_result.empty:
+                print(f"⚠️ [CRM] Case {case_number} does not belong to user {user_email_upper}, returning empty details")
+                return []
+            
+            print(f"✅ [CRM] Case {case_number} validated for user {user_email_upper}")
+        
         query = """
             SELECT DISTINCT
                 "Case Number",
