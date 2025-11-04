@@ -1162,6 +1162,7 @@ def get_case_details(case_number, user_email=None):
         query = """
             SELECT DISTINCT
                 "Case Number",
+                "Case Title",
                 "FSR Number",
                 "FSR Creation Date",
                 "FSR Current Symptom",

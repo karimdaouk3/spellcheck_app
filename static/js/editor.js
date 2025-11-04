@@ -3571,19 +3571,21 @@ class CaseManager {
                 const latestProblemStatement = latestFSR["FSR Current Problem Statement"];
                 const latestDailyNotes = latestFSR["FSR Daily Notes"];
                 const latestSymptom = latestFSR["FSR Current Symptom"];
+                const caseTitle = latestFSR["Case Title"]; // Use actual Case Title field
                 
                 console.log(`📝 [CaseManager] Latest FSR ${latestFSR["FSR Number"]}:`);
+                console.log(`📝 [CaseManager] - Case Title: ${caseTitle?.substring(0, 100)}...`);
                 console.log(`📝 [CaseManager] - Problem Statement: ${latestProblemStatement?.substring(0, 100)}...`);
                 console.log(`📝 [CaseManager] - Daily Notes: ${latestDailyNotes?.substring(0, 100)}...`);
                 console.log(`📝 [CaseManager] - Symptom: ${latestSymptom?.substring(0, 100)}...`);
                 
-                // Store the symptom for display in sidebar
-                if (latestSymptom && latestSymptom.trim()) {
-                    // Find the case in our cases array and update it with the symptom
+                // Store the case title for display in sidebar (use Case Title field, not symptom)
+                if (caseTitle && caseTitle.trim()) {
+                    // Find the case in our cases array and update it with the case title
                     const caseIndex = this.cases.findIndex(c => c.caseNumber == caseNumber);
                     if (caseIndex !== -1) {
-                        this.cases[caseIndex].caseTitle = latestSymptom.trim();
-                        console.log(`📝 [CaseManager] Updated case ${caseNumber} with title: ${latestSymptom.trim()}`);
+                        this.cases[caseIndex].caseTitle = caseTitle.trim();
+                        console.log(`📝 [CaseManager] Updated case ${caseNumber} with title: ${caseTitle.trim()}`);
                     }
                 }
                 
