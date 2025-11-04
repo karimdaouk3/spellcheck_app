@@ -461,7 +461,8 @@ def acs():
             INSERT INTO {DATABASE}.{SCHEMA}.USER_INFORMATION (FIRST_NAME, LAST_NAME, EMAIL, EMPLOYEEID)
             VALUES (%s, %s, %s, %s)
             """
-            insert_params = (first_name, last_name, email, employee_id)
+            # Use uppercase email format for consistency with CRM
+            insert_params = (first_name, last_name, email_upper, employee_id)
             snowflake_query(insert_query, CONNECTION_PAYLOAD, insert_params, return_df=False)
  
         # Get user ID from USER_INFORMATION
