@@ -864,13 +864,12 @@ def preload_case_suggestions():
         case_numbers = get_available_case_numbers(user_email_upper, "", limit=None)
         total_cases = len(case_numbers)
         print(f"✅ [CRM] Preloaded {total_cases} case suggestions from CRM database for user {user_email_upper}")
-        print(f"📊 [CRM] Total preloaded cases from CRM database: {total_cases}")
+        print(f"📊 [CRM] Total preloaded cases from CRM database (filtered by email): {total_cases}")
         
-        # Log sample of preloaded case numbers (up to 5) for testing
+        # Log all preloaded case numbers from CRM for testing
         if total_cases > 0:
-            sample_count = min(5, total_cases)
-            sample_cases = case_numbers[:sample_count]
-            print(f"🔍 [CRM] Sample preloaded case numbers from CRM (first {sample_count}): {sample_cases}")
+            print(f"🔍 [CRM] All preloaded case numbers from CRM (filtered by user email): {case_numbers}")
+            print(f"📋 [CRM] Using {total_cases} cases from CRM database for suggestions")
         else:
             print(f"⚠️ [CRM] No cases found in CRM database for preloading for user {user_email_upper}")
         
