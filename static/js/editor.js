@@ -2517,7 +2517,7 @@ class CaseManager {
                 // Show user ID in UI temporarily for debugging
                 const alert_msg = `Logged in as User ID: ${this.userId}\n` +
                                 `Name: ${userData.first_name} ${userData.last_name}\n` +
-                                `Email: ${userData.email}`;
+                                `Email: ${userData.email || 'DAVID.BOLLA@KLA.COM'}`;
                 console.log(alert_msg);
             } else {
                 console.error('Failed to fetch user info');
@@ -2531,12 +2531,13 @@ class CaseManager {
     
     async preloadCaseSuggestions() {
         try {
-            console.log('🔍 [CaseManager] Preloading case suggestions...');
+            console.log('🔍 [CaseManager] Preloading case suggestions from CRM database...');
             const response = await fetch('/api/cases/suggestions/preload');
             if (response.ok) {
                 const data = await response.json();
                 this.preloadedSuggestions = data.case_numbers || [];
-                console.log(`✅ [CaseManager] Preloaded ${this.preloadedSuggestions.length} case suggestions`);
+                console.log(`✅ [CaseManager] Preloaded ${this.preloadedSuggestions.length} case suggestions from CRM database`);
+                console.log(`📊 [CaseManager] Total cases loaded from CRM: ${this.preloadedSuggestions.length}`);
             } else {
                 console.error('❌ [CaseManager] Failed to preload suggestions:', response.status);
                 this.preloadedSuggestions = [];

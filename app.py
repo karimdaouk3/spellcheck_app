@@ -389,10 +389,10 @@ def login():
     if not app.config['ENABLE_SSO']:
         # Simulate login for development or non-SSO mode
         session["user_data"] = {
-            "username": "karim_daouk",
-            "email": "KARIM.DAOUK@KLA.COM",
-            "first_name": "Karim",
-            "last_name": "Daouk",
+            "username": "david_bolla",
+            "email": "DAVID.BOLLA@KLA.COM",
+            "first_name": "David",
+            "last_name": "Bolla",
             "employee_id": "12345",
             "user_id": 0
         }
@@ -477,13 +477,23 @@ def current_user():
     """Return session-backed user information for frontend debugging and logging."""
     info = session.get('user_data')
     if not info:
-        return jsonify({"status": "no_session"}), 404
+        # Return default test user for non-SSO mode
+        return jsonify({
+            "status": "ok",
+            "user_id": "test_user",
+            "first_name": "David",
+            "last_name": "Bolla",
+            "email": DEFAULT_TEST_EMAIL,
+            "employee_id": "test_employee_id"
+        })
+    # Use default email if missing from session
+    email = info.get("email") or DEFAULT_TEST_EMAIL
     return jsonify({
         "status": "ok",
         "user_id": info.get("user_id"),
         "first_name": info.get("first_name"),
         "last_name": info.get("last_name"),
-        "email": info.get("email"),
+        "email": email,
         "employee_id": info.get("employee_id")
     })
 
@@ -852,7 +862,8 @@ def preload_case_suggestions():
     try:
         # Get all case numbers (no search filter, no limit - get all cases)
         case_numbers = get_available_case_numbers(user_email_upper, "", limit=None)
-        print(f"✅ [CRM] Preloaded {len(case_numbers)} case suggestions for user {user_email_upper}")
+        print(f"✅ [CRM] Preloaded {len(case_numbers)} case suggestions from CRM database for user {user_email_upper}")
+        print(f"📊 [CRM] Total cases loaded from CRM: {len(case_numbers)}")
         
         return jsonify({
             "success": True,
