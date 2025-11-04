@@ -3162,20 +3162,27 @@ class CaseManager {
         
         const trimmedCaseNumber = caseNumber.trim();
         
-        // Convert to integer if it's a valid number
-        let caseNumberInt;
-        try {
-            caseNumberInt = parseInt(trimmedCaseNumber);
-            if (isNaN(caseNumberInt)) {
-                throw new Error('Invalid number');
-            }
-        } catch (error) {
-            await this.showCustomAlert('Error', 'Case number must be a valid number.');
+        // Simple validation: check for obviously wrong inputs
+        // - Maximum length to prevent extremely long inputs
+        // - Allow alphanumeric and common special characters
+        const MAX_CASE_NUMBER_LENGTH = 50;
+        
+        if (trimmedCaseNumber.length > MAX_CASE_NUMBER_LENGTH) {
+            await this.showCustomAlert('Invalid Case Number', 
+                `Case number is too long. Maximum length is ${MAX_CASE_NUMBER_LENGTH} characters.`);
             return;
         }
         
+        if (trimmedCaseNumber.length < 1) {
+            await this.showCustomAlert('Invalid Case Number', 'Case number cannot be empty.');
+            return;
+        }
+        
+        // Use trimmed case number as-is (can include characters)
+        const caseNumberValue = trimmedCaseNumber;
+        
         // Check if case number already exists locally
-        const existingCase = this.cases.find(c => c.caseNumber === caseNumberInt);
+        const existingCase = this.cases.find(c => c.caseNumber === caseNumberValue || String(c.caseNumber) === caseNumberValue);
         if (existingCase) {
             await this.showCustomAlert('Case Already Exists', 'This case number already exists in your list.');
             // Switch to existing case
@@ -3185,7 +3192,7 @@ class CaseManager {
         
         // Try to create case in database first
         try {
-            console.log(`🚀 [CaseManager] Attempting to create case ${caseNumberInt} in database...`);
+            console.log(`🚀 [CaseManager] Attempting to create case ${caseNumberValue} in database...`);
             
             const createResponse = await fetch('/api/cases/create', {
                 method: 'POST',
@@ -3193,7 +3200,7 @@ class CaseManager {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    case_number: caseNumberInt
+                    case_number: caseNumberValue
                 })
             });
             
@@ -3202,18 +3209,18 @@ class CaseManager {
             
             if (createResponse.ok) {
                 const createData = await createResponse.json();
-                console.log(`✅ [CaseManager] Successfully created case ${caseNumberInt} in database:`, createData);
+                console.log(`✅ [CaseManager] Successfully created case ${caseNumberValue} in database:`, createData);
                 
                 // Check for CRM warning (case not found in CRM)
                 if (createData.warning) {
-                    console.log(`⚠️ [CaseManager] CRM warning for case ${caseNumberInt}:`, createData.warning);
+                    console.log(`⚠️ [CaseManager] CRM warning for case ${caseNumberValue}:`, createData.warning);
                     
                     // Show title prompt for untracked case
-                    const caseTitleInput = await this.showUntrackedCasePrompt(caseNumberInt);
+                    const caseTitleInput = await this.showUntrackedCasePrompt(caseNumberValue);
                     
                     if (caseTitleInput === null) {
                         // User cancelled - remove the case we just created
-                        await fetch(`/api/cases/delete/${caseNumberInt}`, { method: 'DELETE' });
+                        await fetch(`/api/cases/delete/${caseNumberValue}`, { method: 'DELETE' });
                         return;
                     }
                     
@@ -3223,12 +3230,12 @@ class CaseManager {
                 }
             } else if (createResponse.status === 409) {
                 // Case already exists - this is actually good, means it's tracked
-                console.log(`ℹ️ [CaseManager] Case ${caseNumberInt} already exists in database (tracked)`);
+                console.log(`ℹ️ [CaseManager] Case ${caseNumberValue} already exists in database (tracked)`);
             } else {
                 // Case creation failed - show prompt for untracked case with title input
-                console.log(`⚠️ [CaseManager] Failed to create case ${caseNumberInt} in database:`, createResponse.status);
+                console.log(`⚠️ [CaseManager] Failed to create case ${caseNumberValue} in database:`, createResponse.status);
                 
-                const caseTitleInput = await this.showUntrackedCasePrompt(caseNumberInt);
+                const caseTitleInput = await this.showUntrackedCasePrompt(caseNumberValue);
                 
                 if (caseTitleInput === null) {
                     // User cancelled
@@ -3242,8 +3249,8 @@ class CaseManager {
             
         // Create the case (either tracked or untracked)
         const newCase = {
-            id: caseNumberInt, // Use case number as ID for consistency
-            caseNumber: caseNumberInt,
+            id: caseNumberValue, // Use case number as ID for consistency
+            caseNumber: caseNumberValue,
             caseTitle: untrackedCaseTitle || null, // Store the title if provided
             problemStatement: '',
             fsrNotes: '',
@@ -3268,7 +3275,7 @@ class CaseManager {
                 sidebar.classList.remove('open');
             }
             
-            console.log(`✅ [CaseManager] Case ${caseNumberInt} created successfully`);
+            console.log(`✅ [CaseManager] Case ${caseNumberValue} created successfully`);
             
         } catch (error) {
             console.error('❌ [CaseManager] Error creating case:', error);
@@ -4692,7 +4699,33 @@ class CaseManager {
             const input = document.createElement('input');
             input.type = 'text';
             input.placeholder = 'Enter case name...';
-            input.style.cssText = 'width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1em; margin-top: 10px;';
+            input.style.cssText = 'width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1em; margin-top: 10px; box-sizing: border-box;';
+            
+            // Word count display
+            const wordCountText = document.createElement('p');
+            wordCountText.style.cssText = 'margin: 8px 0 0 0; font-size: 0.85em; color: #6b7280; text-align: right;';
+            wordCountText.textContent = '0 / 50 words';
+            
+            const MAX_WORDS = 50;
+            
+            // Update word count as user types
+            const updateWordCount = () => {
+                const text = input.value.trim();
+                const words = text ? text.split(/\s+/).filter(word => word.length > 0) : [];
+                const wordCount = words.length;
+                
+                wordCountText.textContent = `${wordCount} / ${MAX_WORDS} words`;
+                
+                if (wordCount > MAX_WORDS) {
+                    wordCountText.style.color = '#dc2626';
+                    input.style.borderColor = '#dc2626';
+                } else {
+                    wordCountText.style.color = '#6b7280';
+                    input.style.borderColor = '#ddd';
+                }
+            };
+            
+            input.addEventListener('input', updateWordCount);
             
             // Replace message with custom content
             popupMessage.innerHTML = '';
@@ -4700,6 +4733,7 @@ class CaseManager {
             popupMessage.appendChild(warningText);
             popupMessage.appendChild(noteText);
             popupMessage.appendChild(input);
+            popupMessage.appendChild(wordCountText);
             
             // Show both buttons
             popupCancel.style.display = 'inline-block';
@@ -4726,6 +4760,18 @@ class CaseManager {
                 if (!value) {
                     input.style.borderColor = '#dc2626';
                     input.placeholder = 'Case name is required';
+                    input.focus();
+                    return;
+                }
+                
+                // Validate word count (50 words max)
+                const words = value.split(/\s+/).filter(word => word.length > 0);
+                const wordCount = words.length;
+                
+                if (wordCount > MAX_WORDS) {
+                    input.style.borderColor = '#dc2626';
+                    wordCountText.textContent = `Too many words! Please limit to ${MAX_WORDS} words (currently ${wordCount})`;
+                    wordCountText.style.color = '#dc2626';
                     input.focus();
                     return;
                 }

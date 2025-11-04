@@ -2644,6 +2644,22 @@ def create_case():
     if not case_number:
         return jsonify({"error": "Case number required"}), 400
     
+    # Simple validation: check for obviously wrong inputs
+    # - Maximum length to prevent extremely long inputs
+    # - Allow alphanumeric and common special characters
+    MAX_CASE_NUMBER_LENGTH = 50
+    
+    case_number_str = str(case_number).strip()
+    
+    if len(case_number_str) > MAX_CASE_NUMBER_LENGTH:
+        return jsonify({"error": f"Case number is too long. Maximum length is {MAX_CASE_NUMBER_LENGTH} characters."}), 400
+    
+    if len(case_number_str) < 1:
+        return jsonify({"error": "Case number cannot be empty."}), 400
+    
+    # Use the validated case number
+    case_number = case_number_str
+    
     try:
         # Check if case already exists for this user
         check_query = f"""
