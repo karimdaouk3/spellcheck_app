@@ -2856,11 +2856,11 @@ def create_case():
         # Insert new case session
         insert_query = f"""
             INSERT INTO {DATABASE}.{SCHEMA}.CASE_SESSIONS 
-            (CASE_ID, CREATED_BY_USER, CASE_STATUS, CREATION_TIME, CRM_LAST_SYNC_TIME)
-            VALUES (%s, %s, 'open', CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
+            (CASE_ID, CREATED_BY_USER, USER_ID, CASE_STATUS, CREATION_TIME, CRM_LAST_SYNC_TIME)
+            VALUES (%s, %s, %s, 'open', CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
         """
         snowflake_query(insert_query, CONNECTION_PAYLOAD, 
-                       (case_number, user_id), 
+                       (case_number, user_id, user_id), 
                        return_df=False)
         
         # Prepare response with CRM status
