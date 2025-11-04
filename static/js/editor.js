@@ -2540,9 +2540,11 @@ class CaseManager {
                 console.log(`✅ [CaseManager] Preloaded ${totalCases} case suggestions from CRM database (filtered by user email)`);
                 console.log(`📊 [CaseManager] Total preloaded cases from CRM database: ${totalCases}`);
                 
-                // Log all preloaded case numbers from CRM for testing
+                // Log sample of 5 case numbers for testing
                 if (totalCases > 0) {
-                    console.log(`🔍 [CaseManager] All preloaded case numbers from CRM (filtered by user email):`, this.preloadedSuggestions);
+                    const sampleCount = Math.min(5, totalCases);
+                    const sampleCases = this.preloadedSuggestions.slice(0, sampleCount);
+                    console.log(`🔍 [CaseManager] Sample preloaded case numbers from CRM (first ${sampleCount} of ${totalCases}):`, sampleCases);
                     console.log(`📋 [CaseManager] Using ${totalCases} cases from CRM database for suggestions`);
                 } else {
                     console.log(`⚠️ [CaseManager] No cases found in CRM database for preloading`);

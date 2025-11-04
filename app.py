@@ -866,11 +866,7 @@ def preload_case_suggestions():
         print(f"✅ [CRM] Preloaded {total_cases} case suggestions from CRM database for user {user_email_upper}")
         print(f"📊 [CRM] Total preloaded cases from CRM database (filtered by email): {total_cases}")
         
-        # Log all preloaded case numbers from CRM for testing
-        if total_cases > 0:
-            print(f"🔍 [CRM] All preloaded case numbers from CRM (filtered by user email): {case_numbers}")
-            print(f"📋 [CRM] Using {total_cases} cases from CRM database for suggestions")
-        else:
+        if total_cases == 0:
             print(f"⚠️ [CRM] No cases found in CRM database for preloading for user {user_email_upper}")
         
         return jsonify({
