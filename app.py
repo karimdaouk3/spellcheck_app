@@ -870,8 +870,7 @@ def get_case_data(case_number):
 @app.route('/api/cases/suggestions/preload', methods=['GET'])
 def preload_case_suggestions():
     """
-    Preload all available case numbers with titles for fast suggestions.
-    Returns case numbers and their titles from CRM.
+    Preload all available case numbers for fast suggestions.
     """
     user_data = session.get('user_data')
     if not user_data:
@@ -881,16 +880,15 @@ def preload_case_suggestions():
     # Get user email with fallback to default test email
     user_email_upper = get_user_email_for_crm()
     user_email = user_email_upper.lower()  # For display purposes
-    print(f"🔍 [CRM] Preloading case suggestions with titles for user: {user_email} (formatted: {user_email_upper})")
+    print(f"🔍 [CRM] Preloading case suggestions for user: {user_email} (formatted: {user_email_upper})")
     print(f"✅ [CRM] Using email filter: {user_email_upper} for preloading cases")
     
     try:
-        # Get all case numbers with titles (no search filter, no limit - get all cases)
+        # Get all case numbers (no search filter, no limit - get all cases)
         # IMPORTANT: This function filters by email - only cases matching user_email_upper will be returned
-        # Same number of cases as before, just with titles included
-        case_data = get_available_case_numbers_with_titles(user_email_upper)
-        total_cases = len(case_data)
-        print(f"✅ [CRM] Preloaded {total_cases} case suggestions with titles from CRM database for user {user_email_upper}")
+        case_numbers = get_available_case_numbers(user_email_upper, "", limit=None)
+        total_cases = len(case_numbers)
+        print(f"✅ [CRM] Preloaded {total_cases} case suggestions from CRM database for user {user_email_upper}")
         print(f"📊 [CRM] Total preloaded cases from CRM database (filtered by email): {total_cases}")
         print(f"🔒 [CRM] All {total_cases} cases are filtered by email: {user_email_upper}")
         
@@ -899,21 +897,18 @@ def preload_case_suggestions():
         else:
             # Verify all cases are filtered by email (log first few for verification)
             sample_count = min(5, total_cases)
-            sample_cases = case_data[:sample_count]
-            print(f"🔍 [CRM] Sample of preloaded cases (first {sample_count}): {[{'case_number': c['case_number'], 'case_title': c.get('case_title', 'N/A')[:50]} for c in sample_cases]}")
+            print(f"🔍 [CRM] Sample of preloaded cases (first {sample_count}): {case_numbers[:sample_count]}")
             print(f"✅ [CRM] All cases are pre-filtered by email {user_email_upper} - no additional filtering needed")
         
         return jsonify({
             "success": True,
-            "case_data": case_data,  # Array of {case_number, case_title}
-            "count": len(case_data),
+            "case_numbers": case_numbers,
+            "count": len(case_numbers),
             "filtered_by_email": user_email_upper
         })
         
     except Exception as e:
         print(f"❌ [Backend] Error preloading case suggestions: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({"error": "Failed to preload case suggestions"}), 500
 
 @app.route('/api/cases/suggestions', methods=['GET'])
@@ -982,6 +977,42 @@ def get_case_details_endpoint(case_number):
     except Exception as e:
         print(f"❌ [Backend] Error getting case details for {case_number}: {e}")
         return jsonify({"error": "Failed to get case details"}), 500
+
+@app.route('/api/cases/titles', methods=['POST'])
+def get_case_titles_batch_endpoint():
+    """
+    Get case titles for multiple case numbers at once.
+    Used for displaying titles in suggestions dropdown.
+    Returns a map of case_number -> case_title.
+    """
+    user_data = session.get('user_data')
+    if not user_data:
+        print("❌ [Backend] /api/cases/titles: Not authenticated")
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    # Get user email with fallback to default test email
+    user_email_upper = get_user_email_for_crm()
+    
+    try:
+        data = request.get_json()
+        case_numbers = data.get('case_numbers', [])
+        
+        if not case_numbers:
+            return jsonify({"success": True, "titles": {}})
+        
+        print(f"🔍 [CRM] Getting titles for {len(case_numbers)} cases")
+        
+        # Get titles for all case numbers
+        titles = get_case_titles_batch(case_numbers, user_email_upper)
+        
+        return jsonify({
+            "success": True,
+            "titles": titles
+        })
+        
+    except Exception as e:
+        print(f"❌ [Backend] Error getting case titles: {e}")
+        return jsonify({"error": "Failed to get case titles"}), 500
 
 # ==================== CRM INTEGRATION FUNCTIONS ====================
 
@@ -1054,66 +1085,6 @@ def get_available_case_numbers(user_email, search_query="", limit=10):
             
     except Exception as e:
         print(f"❌ [CRM] Error getting available case numbers: {e}")
-        import traceback
-        traceback.print_exc()
-        return []
-
-def get_available_case_numbers_with_titles(user_email):
-    """
-    Get available case numbers with their titles from CRM.
-    Uses the same filtering logic as get_available_case_numbers to ensure same number of cases.
-    Returns a list of dictionaries with case_number and case_title.
-    Filters by user email for security.
-    """
-    try:
-        if not user_email:
-            print("❌ [CRM] No user email provided for case numbers with titles query")
-            return []
-        
-        # Convert email to uppercase to match CRM format
-        user_email_upper = user_email.upper()
-        like_pattern = f"%~{user_email_upper}~%"
-        
-        # Query to get case numbers and titles by joining row-level security table with FSR detail table
-        # We use the same filtering logic as get_available_case_numbers to ensure same number of cases
-        # Use DISTINCT and window function to get the latest title for each case
-        query = """
-            SELECT DISTINCT
-                rls."Case Number" as CASE_NUMBER,
-                FIRST_VALUE(fsr."Case Title") OVER (
-                    PARTITION BY rls."Case Number" 
-                    ORDER BY fsr."FSR Number" DESC, fsr."FSR Creation Date" DESC
-                ) as CASE_TITLE
-            FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T rls
-            INNER JOIN GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_FSR_DETAIL fsr
-                ON rls."Case Number" = fsr."Case Number"
-            WHERE rls."Case Number" IS NOT NULL
-            AND rls."USER_EMAILS" LIKE %s
-            QUALIFY ROW_NUMBER() OVER (PARTITION BY rls."Case Number" ORDER BY fsr."FSR Number" DESC, fsr."FSR Creation Date" DESC) = 1
-            ORDER BY rls."Case Number" DESC
-        """
-        
-        print(f"🔒 [CRM] Getting case numbers with titles filtered by email: {user_email_upper}")
-        print(f"🔒 [CRM] LIKE pattern: {like_pattern}")
-        result = snowflake_query(query, CONNECTION_PAYLOAD, (like_pattern,))
-        
-        if result is not None and not result.empty:
-            # Convert to list of dictionaries
-            case_data = []
-            for _, row in result.iterrows():
-                case_data.append({
-                    "case_number": str(row["CASE_NUMBER"]),
-                    "case_title": str(row["CASE_TITLE"]) if pd.notna(row["CASE_TITLE"]) else None
-                })
-            
-            print(f"✅ [CRM] Found {len(case_data)} cases with titles for user {user_email_upper}")
-            return case_data
-        else:
-            print(f"⚠️ [CRM] No cases with titles found for user {user_email_upper}")
-            return []
-            
-    except Exception as e:
-        print(f"❌ [CRM] Error getting case numbers with titles: {e}")
         import traceback
         traceback.print_exc()
         return []
@@ -1253,6 +1224,88 @@ def get_case_details(case_number, user_email=None):
     except Exception as e:
         print(f"Error getting case details: {e}")
         return []
+
+def get_case_titles_batch(case_numbers, user_email=None):
+    """
+    Get case titles for multiple case numbers at once.
+    Returns a dictionary mapping case_number -> case_title.
+    
+    Args:
+        case_numbers: List of case numbers to get titles for
+        user_email: User email to validate case ownership (optional, but recommended for security)
+    """
+    try:
+        if not case_numbers:
+            return {}
+        
+        # If user_email is provided, validate that all cases belong to the user first
+        if user_email:
+            user_email_upper = user_email.upper()
+            like_pattern = f"%~{user_email_upper}~%"
+            
+            # First, validate that all cases belong to the user
+            case_list = "', '".join(str(case) for case in case_numbers)
+            validation_query = f"""
+                SELECT DISTINCT "Case Number" as CASE_NUMBER
+                FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
+                WHERE "Case Number" IS NOT NULL
+                AND "USER_EMAILS" LIKE %s
+                AND "Case Number" IN ('{case_list}')
+            """
+            
+            print(f"🔍 [CRM] Validating {len(case_numbers)} cases belong to user {user_email_upper}")
+            validated_result = snowflake_query(validation_query, CONNECTION_PAYLOAD, (like_pattern,))
+            
+            if validated_result is not None and not validated_result.empty:
+                validated_cases = set(validated_result["CASE_NUMBER"].astype(str).tolist())
+                # Filter to only get titles for validated cases
+                case_numbers = [case for case in case_numbers if str(case) in validated_cases]
+                print(f"✅ [CRM] Validated {len(case_numbers)} cases for user {user_email_upper}")
+            else:
+                print(f"⚠️ [CRM] No cases validated for user {user_email_upper}, returning empty titles")
+                return {}
+        
+        if not case_numbers:
+            return {}
+        
+        # Query to get case titles for multiple cases
+        # Use DISTINCT and window function to get the latest title for each case
+        case_list = "', '".join(str(case) for case in case_numbers)
+        query = f"""
+            SELECT DISTINCT
+                "Case Number",
+                "Case Title",
+                ROW_NUMBER() OVER (
+                    PARTITION BY "Case Number" 
+                    ORDER BY "FSR Number" DESC, "FSR Creation Date" DESC
+                ) as rn
+            FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_FSR_DETAIL
+            WHERE "Case Number" IN ('{case_list}')
+            QUALIFY rn = 1
+        """
+        
+        print(f"🔍 [CRM] Getting titles for {len(case_numbers)} cases")
+        result = snowflake_query(query, PROD_PAYLOAD)
+        
+        titles = {}
+        if result is not None and not result.empty:
+            for _, row in result.iterrows():
+                case_num = str(row["Case Number"])
+                case_title = row["Case Title"]
+                if pd.notna(case_title) and case_title:
+                    titles[case_num] = str(case_title)
+            
+            print(f"✅ [CRM] Found titles for {len(titles)} cases")
+        else:
+            print(f"⚠️ [CRM] No titles found for cases")
+        
+        return titles
+            
+    except Exception as e:
+        print(f"❌ [CRM] Error getting case titles batch: {e}")
+        import traceback
+        traceback.print_exc()
+        return {}
 
 # ==================== END MOCK ENDPOINTS ====================
 
