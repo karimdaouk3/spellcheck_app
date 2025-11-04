@@ -1146,20 +1146,24 @@ def get_available_case_numbers_with_titles(user_email):
         like_pattern = f"%~{user_email_upper}~%"
         
         # Query to get case numbers and titles by joining row-level security table with FSR detail table
-        # We use DISTINCT and window function to get the latest title for each case
+        # We use LEFT JOIN to include all cases even if they don't have FSR records yet
+        # Use window function to get the latest title for each case
         query = """
             SELECT DISTINCT
                 rls."Case Number" as CASE_NUMBER,
                 FIRST_VALUE(fsr."Case Title") OVER (
                     PARTITION BY rls."Case Number" 
-                    ORDER BY fsr."FSR Number" DESC, fsr."FSR Creation Date" DESC
+                    ORDER BY fsr."FSR Number" DESC NULLS LAST, fsr."FSR Creation Date" DESC NULLS LAST
                 ) as CASE_TITLE
             FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T rls
-            INNER JOIN GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_FSR_DETAIL fsr
+            LEFT JOIN GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_FSR_DETAIL fsr
                 ON rls."Case Number" = fsr."Case Number"
             WHERE rls."Case Number" IS NOT NULL
             AND rls."USER_EMAILS" LIKE %s
-            QUALIFY ROW_NUMBER() OVER (PARTITION BY rls."Case Number" ORDER BY fsr."FSR Number" DESC, fsr."FSR Creation Date" DESC) = 1
+            QUALIFY ROW_NUMBER() OVER (
+                PARTITION BY rls."Case Number" 
+                ORDER BY fsr."FSR Number" DESC NULLS LAST, fsr."FSR Creation Date" DESC NULLS LAST
+            ) = 1
             ORDER BY rls."Case Number" DESC
         """
         
