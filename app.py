@@ -40,18 +40,30 @@ def get_user_email_for_crm():
     """
     Get user email from session data, with fallback to default test email for non-SSO mode.
     Returns the email in uppercase format as required by CRM.
+    
+    For SSO mode: Uses the actual SSO user email (already normalized to uppercase)
+    For non-SSO mode: Uses DEFAULT_TEST_EMAIL (PRUTHVI.VENKATASEERAMREDDI@KLA.COM)
     """
     user_data = session.get('user_data')
     if not user_data:
-        print(f"⚠️ [CRM] No user data in session, using default test email: {DEFAULT_TEST_EMAIL}")
+        print(f"⚠️ [CRM] No user data in session (non-SSO mode), using default test email: {DEFAULT_TEST_EMAIL}")
         return DEFAULT_TEST_EMAIL.upper()
     
     user_email = user_data.get('email', '')
     if not user_email:
-        print(f"⚠️ [CRM] No email in user data, using default test email: {DEFAULT_TEST_EMAIL}")
+        print(f"⚠️ [CRM] No email in user data (non-SSO mode), using default test email: {DEFAULT_TEST_EMAIL}")
         return DEFAULT_TEST_EMAIL.upper()
     
-    return user_email.upper()
+    # Ensure email is uppercase for CRM format (should already be uppercase from SSO, but normalize just in case)
+    email_upper = user_email.upper()
+    
+    # Log which email is being used (SSO vs non-SSO)
+    if email_upper == DEFAULT_TEST_EMAIL.upper():
+        print(f"ℹ️ [CRM] Using default test email (non-SSO mode): {email_upper}")
+    else:
+        print(f"✅ [CRM] Using SSO user email: {email_upper}")
+    
+    return email_upper
 
 def check_external_crm_exists(case_number):
     """
@@ -424,14 +436,19 @@ def acs():
         first_name = "{}".format(*attributes['firstname'])
         last_name = "{}".format(*attributes['lastname'])
         employee_id = "{}".format(*attributes['employeeID'])
- 
+        
+        # Normalize email to uppercase for CRM compatibility (CRM expects uppercase emails)
+        email_upper = email.upper() if email else ""
+        
         user_info = {
             "username": username,
-            "email": email,
+            "email": email_upper,  # Store email in uppercase format for CRM compatibility
             "first_name": first_name,
             "last_name": last_name,
             "employee_id": employee_id
         }
+        
+        print(f"[DBG] SSO Login: Email from SSO: {email} -> Normalized to: {email_upper}")
  
         # Check if user already exists
         check_query = f"SELECT COUNT(*) FROM {DATABASE}.{SCHEMA}.USER_INFORMATION WHERE EMPLOYEEID = %s"
@@ -487,7 +504,12 @@ def current_user():
             "employee_id": "test_employee_id"
         })
     # Use default email if missing from session
+    # For SSO: Use actual SSO email (already normalized to uppercase)
+    # For non-SSO: Use DEFAULT_TEST_EMAIL
     email = info.get("email") or DEFAULT_TEST_EMAIL
+    # Ensure email is in uppercase format for consistency
+    email = email.upper() if email else DEFAULT_TEST_EMAIL.upper()
+    
     return jsonify({
         "status": "ok",
         "user_id": info.get("user_id"),
