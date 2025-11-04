@@ -3221,6 +3221,9 @@ class CaseManager {
             return;
         }
         
+        // Get case title from preloaded suggestions if available (for CRM cases)
+        const preloadedTitle = this.preloadedSuggestions.get(caseNumberValue) || null;
+        
         // Try to create case in database first
         try {
             console.log(`🚀 [CaseManager] Attempting to create case ${caseNumberValue} in database...`);
@@ -3278,25 +3281,22 @@ class CaseManager {
                 isTrackedInDatabase = false;
             }
             
-        // Get case title from preloaded suggestions if available (for CRM cases)
-        const preloadedTitle = this.preloadedSuggestions.get(caseNumberValue) || null;
-        
-        // Create the case (either tracked or untracked)
-        // Use preloaded title if available, otherwise use user-provided title for untracked cases
-        const newCase = {
-            id: caseNumberValue, // Use case number as ID for consistency
-            caseNumber: caseNumberValue,
-            caseTitle: preloadedTitle || untrackedCaseTitle || null, // Use preloaded title first, then user-provided title
-            problemStatement: '',
-            fsrNotes: '',
+            // Create the case (either tracked or untracked)
+            // Use preloaded title if available, otherwise use user-provided title for untracked cases
+            const newCase = {
+                id: caseNumberValue, // Use case number as ID for consistency
+                caseNumber: caseNumberValue,
+                caseTitle: preloadedTitle || untrackedCaseTitle || null, // Use preloaded title first, then user-provided title
+                problemStatement: '',
+                fsrNotes: '',
             createdAt: new Date(),
             updatedAt: new Date(),
             isTrackedInDatabase: isTrackedInDatabase
         };
-        
-        if (preloadedTitle) {
-            console.log(`✅ [CaseManager] Using preloaded case title for case ${caseNumberValue}: ${preloadedTitle.substring(0, 50)}...`);
-        }
+            
+            if (preloadedTitle) {
+                console.log(`✅ [CaseManager] Using preloaded case title for case ${caseNumberValue}: ${preloadedTitle.substring(0, 50)}...`);
+            }
             
             console.log(`📝 [CaseManager] Creating new case:`, {
                 caseNumber: newCase.caseNumber,
