@@ -2482,17 +2482,20 @@ class CaseManager {
         await this.fetchUserInfo();
         console.log('✅ User info fetched, userId:', this.userId);
         
-        // Preload case suggestions for fast lookup
-        await this.preloadCaseSuggestions();
+        // Parallelize independent operations:
+        // - Preload case suggestions (doesn't depend on cases)
+        // - Load cases (doesn't depend on suggestions)
+        // - Check for closed cases (doesn't depend on cases loading)
+        const [_, __, ___] = await Promise.all([
+            this.preloadCaseSuggestions(),
+            this.loadCases(),
+            this.checkForClosedCases()
+        ]);
         
-        await this.loadCases();
         console.log('✅ Cases loaded');
         this.setupEventListeners();
         this.renderCasesList();
         this.startAutoSave();
-        
-        // Check for closed cases that need feedback
-        await this.checkForClosedCases();
         
         // Hide loading indicator
         this.hideLoadingIndicator();
@@ -2930,27 +2933,29 @@ class CaseManager {
         console.log(`🚀 [CaseManager] Loading cases for user ${this.userId} from database... (forceRefresh: ${forceRefresh})`);
         
         try {
-            // Step 1: Get user cases (list of case numbers and status)
-            console.log('📋 [CaseManager] Step 1: Fetching user cases from /api/cases/user-cases');
+            // Parallelize Step 1 and Step 2 - they query similar data and can run concurrently
+            console.log('📋 [CaseManager] Fetching user cases and case data in parallel...');
             const cacheBust = Date.now();
-            const userCasesResponse = await fetch(`/api/cases/user-cases?cache_bust=${cacheBust}`);
+            
+            const [userCasesResponse, caseDataResponse] = await Promise.all([
+                fetch(`/api/cases/user-cases?cache_bust=${cacheBust}`),
+                fetch(`/api/cases/data?cache_bust=${cacheBust}`)
+            ]);
             
             if (!userCasesResponse.ok) {
                 throw new Error(`Failed to fetch user cases: ${userCasesResponse.status} ${userCasesResponse.statusText}`);
             }
             
-            const userCasesData = await userCasesResponse.json();
-            console.log('✅ [CaseManager] User cases response:', userCasesData);
-            
-            // Step 2: Get detailed case data (problem statements and FSR notes)
-            console.log('📋 [CaseManager] Step 2: Fetching detailed case data from /api/cases/data');
-            const caseDataResponse = await fetch(`/api/cases/data?cache_bust=${cacheBust}`);
-            
             if (!caseDataResponse.ok) {
                 throw new Error(`Failed to fetch case data: ${caseDataResponse.status} ${caseDataResponse.statusText}`);
             }
             
-            const caseData = await caseDataResponse.json();
+            const [userCasesData, caseData] = await Promise.all([
+                userCasesResponse.json(),
+                caseDataResponse.json()
+            ]);
+            
+            console.log('✅ [CaseManager] User cases response:', userCasesData);
             console.log('✅ [CaseManager] Case data response:', caseData);
             console.log('🔍 [CaseManager] Case data keys:', Object.keys(caseData));
             console.log('🔍 [CaseManager] Cases object type:', typeof caseData.cases);
@@ -2995,13 +3000,14 @@ class CaseManager {
             console.log(`✅ [CaseManager] Successfully loaded ${this.cases.length} cases from database`);
             console.log(`📊 [CaseManager] Loaded ${this.cases.length} cases:`, this.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber, problemLength: c.problemStatement.length })));
             
-            // Load CRM data for all cases to get case titles
-            console.log('🔍 [CaseManager] Loading CRM data for all cases to get titles...');
-            for (const caseData of this.cases) {
-                if (caseData.caseNumber) {
-                    await this.loadCRMDataAndPopulateHistory(caseData.caseNumber);
-                }
-            }
+            // Load CRM data for all cases in parallel to get case titles
+            console.log('🔍 [CaseManager] Loading CRM data for all cases in parallel to get titles...');
+            const crmLoadPromises = this.cases
+                .filter(caseData => caseData.caseNumber)
+                .map(caseData => this.loadCRMDataAndPopulateHistory(caseData.caseNumber));
+            
+            await Promise.all(crmLoadPromises);
+            console.log(`✅ [CaseManager] Loaded CRM data for ${crmLoadPromises.length} cases in parallel`);
             
             // Re-render to show updated case titles
             this.renderCasesList();
