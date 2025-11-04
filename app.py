@@ -33,24 +33,34 @@ from snowflakeconnection import snowflake_query
 _crm_cache = {}
 CRM_CACHE_TTL = 300  # 5 minutes
 
+# Default email for non-SSO testing mode
+DEFAULT_TEST_EMAIL = "DAVID.BOLLA@KLA.COM"
+
+def get_user_email_for_crm():
+    """
+    Get user email from session data, with fallback to default test email for non-SSO mode.
+    Returns the email in uppercase format as required by CRM.
+    """
+    user_data = session.get('user_data')
+    if not user_data:
+        print(f"⚠️ [CRM] No user data in session, using default test email: {DEFAULT_TEST_EMAIL}")
+        return DEFAULT_TEST_EMAIL.upper()
+    
+    user_email = user_data.get('email', '')
+    if not user_email:
+        print(f"⚠️ [CRM] No email in user data, using default test email: {DEFAULT_TEST_EMAIL}")
+        return DEFAULT_TEST_EMAIL.upper()
+    
+    return user_email.upper()
+
 def check_external_crm_exists(case_number):
     """
     Check if a case exists in external CRM by querying available case numbers.
     Returns True if case exists in CRM, False otherwise.
     """
     try:
-        user_data = session.get('user_data')
-        if not user_data:
-            print("❌ [CRM] No user data available for CRM check")
-            return False
-        
-        user_email = user_data.get('email', '')
-        if not user_email:
-            print("❌ [CRM] No user email available for CRM check")
-            return False
-        
-        # Convert email to uppercase format as required by CRM
-        user_email_upper = user_email.upper()
+        # Get user email with fallback to default test email
+        user_email_upper = get_user_email_for_crm()
         print(f"🔍 [CRM] Checking if case {case_number} exists for user {user_email_upper}")
         
         # Query 1: Check if case exists in CRM (email restriction commented out for testing)
@@ -299,18 +309,8 @@ def get_available_case_numbers():
     Used to suggest case numbers when creating a new case.
     """
     try:
-        user_data = session.get('user_data')
-        if not user_data:
-            print("❌ [CRM] No user data available for case number suggestions")
-            return []
-        
-        user_email = user_data.get('email', '')
-        if not user_email:
-            print("❌ [CRM] No user email available for case number suggestions")
-            return []
-        
-        # Convert email to uppercase format as required by CRM
-        user_email_upper = user_email.upper()
+        # Get user email with fallback to default test email
+        user_email_upper = get_user_email_for_crm()
         print(f"🔍 [CRM] Getting available case numbers for user {user_email_upper}")
         
         # Query 1: Get available case numbers (email restriction commented out for testing)
@@ -622,7 +622,8 @@ def check_external_crm_status():
         return jsonify({"error": "Not authenticated"}), 401
     
     user_id = user_data.get('user_id')
-    user_email = user_data.get('email')
+    # Get user email with fallback to default test email
+    user_email_upper = get_user_email_for_crm()
     print(f"🚀 [Backend] /api/cases/check-external-status: Checking external CRM for user {user_id}")
     
     try:
@@ -644,7 +645,7 @@ def check_external_crm_status():
             print(f"🔍 [Backend] Batch checking CRM status for cases: {case_ids}")
             
             # Batch check external CRM status for all cases at once (with email filtering)
-            external_statuses = check_external_crm_status_batch(case_ids, user_email=user_email)
+            external_statuses = check_external_crm_status_batch(case_ids, user_email=user_email_upper)
             
             for _, row in result.iterrows():
                 case_id = row["CASE_ID"]
@@ -843,12 +844,9 @@ def preload_case_suggestions():
         print("❌ [Backend] /api/cases/suggestions/preload: Not authenticated")
         return jsonify({"error": "Not authenticated"}), 401
     
-    user_email = user_data.get('email')
-    if not user_email:
-        return jsonify({"error": "No email found in user data"}), 400
-    
-    # Convert email to uppercase to match CRM format
-    user_email_upper = user_email.upper()
+    # Get user email with fallback to default test email
+    user_email_upper = get_user_email_for_crm()
+    user_email = user_email_upper.lower()  # For display purposes
     print(f"🔍 [CRM] Preloading case suggestions for user: {user_email} (formatted: {user_email_upper})")
     
     try:
@@ -877,15 +875,12 @@ def get_case_suggestions():
         print("❌ [Backend] /api/cases/suggestions: Not authenticated")
         return jsonify({"error": "Not authenticated"}), 401
     
-    user_email = user_data.get('email')
-    if not user_email:
-        return jsonify({"error": "No email found in user data"}), 400
+    # Get user email with fallback to default test email
+    user_email_upper = get_user_email_for_crm()
+    user_email = user_email_upper.lower()  # For display purposes
     
     # Get search query parameter for filtering
     search_query = request.args.get('q', '').strip()
-    
-    # Convert email to uppercase to match CRM format
-    user_email_upper = user_email.upper()
     print(f"🔍 [CRM] Getting case suggestions for user: {user_email} (formatted: {user_email_upper})")
     if search_query:
         print(f"🔍 [CRM] Filtering by search query: '{search_query}'")
@@ -916,11 +911,13 @@ def get_case_details_endpoint(case_number):
         print("❌ [Backend] /api/cases/details: Not authenticated")
         return jsonify({"error": "Not authenticated"}), 401
     
-    user_email = user_data.get('email')
+    # Get user email with fallback to default test email
+    user_email_upper = get_user_email_for_crm()
+    user_email = user_email_upper.lower()  # For function parameter
     
     try:
         print(f"🔍 [CRM] Getting case details for case: {case_number}")
-        case_details = get_case_details(case_number, user_email=user_email)
+        case_details = get_case_details(case_number, user_email=user_email_upper)
         print(f"✅ [CRM] Found {len(case_details)} FSR records for case {case_number}")
         
         return jsonify({
