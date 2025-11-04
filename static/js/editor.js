@@ -2469,7 +2469,7 @@ class CaseManager {
         this.currentCase = null;
         this.caseCounter = 1;
         this.userId = null;
-        this.preloadedSuggestions = []; // Cache for case suggestions
+        this.preloadedSuggestions = new Map(); // Cache for case suggestions: Map<case_number, case_title>
         // Don't call init() here - will be called from outside
     }
     
@@ -2541,33 +2541,40 @@ class CaseManager {
     
     async preloadCaseSuggestions() {
         try {
-            console.log('🔍 [CaseManager] Preloading case suggestions from CRM database...');
+            console.log('🔍 [CaseManager] Preloading case suggestions with titles from CRM database...');
             const response = await fetch('/api/cases/suggestions/preload');
             if (response.ok) {
                 const data = await response.json();
-                this.preloadedSuggestions = data.case_numbers || [];
-                const totalCases = this.preloadedSuggestions.length;
+                // Store as map for quick lookup: {case_number: case_title}
+                this.preloadedSuggestions = new Map();
+                if (data.case_data && Array.isArray(data.case_data)) {
+                    data.case_data.forEach(caseItem => {
+                        this.preloadedSuggestions.set(caseItem.case_number, caseItem.case_title || null);
+                    });
+                }
+                const totalCases = this.preloadedSuggestions.size;
                 const filteredByEmail = data.filtered_by_email || 'unknown';
-                console.log(`✅ [CaseManager] Preloaded ${totalCases} case suggestions from CRM database (filtered by user email: ${filteredByEmail})`);
+                console.log(`✅ [CaseManager] Preloaded ${totalCases} case suggestions with titles from CRM database (filtered by user email: ${filteredByEmail})`);
                 console.log(`📊 [CaseManager] Total preloaded cases from CRM database: ${totalCases}`);
                 console.log(`🔒 [CaseManager] All ${totalCases} cases are pre-filtered by email: ${filteredByEmail}`);
                 
-                // Log sample of 5 case numbers for testing
+                // Log sample of 5 case numbers with titles for testing
                 if (totalCases > 0) {
                     const sampleCount = Math.min(5, totalCases);
-                    const sampleCases = this.preloadedSuggestions.slice(0, sampleCount);
-                    console.log(`🔍 [CaseManager] Sample preloaded case numbers from CRM (first ${sampleCount} of ${totalCases}):`, sampleCases);
-                    console.log(`📋 [CaseManager] Using ${totalCases} cases from CRM database for suggestions (all filtered by email: ${filteredByEmail})`);
+                    const sampleCases = Array.from(this.preloadedSuggestions.entries()).slice(0, sampleCount);
+                    console.log(`🔍 [CaseManager] Sample preloaded cases from CRM (first ${sampleCount} of ${totalCases}):`, 
+                        sampleCases.map(([num, title]) => ({case_number: num, case_title: title?.substring(0, 50)})));
+                    console.log(`📋 [CaseManager] Using ${totalCases} cases with titles from CRM database for suggestions (all filtered by email: ${filteredByEmail})`);
                 } else {
                     console.log(`⚠️ [CaseManager] No cases found in CRM database for preloading`);
                 }
             } else {
                 console.error('❌ [CaseManager] Failed to preload suggestions:', response.status);
-                this.preloadedSuggestions = [];
+                this.preloadedSuggestions = new Map();
             }
         } catch (error) {
             console.error('❌ [CaseManager] Error preloading suggestions:', error);
-            this.preloadedSuggestions = [];
+            this.preloadedSuggestions = new Map();
         }
     }
     
@@ -3271,20 +3278,29 @@ class CaseManager {
                 isTrackedInDatabase = false;
             }
             
+        // Get case title from preloaded suggestions if available (for CRM cases)
+        const preloadedTitle = this.preloadedSuggestions.get(caseNumberValue) || null;
+        
         // Create the case (either tracked or untracked)
+        // Use preloaded title if available, otherwise use user-provided title for untracked cases
         const newCase = {
             id: caseNumberValue, // Use case number as ID for consistency
             caseNumber: caseNumberValue,
-            caseTitle: untrackedCaseTitle || null, // Store the title if provided
+            caseTitle: preloadedTitle || untrackedCaseTitle || null, // Use preloaded title first, then user-provided title
             problemStatement: '',
             fsrNotes: '',
             createdAt: new Date(),
             updatedAt: new Date(),
             isTrackedInDatabase: isTrackedInDatabase
         };
+        
+        if (preloadedTitle) {
+            console.log(`✅ [CaseManager] Using preloaded case title for case ${caseNumberValue}: ${preloadedTitle.substring(0, 50)}...`);
+        }
             
             console.log(`📝 [CaseManager] Creating new case:`, {
                 caseNumber: newCase.caseNumber,
+                caseTitle: newCase.caseTitle?.substring(0, 50),
                 isTracked: newCase.isTrackedInDatabase
             });
             
@@ -4298,19 +4314,22 @@ class CaseManager {
                 }
                 
                 // Filter preloaded suggestions (already filtered by email) - no database queries
-                const filteredCases = this.preloadedSuggestions.filter(caseNum => {
-                    return caseNum.toString().toLowerCase().startsWith(query.toLowerCase());
-                }).slice(0, 10); // Limit to 10 suggestions
+                // preloadedSuggestions is a Map: {case_number: case_title}
+                const filteredCases = Array.from(this.preloadedSuggestions.entries())
+                    .filter(([caseNum, title]) => {
+                        return caseNum.toString().toLowerCase().startsWith(query.toLowerCase());
+                    })
+                    .slice(0, 10); // Limit to 10 suggestions
                 
                 console.log(`🔍 [CaseManager] Query: "${query}" -> ${filteredCases.length} cases from preloaded suggestions (no DB queries)`);
                 
-                // Build suggestions data from preloaded cases only - no database calls
-                suggestionsData = filteredCases.map(caseNum => ({
+                // Build suggestions data from preloaded cases with titles - no database calls
+                suggestionsData = filteredCases.map(([caseNum, title]) => ({
                     caseNumber: caseNum,
-                    caseName: null // Case name not available from preloaded data, but we can show case number
+                    caseName: title || null // Use preloaded case title if available
                 }));
                 
-                console.log(`📊 [CaseManager] Showing ${suggestionsData.length} suggestions from preloaded data`);
+                console.log(`📊 [CaseManager] Showing ${suggestionsData.length} suggestions from preloaded data with titles`);
                 displaySuggestions();
             };
             
