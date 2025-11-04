@@ -2538,15 +2538,15 @@ class CaseManager {
                 this.preloadedSuggestions = data.case_numbers || [];
                 const totalCases = this.preloadedSuggestions.length;
                 console.log(`✅ [CaseManager] Preloaded ${totalCases} case suggestions from CRM database`);
-                console.log(`📊 [CaseManager] Total cases loaded from CRM: ${totalCases}`);
+                console.log(`📊 [CaseManager] Total preloaded cases from CRM database: ${totalCases}`);
                 
-                // Log sample of case numbers (up to 5) for testing
+                // Log sample of preloaded case numbers (up to 5) for testing
                 if (totalCases > 0) {
                     const sampleCount = Math.min(5, totalCases);
                     const sampleCases = this.preloadedSuggestions.slice(0, sampleCount);
-                    console.log(`🔍 [CaseManager] Sample case numbers (first ${sampleCount}):`, sampleCases);
+                    console.log(`🔍 [CaseManager] Sample preloaded case numbers from CRM (first ${sampleCount}):`, sampleCases);
                 } else {
-                    console.log(`⚠️ [CaseManager] No cases found in CRM database`);
+                    console.log(`⚠️ [CaseManager] No cases found in CRM database for preloading`);
                 }
             } else {
                 console.error('❌ [CaseManager] Failed to preload suggestions:', response.status);
