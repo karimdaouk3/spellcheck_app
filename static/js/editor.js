@@ -2482,25 +2482,35 @@ class CaseManager {
         await this.fetchUserInfo();
         console.log('✅ User info fetched, userId:', this.userId);
         
-        // Parallelize independent operations:
-        // - Preload case suggestions (doesn't depend on cases)
-        // - Load cases (doesn't depend on suggestions)
-        // - Check for closed cases (doesn't depend on cases loading)
-        const [_, __, ___] = await Promise.all([
-            this.preloadCaseSuggestions(),
-            this.loadCases(),
-            this.checkForClosedCases()
-        ]);
+        // Step 1: Load database cases first (fast) - this unlocks the UI
+        await this.loadCases();
+        console.log('✅ Cases loaded from database');
         
-        console.log('✅ Cases loaded');
+        // Step 2: Setup UI and unlock the site
         this.setupEventListeners();
         this.renderCasesList();
         this.startAutoSave();
         
-        // Hide loading indicator
+        // Hide loading indicator - user can now use the site
         this.hideLoadingIndicator();
+        console.log('✅ Site is now usable - database cases loaded');
         
-        console.log('✅ CaseManager initialization complete');
+        // Step 3: Preload CRM cases in background (slow - don't block UI)
+        // This happens after the site is usable, so user doesn't wait
+        this.preloadCaseSuggestions().then(() => {
+            console.log('✅ CRM case suggestions preloaded in background');
+        }).catch((error) => {
+            console.error('❌ Error preloading CRM suggestions in background:', error);
+        });
+        
+        // Step 4: Check for closed cases in background (non-blocking)
+        this.checkForClosedCases().then(() => {
+            console.log('✅ Closed cases check completed in background');
+        }).catch((error) => {
+            console.error('❌ Error checking closed cases in background:', error);
+        });
+        
+        console.log('✅ CaseManager initialization complete - site ready');
     }
     
     async fetchUserInfo() {
