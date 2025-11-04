@@ -911,6 +911,8 @@ def preload_case_suggestions():
         
     except Exception as e:
         print(f"❌ [Backend] Error preloading case suggestions: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": "Failed to preload case suggestions"}), 500
 
 @app.route('/api/cases/suggestions', methods=['GET'])
@@ -1128,6 +1130,64 @@ def check_case_status_batch(case_numbers, user_email=None):
         print(f"Error in batch case status check: {e}")
         return {case_num: 'unknown' for case_num in case_numbers}
 
+def get_available_case_numbers_with_titles(user_email):
+    """
+    Get available case numbers with their titles for preloading.
+    Returns a list of dictionaries with case_number and case_title.
+    Filters by user email for security.
+    """
+    try:
+        if not user_email:
+            print("❌ [CRM] No user email provided for case numbers with titles query")
+            return []
+        
+        # Convert email to uppercase to match CRM format
+        user_email_upper = user_email.upper()
+        like_pattern = f"%~{user_email_upper}~%"
+        
+        # Query to get case numbers and titles by joining row-level security table with FSR detail table
+        # We use DISTINCT and window function to get the latest title for each case
+        query = """
+            SELECT DISTINCT
+                rls."Case Number" as CASE_NUMBER,
+                FIRST_VALUE(fsr."Case Title") OVER (
+                    PARTITION BY rls."Case Number" 
+                    ORDER BY fsr."FSR Number" DESC, fsr."FSR Creation Date" DESC
+                ) as CASE_TITLE
+            FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T rls
+            INNER JOIN GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_FSR_DETAIL fsr
+                ON rls."Case Number" = fsr."Case Number"
+            WHERE rls."Case Number" IS NOT NULL
+            AND rls."USER_EMAILS" LIKE %s
+            QUALIFY ROW_NUMBER() OVER (PARTITION BY rls."Case Number" ORDER BY fsr."FSR Number" DESC, fsr."FSR Creation Date" DESC) = 1
+            ORDER BY rls."Case Number" DESC
+        """
+        
+        print(f"🔒 [CRM] Getting case numbers with titles filtered by email: {user_email_upper}")
+        print(f"🔒 [CRM] LIKE pattern: {like_pattern}")
+        result = snowflake_query(query, CONNECTION_PAYLOAD, (like_pattern,))
+        
+        if result is not None and not result.empty:
+            # Convert to list of dictionaries
+            case_data = []
+            for _, row in result.iterrows():
+                case_data.append({
+                    "case_number": str(row["CASE_NUMBER"]),
+                    "case_title": str(row["CASE_TITLE"]) if pd.notna(row["CASE_TITLE"]) else None
+                })
+            
+            print(f"✅ [CRM] Found {len(case_data)} cases with titles for user {user_email_upper}")
+            return case_data
+        else:
+            print(f"⚠️ [CRM] No cases with titles found for user {user_email_upper}")
+            return []
+            
+    except Exception as e:
+        print(f"❌ [CRM] Error getting case numbers with titles: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
+
 def get_case_details(case_number, user_email=None):
     """
     CRM Query 3: Get detailed case information
@@ -1189,64 +1249,6 @@ def get_case_details(case_number, user_email=None):
             
     except Exception as e:
         print(f"Error getting case details: {e}")
-        return []
-
-def get_available_case_numbers_with_titles(user_email):
-    """
-    Get available case numbers with their titles for preloading.
-    Returns a list of dictionaries with case_number and case_title.
-    Filters by user email for security.
-    """
-    try:
-        if not user_email:
-            print("❌ [CRM] No user email provided for case numbers with titles query")
-            return []
-        
-        # Convert email to uppercase to match CRM format
-        user_email_upper = user_email.upper()
-        like_pattern = f"%~{user_email_upper}~%"
-        
-        # Query to get case numbers and titles by joining row-level security table with FSR detail table
-        # We use DISTINCT and window function to get the latest title for each case
-        query = """
-            SELECT DISTINCT
-                rls."Case Number" as CASE_NUMBER,
-                FIRST_VALUE(fsr."Case Title") OVER (
-                    PARTITION BY rls."Case Number" 
-                    ORDER BY fsr."FSR Number" DESC, fsr."FSR Creation Date" DESC
-                ) as CASE_TITLE
-            FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T rls
-            INNER JOIN GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_FSR_DETAIL fsr
-                ON rls."Case Number" = fsr."Case Number"
-            WHERE rls."Case Number" IS NOT NULL
-            AND rls."USER_EMAILS" LIKE %s
-            QUALIFY ROW_NUMBER() OVER (PARTITION BY rls."Case Number" ORDER BY fsr."FSR Number" DESC, fsr."FSR Creation Date" DESC) = 1
-            ORDER BY rls."Case Number" DESC
-        """
-        
-        print(f"🔒 [CRM] Getting case numbers with titles filtered by email: {user_email_upper}")
-        print(f"🔒 [CRM] LIKE pattern: {like_pattern}")
-        result = snowflake_query(query, CONNECTION_PAYLOAD, (like_pattern,))
-        
-        if result is not None and not result.empty:
-            # Convert to list of dictionaries
-            case_data = []
-            for _, row in result.iterrows():
-                case_data.append({
-                    "case_number": str(row["CASE_NUMBER"]),
-                    "case_title": str(row["CASE_TITLE"]) if pd.notna(row["CASE_TITLE"]) else None
-                })
-            
-            print(f"✅ [CRM] Found {len(case_data)} cases with titles for user {user_email_upper}")
-            return case_data
-        else:
-            print(f"⚠️ [CRM] No cases with titles found for user {user_email_upper}")
-            return []
-            
-    except Exception as e:
-        print(f"❌ [CRM] Error getting case numbers with titles: {e}")
-        import traceback
-        traceback.print_exc()
         return []
 
 # ==================== END MOCK ENDPOINTS ====================
