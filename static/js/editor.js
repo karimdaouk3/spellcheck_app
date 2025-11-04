@@ -2537,15 +2537,17 @@ class CaseManager {
                 const data = await response.json();
                 this.preloadedSuggestions = data.case_numbers || [];
                 const totalCases = this.preloadedSuggestions.length;
-                console.log(`✅ [CaseManager] Preloaded ${totalCases} case suggestions from CRM database (filtered by user email)`);
+                const filteredByEmail = data.filtered_by_email || 'unknown';
+                console.log(`✅ [CaseManager] Preloaded ${totalCases} case suggestions from CRM database (filtered by user email: ${filteredByEmail})`);
                 console.log(`📊 [CaseManager] Total preloaded cases from CRM database: ${totalCases}`);
+                console.log(`🔒 [CaseManager] All ${totalCases} cases are pre-filtered by email: ${filteredByEmail}`);
                 
                 // Log sample of 5 case numbers for testing
                 if (totalCases > 0) {
                     const sampleCount = Math.min(5, totalCases);
                     const sampleCases = this.preloadedSuggestions.slice(0, sampleCount);
                     console.log(`🔍 [CaseManager] Sample preloaded case numbers from CRM (first ${sampleCount} of ${totalCases}):`, sampleCases);
-                    console.log(`📋 [CaseManager] Using ${totalCases} cases from CRM database for suggestions`);
+                    console.log(`📋 [CaseManager] Using ${totalCases} cases from CRM database for suggestions (all filtered by email: ${filteredByEmail})`);
                 } else {
                     console.log(`⚠️ [CaseManager] No cases found in CRM database for preloading`);
                 }

@@ -858,21 +858,30 @@ def preload_case_suggestions():
     user_email_upper = get_user_email_for_crm()
     user_email = user_email_upper.lower()  # For display purposes
     print(f"🔍 [CRM] Preloading case suggestions for user: {user_email} (formatted: {user_email_upper})")
+    print(f"✅ [CRM] Using email filter: {user_email_upper} for preloading cases")
     
     try:
         # Get all case numbers (no search filter, no limit - get all cases)
+        # IMPORTANT: This function filters by email - only cases matching user_email_upper will be returned
         case_numbers = get_available_case_numbers(user_email_upper, "", limit=None)
         total_cases = len(case_numbers)
         print(f"✅ [CRM] Preloaded {total_cases} case suggestions from CRM database for user {user_email_upper}")
         print(f"📊 [CRM] Total preloaded cases from CRM database (filtered by email): {total_cases}")
+        print(f"🔒 [CRM] All {total_cases} cases are filtered by email: {user_email_upper}")
         
         if total_cases == 0:
             print(f"⚠️ [CRM] No cases found in CRM database for preloading for user {user_email_upper}")
+        else:
+            # Verify all cases are filtered by email (log first few for verification)
+            sample_count = min(5, total_cases)
+            print(f"🔍 [CRM] Sample of preloaded cases (first {sample_count}): {case_numbers[:sample_count]}")
+            print(f"✅ [CRM] All cases are pre-filtered by email {user_email_upper} - no additional filtering needed")
         
         return jsonify({
             "success": True,
             "case_numbers": case_numbers,
-            "count": len(case_numbers)
+            "count": len(case_numbers),
+            "filtered_by_email": user_email_upper
         })
         
     except Exception as e:
@@ -962,13 +971,18 @@ def get_available_case_numbers(user_email, search_query="", limit=10):
         user_email_upper = user_email.upper()
         like_pattern = f"%~{user_email_upper}~%"
         
-        # Base query with email restriction
+        # Base query with email restriction - STRICTLY filter by user email
+        # The USER_EMAILS column contains emails in format: ~EMAIL1~EMAIL2~EMAIL3~
+        # We use LIKE pattern %~EMAIL~% to match emails in the delimited list
         base_query = """
             SELECT DISTINCT "Case Number" as CASE_NUMBER
             FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
             WHERE "Case Number" IS NOT NULL
             AND "USER_EMAILS" LIKE %s
         """
+        
+        print(f"🔒 [CRM] STRICT EMAIL FILTERING: Only cases with email '{user_email_upper}' will be returned")
+        print(f"🔒 [CRM] LIKE pattern: {like_pattern}")
         
         # Add search filtering if provided
         if search_query:
@@ -982,6 +996,7 @@ def get_available_case_numbers(user_email, search_query="", limit=10):
         
         print(f"🔍 [CRM] Executing query with email filter: {user_email_upper}")
         print(f"🔍 [CRM] Query pattern: {like_pattern}")
+        print(f"🔍 [CRM] Full SQL query: {base_query}")
         result = snowflake_query(base_query, CONNECTION_PAYLOAD, (like_pattern,))
         
         print(f"📊 [CRM] Query result:")
@@ -994,7 +1009,16 @@ def get_available_case_numbers(user_email, search_query="", limit=10):
         
         if result is not None and not result.empty:
             case_numbers = result["CASE_NUMBER"].tolist()
-            print(f"🔍 [CRM] Found {len(case_numbers)} cases matching search: '{search_query}'")
+            print(f"🔍 [CRM] Found {len(case_numbers)} cases matching search: '{search_query}' with email filter: {user_email_upper}")
+            print(f"✅ [CRM] All {len(case_numbers)} cases are filtered by email: {user_email_upper}")
+            print(f"🔒 [CRM] VERIFICATION: All returned cases have USER_EMAILS containing '{user_email_upper}'")
+            
+            # Verify email filtering is working - log first few case numbers for verification
+            if len(case_numbers) > 0:
+                sample_count = min(3, len(case_numbers))
+                print(f"🔍 [CRM] Sample cases (first {sample_count}): {case_numbers[:sample_count]}")
+                print(f"🔒 [CRM] These cases are guaranteed to match email: {user_email_upper} (filtered by SQL query)")
+            
             return case_numbers
         else:
             print(f"ℹ️ [CRM] No cases found matching search: '{search_query}'")
