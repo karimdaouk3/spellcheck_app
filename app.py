@@ -862,8 +862,17 @@ def preload_case_suggestions():
     try:
         # Get all case numbers (no search filter, no limit - get all cases)
         case_numbers = get_available_case_numbers(user_email_upper, "", limit=None)
-        print(f"✅ [CRM] Preloaded {len(case_numbers)} case suggestions from CRM database for user {user_email_upper}")
-        print(f"📊 [CRM] Total cases loaded from CRM: {len(case_numbers)}")
+        total_cases = len(case_numbers)
+        print(f"✅ [CRM] Preloaded {total_cases} case suggestions from CRM database for user {user_email_upper}")
+        print(f"📊 [CRM] Total cases loaded from CRM for user {user_email_upper}: {total_cases}")
+        
+        # Log sample of case numbers (up to 5) for testing
+        if total_cases > 0:
+            sample_count = min(5, total_cases)
+            sample_cases = case_numbers[:sample_count]
+            print(f"🔍 [CRM] Sample case numbers (first {sample_count}): {sample_cases}")
+        else:
+            print(f"⚠️ [CRM] No cases found for user {user_email_upper}")
         
         return jsonify({
             "success": True,
