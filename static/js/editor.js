@@ -2517,7 +2517,7 @@ class CaseManager {
                 // Show user ID in UI temporarily for debugging
                 const alert_msg = `Logged in as User ID: ${this.userId}\n` +
                                 `Name: ${userData.first_name} ${userData.last_name}\n` +
-                                `Email: ${userData.email || 'DAVID.BOLLA@KLA.COM'}`;
+                                `Email: ${userData.email || 'KARIM.DAOUK@KLA.COM'}`;
                 console.log(alert_msg);
             } else {
                 console.error('Failed to fetch user info');

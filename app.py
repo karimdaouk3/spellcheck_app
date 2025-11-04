@@ -34,7 +34,7 @@ _crm_cache = {}
 CRM_CACHE_TTL = 300  # 5 minutes
 
 # Default email for non-SSO testing mode
-DEFAULT_TEST_EMAIL = "DAVID.BOLLA@KLA.COM"
+DEFAULT_TEST_EMAIL = "KARIM.DAOUK@KLA.COM"
 
 def get_user_email_for_crm():
     """
@@ -389,10 +389,10 @@ def login():
     if not app.config['ENABLE_SSO']:
         # Simulate login for development or non-SSO mode
         session["user_data"] = {
-            "username": "david_bolla",
-            "email": "DAVID.BOLLA@KLA.COM",
-            "first_name": "David",
-            "last_name": "Bolla",
+            "username": "karim_daouk",
+            "email": "KARIM.DAOUK@KLA.COM",
+            "first_name": "Karim",
+            "last_name": "Daouk",
             "employee_id": "12345",
             "user_id": 0
         }
@@ -481,8 +481,8 @@ def current_user():
         return jsonify({
             "status": "ok",
             "user_id": "test_user",
-            "first_name": "David",
-            "last_name": "Bolla",
+            "first_name": "Karim",
+            "last_name": "Daouk",
             "email": DEFAULT_TEST_EMAIL,
             "employee_id": "test_employee_id"
         })
