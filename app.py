@@ -953,6 +953,7 @@ def get_case_details_endpoint(case_number):
     """
     Get detailed case information from CRM for a specific case.
     Returns FSR details, symptoms, problem statements, etc.
+    Filtered by user email to ensure data access control.
     """
     user_data = session.get('user_data')
     if not user_data:
