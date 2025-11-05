@@ -2045,7 +2045,8 @@ def llm():
 
         print(f"[DBG] /llm step1 side-effects uid={user_id} app_session_id={app_session_id} input_field={input_field}")
 
-        # USER_SESSION_INPUTS
+        # USER_SESSION_INPUTS - needed for response (user_input_id)
+        user_input_id = None
         try:
             snowflake_query(
                 f"""
@@ -2072,7 +2073,7 @@ def llm():
             print(f"[DBG] /llm USER_SESSION_INPUTS error: {e}")
             user_input_id = None
 
-        # Prompts
+        # Prompts - needed for response (rewrite_ids in evaluation sections)
         name_to_id = {r["name"]: int(r["id"]) for r in (rules_payload.get("rules") or [])}
         try:
             for idx, (rule_name, section) in enumerate(evaluation.items()):
@@ -2105,42 +2106,53 @@ def llm():
         except Exception as e:
             print(f"[DBG] /llm LLM_REWRITE_PROMPTS error: {e}")
 
-        # LLM_EVALUATION (step1 minimal)
-        evaluation_id = None
-        try:
-            total = len(evaluation) if isinstance(evaluation, dict) else 0
-            passed = sum(1 for v in evaluation.values() if v.get("passed")) if total else 0
-            score_num = (passed / total) * 100 if total else 0
-            
-            # Insert and get the evaluation ID
-            insert_query = f"""
-                INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
-                (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            """
-            snowflake_query(insert_query, CONNECTION_PAYLOAD,
-                          (user_input_id, input_text, input_text, score_num, None, timestamp),
-                          return_df=False)
-            
-            # Get the evaluation ID that was just inserted
-            id_query = f"""
-                SELECT ID FROM {DATABASE}.{SCHEMA}.LLM_EVALUATION 
-                WHERE USER_INPUT_ID = %s AND TIMESTAMP = %s
-                ORDER BY ID DESC LIMIT 1
-            """
-            id_result = snowflake_query(id_query, CONNECTION_PAYLOAD, (user_input_id, timestamp))
-            if id_result is not None and not id_result.empty:
-                evaluation_id = int(id_result.iloc[0]["ID"])  # Convert to int for JSON serialization
-                print(f"[DBG] /llm LLM_EVALUATION step1 created with ID: {evaluation_id}")
-        except Exception as e:
-            print(f"[DBG] /llm LLM_EVALUATION step1 error: {e}")
-
+        # Prepare response data - return immediately after getting essential IDs
         llm_result["rewrite_uuid"] = str(rewrite_uuid)  # Ensure string for JSON serialization
-        llm_result["evaluation_id"] = int(evaluation_id) if evaluation_id is not None else None
         if 'user_input_id' not in llm_result and 'evaluation' in llm_result:
             llm_result["user_input_id"] = user_input_id
-        print(f"[DBG] /llm returning step1 result uid={user_input_id} batch={rewrite_uuid} eval_id={evaluation_id}")
-        return jsonify({"result": llm_result})
+        # evaluation_id will be set to None initially, then updated in background
+        llm_result["evaluation_id"] = None
+        
+        print(f"[DBG] /llm returning step1 result immediately (uid={user_input_id}, batch={rewrite_uuid})")
+        response = jsonify({"result": llm_result})
+        
+        # Move LLM_EVALUATION insert to background thread (evaluation_id not immediately needed)
+        def background_db_operations():
+            try:
+                total = len(evaluation) if isinstance(evaluation, dict) else 0
+                passed = sum(1 for v in evaluation.values() if v.get("passed")) if total else 0
+                score_num = (passed / total) * 100 if total else 0
+                
+                # Insert and get the evaluation ID
+                insert_query = f"""
+                    INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
+                    (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """
+                snowflake_query(insert_query, CONNECTION_PAYLOAD,
+                              (user_input_id, input_text, input_text, score_num, None, timestamp),
+                              return_df=False)
+                
+                # Get the evaluation ID that was just inserted
+                id_query = f"""
+                    SELECT ID FROM {DATABASE}.{SCHEMA}.LLM_EVALUATION 
+                    WHERE USER_INPUT_ID = %s AND TIMESTAMP = %s
+                    ORDER BY ID DESC LIMIT 1
+                """
+                id_result = snowflake_query(id_query, CONNECTION_PAYLOAD, (user_input_id, timestamp))
+                if id_result is not None and not id_result.empty:
+                    evaluation_id = int(id_result.iloc[0]["ID"])
+                    print(f"[DBG] /llm LLM_EVALUATION step1 created with ID: {evaluation_id} (background)")
+                else:
+                    print(f"[DBG] /llm LLM_EVALUATION step1: Could not retrieve evaluation_id (background)")
+            except Exception as e:
+                print(f"[DBG] /llm LLM_EVALUATION step1 background error: {e}")
+        
+        # Start background thread for LLM_EVALUATION insert
+        db_thread = threading.Thread(target=background_db_operations, daemon=True)
+        db_thread.start()
+        
+        return response
 
     elif step == 2:
         print(f"[DBG] /llm step2 answers_type={type(answers)} len={len(answers) if isinstance(answers, list) else 'n/a'}")
