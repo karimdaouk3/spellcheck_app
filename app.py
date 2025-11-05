@@ -16,6 +16,7 @@ from datetime import datetime
 from pydub import AudioSegment
 import subprocess
 from pathlib import Path
+import threading
  
 from onelogin.saml2.auth import OneLogin_Saml2_Auth
 from onelogin.saml2.settings import OneLogin_Saml2_Settings
@@ -2142,124 +2143,132 @@ def llm():
 
     elif step == 2:
         print(f"[DBG] /llm step2 answers_type={type(answers)} len={len(answers) if isinstance(answers, list) else 'n/a'}")
-        # USER_REWRITE_INPUTS
-        try:
-            if isinstance(answers, list):
-                for item in answers:
-                    pid = item.get("rewrite_id")
-                    ans = (item.get("answer") or "").strip()
-                    if not pid or not ans:
-                        continue
-                    snowflake_query(
-                        f"""
-                        INSERT INTO {DATABASE}.{SCHEMA}.USER_REWRITE_INPUTS
-                        (REWRITE_ID, USER_REWRITE_INPUT, TIMESTAMP)
-                        VALUES (%s, %s, %s)
-                        """,
-                        CONNECTION_PAYLOAD,
-                        (pid, ans, timestamp),
-                        return_df=False,
-                    )
-        except Exception as e:
-            print(f"[DBG] /llm USER_REWRITE_INPUTS error: {e}")
-
-        # LLM_EVALUATION (step2)
-        try:
-            rewritten = llm_result.get("rewrite") if isinstance(llm_result, dict) else None
-            snowflake_query(
-                f"""
-                INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
-                (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                """,
-                CONNECTION_PAYLOAD,
-                (
-                    data.get("user_input_id"),
-                    text,
-                    rewritten or text,
-                    None,
-                    data.get("rewrite_uuid"),
-                    timestamp,
-                ),
-                return_df=False,
-            )
-            
-            # Update LAST_INPUT_STATE with the rewritten text for persistence
-            print(f"[DBG] /llm step2 PERSISTENCE CHECK: rewritten={bool(rewritten)}, user_input_id={data.get('user_input_id')}")
-            if rewritten and data.get("user_input_id"):
-                user_data = session.get("user_data", {})
-                user_id = user_data.get("user_id")
-                print(f"[DBG] /llm step2 PERSISTENCE: user_id={user_id}, session_data={user_data}")
+        
+        # Prepare data for background database operations
+        rewritten = llm_result.get("rewrite") if isinstance(llm_result, dict) else None
+        user_data = session.get("user_data", {})
+        user_id = user_data.get("user_id")
+        
+        # Return response immediately after LLM parsing - database queries will continue in background
+        print(f"[DBG] /llm returning step2 result immediately (has_rewrite={bool(llm_result.get('rewrite'))})")
+        response = jsonify({"result": llm_result})
+        
+        # Run database queries in background thread
+        def background_db_operations():
+            try:
+                # USER_REWRITE_INPUTS
+                if isinstance(answers, list):
+                    for item in answers:
+                        pid = item.get("rewrite_id")
+                        ans = (item.get("answer") or "").strip()
+                        if not pid or not ans:
+                            continue
+                        snowflake_query(
+                            f"""
+                            INSERT INTO {DATABASE}.{SCHEMA}.USER_REWRITE_INPUTS
+                            (REWRITE_ID, USER_REWRITE_INPUT, TIMESTAMP)
+                            VALUES (%s, %s, %s)
+                            """,
+                            CONNECTION_PAYLOAD,
+                            (pid, ans, timestamp),
+                            return_df=False,
+                        )
                 
-                # Get the case session ID from the user input
-                case_query = f"""
-                    SELECT CASE_ID, INPUT_FIELD_TYPE 
-                    FROM {DATABASE}.{SCHEMA}.USER_SESSION_INPUTS 
-                    WHERE ID = %s
-                """
-                print(f"[DBG] /llm step2 PERSISTENCE: Querying USER_SESSION_INPUTS for user_input_id={data.get('user_input_id')}")
-                case_result = snowflake_query(case_query, CONNECTION_PAYLOAD, (data.get("user_input_id"),))
-                print(f"[DBG] /llm step2 PERSISTENCE: case_result={case_result is not None}, empty={case_result.empty if case_result is not None else 'N/A'}")
+                # LLM_EVALUATION (step2)
+                snowflake_query(
+                    f"""
+                    INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
+                    (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    CONNECTION_PAYLOAD,
+                    (
+                        data.get("user_input_id"),
+                        text,
+                        rewritten or text,
+                        None,
+                        data.get("rewrite_uuid"),
+                        timestamp,
+                    ),
+                    return_df=False,
+                )
                 
-                if case_result is not None and not case_result.empty:
-                    case_id = case_result.iloc[0]["CASE_ID"]
-                    input_field_type = case_result.iloc[0]["INPUT_FIELD_TYPE"]
-                    print(f"[DBG] /llm step2 PERSISTENCE: Found case_id={case_id}, input_field_type={input_field_type}")
+                # Update LAST_INPUT_STATE with the rewritten text for persistence
+                print(f"[DBG] /llm step2 PERSISTENCE CHECK: rewritten={bool(rewritten)}, user_input_id={data.get('user_input_id')}")
+                if rewritten and data.get("user_input_id"):
+                    print(f"[DBG] /llm step2 PERSISTENCE: user_id={user_id}")
                     
-                    # Get case session ID
-                    session_query = f"""
-                        SELECT ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
-                        WHERE CASE_ID = %s AND CREATED_BY_USER = %s
+                    # Get the case session ID from the user input
+                    case_query = f"""
+                        SELECT CASE_ID, INPUT_FIELD_TYPE 
+                        FROM {DATABASE}.{SCHEMA}.USER_SESSION_INPUTS 
+                        WHERE ID = %s
                     """
-                    print(f"[DBG] /llm step2 PERSISTENCE: Querying CASE_SESSIONS for case_id={case_id}, user_id={user_id}")
-                    session_result = snowflake_query(session_query, CONNECTION_PAYLOAD, (case_id, user_id))
-                    print(f"[DBG] /llm step2 PERSISTENCE: session_result={session_result is not None}, empty={session_result.empty if session_result is not None else 'N/A'}")
+                    print(f"[DBG] /llm step2 PERSISTENCE: Querying USER_SESSION_INPUTS for user_input_id={data.get('user_input_id')}")
+                    case_result = snowflake_query(case_query, CONNECTION_PAYLOAD, (data.get("user_input_id"),))
+                    print(f"[DBG] /llm step2 PERSISTENCE: case_result={case_result is not None}, empty={case_result.empty if case_result is not None else 'N/A'}")
                     
-                    if session_result is not None and not session_result.empty:
-                        case_session_id = session_result.iloc[0]["ID"]
-                        print(f"[DBG] /llm step2 PERSISTENCE: Found case_session_id={case_session_id}")
+                    if case_result is not None and not case_result.empty:
+                        case_id = case_result.iloc[0]["CASE_ID"]
+                        input_field_type = case_result.iloc[0]["INPUT_FIELD_TYPE"]
+                        print(f"[DBG] /llm step2 PERSISTENCE: Found case_id={case_id}, input_field_type={input_field_type}")
                         
-                        # Determine input field ID based on type
-                        input_field_id = 1 if input_field_type == "problem_statement" else 2
-                        print(f"[DBG] /llm step2 PERSISTENCE: input_field_id={input_field_id} (1=problem_statement, 2=fsr_notes)")
-                        
-                        # Update LAST_INPUT_STATE with rewritten text
-                        print(f"[DBG] /llm step2 PERSISTENCE: About to update LAST_INPUT_STATE with:")
-                        print(f"[DBG] /llm step2 PERSISTENCE: - case_session_id={case_session_id}")
-                        print(f"[DBG] /llm step2 PERSISTENCE: - input_field_id={input_field_id}")
-                        print(f"[DBG] /llm step2 PERSISTENCE: - rewritten_text_length={len(rewritten) if rewritten else 0}")
-                        print(f"[DBG] /llm step2 PERSISTENCE: - rewritten_text_preview={rewritten[:100] if rewritten else 'None'}...")
-                        
-                        update_query = f"""
-                            MERGE INTO {DATABASE}.{SCHEMA}.LAST_INPUT_STATE AS target
-                            USING (SELECT %s as CASE_SESSION_ID, %s as INPUT_FIELD_ID, %s as INPUT_FIELD_VALUE, %s as LINE_ITEM_ID, %s as INPUT_FIELD_EVAL_ID) AS source
-                            ON target.CASE_SESSION_ID = source.CASE_SESSION_ID 
-                               AND target.INPUT_FIELD_ID = source.INPUT_FIELD_ID 
-                               AND target.LINE_ITEM_ID = source.LINE_ITEM_ID
-                            WHEN MATCHED THEN UPDATE SET 
-                                INPUT_FIELD_VALUE = source.INPUT_FIELD_VALUE,
-                                LAST_UPDATED = CURRENT_TIMESTAMP()
-                            WHEN NOT MATCHED THEN INSERT 
-                                (CASE_SESSION_ID, INPUT_FIELD_ID, INPUT_FIELD_VALUE, LINE_ITEM_ID, INPUT_FIELD_EVAL_ID, LAST_UPDATED)
-                                VALUES (source.CASE_SESSION_ID, source.INPUT_FIELD_ID, source.INPUT_FIELD_VALUE, source.LINE_ITEM_ID, source.INPUT_FIELD_EVAL_ID, CURRENT_TIMESTAMP())
+                        # Get case session ID
+                        session_query = f"""
+                            SELECT ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+                            WHERE CASE_ID = %s AND CREATED_BY_USER = %s
                         """
-                        print(f"[DBG] /llm step2 PERSISTENCE: Executing MERGE query...")
-                        snowflake_query(update_query, CONNECTION_PAYLOAD, 
-                                       (case_session_id, input_field_id, rewritten, 1, None), 
-                                       return_df=False)
-                        print(f"[DBG] /llm step2 PERSISTENCE: ✅ Successfully updated LAST_INPUT_STATE with rewritten text for case {case_id}")
-                    else:
-                        print(f"[DBG] /llm step2 PERSISTENCE: ❌ No case session found for case_id={case_id}, user_id={user_id}")
-                else:
-                    print(f"[DBG] /llm step2 PERSISTENCE: ❌ No user session input found for user_input_id={data.get('user_input_id')}")
-            else:
-                print(f"[DBG] /llm step2 PERSISTENCE: ❌ Skipping persistence - rewritten={bool(rewritten)}, user_input_id={data.get('user_input_id')}")
+                        print(f"[DBG] /llm step2 PERSISTENCE: Querying CASE_SESSIONS for case_id={case_id}, user_id={user_id}")
+                        session_result = snowflake_query(session_query, CONNECTION_PAYLOAD, (case_id, user_id))
+                        print(f"[DBG] /llm step2 PERSISTENCE: session_result={session_result is not None}, empty={session_result.empty if session_result is not None else 'N/A'}")
                         
-        except Exception as e:
-            print(f"[DBG] /llm LLM_EVALUATION step2 error: {e}")
-
-        print(f"[DBG] /llm returning step2 result has_rewrite={bool(llm_result.get('rewrite'))}")
-        return jsonify({"result": llm_result})
+                        if session_result is not None and not session_result.empty:
+                            case_session_id = session_result.iloc[0]["ID"]
+                            print(f"[DBG] /llm step2 PERSISTENCE: Found case_session_id={case_session_id}")
+                            
+                            # Determine input field ID based on type
+                            input_field_id = 1 if input_field_type == "problem_statement" else 2
+                            print(f"[DBG] /llm step2 PERSISTENCE: input_field_id={input_field_id} (1=problem_statement, 2=fsr_notes)")
+                            
+                            # Update LAST_INPUT_STATE with rewritten text
+                            print(f"[DBG] /llm step2 PERSISTENCE: About to update LAST_INPUT_STATE with:")
+                            print(f"[DBG] /llm step2 PERSISTENCE: - case_session_id={case_session_id}")
+                            print(f"[DBG] /llm step2 PERSISTENCE: - input_field_id={input_field_id}")
+                            print(f"[DBG] /llm step2 PERSISTENCE: - rewritten_text_length={len(rewritten) if rewritten else 0}")
+                            print(f"[DBG] /llm step2 PERSISTENCE: - rewritten_text_preview={rewritten[:100] if rewritten else 'None'}...")
+                            
+                            update_query = f"""
+                                MERGE INTO {DATABASE}.{SCHEMA}.LAST_INPUT_STATE AS target
+                                USING (SELECT %s as CASE_SESSION_ID, %s as INPUT_FIELD_ID, %s as INPUT_FIELD_VALUE, %s as LINE_ITEM_ID, %s as INPUT_FIELD_EVAL_ID) AS source
+                                ON target.CASE_SESSION_ID = source.CASE_SESSION_ID 
+                                   AND target.INPUT_FIELD_ID = source.INPUT_FIELD_ID 
+                                   AND target.LINE_ITEM_ID = source.LINE_ITEM_ID
+                                WHEN MATCHED THEN UPDATE SET 
+                                    INPUT_FIELD_VALUE = source.INPUT_FIELD_VALUE,
+                                    LAST_UPDATED = CURRENT_TIMESTAMP()
+                                WHEN NOT MATCHED THEN INSERT 
+                                    (CASE_SESSION_ID, INPUT_FIELD_ID, INPUT_FIELD_VALUE, LINE_ITEM_ID, INPUT_FIELD_EVAL_ID, LAST_UPDATED)
+                                    VALUES (source.CASE_SESSION_ID, source.INPUT_FIELD_ID, source.INPUT_FIELD_VALUE, source.LINE_ITEM_ID, source.INPUT_FIELD_EVAL_ID, CURRENT_TIMESTAMP())
+                            """
+                            print(f"[DBG] /llm step2 PERSISTENCE: Executing MERGE query...")
+                            snowflake_query(update_query, CONNECTION_PAYLOAD, 
+                                           (case_session_id, input_field_id, rewritten, 1, None), 
+                                           return_df=False)
+                            print(f"[DBG] /llm step2 PERSISTENCE: ✅ Successfully updated LAST_INPUT_STATE with rewritten text for case {case_id}")
+                        else:
+                            print(f"[DBG] /llm step2 PERSISTENCE: ❌ No case session found for case_id={case_id}, user_id={user_id}")
+                    else:
+                        print(f"[DBG] /llm step2 PERSISTENCE: ❌ No user session input found for user_input_id={data.get('user_input_id')}")
+                else:
+                    print(f"[DBG] /llm step2 PERSISTENCE: ❌ Skipping persistence - rewritten={bool(rewritten)}, user_input_id={data.get('user_input_id')}")
+            except Exception as e:
+                print(f"[DBG] /llm step2 background DB operations error: {e}")
+        
+        # Start background thread for database operations
+        db_thread = threading.Thread(target=background_db_operations, daemon=True)
+        db_thread.start()
+        
+        return response
 
     else:
         print(f"[DBG] /llm unexpected step={step}")
