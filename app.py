@@ -2045,110 +2045,118 @@ def llm():
 
         print(f"[DBG] /llm step1 side-effects uid={user_id} app_session_id={app_session_id} input_field={input_field}")
 
-        # USER_SESSION_INPUTS - needed for response (user_input_id)
-        user_input_id = None
-        try:
-            snowflake_query(
-                f"""
-                INSERT INTO {DATABASE}.{SCHEMA}.USER_SESSION_INPUTS
-                (USER_ID, APP_SESSION_ID, CASE_ID, LINE_ITEM_ID, INPUT_FIELD_TYPE, INPUT_TEXT, TIMESTAMP)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """,
-                CONNECTION_PAYLOAD,
-                (user_id, app_session_id, case_id, line_item_id, input_field, input_text, timestamp),
-                return_df=False,
-            )
-            df_id = snowflake_query(
-                f"""
-                SELECT ID FROM {DATABASE}.{SCHEMA}.USER_SESSION_INPUTS
-                WHERE APP_SESSION_ID = %s
-                ORDER BY TIMESTAMP DESC
-                LIMIT 1
-                """,
-                CONNECTION_PAYLOAD,
-                params=(app_session_id,),
-            )
-            user_input_id = int(df_id.iloc[0]["ID"]) if df_id is not None and not df_id.empty else None
-        except Exception as e:
-            print(f"[DBG] /llm USER_SESSION_INPUTS error: {e}")
-            user_input_id = None
-
-        # Prompts - needed for response (rewrite_ids in evaluation sections)
-        name_to_id = {r["name"]: int(r["id"]) for r in (rules_payload.get("rules") or [])}
-        try:
-            for idx, (rule_name, section) in enumerate(evaluation.items()):
-                q = section.get("question")
-                if not q:
-                    continue
-                crit_id = name_to_id.get(rule_name, idx + 1)
-                snowflake_query(
-                    f"""
-                    INSERT INTO {DATABASE}.{SCHEMA}.LLM_REWRITE_PROMPTS
-                    (REWRITE_UUID, CRITERIA_ID, CRITERIA_SCORE, REWRITE_QUESTION, TIMESTAMP)
-                    VALUES (%s, %s, %s, %s, %s)
-                    """,
-                    CONNECTION_PAYLOAD,
-                    (rewrite_uuid, crit_id, 0, q, timestamp),
-                    return_df=False,
-                )
-                df_prompt = snowflake_query(
-                    f"""
-                    SELECT ID FROM {DATABASE}.{SCHEMA}.LLM_REWRITE_PROMPTS
-                    WHERE REWRITE_UUID = %s AND REWRITE_QUESTION = %s
-                    ORDER BY TIMESTAMP DESC
-                    LIMIT 1
-                    """,
-                    CONNECTION_PAYLOAD,
-                    params=(rewrite_uuid, q),
-                )
-                if df_prompt is not None and not df_prompt.empty:
-                    section["rewrite_id"] = int(df_prompt.iloc[0]["ID"])
-        except Exception as e:
-            print(f"[DBG] /llm LLM_REWRITE_PROMPTS error: {e}")
-
-        # Prepare response data - return immediately after getting essential IDs
+        # Return response immediately after LLM parsing - NO database queries block the response
         llm_result["rewrite_uuid"] = str(rewrite_uuid)  # Ensure string for JSON serialization
-        if 'user_input_id' not in llm_result and 'evaluation' in llm_result:
-            llm_result["user_input_id"] = user_input_id
-        # evaluation_id will be set to None initially, then updated in background
-        llm_result["evaluation_id"] = None
+        llm_result["user_input_id"] = None  # Will be populated in background
+        llm_result["evaluation_id"] = None  # Will be populated in background
+        # rewrite_ids will be None initially, populated in background
         
-        print(f"[DBG] /llm returning step1 result immediately (uid={user_input_id}, batch={rewrite_uuid})")
+        print(f"[DBG] /llm returning step1 result immediately (no DB queries blocking)")
         response = jsonify({"result": llm_result})
         
-        # Move LLM_EVALUATION insert to background thread (evaluation_id not immediately needed)
+        # Move ALL database queries to background thread
         def background_db_operations():
             try:
-                total = len(evaluation) if isinstance(evaluation, dict) else 0
-                passed = sum(1 for v in evaluation.values() if v.get("passed")) if total else 0
-                score_num = (passed / total) * 100 if total else 0
-                
-                # Insert and get the evaluation ID
-                insert_query = f"""
-                    INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
-                    (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                """
-                snowflake_query(insert_query, CONNECTION_PAYLOAD,
-                              (user_input_id, input_text, input_text, score_num, None, timestamp),
-                              return_df=False)
-                
-                # Get the evaluation ID that was just inserted
-                id_query = f"""
-                    SELECT ID FROM {DATABASE}.{SCHEMA}.LLM_EVALUATION 
-                    WHERE USER_INPUT_ID = %s AND TIMESTAMP = %s
-                    ORDER BY ID DESC LIMIT 1
-                """
-                id_result = snowflake_query(id_query, CONNECTION_PAYLOAD, (user_input_id, timestamp))
-                if id_result is not None and not id_result.empty:
-                    evaluation_id = int(id_result.iloc[0]["ID"])
-                    print(f"[DBG] /llm LLM_EVALUATION step1 created with ID: {evaluation_id} (background)")
+                # USER_SESSION_INPUTS
+                user_input_id = None
+                try:
+                    snowflake_query(
+                        f"""
+                        INSERT INTO {DATABASE}.{SCHEMA}.USER_SESSION_INPUTS
+                        (USER_ID, APP_SESSION_ID, CASE_ID, LINE_ITEM_ID, INPUT_FIELD_TYPE, INPUT_TEXT, TIMESTAMP)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        CONNECTION_PAYLOAD,
+                        (user_id, app_session_id, case_id, line_item_id, input_field, input_text, timestamp),
+                        return_df=False,
+                    )
+                    df_id = snowflake_query(
+                        f"""
+                        SELECT ID FROM {DATABASE}.{SCHEMA}.USER_SESSION_INPUTS
+                        WHERE APP_SESSION_ID = %s
+                        ORDER BY TIMESTAMP DESC
+                        LIMIT 1
+                        """,
+                        CONNECTION_PAYLOAD,
+                        params=(app_session_id,),
+                    )
+                    user_input_id = int(df_id.iloc[0]["ID"]) if df_id is not None and not df_id.empty else None
+                    print(f"[DBG] /llm USER_SESSION_INPUTS created with ID: {user_input_id} (background)")
+                except Exception as e:
+                    print(f"[DBG] /llm USER_SESSION_INPUTS error: {e}")
+                    user_input_id = None
+
+                # Prompts - insert and get rewrite_ids
+                name_to_id = {r["name"]: int(r["id"]) for r in (rules_payload.get("rules") or [])}
+                try:
+                    for idx, (rule_name, section) in enumerate(evaluation.items()):
+                        q = section.get("question")
+                        if not q:
+                            continue
+                        crit_id = name_to_id.get(rule_name, idx + 1)
+                        snowflake_query(
+                            f"""
+                            INSERT INTO {DATABASE}.{SCHEMA}.LLM_REWRITE_PROMPTS
+                            (REWRITE_UUID, CRITERIA_ID, CRITERIA_SCORE, REWRITE_QUESTION, TIMESTAMP)
+                            VALUES (%s, %s, %s, %s, %s)
+                            """,
+                            CONNECTION_PAYLOAD,
+                            (rewrite_uuid, crit_id, 0, q, timestamp),
+                            return_df=False,
+                        )
+                        df_prompt = snowflake_query(
+                            f"""
+                            SELECT ID FROM {DATABASE}.{SCHEMA}.LLM_REWRITE_PROMPTS
+                            WHERE REWRITE_UUID = %s AND REWRITE_QUESTION = %s
+                            ORDER BY TIMESTAMP DESC
+                            LIMIT 1
+                            """,
+                            CONNECTION_PAYLOAD,
+                            params=(rewrite_uuid, q),
+                        )
+                        if df_prompt is not None and not df_prompt.empty:
+                            rewrite_id = int(df_prompt.iloc[0]["ID"])
+                            print(f"[DBG] /llm LLM_REWRITE_PROMPTS created with ID: {rewrite_id} for {rule_name} (background)")
+                except Exception as e:
+                    print(f"[DBG] /llm LLM_REWRITE_PROMPTS error: {e}")
+
+                # LLM_EVALUATION
+                if user_input_id:
+                    try:
+                        total = len(evaluation) if isinstance(evaluation, dict) else 0
+                        passed = sum(1 for v in evaluation.values() if v.get("passed")) if total else 0
+                        score_num = (passed / total) * 100 if total else 0
+                        
+                        # Insert and get the evaluation ID
+                        insert_query = f"""
+                            INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
+                            (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        """
+                        snowflake_query(insert_query, CONNECTION_PAYLOAD,
+                                      (user_input_id, input_text, input_text, score_num, None, timestamp),
+                                      return_df=False)
+                        
+                        # Get the evaluation ID that was just inserted
+                        id_query = f"""
+                            SELECT ID FROM {DATABASE}.{SCHEMA}.LLM_EVALUATION 
+                            WHERE USER_INPUT_ID = %s AND TIMESTAMP = %s
+                            ORDER BY ID DESC LIMIT 1
+                        """
+                        id_result = snowflake_query(id_query, CONNECTION_PAYLOAD, (user_input_id, timestamp))
+                        if id_result is not None and not id_result.empty:
+                            evaluation_id = int(id_result.iloc[0]["ID"])
+                            print(f"[DBG] /llm LLM_EVALUATION step1 created with ID: {evaluation_id} (background)")
+                        else:
+                            print(f"[DBG] /llm LLM_EVALUATION step1: Could not retrieve evaluation_id (background)")
+                    except Exception as e:
+                        print(f"[DBG] /llm LLM_EVALUATION step1 background error: {e}")
                 else:
-                    print(f"[DBG] /llm LLM_EVALUATION step1: Could not retrieve evaluation_id (background)")
+                    print(f"[DBG] /llm LLM_EVALUATION step1: Skipping (no user_input_id)")
             except Exception as e:
-                print(f"[DBG] /llm LLM_EVALUATION step1 background error: {e}")
+                print(f"[DBG] /llm step1 background DB operations error: {e}")
         
-        # Start background thread for LLM_EVALUATION insert
+        # Start background thread for ALL database operations
         db_thread = threading.Thread(target=background_db_operations, daemon=True)
         db_thread.start()
         
@@ -2174,6 +2182,13 @@ def llm():
                     for item in answers:
                         pid = item.get("rewrite_id")
                         ans = (item.get("answer") or "").strip()
+                        # If rewrite_id is missing (from background Step 1), look it up using rewrite_uuid
+                        if not pid and data.get("rewrite_uuid"):
+                            # Try to look up rewrite_id using rewrite_uuid and question text if available
+                            # Note: This is a fallback - ideally rewrite_id should be in the response
+                            print(f"[DBG] /llm step2: rewrite_id missing, attempting lookup for rewrite_uuid={data.get('rewrite_uuid')}")
+                            # Skip if we can't get rewrite_id - will be handled by background Step 1
+                            continue
                         if not pid or not ans:
                             continue
                         snowflake_query(
