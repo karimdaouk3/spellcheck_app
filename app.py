@@ -2150,6 +2150,49 @@ def llm():
         print(f"⏱️  [TIMING] /llm step={step} - TOTAL TIME BEFORE RESPONSE: {total_time_before_response:.3f}s")
         response = jsonify({"result": llm_result})
         
+        # Call test endpoint in background to compare baseline LLM performance
+        def run_llm_test():
+            try:
+                test_start = time.time()
+                print(f"🧪 [LLM TEST] Running baseline LLM test for comparison...")
+                
+                test_prompt = "Respond with a JSON object: {\"result\": \"test response\"}"
+                model_kwargs = {
+                    "model": ACTIVE_MODEL_CONFIG["model"],
+                    "api_base": ACTIVE_MODEL_CONFIG["api_base"],
+                    "custom_llm_provider": ACTIVE_MODEL_CONFIG["provider"],
+                    "temperature": 0.1,
+                    "timeout": 30,
+                }
+                if ACTIVE_MODEL_CONFIG["use_token_provider"]:
+                    model_kwargs["azure_ad_token_provider"] = ACTIVE_MODEL_CONFIG["token_provider"]
+                    model_kwargs["api_version"] = ACTIVE_MODEL_CONFIG["api_version"]
+                else:
+                    model_kwargs["api_key"] = ACTIVE_MODEL_CONFIG["api_key"]
+                
+                messages = [{"role": "user", "content": test_prompt}]
+                if SYSTEM_PROMPT:
+                    messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
+                
+                test_llm_start = time.time()
+                test_response = litellm.completion(messages=messages, **model_kwargs)
+                test_llm_time = time.time() - test_llm_start
+                test_total_time = time.time() - test_start
+                
+                if test_response and "choices" in test_response and test_response["choices"]:
+                    test_response_len = len(test_response["choices"][0]["message"]["content"])
+                    print(f"📊 [LLM TEST] Baseline test - Prompt: {len(test_prompt)} chars, Response: {test_response_len} chars")
+                    print(f"⏱️  [TIMING] LLM TEST - LLM call: {test_llm_time:.3f}s")
+                    print(f"⏱️  [TIMING] LLM TEST - Total: {test_total_time:.3f}s")
+                    print(f"📊 [COMPARISON] Submit-for-review LLM: {llm_time:.3f}s vs Baseline test: {test_llm_time:.3f}s (difference: {llm_time - test_llm_time:.3f}s)")
+                else:
+                    print(f"⚠️  [LLM TEST] Invalid response structure")
+            except Exception as e:
+                print(f"⚠️  [LLM TEST] Error: {e}")
+        
+        test_thread = threading.Thread(target=run_llm_test, daemon=True)
+        test_thread.start()
+        
         # Move ALL database queries to background thread
         def background_db_operations():
             try:
