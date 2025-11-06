@@ -2224,6 +2224,59 @@ def llm():
         print(f"⏱️  [TIMING] /llm step={step} - TOTAL TIME BEFORE RESPONSE: {total_time_before_response:.3f}s")
         response = jsonify({"result": llm_result})
         
+        # Call mock test in background to compare baseline LLM performance with similar size
+        def run_mock_llm_test():
+            try:
+                test_start = time.time()
+                print(f"🧪 [LLM TEST] Running mock LLM test (~550 tokens) for comparison...")
+                
+                # Generate mock prompt with ~550 tokens (~2200 chars)
+                target_input_chars = 2200
+                base_prompt = "Evaluate the following text against these criteria: "
+                dummy_text = "This is a sample technical problem statement that needs to be evaluated. " * 35
+                mock_prompt = base_prompt + dummy_text[:target_input_chars - len(base_prompt)]
+                
+                prompt_len = len(mock_prompt)
+                system_len = len(SYSTEM_PROMPT) if SYSTEM_PROMPT else 0
+                total_input_chars = prompt_len + system_len
+                
+                model_kwargs = {
+                    "model": ACTIVE_MODEL_CONFIG["model"],
+                    "api_base": ACTIVE_MODEL_CONFIG["api_base"],
+                    "custom_llm_provider": ACTIVE_MODEL_CONFIG["provider"],
+                    "temperature": 0.1,
+                    "timeout": 30,
+                }
+                if ACTIVE_MODEL_CONFIG["use_token_provider"]:
+                    model_kwargs["azure_ad_token_provider"] = ACTIVE_MODEL_CONFIG["token_provider"]
+                    model_kwargs["api_version"] = ACTIVE_MODEL_CONFIG["api_version"]
+                else:
+                    model_kwargs["api_key"] = ACTIVE_MODEL_CONFIG["api_key"]
+                
+                messages = [{"role": "user", "content": mock_prompt}]
+                if SYSTEM_PROMPT:
+                    messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
+                
+                test_llm_start = time.time()
+                test_response = litellm.completion(messages=messages, **model_kwargs)
+                test_llm_time = time.time() - test_llm_start
+                test_total_time = time.time() - test_start
+                
+                if test_response and "choices" in test_response and test_response["choices"]:
+                    test_response_len = len(test_response["choices"][0]["message"]["content"])
+                    test_output_tokens = test_response_len / 4
+                    print(f"📊 [LLM TEST] Mock test - Input: ~{int(total_input_chars/4)} tokens, Output: ~{int(test_output_tokens)} tokens")
+                    print(f"⏱️  [TIMING] LLM TEST - LLM call: {test_llm_time:.3f}s")
+                    print(f"⏱️  [TIMING] LLM TEST - Total: {test_total_time:.3f}s")
+                    print(f"📊 [COMPARISON] Submit-for-review (~{int(estimated_tokens_input)} tokens): {llm_time:.3f}s vs Mock test (~{int(total_input_chars/4)} tokens): {test_llm_time:.3f}s (difference: {llm_time - test_llm_time:.3f}s)")
+                else:
+                    print(f"⚠️  [LLM TEST] Invalid response structure")
+            except Exception as e:
+                print(f"⚠️  [LLM TEST] Error: {e}")
+        
+        test_thread = threading.Thread(target=run_mock_llm_test, daemon=True)
+        test_thread.start()
+        
         # Move ALL database queries to background thread
         def background_db_operations():
             try:
