@@ -1768,10 +1768,14 @@ def llm():
     print(f"⏱️  [TIMING] /llm step={step} - Request processing: {request_time:.3f}s")
 
     # Load rules dynamically from DB
+    rules_start = time.time()
     if ruleset_name == "fsr":
         rules_payload = load_ruleset_from_db("FSR_DAILY_NOTE", "DEFAULT")
     else:
         rules_payload = load_ruleset_from_db("PROBLEM_STATEMENT", "DEFAULT")
+    rules_time = time.time() - rules_start
+    if rules_time > 0.1:
+        print(f"⏱️  [TIMING] /llm step={step} - Rules loading: {rules_time:.3f}s")
     # Advice list
     if ruleset_name == "fsr":
         advice_list = []
@@ -1792,6 +1796,8 @@ def llm():
         "api_base": ACTIVE_MODEL_CONFIG["api_base"],
         "custom_llm_provider": ACTIVE_MODEL_CONFIG["provider"],
         "temperature": 0.1,
+        "timeout": 30,  # 30 second timeout to prevent hanging
+        "max_tokens": 4000 if step == 1 else 2000,  # Limit tokens for faster response
     }
     if ACTIVE_MODEL_CONFIG["use_token_provider"]:
         model_kwargs["azure_ad_token_provider"] = ACTIVE_MODEL_CONFIG["token_provider"]
@@ -1878,16 +1884,23 @@ def llm():
 
 
     # Call LLM (for both steps)
+    prompt_len = len(user_prompt)
+    system_len = len(SYSTEM_PROMPT)
+    print(f"📊 [LLM] Prompt length: {prompt_len} chars, System prompt: {system_len} chars, Total: {prompt_len + system_len} chars")
+    
     llm_start = time.time()
     try:
         # Add timeout and retry logic
         max_retries = 2
         for attempt in range(max_retries):
             try:
+                request_start = time.time()
                 response = litellm.completion(
                     messages=[{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user_prompt}],
                     **model_kwargs
                 )
+                request_time = time.time() - request_start
+                print(f"⏱️  [TIMING] /llm step={step} - LLM HTTP request: {request_time:.3f}s")
                 break  # Success, exit retry loop
             except Exception as retry_error:
                 print(f"⚠️  [LLM] Attempt {attempt + 1} failed: {retry_error}")
@@ -1896,7 +1909,7 @@ def llm():
                 time.sleep(1)  # Wait before retry
         
         llm_time = time.time() - llm_start
-        print(f"⏱️  [TIMING] /llm step={step} - LLM API call: {llm_time:.3f}s")
+        print(f"⏱️  [TIMING] /llm step={step} - LLM API call (total): {llm_time:.3f}s")
         
         # Check if response is valid
         if not response or "choices" not in response or not response["choices"]:
