@@ -1750,6 +1750,81 @@ def get_ruleset(ruleset_name):
     else:
         return jsonify(load_ruleset_from_db("PROBLEM_STATEMENT", "DEFAULT"))
 
+@app.route("/api/llm-test", methods=["POST"])
+def llm_test():
+    """
+    Small test endpoint to measure LLM call timing without full prompt complexity.
+    Useful for comparing baseline LLM performance vs submit for review.
+    """
+    import time
+    start_time = time.time()
+    
+    data = request.get_json() or {}
+    test_text = data.get("text", "Hello, this is a test.")
+    
+    print(f"🧪 [LLM TEST] Starting test LLM call...")
+    
+    # Minimal prompt for testing
+    test_prompt = f"Respond with a JSON object: {{\"result\": \"test response for: {test_text}\"}}"
+    
+    # Use same model config as main LLM endpoint
+    model_kwargs = {
+        "model": ACTIVE_MODEL_CONFIG["model"],
+        "api_base": ACTIVE_MODEL_CONFIG["api_base"],
+        "custom_llm_provider": ACTIVE_MODEL_CONFIG["provider"],
+        "temperature": 0.1,
+        "timeout": 30,
+    }
+    if ACTIVE_MODEL_CONFIG["use_token_provider"]:
+        model_kwargs["azure_ad_token_provider"] = ACTIVE_MODEL_CONFIG["token_provider"]
+        model_kwargs["api_version"] = ACTIVE_MODEL_CONFIG["api_version"]
+    else:
+        model_kwargs["api_key"] = ACTIVE_MODEL_CONFIG["api_key"]
+    
+    prompt_len = len(test_prompt)
+    system_len = len(SYSTEM_PROMPT) if SYSTEM_PROMPT else 0
+    print(f"📊 [LLM TEST] Prompt: {prompt_len} chars, System: {system_len} chars, Total: {prompt_len + system_len} chars")
+    
+    llm_start = time.time()
+    try:
+        messages = [{"role": "user", "content": test_prompt}]
+        if SYSTEM_PROMPT:
+            messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
+        
+        print(f"🔄 [LLM TEST] Making LLM API call...")
+        response = litellm.completion(
+            messages=messages,
+            **model_kwargs
+        )
+        
+        llm_time = time.time() - llm_start
+        total_time = time.time() - start_time
+        
+        if response and "choices" in response and response["choices"]:
+            response_content = response["choices"][0]["message"]["content"]
+            response_len = len(response_content)
+            tokens_per_sec = (response_len / 4) / llm_time if llm_time > 0 else 0
+            print(f"📊 [LLM TEST] Response length: {response_len} chars")
+            print(f"⏱️  [TIMING] LLM TEST - LLM call: {llm_time:.3f}s")
+            print(f"⏱️  [TIMING] LLM TEST - Total: {total_time:.3f}s")
+            print(f"📊 [LLM TEST] Throughput: ~{tokens_per_sec:.1f} output tokens/sec")
+            
+            return jsonify({
+                "success": True,
+                "llm_time": llm_time,
+                "total_time": total_time,
+                "response_length": response_len,
+                "tokens_per_sec": tokens_per_sec,
+                "response": response_content
+            })
+        else:
+            return jsonify({"success": False, "error": "Invalid response structure"}), 500
+            
+    except Exception as e:
+        error_time = time.time() - start_time
+        print(f"❌ [LLM TEST] Error after {error_time:.3f}s: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
 @app.route("/llm", methods=["POST"])
 def llm():
     import time
@@ -1797,7 +1872,6 @@ def llm():
         "custom_llm_provider": ACTIVE_MODEL_CONFIG["provider"],
         "temperature": 0.1,
         "timeout": 30,  # 30 second timeout to prevent hanging
-        "max_tokens": 4000 if step == 1 else 2000,  # Limit tokens for faster response
     }
     if ACTIVE_MODEL_CONFIG["use_token_provider"]:
         model_kwargs["azure_ad_token_provider"] = ACTIVE_MODEL_CONFIG["token_provider"]
@@ -1886,7 +1960,12 @@ def llm():
     # Call LLM (for both steps)
     prompt_len = len(user_prompt)
     system_len = len(SYSTEM_PROMPT)
-    print(f"📊 [LLM] Prompt length: {prompt_len} chars, System prompt: {system_len} chars, Total: {prompt_len + system_len} chars")
+    total_chars = prompt_len + system_len
+    print(f"📊 [LLM] Prompt length: {prompt_len:,} chars, System: {system_len:,} chars, Total: {total_chars:,} chars")
+    
+    # Estimate token count (rough: ~4 chars per token)
+    estimated_tokens_input = total_chars / 4
+    print(f"📊 [LLM] Estimated input tokens: ~{int(estimated_tokens_input):,}")
     
     llm_start = time.time()
     try:
@@ -1894,22 +1973,45 @@ def llm():
         max_retries = 2
         for attempt in range(max_retries):
             try:
+                # Time DNS lookup and connection (if possible)
+                network_start = time.time()
                 request_start = time.time()
+                
+                print(f"🔄 [LLM] Making LLM API call (attempt {attempt + 1})...")
                 response = litellm.completion(
                     messages=[{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user_prompt}],
                     **model_kwargs
                 )
+                
                 request_time = time.time() - request_start
-                print(f"⏱️  [TIMING] /llm step={step} - LLM HTTP request: {request_time:.3f}s")
+                network_time = time.time() - network_start
+                
+                # Check response size
+                if response and "choices" in response and response["choices"]:
+                    response_content = response["choices"][0]["message"]["content"]
+                    response_len = len(response_content)
+                    estimated_output_tokens = response_len / 4
+                    print(f"📊 [LLM] Response length: {response_len:,} chars, Estimated output tokens: ~{int(estimated_output_tokens):,}")
+                    print(f"⏱️  [TIMING] /llm step={step} - LLM HTTP request: {request_time:.3f}s (network: {network_time:.3f}s)")
+                else:
+                    print(f"⏱️  [TIMING] /llm step={step} - LLM HTTP request: {request_time:.3f}s")
+                
                 break  # Success, exit retry loop
             except Exception as retry_error:
-                print(f"⚠️  [LLM] Attempt {attempt + 1} failed: {retry_error}")
+                retry_time = time.time() - llm_start
+                print(f"⚠️  [LLM] Attempt {attempt + 1} failed after {retry_time:.3f}s: {retry_error}")
                 if attempt == max_retries - 1:  # Last attempt
                     raise retry_error
                 time.sleep(1)  # Wait before retry
         
         llm_time = time.time() - llm_start
         print(f"⏱️  [TIMING] /llm step={step} - LLM API call (total): {llm_time:.3f}s")
+        
+        # Calculate throughput
+        if response and "choices" in response and response["choices"]:
+            response_content = response["choices"][0]["message"]["content"]
+            tokens_per_sec = (len(response_content) / 4) / llm_time if llm_time > 0 else 0
+            print(f"📊 [LLM] Throughput: ~{tokens_per_sec:.1f} output tokens/sec")
         
         # Check if response is valid
         if not response or "choices" not in response or not response["choices"]:
