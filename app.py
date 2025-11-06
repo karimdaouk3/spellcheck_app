@@ -2225,6 +2225,10 @@ def llm():
         response = jsonify({"result": llm_result})
         
         # Call mock test in background to compare baseline LLM performance with similar size
+        # Capture variables from outer scope for comparison
+        captured_llm_time = llm_time
+        captured_estimated_input_tokens = int(estimated_tokens_input)
+        
         def run_mock_llm_test():
             try:
                 test_start = time.time()
@@ -2268,7 +2272,7 @@ def llm():
                     print(f"📊 [LLM TEST] Mock test - Input: ~{int(total_input_chars/4)} tokens, Output: ~{int(test_output_tokens)} tokens")
                     print(f"⏱️  [TIMING] LLM TEST - LLM call: {test_llm_time:.3f}s")
                     print(f"⏱️  [TIMING] LLM TEST - Total: {test_total_time:.3f}s")
-                    print(f"📊 [COMPARISON] Submit-for-review (~{int(estimated_tokens_input)} tokens): {llm_time:.3f}s vs Mock test (~{int(total_input_chars/4)} tokens): {test_llm_time:.3f}s (difference: {llm_time - test_llm_time:.3f}s)")
+                    print(f"📊 [COMPARISON] Submit-for-review (~{captured_estimated_input_tokens} tokens): {captured_llm_time:.3f}s vs Mock test (~{int(total_input_chars/4)} tokens): {test_llm_time:.3f}s (difference: {captured_llm_time - test_llm_time:.3f}s)")
                 else:
                     print(f"⚠️  [LLM TEST] Invalid response structure")
             except Exception as e:
