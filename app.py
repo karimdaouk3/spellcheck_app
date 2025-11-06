@@ -1753,77 +1753,135 @@ def get_ruleset(ruleset_name):
 @app.route("/api/llm-test", methods=["POST"])
 def llm_test():
     """
-    Small test endpoint to measure LLM call timing without full prompt complexity.
-    Useful for comparing baseline LLM performance vs submit for review.
+    Mock LLM call to test timing with similar input/output sizes as submit-for-review.
+    Uses ~550 input tokens and ~550 output tokens to mimic actual usage.
     """
     import time
     start_time = time.time()
     
     data = request.get_json() or {}
-    test_text = data.get("text", "Hello, this is a test.")
+    use_mock = data.get("mock", True)  # Default to mock mode
     
-    print(f"🧪 [LLM TEST] Starting test LLM call...")
+    # Generate mock input/output of ~550 tokens each (~2200 chars each)
+    # Average ~4 chars per token
+    target_input_chars = 2200  # ~550 tokens
+    target_output_chars = 2200  # ~550 tokens
     
-    # Minimal prompt for testing
-    test_prompt = f"Respond with a JSON object: {{\"result\": \"test response for: {test_text}\"}}"
-    
-    # Use same model config as main LLM endpoint
-    model_kwargs = {
-        "model": ACTIVE_MODEL_CONFIG["model"],
-        "api_base": ACTIVE_MODEL_CONFIG["api_base"],
-        "custom_llm_provider": ACTIVE_MODEL_CONFIG["provider"],
-        "temperature": 0.1,
-        "timeout": 30,
-    }
-    if ACTIVE_MODEL_CONFIG["use_token_provider"]:
-        model_kwargs["azure_ad_token_provider"] = ACTIVE_MODEL_CONFIG["token_provider"]
-        model_kwargs["api_version"] = ACTIVE_MODEL_CONFIG["api_version"]
+    if use_mock:
+        # Create mock prompt with target size
+        # Generate enough dummy text to reach target size
+        base_prompt = "Evaluate the following text against these criteria: "
+        dummy_text = "This is a sample technical problem statement that needs to be evaluated. " * 35
+        mock_prompt = base_prompt + dummy_text[:target_input_chars - len(base_prompt)]
+        
+        prompt_len = len(mock_prompt)
+        system_len = len(SYSTEM_PROMPT) if SYSTEM_PROMPT else 0
+        total_input_chars = prompt_len + system_len
+        print(f"🧪 [LLM TEST] MOCK MODE - Prompt: {prompt_len:,} chars, System: {system_len:,} chars, Total: {total_input_chars:,} chars")
+        print(f"🧪 [LLM TEST] MOCK MODE - Target input: ~{target_input_chars:,} chars (~550 tokens)")
+        print(f"🧪 [LLM TEST] MOCK MODE - Target output: ~{target_output_chars:,} chars (~550 tokens)")
+        
+        # Use actual LLM call with sized prompt to get real timing
+        model_kwargs = {
+            "model": ACTIVE_MODEL_CONFIG["model"],
+            "api_base": ACTIVE_MODEL_CONFIG["api_base"],
+            "custom_llm_provider": ACTIVE_MODEL_CONFIG["provider"],
+            "temperature": 0.1,
+            "timeout": 30,
+        }
+        if ACTIVE_MODEL_CONFIG["use_token_provider"]:
+            model_kwargs["azure_ad_token_provider"] = ACTIVE_MODEL_CONFIG["token_provider"]
+            model_kwargs["api_version"] = ACTIVE_MODEL_CONFIG["api_version"]
+        else:
+            model_kwargs["api_key"] = ACTIVE_MODEL_CONFIG["api_key"]
+        
+        messages = [{"role": "user", "content": mock_prompt}]
+        if SYSTEM_PROMPT:
+            messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
+        
+        print(f"🔄 [LLM TEST] Making LLM API call with mock sized input (~{int(total_input_chars/4)} tokens)...")
+        llm_start = time.time()
+        
+        try:
+            response = litellm.completion(
+                messages=messages,
+                **model_kwargs
+            )
+            
+            llm_time = time.time() - llm_start
+            total_time = time.time() - start_time
+            
+            if response and "choices" in response and response["choices"]:
+                actual_response_content = response["choices"][0]["message"]["content"]
+                actual_response_len = len(actual_response_content)
+                actual_output_tokens = actual_response_len / 4
+                
+                print(f"📊 [LLM TEST] Actual response length: {actual_response_len:,} chars (~{int(actual_output_tokens)} tokens)")
+                print(f"⏱️  [TIMING] LLM TEST - LLM call: {llm_time:.3f}s")
+                print(f"⏱️  [TIMING] LLM TEST - Total: {total_time:.3f}s")
+                print(f"📊 [LLM TEST] Throughput: ~{(actual_output_tokens / llm_time):.1f} output tokens/sec")
+                
+                # Print comparison
+                print(f"\n{'='*80}")
+                print(f"📊 [LLM TEST COMPARISON]")
+                print(f"{'='*80}")
+                print(f"Input: ~{int(total_input_chars/4)} tokens ({total_input_chars:,} chars)")
+                print(f"Output: ~{int(actual_output_tokens)} tokens ({actual_response_len:,} chars)")
+                print(f"LLM call time: {llm_time:.3f}s")
+                print(f"{'='*80}\n")
+                
+                return jsonify({
+                    "success": True,
+                    "llm_time": llm_time,
+                    "total_time": total_time,
+                    "input_tokens": int(total_input_chars/4),
+                    "output_tokens": int(actual_output_tokens),
+                    "response_length": actual_response_len,
+                    "tokens_per_sec": actual_output_tokens / llm_time if llm_time > 0 else 0,
+                    "response": actual_response_content
+                })
+            else:
+                return jsonify({"success": False, "error": "Invalid response structure"}), 500
+                
+        except Exception as e:
+            error_time = time.time() - start_time
+            print(f"❌ [LLM TEST] Error after {error_time:.3f}s: {e}")
+            return jsonify({"success": False, "error": str(e)}), 500
     else:
-        model_kwargs["api_key"] = ACTIVE_MODEL_CONFIG["api_key"]
-    
-    prompt_len = len(test_prompt)
-    system_len = len(SYSTEM_PROMPT) if SYSTEM_PROMPT else 0
-    print(f"📊 [LLM TEST] Prompt: {prompt_len} chars, System: {system_len} chars, Total: {prompt_len + system_len} chars")
-    
-    llm_start = time.time()
-    try:
+        # Original small test mode
+        test_text = data.get("text", "Hello, this is a test.")
+        test_prompt = f"Respond with a JSON object: {{\"result\": \"test response for: {test_text}\"}}"
+        
+        model_kwargs = {
+            "model": ACTIVE_MODEL_CONFIG["model"],
+            "api_base": ACTIVE_MODEL_CONFIG["api_base"],
+            "custom_llm_provider": ACTIVE_MODEL_CONFIG["provider"],
+            "temperature": 0.1,
+            "timeout": 30,
+        }
+        if ACTIVE_MODEL_CONFIG["use_token_provider"]:
+            model_kwargs["azure_ad_token_provider"] = ACTIVE_MODEL_CONFIG["token_provider"]
+            model_kwargs["api_version"] = ACTIVE_MODEL_CONFIG["api_version"]
+        else:
+            model_kwargs["api_key"] = ACTIVE_MODEL_CONFIG["api_key"]
+        
         messages = [{"role": "user", "content": test_prompt}]
         if SYSTEM_PROMPT:
             messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
         
-        print(f"🔄 [LLM TEST] Making LLM API call...")
-        response = litellm.completion(
-            messages=messages,
-            **model_kwargs
-        )
-        
+        print(f"🔄 [LLM TEST] Making small LLM API call...")
+        llm_start = time.time()
+        response = litellm.completion(messages=messages, **model_kwargs)
         llm_time = time.time() - llm_start
-        total_time = time.time() - start_time
         
         if response and "choices" in response and response["choices"]:
             response_content = response["choices"][0]["message"]["content"]
-            response_len = len(response_content)
-            tokens_per_sec = (response_len / 4) / llm_time if llm_time > 0 else 0
-            print(f"📊 [LLM TEST] Response length: {response_len} chars")
-            print(f"⏱️  [TIMING] LLM TEST - LLM call: {llm_time:.3f}s")
-            print(f"⏱️  [TIMING] LLM TEST - Total: {total_time:.3f}s")
-            print(f"📊 [LLM TEST] Throughput: ~{tokens_per_sec:.1f} output tokens/sec")
-            
             return jsonify({
                 "success": True,
                 "llm_time": llm_time,
-                "total_time": total_time,
-                "response_length": response_len,
-                "tokens_per_sec": tokens_per_sec,
                 "response": response_content
             })
-        else:
-            return jsonify({"success": False, "error": "Invalid response structure"}), 500
-            
-    except Exception as e:
-        error_time = time.time() - start_time
-        print(f"❌ [LLM TEST] Error after {error_time:.3f}s: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"success": False, "error": "Invalid response"}), 500
 
 @app.route("/llm", methods=["POST"])
 def llm():
