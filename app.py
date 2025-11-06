@@ -1752,6 +1752,9 @@ def get_ruleset(ruleset_name):
 
 @app.route("/llm", methods=["POST"])
 def llm():
+    import time
+    start_time = time.time()
+    
     data = request.get_json() or {}
     text = data.get("text", "")
     answers = data.get("answers", {})
@@ -1761,7 +1764,8 @@ def llm():
         step = 1
     ruleset_name = data.get("ruleset", "problem_statement")
 
-    print(f"[DBG] /llm start data_keys={list(data.keys())} step={step} ruleset={ruleset_name}")
+    request_time = time.time() - start_time
+    print(f"⏱️  [TIMING] /llm step={step} - Request processing: {request_time:.3f}s")
 
     # Load rules dynamically from DB
     if ruleset_name == "fsr":
@@ -1874,8 +1878,7 @@ def llm():
 
 
     # Call LLM (for both steps)
-    print(f"[DBG] /llm calling LLM with model_kwargs: {model_kwargs}")
-    print(f"[DBG] /llm prompt length: {len(user_prompt)}")
+    llm_start = time.time()
     try:
         # Add timeout and retry logic
         max_retries = 2
@@ -1887,57 +1890,48 @@ def llm():
                 )
                 break  # Success, exit retry loop
             except Exception as retry_error:
-                print(f"[DBG] /llm attempt {attempt + 1} failed: {retry_error}")
+                print(f"⚠️  [LLM] Attempt {attempt + 1} failed: {retry_error}")
                 if attempt == max_retries - 1:  # Last attempt
                     raise retry_error
                 time.sleep(1)  # Wait before retry
         
+        llm_time = time.time() - llm_start
+        print(f"⏱️  [TIMING] /llm step={step} - LLM API call: {llm_time:.3f}s")
+        
         # Check if response is valid
         if not response or "choices" not in response or not response["choices"]:
-            print(f"[DBG] /llm invalid response structure: {response}")
             raise Exception("Invalid LLM response structure")
             
         llm_result_str = response["choices"][0]["message"]["content"]
         
         # Check if response content is empty or whitespace
         if not llm_result_str or not llm_result_str.strip():
-            print(f"[DBG] /llm empty response content: '{llm_result_str}'")
             raise Exception("LLM returned empty response")
+        
+        parse_start = time.time()
         try:
             # First, try to parse the raw response as JSON
             llm_result = json.loads(llm_result_str)
         except Exception as e:
-            print(f"[DBG] /llm JSON parse error: {e}")
-            print(f"[DBG] /llm RAW response (first 800 chars): {llm_result_str[:800]}")
-            print(f"[DBG] /llm RAW response length: {len(llm_result_str)}")
+            print(f"⚠️  [LLM] JSON parse error: {e}")
+            print(f"[LLM] Response preview (first 200 chars): {llm_result_str[:200]}")
             
             # Try to extract JSON from Markdown code blocks
             try:
-                # Look for JSON code blocks (```json ... ```)
                 if "```json" in llm_result_str:
-                    print(f"[DBG] /llm detected Markdown JSON code block, attempting extraction")
                     start_marker = "```json"
                     end_marker = "```"
-                    
                     start_idx = llm_result_str.find(start_marker) + len(start_marker)
                     end_idx = llm_result_str.find(end_marker, start_idx)
                     
                     if start_idx != -1 and end_idx != -1:
                         json_content = llm_result_str[start_idx:end_idx].strip()
-                        print(f"[DBG] /llm extracted JSON content: {json_content}")
                         llm_result = json.loads(json_content)
-                        print(f"[DBG] /llm successfully parsed JSON from Markdown code block")
                     else:
-                        print(f"[DBG] /llm could not find complete Markdown code block markers")
                         raise Exception("Incomplete Markdown code block")
                 else:
-                    print(f"[DBG] /llm no Markdown code block detected")
                     raise Exception("No Markdown code block found")
             except Exception as markdown_error:
-                print(f"[DBG] /llm Markdown extraction failed: {markdown_error}")
-                # Print the full response for debugging
-                print(f"[DBG] /llm FULL RAW RESPONSE:")
-                print(f"'{llm_result_str}'")
                 raise e  # Re-raise the original JSON parse error
             
             # Try to extract rewrite content from malformed JSON for step 2
@@ -1965,36 +1959,32 @@ def llm():
                             
                             if content_end > content_start:
                                 rewrite_content = llm_result_str[content_start:content_end]
-                                # Unescape common escape sequences
                                 rewrite_content = rewrite_content.replace('\\n', '\n').replace('\\"', '"').replace('\\\\', '\\')
-                                print(f"[DBG] /llm extracted rewrite content: {rewrite_content[:100]}...")
                                 llm_result = {"rewrite": rewrite_content}
                             else:
                                 llm_result = {"rewrite": "Error: Could not extract rewrite content"}
                         else:
                             llm_result = {"rewrite": "Error: Could not find rewrite content"}
                     else:
-                        # If no rewrite field found, check if the response contains the user answers summary
                         if "User Answers Summary" in llm_result_str or "rewrite_id" in llm_result_str:
-                            print(f"[DBG] /llm detected user answers summary in response, LLM failed to generate proper rewrite")
                             llm_result = {"rewrite": "Error: LLM failed to generate proper rewrite - please try again"}
                         else:
                             llm_result = {"rewrite": "Error: No rewrite field found in response"}
                 except Exception as extract_error:
-                    print(f"[DBG] /llm rewrite extraction failed: {extract_error}")
                     llm_result = {"rewrite": "Error: Failed to parse LLM response"}
             else:
-                # For step 1, if JSON parsing fails, return error structure instead of empty result
                 if step == 1:
-                    print(f"[DBG] /llm step 1 JSON parse failed, returning error structure")
                     llm_result = {
                         "evaluation": {},
                         "error": "LLM evaluation failed due to malformed response. Please try again."
                     }
                 else:
                     llm_result = {}
+        
+        parse_time = time.time() - parse_start
+        print(f"⏱️  [TIMING] /llm step={step} - JSON parsing: {parse_time:.3f}s")
     except Exception as e:
-        print(f"[DBG] /llm LLM call error: {e}")
+        print(f"❌ [LLM] Error: {e}")
         # Return a more user-friendly error structure
         if step == 1:
             return jsonify({
@@ -2010,8 +2000,8 @@ def llm():
                 }
             })
 
-    print(f"[DBG] /llm parsed OK; type={type(llm_result)} keys={list(llm_result.keys()) if isinstance(llm_result, dict) else None}")
     timestamp = datetime.utcnow()
+    response_prep_start = time.time()
 
     if step == 1:
         evaluation = llm_result.get("evaluation", {}) if isinstance(llm_result, dict) else {}
@@ -2026,15 +2016,6 @@ def llm():
             if isinstance(criteria_data, dict):
                 criteria_data['display_name'] = criteria_display_map.get(criteria_name, criteria_name.replace('_', ' ').title())
         
-        # Debug: compare evaluation keys with criteria list
-        try:
-            eval_keys = list(evaluation.keys()) if isinstance(evaluation, dict) else []
-            rules_list = [r['name'] for r in (rules_payload.get('rules') or [])]
-            missing = [k for k in rules_list if k not in eval_keys]
-            extra = [k for k in eval_keys if k not in rules_list]
-            print(f"[DBG] /llm eval keys count={len(eval_keys)} missing={missing} extra={extra}")
-        except Exception as e:
-            print(f"[DBG] /llm eval keys debug error: {e}")
         user_data = session.get("user_data", {})
         user_id = user_data.get("user_id")
         app_session_id = data.get("app_session_id", f"sess_{uuid.uuid4()}")
@@ -2043,15 +2024,15 @@ def llm():
         input_field = data.get("input_field", ruleset_name)
         input_text = text
 
-        print(f"[DBG] /llm step1 side-effects uid={user_id} app_session_id={app_session_id} input_field={input_field}")
-
         # Return response immediately after LLM parsing - NO database queries block the response
-        llm_result["rewrite_uuid"] = str(rewrite_uuid)  # Ensure string for JSON serialization
+        llm_result["rewrite_uuid"] = str(rewrite_uuid)
         llm_result["user_input_id"] = None  # Will be populated in background
         llm_result["evaluation_id"] = None  # Will be populated in background
-        # rewrite_ids will be None initially, populated in background
         
-        print(f"[DBG] /llm returning step1 result immediately (no DB queries blocking)")
+        response_prep_time = time.time() - response_prep_start
+        total_time_before_response = time.time() - start_time
+        print(f"⏱️  [TIMING] /llm step={step} - Response prep: {response_prep_time:.3f}s")
+        print(f"⏱️  [TIMING] /llm step={step} - TOTAL TIME BEFORE RESPONSE: {total_time_before_response:.3f}s")
         response = jsonify({"result": llm_result})
         
         # Move ALL database queries to background thread
@@ -2081,9 +2062,8 @@ def llm():
                         params=(app_session_id,),
                     )
                     user_input_id = int(df_id.iloc[0]["ID"]) if df_id is not None and not df_id.empty else None
-                    print(f"[DBG] /llm USER_SESSION_INPUTS created with ID: {user_input_id} (background)")
                 except Exception as e:
-                    print(f"[DBG] /llm USER_SESSION_INPUTS error: {e}")
+                    print(f"⚠️  [DB] USER_SESSION_INPUTS error: {e}")
                     user_input_id = None
 
                 # Prompts - insert and get rewrite_ids
@@ -2114,11 +2094,8 @@ def llm():
                             CONNECTION_PAYLOAD,
                             params=(rewrite_uuid, q),
                         )
-                        if df_prompt is not None and not df_prompt.empty:
-                            rewrite_id = int(df_prompt.iloc[0]["ID"])
-                            print(f"[DBG] /llm LLM_REWRITE_PROMPTS created with ID: {rewrite_id} for {rule_name} (background)")
                 except Exception as e:
-                    print(f"[DBG] /llm LLM_REWRITE_PROMPTS error: {e}")
+                    print(f"⚠️  [DB] LLM_REWRITE_PROMPTS error: {e}")
 
                 # LLM_EVALUATION
                 if user_input_id:
@@ -2146,15 +2123,10 @@ def llm():
                         id_result = snowflake_query(id_query, CONNECTION_PAYLOAD, (user_input_id, timestamp))
                         if id_result is not None and not id_result.empty:
                             evaluation_id = int(id_result.iloc[0]["ID"])
-                            print(f"[DBG] /llm LLM_EVALUATION step1 created with ID: {evaluation_id} (background)")
-                        else:
-                            print(f"[DBG] /llm LLM_EVALUATION step1: Could not retrieve evaluation_id (background)")
                     except Exception as e:
-                        print(f"[DBG] /llm LLM_EVALUATION step1 background error: {e}")
-                else:
-                    print(f"[DBG] /llm LLM_EVALUATION step1: Skipping (no user_input_id)")
+                        print(f"⚠️  [DB] LLM_EVALUATION error: {e}")
             except Exception as e:
-                print(f"[DBG] /llm step1 background DB operations error: {e}")
+                print(f"⚠️  [DB] Step 1 background operations error: {e}")
         
         # Start background thread for ALL database operations
         db_thread = threading.Thread(target=background_db_operations, daemon=True)
@@ -2163,15 +2135,15 @@ def llm():
         return response
 
     elif step == 2:
-        print(f"[DBG] /llm step2 answers_type={type(answers)} len={len(answers) if isinstance(answers, list) else 'n/a'}")
-        
-        # Prepare data for background database operations
+        response_prep_start = time.time()
         rewritten = llm_result.get("rewrite") if isinstance(llm_result, dict) else None
         user_data = session.get("user_data", {})
         user_id = user_data.get("user_id")
         
-        # Return response immediately after LLM parsing - database queries will continue in background
-        print(f"[DBG] /llm returning step2 result immediately (has_rewrite={bool(llm_result.get('rewrite'))})")
+        response_prep_time = time.time() - response_prep_start
+        total_time_before_response = time.time() - start_time
+        print(f"⏱️  [TIMING] /llm step={step} - Response prep: {response_prep_time:.3f}s")
+        print(f"⏱️  [TIMING] /llm step={step} - TOTAL TIME BEFORE RESPONSE: {total_time_before_response:.3f}s")
         response = jsonify({"result": llm_result})
         
         # Run database queries in background thread
@@ -2182,12 +2154,8 @@ def llm():
                     for item in answers:
                         pid = item.get("rewrite_id")
                         ans = (item.get("answer") or "").strip()
-                        # If rewrite_id is missing (from background Step 1), look it up using rewrite_uuid
+                        # If rewrite_id is missing (from background Step 1), skip for now
                         if not pid and data.get("rewrite_uuid"):
-                            # Try to look up rewrite_id using rewrite_uuid and question text if available
-                            # Note: This is a fallback - ideally rewrite_id should be in the response
-                            print(f"[DBG] /llm step2: rewrite_id missing, attempting lookup for rewrite_uuid={data.get('rewrite_uuid')}")
-                            # Skip if we can't get rewrite_id - will be handled by background Step 1
                             continue
                         if not pid or not ans:
                             continue

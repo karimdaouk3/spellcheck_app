@@ -1241,12 +1241,18 @@ class LanguageToolEditor {
                     console.log(`⚠️ [LLM] No active case, using UUID: ${body.case_id}`);
                 }
             }
+            const fetchStart = performance.now();
             const response = await fetch('/llm', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             });
+            const fetchTime = performance.now() - fetchStart;
+            const parseStart = performance.now();
             const data = await response.json();
+            const parseTime = performance.now() - parseStart;
+            const totalTime = performance.now() - fetchStart;
+            console.log(`⏱️  [TIMING] Frontend - Fetch: ${fetchTime.toFixed(3)}ms, Parse: ${parseTime.toFixed(3)}ms, Total: ${totalTime.toFixed(3)}ms`);
             if (typeof data.result === 'object') {
                 // Preserve original text outside of result to avoid polluting evaluation object
                 fieldObj.lastOriginalText = text;
