@@ -2002,6 +2002,13 @@ def llm():
                     estimated_output_tokens = response_len / 4
                     print(f"📊 [LLM] Response length: {response_len:,} chars, Estimated output tokens: ~{int(estimated_output_tokens):,}")
                     print(f"⏱️  [TIMING] /llm step={step} - LLM HTTP request: {request_time:.3f}s (network: {network_time:.3f}s)")
+                    
+                    # Print the full response for debugging
+                    print(f"\n{'='*80}")
+                    print(f"📤 [LLM RESPONSE] Full response for step={step} (length: {response_len:,} chars):")
+                    print(f"{'='*80}")
+                    print(response_content)
+                    print(f"{'='*80}\n")
                 else:
                     print(f"⏱️  [TIMING] /llm step={step} - LLM HTTP request: {request_time:.3f}s")
                 
