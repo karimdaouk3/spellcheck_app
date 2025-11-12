@@ -3032,19 +3032,23 @@ class CaseManager {
             console.log(`✅ [CaseManager] Successfully loaded ${this.cases.length} cases from database`);
             console.log(`📊 [CaseManager] Loaded ${this.cases.length} cases:`, this.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber, caseTitle: c.caseTitle, problemLength: c.problemStatement.length })));
             
-            // Load CRM data for all cases in parallel to get case titles
-            console.log('🔍 [CaseManager] Loading CRM data for all cases in parallel to get titles...');
-            const crmLoadPromises = this.cases
-                .filter(caseData => caseData.caseNumber)
-                .map(caseData => this.loadCRMDataAndPopulateHistory(caseData.caseNumber));
+            // Only load CRM data for cases that don't have titles in the database
+            const casesNeedingTitles = this.cases.filter(caseData => caseData.caseNumber && !caseData.caseTitle);
             
-            await Promise.all(crmLoadPromises);
-            console.log(`✅ [CaseManager] Loaded CRM data for ${crmLoadPromises.length} cases in parallel`);
-            console.log(`📊 [CaseManager] Cases after CRM load:`, this.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber, caseTitle: c.caseTitle })));
-            
-            // Wait a moment for async saves to complete
-            await new Promise(resolve => setTimeout(resolve, 500));
-            console.log(`⏱️ [CaseManager] Waited for case title saves to complete`);
+            if (casesNeedingTitles.length > 0) {
+                console.log(`🔍 [CaseManager] Loading CRM data for ${casesNeedingTitles.length} cases missing titles...`);
+                const crmLoadPromises = casesNeedingTitles.map(caseData => this.loadCRMDataAndPopulateHistory(caseData.caseNumber));
+                
+                await Promise.all(crmLoadPromises);
+                console.log(`✅ [CaseManager] Loaded CRM data for ${casesNeedingTitles.length} cases`);
+                console.log(`📊 [CaseManager] Cases after CRM load:`, this.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber, caseTitle: c.caseTitle })));
+                
+                // Wait a moment for async saves to complete
+                await new Promise(resolve => setTimeout(resolve, 500));
+                console.log(`⏱️ [CaseManager] Waited for case title saves to complete`);
+            } else {
+                console.log(`✅ [CaseManager] All ${this.cases.length} cases already have titles from database, skipping CRM load`);
+            }
             
             // Re-render to show updated case titles
             this.renderCasesList();
