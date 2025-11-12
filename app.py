@@ -595,7 +595,7 @@ def get_user_cases():
     
     try:
         query = f"""
-            SELECT cs.CASE_ID, cs.CASE_STATUS, cs.CRM_LAST_SYNC_TIME
+            SELECT cs.CASE_ID, cs.CASE_STATUS, cs.CASE_TITLE, cs.CRM_LAST_SYNC_TIME
             FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS cs
             LEFT JOIN {DATABASE}.{SCHEMA}.CASE_REVIEW cr ON cs.CASE_ID = cr.CASE_ID
             WHERE cs.CREATED_BY_USER = %s
@@ -608,15 +608,17 @@ def get_user_cases():
         if result is not None and not result.empty:
             print(f"✅ [Backend] Found {len(result)} cases in database")
             for _, row in result.iterrows():
+                case_title = row.get("CASE_TITLE")
                 case_info = {
                     "case_id": row["CASE_ID"],
                     "case_status": row["CASE_STATUS"],
+                    "case_title": case_title if case_title and pd.notna(case_title) else None,
                     "last_sync_time": row["CRM_LAST_SYNC_TIME"],
                     "is_closed": row["CASE_STATUS"] == "closed",
                     "needs_feedback": False  # Will be determined by external CRM check
                 }
                 cases.append(case_info)
-                print(f"📝 [Backend] Case {case_info['case_id']}: status={case_info['case_status']}")
+                print(f"📝 [Backend] Case {case_info['case_id']}: status={case_info['case_status']}, title={case_info['case_title'][:50] if case_info['case_title'] else 'None'}...")
         else:
             print("ℹ️ [Backend] No cases found for user")
         
@@ -747,6 +749,7 @@ def get_user_case_data():
             SELECT 
                 cs.CASE_ID,
                 cs.CASE_STATUS,
+                cs.CASE_TITLE,
                 lis_problem.INPUT_FIELD_VALUE as PROBLEM_STATEMENT,
                 lis_fsr.INPUT_FIELD_VALUE as FSR_NOTES,
                 lis_fsr.LINE_ITEM_ID as FSR_LINE_ITEM_ID,
@@ -787,13 +790,15 @@ def get_user_case_data():
                 print(f"📊 [Backend] /api/cases/data: Row {idx}: problem_last_updated={problem_last_updated}, fsr_last_updated={fsr_last_updated}")
                 
                 if case_id not in case_data:
+                    case_title = row.get("CASE_TITLE")
                     case_data[case_id] = {
                         "caseNumber": case_id,
+                        "caseTitle": case_title if case_title and pd.notna(case_title) else None,
                         "problemStatement": problem_statement,
                         "fsrNotes": "",
                         "updatedAt": datetime.utcnow().isoformat() + 'Z'
                     }
-                    print(f"📊 [Backend] /api/cases/data: Created new case_data entry for case_id={case_id}")
+                    print(f"📊 [Backend] /api/cases/data: Created new case_data entry for case_id={case_id}, title={case_title[:50] if case_title and pd.notna(case_title) else 'None'}...")
                 
                 # Use the last FSR line item (highest LINE_ITEM_ID)
                 if fsr_notes and (not case_data[case_id]["fsrNotes"] or line_item_id > case_data[case_id].get("lastLineItemId", 0)):
@@ -984,7 +989,8 @@ def get_case_details_endpoint(case_number):
 def get_case_titles_batch_endpoint():
     """
     Get case titles for multiple case numbers at once.
-    Used for displaying titles in suggestions dropdown.
+    First checks database, then falls back to CRM if not found.
+    Updates database with titles fetched from CRM.
     Returns a map of case_number -> case_title.
     """
     user_data = session.get('user_data')
@@ -992,21 +998,69 @@ def get_case_titles_batch_endpoint():
         print("❌ [Backend] /api/cases/titles: Not authenticated")
         return jsonify({"error": "Not authenticated"}), 401
     
-    # Get user email with fallback to default test email
+    user_id = user_data.get('user_id')
     user_email_upper = get_user_email_for_crm()
     
     try:
         data = request.get_json()
         case_numbers = data.get('case_numbers', [])
+        update_db = data.get('update_db', True)  # Default to updating DB
         
         if not case_numbers:
             return jsonify({"success": True, "titles": {}})
         
-        print(f"🔍 [CRM] Getting titles for {len(case_numbers)} cases")
+        print(f"🔍 [Backend] Getting titles for {len(case_numbers)} cases")
         
-        # Get titles for all case numbers
-        titles = get_case_titles_batch(case_numbers, user_email_upper)
+        # First, try to get titles from database
+        case_list = "', '".join(str(case) for case in case_numbers)
+        db_query = f"""
+            SELECT CASE_ID, CASE_TITLE
+            FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS
+            WHERE CASE_ID IN ('{case_list}')
+            AND CREATED_BY_USER = %s
+        """
+        db_result = snowflake_query(db_query, CONNECTION_PAYLOAD, (user_id,))
         
+        titles = {}
+        cases_needing_crm_fetch = []
+        
+        if db_result is not None and not db_result.empty:
+            for _, row in db_result.iterrows():
+                case_id = str(row["CASE_ID"])
+                case_title = row.get("CASE_TITLE")
+                if case_title and pd.notna(case_title) and str(case_title).strip():
+                    titles[case_id] = str(case_title).strip()
+                else:
+                    cases_needing_crm_fetch.append(case_id)
+        else:
+            cases_needing_crm_fetch = [str(c) for c in case_numbers]
+        
+        # For cases without titles in DB, fetch from CRM
+        if cases_needing_crm_fetch:
+            print(f"🔍 [Backend] Fetching {len(cases_needing_crm_fetch)} titles from CRM...")
+            crm_titles = get_case_titles_batch(cases_needing_crm_fetch, user_email_upper)
+            
+            # Merge CRM titles
+            for case_num, title in crm_titles.items():
+                titles[case_num] = title
+            
+            # Update database with titles from CRM if requested
+            if update_db and crm_titles:
+                for case_num, title in crm_titles.items():
+                    try:
+                        update_query = f"""
+                            UPDATE {DATABASE}.{SCHEMA}.CASE_SESSIONS
+                            SET CASE_TITLE = %s, CRM_LAST_SYNC_TIME = CURRENT_TIMESTAMP()
+                            WHERE CASE_ID = %s AND CREATED_BY_USER = %s
+                        """
+                        snowflake_query(update_query, CONNECTION_PAYLOAD, 
+                                      (title, case_num, user_id), 
+                                      return_df=False)
+                        print(f"✅ [Backend] Updated case {case_num} title in database")
+                    except Exception as e:
+                        print(f"⚠️ [Backend] Error updating case {case_num} title: {e}")
+        
+        print(f"✅ [Backend] Returning {len(titles)} case titles")
         return jsonify({
             "success": True,
             "titles": titles
@@ -1014,6 +1068,8 @@ def get_case_titles_batch_endpoint():
         
     except Exception as e:
         print(f"❌ [Backend] Error getting case titles: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": "Failed to get case titles"}), 500
 
 # ==================== CRM INTEGRATION FUNCTIONS ====================
@@ -3104,14 +3160,30 @@ def create_case():
         exists_in_crm = check_external_crm_exists(case_number)
         print(f"🔍 [Backend] Case {case_number} exists in external CRM: {exists_in_crm}")
         
-        # Insert new case session
+        # Fetch case title from CRM if case exists in CRM
+        case_title = None
+        if exists_in_crm:
+            try:
+                user_email_upper = get_user_email_for_crm()
+                titles = get_case_titles_batch([case_number], user_email_upper)
+                case_title = titles.get(str(case_number)) or titles.get(case_number)
+                if case_title:
+                    print(f"✅ [Backend] Fetched case title from CRM: {case_title[:50]}...")
+            except Exception as e:
+                print(f"⚠️ [Backend] Error fetching case title from CRM: {e}")
+        
+        # Get case title from request if provided (for untracked cases)
+        if not case_title:
+            case_title = data.get('case_title')
+        
+        # Insert new case session with case title
         insert_query = f"""
             INSERT INTO {DATABASE}.{SCHEMA}.CASE_SESSIONS 
-            (CASE_ID, CREATED_BY_USER, USER_ID, CASE_STATUS, CREATION_TIME, CRM_LAST_SYNC_TIME)
-            VALUES (%s, %s, %s, 'open', CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
+            (CASE_ID, CREATED_BY_USER, USER_ID, CASE_STATUS, CASE_TITLE, CREATION_TIME, CRM_LAST_SYNC_TIME)
+            VALUES (%s, %s, %s, 'open', %s, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
         """
         snowflake_query(insert_query, CONNECTION_PAYLOAD, 
-                       (case_number, user_id, user_id), 
+                       (case_number, user_id, user_id, case_title), 
                        return_df=False)
         
         # Prepare response with CRM status
