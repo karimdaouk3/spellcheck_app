@@ -2476,6 +2476,7 @@ class CaseManager {
         this.caseCounter = 1;
         this.userId = null;
         this.preloadedSuggestions = []; // Cache for case suggestions
+        this.preloadedTitles = {}; // Cache for case titles (caseNumber -> title)
         // Don't call init() here - will be called from outside
     }
     
@@ -2564,6 +2565,11 @@ class CaseManager {
                     const sampleCases = this.preloadedSuggestions.slice(0, sampleCount);
                     console.log(`🔍 [CaseManager] Sample preloaded case numbers from CRM (first ${sampleCount} of ${totalCases}):`, sampleCases);
                     console.log(`📋 [CaseManager] Using ${totalCases} cases from CRM database for suggestions (all filtered by email: ${filteredByEmail})`);
+                    
+                    // Preload titles for all suggestions in background (no blocking)
+                    this.preloadCaseTitles().catch(error => {
+                        console.error('❌ [CaseManager] Error preloading case titles:', error);
+                    });
                 } else {
                     console.log(`⚠️ [CaseManager] No cases found in CRM database for preloading`);
                 }
@@ -2574,6 +2580,65 @@ class CaseManager {
         } catch (error) {
             console.error('❌ [CaseManager] Error preloading suggestions:', error);
             this.preloadedSuggestions = [];
+        }
+    }
+    
+    async preloadCaseTitles() {
+        if (this.preloadedSuggestions.length === 0) {
+            return;
+        }
+        
+        try {
+            console.log(`🔍 [CaseManager] Preloading titles for ${this.preloadedSuggestions.length} suggestions...`);
+            const startTime = performance.now();
+            
+            // Fetch titles in batches to avoid overwhelming the server
+            const batchSize = 100;
+            const batches = [];
+            for (let i = 0; i < this.preloadedSuggestions.length; i += batchSize) {
+                batches.push(this.preloadedSuggestions.slice(i, i + batchSize));
+            }
+            
+            console.log(`📦 [CaseManager] Fetching titles in ${batches.length} batches of up to ${batchSize} cases each`);
+            
+            // Fetch all batches in parallel
+            const titlePromises = batches.map(batch => 
+                fetch('/api/cases/titles', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        case_numbers: batch,
+                        crm_only: true,  // Fetch from CRM only (for suggestions)
+                        update_db: false  // Don't update database
+                    })
+                }).then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    }
+                    return { titles: {} };
+                }).catch(error => {
+                    console.error(`❌ [CaseManager] Error fetching title batch:`, error);
+                    return { titles: {} };
+                })
+            );
+            
+            const results = await Promise.all(titlePromises);
+            
+            // Merge all titles into cache
+            this.preloadedTitles = {};
+            results.forEach(result => {
+                if (result.titles) {
+                    Object.assign(this.preloadedTitles, result.titles);
+                }
+            });
+            
+            const loadTime = performance.now() - startTime;
+            const titlesLoaded = Object.keys(this.preloadedTitles).length;
+            console.log(`✅ [CaseManager] Preloaded ${titlesLoaded} case titles in ${loadTime.toFixed(0)}ms`);
+            console.log(`📊 [CaseManager] Title cache ready - suggestions will be instant`);
+        } catch (error) {
+            console.error('❌ [CaseManager] Error preloading case titles:', error);
+            this.preloadedTitles = {};
         }
     }
     
@@ -4367,49 +4432,64 @@ class CaseManager {
                 
                 console.log(`🔍 [CaseManager] Query: "${query}" -> ${filteredCases.length} cases from preloaded suggestions (no DB queries)`);
                 
-                // Build initial suggestions data (without titles)
-                suggestionsData = filteredCases.map(caseNum => ({
-                    caseNumber: caseNum,
-                    caseName: null // Will be fetched next
-                }));
+                // Build suggestions data with titles from cache (instant, no fetch needed)
+                suggestionsData = filteredCases.map(caseNum => {
+                    const caseNumStr = String(caseNum);
+                    return {
+                        caseNumber: caseNum,
+                        caseName: this.preloadedTitles[caseNumStr] || this.preloadedTitles[caseNum] || null
+                    };
+                });
                 
-                // Display suggestions immediately (with "Available in CRM" placeholder)
+                // Display suggestions immediately with titles (if cached)
                 displaySuggestions();
                 
-                // Fetch titles for filtered cases in background (from CRM only, for suggestions)
-                if (filteredCases.length > 0) {
-                    try {
-                        const response = await fetch('/api/cases/titles', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                case_numbers: filteredCases,
-                                crm_only: true,  // For suggestions, fetch from CRM only (no database check)
-                                update_db: false  // Don't update database for suggestions
-                            })
-                        });
-                        
+                // Check if any titles are missing from cache and fetch them in background
+                const missingTitles = filteredCases.filter(caseNum => {
+                    const caseNumStr = String(caseNum);
+                    return !this.preloadedTitles[caseNumStr] && !this.preloadedTitles[caseNum];
+                });
+                
+                if (missingTitles.length > 0) {
+                    console.log(`🔍 [CaseManager] Fetching ${missingTitles.length} missing titles from cache...`);
+                    // Fetch missing titles in background and update cache
+                    fetch('/api/cases/titles', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            case_numbers: missingTitles,
+                            crm_only: true,  // For suggestions, fetch from CRM only (no database check)
+                            update_db: false  // Don't update database for suggestions
+                        })
+                    }).then(response => {
                         if (response.ok) {
-                            const data = await response.json();
-                            const titles = data.titles || {};
-                            
-                            // Update suggestions with titles
-                            suggestionsData = filteredCases.map(caseNum => ({
-                                caseNumber: caseNum,
-                                caseName: titles[String(caseNum)] || null
-                            }));
-                            
-                            console.log(`✅ [CaseManager] Fetched titles for ${filteredCases.length} cases`);
-                            displaySuggestions(); // Re-render with titles
-                        } else {
-                            console.log(`⚠️ [CaseManager] Failed to fetch titles: ${response.status}`);
+                            return response.json();
                         }
-                    } catch (error) {
-                        console.error(`❌ [CaseManager] Error fetching titles:`, error);
-                        // Continue with suggestions without titles
-                    }
+                        return { titles: {} };
+                    }).then(data => {
+                        if (data.titles) {
+                            // Update cache with new titles
+                            Object.assign(this.preloadedTitles, data.titles);
+                            
+                            // Update suggestions with newly fetched titles
+                            suggestionsData = filteredCases.map(caseNum => {
+                                const caseNumStr = String(caseNum);
+                                return {
+                                    caseNumber: caseNum,
+                                    caseName: this.preloadedTitles[caseNumStr] || this.preloadedTitles[caseNum] || null
+                                };
+                            });
+                            
+                            console.log(`✅ [CaseManager] Fetched and cached ${Object.keys(data.titles).length} missing titles`);
+                            displaySuggestions(); // Re-render with newly fetched titles
+                        }
+                    }).catch(error => {
+                        console.error(`❌ [CaseManager] Error fetching missing titles:`, error);
+                    });
+                } else {
+                    console.log(`✅ [CaseManager] All ${filteredCases.length} titles found in cache - instant display`);
                 }
             };
             
