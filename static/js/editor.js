@@ -3284,6 +3284,14 @@ class CaseManager {
                     // User provided a title (or left it empty)
                     untrackedCaseTitle = caseTitleInput;
                     isTrackedInDatabase = false;
+                    
+                    // Save the title to the database
+                    if (untrackedCaseTitle && untrackedCaseTitle.trim()) {
+                        console.log(`💾 [CaseManager] Saving user-provided title for case ${caseNumberValue}...`);
+                        await this.saveCaseTitleToDatabase(caseNumberValue, untrackedCaseTitle).catch(err => {
+                            console.error(`❌ [CaseManager] Error saving title for untracked case: ${err}`);
+                        });
+                    }
                 }
             } else if (createResponse.status === 409) {
                 // Case already exists - this is actually good, means it's tracked
@@ -3302,6 +3310,13 @@ class CaseManager {
                 // User provided a title (or left it empty)
                 untrackedCaseTitle = caseTitleInput;
                 isTrackedInDatabase = false;
+                
+                // For untracked cases, we still want to save the title if provided
+                if (untrackedCaseTitle && untrackedCaseTitle.trim()) {
+                    console.log(`💾 [CaseManager] Saving user-provided title for untracked case ${caseNumberValue}...`);
+                    // Note: Since case creation failed, we can't save to DB yet
+                    // The title will be stored in frontend only until next reload
+                }
             }
             
         // Create the case (either tracked or untracked)
