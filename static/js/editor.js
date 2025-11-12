@@ -2997,6 +2997,36 @@ class CaseManager {
             const backendCases = caseData.cases || {};
             console.log(`📊 [CaseManager] Processing ${Object.keys(backendCases).length} cases from database`);
             
+            // Get case numbers for batch title fetch
+            const caseNumbers = Object.values(backendCases).map(c => c.caseNumber).filter(Boolean);
+            
+            // Load existing cases from localStorage to preserve titles
+            const storageKey = `fsr-cases-${this.userId}`;
+            const savedCasesStr = localStorage.getItem(storageKey);
+            const savedCases = savedCasesStr ? JSON.parse(savedCasesStr) : [];
+            const savedCasesMap = new Map(savedCases.map(c => [c.caseNumber, c]));
+            
+            // Fetch case titles in batch BEFORE creating case objects
+            let caseTitles = {};
+            if (caseNumbers.length > 0) {
+                try {
+                    console.log(`🔍 [CaseManager] Fetching titles for ${caseNumbers.length} cases in batch...`);
+                    const titlesResponse = await fetch('/api/cases/titles', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ case_numbers: caseNumbers })
+                    });
+                    
+                    if (titlesResponse.ok) {
+                        const titlesData = await titlesResponse.json();
+                        caseTitles = titlesData.titles || {};
+                        console.log(`✅ [CaseManager] Fetched ${Object.keys(caseTitles).length} case titles`);
+                    }
+                } catch (error) {
+                    console.error(`❌ [CaseManager] Error fetching case titles:`, error);
+                }
+            }
+            
             // Debug each case in detail
             for (const [caseId, caseInfo] of Object.entries(backendCases)) {
                 console.log(`🔍 [CaseManager] Case ${caseId} details:`);
@@ -3008,29 +3038,40 @@ class CaseManager {
             }
             
             this.cases = Object.values(backendCases).map(caseData => {
+                const caseNumber = caseData.caseNumber;
+                const savedCase = savedCasesMap.get(caseNumber);
+                
+                // Get title from: 1) batch fetch, 2) saved localStorage, 3) null
+                const caseTitle = caseTitles[String(caseNumber)] || 
+                                 caseTitles[caseNumber] || 
+                                 (savedCase && savedCase.caseTitle) || 
+                                 null;
+                
                 const caseInfo = {
-                    id: caseData.caseNumber, // Use case number as ID for consistency
-                    caseNumber: caseData.caseNumber,
+                    id: caseNumber, // Use case number as ID for consistency
+                    caseNumber: caseNumber,
                     problemStatement: caseData.problemStatement || '',
                     fsrNotes: caseData.fsrNotes || '',
                     createdAt: new Date(caseData.updatedAt || Date.now()),
                     updatedAt: new Date(caseData.updatedAt || Date.now()),
-                    isTrackedInDatabase: true // All cases from database are tracked
+                    isTrackedInDatabase: true, // All cases from database are tracked
+                    caseTitle: caseTitle // Include title from batch fetch or localStorage
                 };
                 
                 console.log(`📝 [CaseManager] Processed case ${caseInfo.caseNumber}:`, {
                     problemStatement: caseInfo.problemStatement.substring(0, 50) + '...',
                     fsrNotes: caseInfo.fsrNotes.substring(0, 50) + '...',
-                    isTracked: caseInfo.isTrackedInDatabase
+                    isTracked: caseInfo.isTrackedInDatabase,
+                    caseTitle: caseInfo.caseTitle ? caseInfo.caseTitle.substring(0, 50) + '...' : 'None'
                 });
                 
                 return caseInfo;
             });
             
             console.log(`✅ [CaseManager] Successfully loaded ${this.cases.length} cases from database`);
-            console.log(`📊 [CaseManager] Loaded ${this.cases.length} cases:`, this.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber, problemLength: c.problemStatement.length })));
+            console.log(`📊 [CaseManager] Loaded ${this.cases.length} cases:`, this.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber, caseTitle: c.caseTitle, problemLength: c.problemStatement.length })));
             
-            // Load CRM data for all cases in parallel to get case titles
+            // Load CRM data for all cases in parallel to get case titles (as backup/update)
             console.log('🔍 [CaseManager] Loading CRM data for all cases in parallel to get titles...');
             const crmLoadPromises = this.cases
                 .filter(caseData => caseData.caseNumber)
@@ -3042,7 +3083,7 @@ class CaseManager {
             // Re-render to show updated case titles
             this.renderCasesList();
             
-            // Also sync with localStorage for offline access
+            // Also sync with localStorage for offline access (now includes titles)
             this.saveCasesLocally();
             console.log('💾 [CaseManager] Cases synced to localStorage for offline access');
             
