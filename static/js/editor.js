@@ -3253,9 +3253,34 @@ class CaseManager {
             return;
         }
         
-        // Try to create case in database first
+        // OPTIMISTIC: Create case immediately in frontend
+        const optimisticCase = {
+            id: caseNumberValue,
+            caseNumber: caseNumberValue,
+            caseTitle: null,
+            problemStatement: '',
+            fsrNotes: '',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            isTrackedInDatabase: true // Assume tracked until proven otherwise
+        };
+        
+        console.log(`⚡ [CaseManager] Optimistically creating case ${caseNumberValue}...`);
+        this.cases.unshift(optimisticCase);
+        this.hideNoCasesPlaceholder();
+        this.renderCasesList();
+        this.switchToCase(optimisticCase.id);
+        console.log(`✅ [CaseManager] Case ${caseNumberValue} added to sidebar and activated`);
+        
+        // Close mobile sidebar
+        const sidebar = document.querySelector('.cases-sidebar');
+        if (sidebar && window.innerWidth <= 950) {
+            sidebar.classList.remove('open');
+        }
+        
+        // Now handle backend and prompts asynchronously (non-blocking)
         try {
-            console.log(`🚀 [CaseManager] Attempting to create case ${caseNumberValue} in database...`);
+            console.log(`🚀 [CaseManager] Creating case ${caseNumberValue} in database (background)...`);
             
             const createResponse = await fetch('/api/cases/create', {
                 method: 'POST',
@@ -3267,128 +3292,73 @@ class CaseManager {
                 })
             });
             
-            let isTrackedInDatabase = true;
-            let untrackedCaseTitle = null;
-            
             if (createResponse.ok) {
                 const createData = await createResponse.json();
-                console.log(`✅ [CaseManager] Successfully created case ${caseNumberValue} in database:`, createData);
+                console.log(`✅ [CaseManager] Case ${caseNumberValue} created in database`);
                 
                 // Check for CRM warning (case not found in CRM)
                 if (createData.warning) {
-                    console.log(`⚠️ [CaseManager] CRM warning for case ${caseNumberValue}:`, createData.warning);
+                    console.log(`⚠️ [CaseManager] Case ${caseNumberValue} not in CRM`);
                     
-                    // Show title prompt for untracked case
+                    // Show title prompt (user is already using the case)
                     const caseTitleInput = await this.showUntrackedCasePrompt(caseNumberValue);
                     
                     if (caseTitleInput === null) {
-                        // User cancelled - remove the case we just created
+                        // User cancelled - remove the case
+                        console.log(`🗑️ [CaseManager] User cancelled, removing case ${caseNumberValue}`);
+                        this.deleteCase(caseNumberValue);
                         await fetch(`/api/cases/delete/${caseNumberValue}`, { method: 'DELETE' });
                         return;
                     }
                     
-                    // User provided a title (or left it empty)
-                    untrackedCaseTitle = caseTitleInput;
-                    isTrackedInDatabase = false;
+                    // User provided a title
+                    optimisticCase.caseTitle = caseTitleInput;
+                    optimisticCase.isTrackedInDatabase = false;
+                    this.renderCasesList(); // Update sidebar with title
                     
-                    // Save the title to the database
-                    if (untrackedCaseTitle && untrackedCaseTitle.trim()) {
-                        console.log(`💾 [CaseManager] Saving user-provided title for case ${caseNumberValue}...`);
-                        await this.saveCaseTitleToDatabase(caseNumberValue, untrackedCaseTitle).catch(err => {
-                            console.error(`❌ [CaseManager] Error saving title for untracked case: ${err}`);
+                    // Save to database
+                    if (caseTitleInput && caseTitleInput.trim()) {
+                        await this.saveCaseTitleToDatabase(caseNumberValue, caseTitleInput).catch(err => {
+                            console.error(`❌ [CaseManager] Error saving title: ${err}`);
                         });
                     }
+                } else {
+                    // Case is in CRM - fetch its title
+                    fetch('/api/cases/titles', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ case_numbers: [caseNumberValue] })
+                    }).then(r => r.json())
+                    .then(data => {
+                        if (data && data.titles && data.titles[String(caseNumberValue)]) {
+                            optimisticCase.caseTitle = data.titles[String(caseNumberValue)];
+                            this.renderCasesList();
+                            console.log(`✅ [CaseManager] Updated case ${caseNumberValue} with CRM title`);
+                        }
+                    }).catch(err => console.error(`❌ Error fetching CRM title:`, err));
                 }
             } else if (createResponse.status === 409) {
-                // Case already exists - this is actually good, means it's tracked
-                console.log(`ℹ️ [CaseManager] Case ${caseNumberValue} already exists in database (tracked)`);
+                console.log(`ℹ️ [CaseManager] Case ${caseNumberValue} already exists in database`);
             } else {
-                // Case creation failed - show prompt for untracked case with title input
-                console.log(`⚠️ [CaseManager] Failed to create case ${caseNumberValue} in database:`, createResponse.status);
+                // Backend creation failed - still show prompt for title
+                console.log(`⚠️ [CaseManager] Database creation failed, treating as untracked`);
                 
                 const caseTitleInput = await this.showUntrackedCasePrompt(caseNumberValue);
                 
                 if (caseTitleInput === null) {
-                    // User cancelled
+                    // User cancelled - remove the case
+                    this.deleteCase(caseNumberValue);
                     return;
                 }
                 
-                // User provided a title (or left it empty)
-                untrackedCaseTitle = caseTitleInput;
-                isTrackedInDatabase = false;
-                
-                // For untracked cases, we still want to save the title if provided
-                if (untrackedCaseTitle && untrackedCaseTitle.trim()) {
-                    console.log(`💾 [CaseManager] Saving user-provided title for untracked case ${caseNumberValue}...`);
-                    // Note: Since case creation failed, we can't save to DB yet
-                    // The title will be stored in frontend only until next reload
-                }
+                optimisticCase.caseTitle = caseTitleInput;
+                optimisticCase.isTrackedInDatabase = false;
+                this.renderCasesList();
             }
-            
-        // Create the case (either tracked or untracked)
-        const newCase = {
-            id: caseNumberValue, // Use case number as ID for consistency
-            caseNumber: caseNumberValue,
-            caseTitle: untrackedCaseTitle || null, // Store the title if provided
-            problemStatement: '',
-            fsrNotes: '',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            isTrackedInDatabase: isTrackedInDatabase
-        };
-            
-            console.log(`📝 [CaseManager] Creating new case:`, {
-                caseNumber: newCase.caseNumber,
-                isTracked: newCase.isTrackedInDatabase
-            });
-            
-            this.cases.unshift(newCase); // Add to beginning
-            this.saveCases();
-            this.renderCasesList();
-            
-            // If this is a tracked CRM case, fetch the title immediately
-            if (isTrackedInDatabase !== false && !untrackedCaseTitle) {
-                // Fetch title for this case immediately
-                fetch('/api/cases/titles', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        case_numbers: [caseNumberValue]
-                    })
-                }).then(response => {
-                    if (response.ok) {
-                        return response.json();
-                    }
-                }).then(data => {
-                    if (data && data.titles && data.titles[String(caseNumberValue)]) {
-                        const caseIndex = this.cases.findIndex(c => c.caseNumber === caseNumberValue);
-                        if (caseIndex !== -1) {
-                            this.cases[caseIndex].caseTitle = data.titles[String(caseNumberValue)];
-                            this.saveCases();
-                            this.renderCasesList();
-                            console.log(`✅ [CaseManager] Updated case ${caseNumberValue} with title immediately`);
-                        }
-                    }
-                }).catch(error => {
-                    console.error(`❌ [CaseManager] Error fetching title for case ${caseNumberValue}:`, error);
-                });
-            }
-            
-            this.switchToCase(newCase.id);
-            
-            // Close mobile sidebar
-            const sidebar = document.querySelector('.cases-sidebar');
-            if (sidebar && window.innerWidth <= 950) {
-                sidebar.classList.remove('open');
-            }
-            
-            console.log(`✅ [CaseManager] Case ${caseNumberValue} created successfully`);
             
         } catch (error) {
-            console.error('❌ [CaseManager] Error creating case:', error);
-            await this.showCustomAlert('Error', 'Error creating case. Please try again.');
+            console.error('❌ [CaseManager] Error in background case creation:', error);
+            // Case is already visible to user, so just log the error
         }
     }
     
@@ -4770,32 +4740,81 @@ class CaseManager {
             const popupConfirm = document.getElementById('popup-confirm');
             const popupClose = document.getElementById('popup-close');
             
-            popupTitle.textContent = 'Case Not Found in CRM';
+            popupTitle.textContent = '⚠️ Case Not Found in CRM';
+            popupTitle.style.color = '#f59e0b';
             
-            // Create message and input field
-            const messageText = document.createElement('p');
-            messageText.textContent = `Are you sure case number '${caseNumber}' is correct?`;
-            messageText.style.marginBottom = '10px';
-            messageText.style.fontWeight = '600';
+            // Create styled container
+            const container = document.createElement('div');
+            container.style.cssText = 'display: flex; flex-direction: column; gap: 16px;';
             
-            const warningText = document.createElement('p');
-            warningText.textContent = 'It is not in CRM and will not be tracked.';
-            warningText.style.marginBottom = '15px';
-            warningText.style.color = '#dc2626';
+            // Case number display with styling
+            const caseNumberBox = document.createElement('div');
+            caseNumberBox.style.cssText = `
+                background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+                color: white;
+                padding: 12px 16px;
+                border-radius: 8px;
+                font-weight: 600;
+                text-align: center;
+                font-size: 1.1em;
+                box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
+            `;
+            caseNumberBox.textContent = `Case #${caseNumber}`;
             
+            // Warning message with icon
+            const warningBox = document.createElement('div');
+            warningBox.style.cssText = `
+                background: #fef3c7;
+                border-left: 4px solid #f59e0b;
+                padding: 12px 16px;
+                border-radius: 6px;
+                color: #78350f;
+                line-height: 1.5;
+            `;
+            warningBox.innerHTML = `
+                <strong>⚠️ Not Tracked in CRM</strong><br>
+                <span style="font-size: 0.9em;">This case will not be tracked in the CRM system.</span>
+            `;
+            
+            // Note text
             const noteText = document.createElement('p');
-            noteText.textContent = 'If you would like to proceed, please enter the case name here:';
-            noteText.style.marginBottom = '10px';
-            noteText.style.fontWeight = '500';
+            noteText.textContent = 'Please provide a case title to continue:';
+            noteText.style.cssText = 'margin: 0; font-weight: 500; color: #374151; font-size: 0.95em;';
             
+            // Styled input field
             const input = document.createElement('input');
             input.type = 'text';
-            input.placeholder = 'Enter case name...';
-            input.style.cssText = 'width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1em; margin-top: 10px; box-sizing: border-box;';
+            input.placeholder = 'Enter case title...';
+            input.style.cssText = `
+                width: 100%;
+                padding: 12px 16px;
+                border: 2px solid #e5e7eb;
+                border-radius: 8px;
+                font-size: 1em;
+                box-sizing: border-box;
+                transition: all 0.2s;
+                font-family: inherit;
+            `;
             
-            // Word count display
+            // Add focus effect
+            input.addEventListener('focus', () => {
+                input.style.borderColor = '#3b82f6';
+                input.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+            });
+            input.addEventListener('blur', () => {
+                input.style.borderColor = '#e5e7eb';
+                input.style.boxShadow = 'none';
+            });
+            
+            // Word count display with better styling
             const wordCountText = document.createElement('p');
-            wordCountText.style.cssText = 'margin: 8px 0 0 0; font-size: 0.85em; color: #6b7280; text-align: right;';
+            wordCountText.style.cssText = `
+                margin: -4px 0 0 0;
+                font-size: 0.8em;
+                color: #9ca3af;
+                text-align: right;
+                font-weight: 500;
+            `;
             wordCountText.textContent = '0 / 50 words';
             
             const MAX_WORDS = 50;
@@ -4810,26 +4829,35 @@ class CaseManager {
                 
                 if (wordCount > MAX_WORDS) {
                     wordCountText.style.color = '#dc2626';
-                    input.style.borderColor = '#dc2626';
+                    input.style.borderColor = '#ef4444';
+                    input.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.1)';
+                } else if (wordCount > 0) {
+                    wordCountText.style.color = '#059669';
+                    input.style.borderColor = '#e5e7eb';
                 } else {
-                    wordCountText.style.color = '#6b7280';
-                    input.style.borderColor = '#ddd';
+                    wordCountText.style.color = '#9ca3af';
+                    input.style.borderColor = '#e5e7eb';
                 }
             };
             
             input.addEventListener('input', updateWordCount);
             
+            // Assemble the container
+            container.appendChild(caseNumberBox);
+            container.appendChild(warningBox);
+            container.appendChild(noteText);
+            container.appendChild(input);
+            container.appendChild(wordCountText);
+            
             // Replace message with custom content
             popupMessage.innerHTML = '';
-            popupMessage.appendChild(messageText);
-            popupMessage.appendChild(warningText);
-            popupMessage.appendChild(noteText);
-            popupMessage.appendChild(input);
-            popupMessage.appendChild(wordCountText);
+            popupMessage.appendChild(container);
             
-            // Show both buttons
+            // Show both buttons with better styling
             popupCancel.style.display = 'inline-block';
-            popupConfirm.textContent = 'Create Case';
+            popupConfirm.textContent = '✓ Create Case';
+            popupConfirm.style.background = 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
+            popupConfirm.style.fontWeight = '600';
             
             popup.style.display = 'flex';
             
@@ -4850,8 +4878,9 @@ class CaseManager {
                 
                 // Require case name to be entered
                 if (!value) {
-                    input.style.borderColor = '#dc2626';
-                    input.placeholder = 'Case name is required';
+                    input.style.borderColor = '#ef4444';
+                    input.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.1)';
+                    input.placeholder = '⚠️ Case title is required';
                     input.focus();
                     return;
                 }
@@ -4861,8 +4890,9 @@ class CaseManager {
                 const wordCount = words.length;
                 
                 if (wordCount > MAX_WORDS) {
-                    input.style.borderColor = '#dc2626';
-                    wordCountText.textContent = `Too many words! Please limit to ${MAX_WORDS} words (currently ${wordCount})`;
+                    input.style.borderColor = '#ef4444';
+                    input.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.1)';
+                    wordCountText.textContent = `❌ Too many words! Limit: ${MAX_WORDS} (currently ${wordCount})`;
                     wordCountText.style.color = '#dc2626';
                     input.focus();
                     return;
