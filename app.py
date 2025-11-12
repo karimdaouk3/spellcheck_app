@@ -66,6 +66,15 @@ def get_user_email_for_crm():
     
     return email_upper
 
+def is_email_filtering_enabled():
+    """
+    Check if email filtering is enabled for CRM queries.
+    Returns True if email filtering should be applied, False otherwise.
+    Can be toggled via session variable 'crm_email_filtering' (default: True)
+    """
+    # Default to True (email filtering enabled) for security
+    return session.get('crm_email_filtering', True)
+
 def check_external_crm_exists(case_number):
     """
     Check if a case exists in external CRM by querying available case numbers.
