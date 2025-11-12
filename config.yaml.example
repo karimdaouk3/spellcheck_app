@@ -1,0 +1,35 @@
+# Configuration file for Spellcheck App
+# COPY THIS FILE TO config.yaml AND FILL IN YOUR CREDENTIALS
+# DO NOT COMMIT config.yaml TO GIT (it contains sensitive credentials)
+
+# Engineering database connection (for development)
+Engineering_SAGE_SVC:
+  user: "YOUR_SNOWFLAKE_USERNAME"
+  password: "YOUR_SNOWFLAKE_PASSWORD"
+  account: "YOUR_SNOWFLAKE_ACCOUNT"
+  warehouse: "YOUR_WAREHOUSE"
+  database: "SAGE"
+  schema: "DEV_TEXTIO_SERVICES_INPUTS"
+  role: "YOUR_ROLE"
+
+# Production database connection
+Production_SAGE_SVC:
+  user: "YOUR_SNOWFLAKE_USERNAME"
+  password: "YOUR_SNOWFLAKE_PASSWORD"
+  account: "YOUR_SNOWFLAKE_ACCOUNT"
+  warehouse: "YOUR_WAREHOUSE"
+  database: "SAGE"
+  schema: "TEXTIO_SERVICES_INPUTS"
+  role: "YOUR_ROLE"
+
+# App configuration
+AppConfig:
+  # Set to true to enable SSO authentication
+  ENABLE_SSO: false
+  
+  # Set to true for development mode (uses DEV_ schema prefix)
+  DEV_MODE: true
+  
+  # LiteLLM API configuration (if needed)
+  # LITELLM_API_KEY: "your_api_key_here"
+

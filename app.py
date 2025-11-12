@@ -506,6 +506,18 @@ def acs():
     return "No response"
  
  
+@app.route('/health')
+def health_check():
+    """
+    Health check endpoint for Docker and load balancers.
+    Returns 200 if app is running and healthy.
+    """
+    return jsonify({
+        "status": "healthy",
+        "service": "spellcheck-app",
+        "timestamp": datetime.utcnow().isoformat()
+    }), 200
+
 @app.route('/')
 def index():
     user_data = session.get('user_data')

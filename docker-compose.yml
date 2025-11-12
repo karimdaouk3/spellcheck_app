@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+      # LanguageTool settings
+      - LT_PORT=8081
+      - JAVA_OPTS=-Xms256m -Xmx1g
+      # Gunicorn workers (adjust based on CPU cores)
+      - WEB_CONCURRENCY=4
+    volumes:
+      # Mount config.yaml from your local machine
+      - ./config.yaml:/app/config.yaml:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+

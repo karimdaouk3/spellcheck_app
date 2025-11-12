@@ -13,3 +13,14 @@ node_modules
 llm_evaluation_log.json
 llm_rewrite_feedback_log.json
 rewrite_evaluation_log.json
+config.yaml
+*.md
+!DOCKER_DEPLOYMENT.md
+README.md
+.pytest_cache
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info
+tts_app/

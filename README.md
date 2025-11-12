@@ -2,11 +2,38 @@
 
 A web application for evaluating and improving problem statements and FSR notes using AI-powered analysis.
 
-## Quick Start
+## 🚀 Quick Start
 
-### Prerequisites
-- Python 3.7 or higher
-- Java 8 or higher (for LanguageTool)
+### 🐳 Recommended: Docker Deployment (Production)
+
+**For production deployment, use Docker!** It's the easiest and most reliable way to deploy.
+
+📖 **See [DOCKER_DEPLOYMENT.md](./DOCKER_DEPLOYMENT.md) for complete Docker deployment guide**
+
+**Quick Docker Setup:**
+```bash
+# 1. Create your config file
+cp config.yaml.example config.yaml
+# Edit config.yaml with your credentials
+
+# 2. Run with Docker Compose
+docker-compose up -d
+
+# 3. Access the app
+open http://localhost:5000
+```
+
+That's it! ✅
+
+---
+
+### 🔧 Alternative: Local Development Setup
+
+If you want to run locally without Docker:
+
+#### Prerequisites
+- Python 3.11 or higher
+- Java 17 or higher (for LanguageTool)
 - pip (Python package installer)
 
 ### Installation & Setup
@@ -109,10 +136,37 @@ curl -X POST http://localhost:8055/api/score \
 
 ## Technical Details
 
-- **Backend**: Flask (Python)
+- **Backend**: Flask (Python) with Gunicorn
 - **Frontend**: Vanilla JavaScript, HTML5, CSS3
-- **LanguageTool**: Grammar and style checking
-- **LLM Integration**: AI-powered text evaluation
+- **LanguageTool**: Grammar and style checking (Java-based)
+- **LLM Integration**: AI-powered text evaluation (LiteLLM)
 - **Database**: Snowflake for data storage
+- **Deployment**: Docker containerization
+
+## 📚 Documentation
+
+- [**Docker Deployment Guide**](./DOCKER_DEPLOYMENT.md) - Complete production deployment guide
+- [**CRM Integration Guide**](./CRM_TESTING_README.md) - CRM testing and integration
+- [**Database Implementation**](./DATABASE_IMPLEMENTATION_COMPLETE.md) - Database schema
+
+## 🔒 Security
+
+- Never commit `config.yaml` (contains credentials)
+- Use environment variables for production secrets
+- Enable SSO for production deployment
+- Use HTTPS in production (via reverse proxy)
+
+## 📊 Production Checklist
+
+Before deploying to production:
+
+- [ ] Set `ENABLE_SSO: true` in config.yaml
+- [ ] Set `DEV_MODE: false` in config.yaml
+- [ ] Use production Snowflake credentials
+- [ ] Set up HTTPS (SSL/TLS)
+- [ ] Configure proper firewall rules
+- [ ] Set up monitoring and logging
+- [ ] Test database connections
+- [ ] Configure backup strategy
 
 
