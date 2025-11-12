@@ -3665,6 +3665,8 @@ class CaseManager {
                 if (editorField.highlightOverlay) {
                     editorField.highlightOverlay.innerHTML = '';
                 }
+                // Reset button states to remove any animations
+                window.spellCheckEditor.resetButtonState('editor');
             }
             
             // Clear editor2 field state
@@ -3696,6 +3698,8 @@ class CaseManager {
                 if (editor2Field.highlightOverlay) {
                     editor2Field.highlightOverlay.innerHTML = '';
                 }
+                // Reset button states to remove any animations
+                window.spellCheckEditor.resetButtonState('editor2');
             }
             
             // Clear rewrite feedback pills
