@@ -896,8 +896,7 @@ def get_case_data(case_number):
 @app.route('/api/cases/suggestions/preload', methods=['GET'])
 def preload_case_suggestions():
     """
-    Preload all available case numbers and their titles for fast suggestions.
-    Returns both case numbers and titles in a single response from a single query.
+    Preload all available case numbers for fast suggestions.
     """
     user_data = session.get('user_data')
     if not user_data:
@@ -907,87 +906,15 @@ def preload_case_suggestions():
     # Get user email with fallback to default test email
     user_email_upper = get_user_email_for_crm()
     user_email = user_email_upper.lower()  # For display purposes
-    print(f"🔍 [CRM] Preloading case suggestions and titles for user: {user_email} (formatted: {user_email_upper})")
+    print(f"🔍 [CRM] Preloading case suggestions for user: {user_email} (formatted: {user_email_upper})")
     print(f"✅ [CRM] Using email filter: {user_email_upper} for preloading cases")
     
     try:
-        # Single query to get both case numbers and titles together
-        if CRM_EMAIL_FILTERING_ENABLED:
-            like_pattern = f"%~{user_email_upper}~%"
-            query = """
-                WITH case_numbers_filtered AS (
-                    SELECT DISTINCT "Case Number" as CASE_NUMBER
-                    FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
-                    WHERE "Case Number" IS NOT NULL
-                    AND "USER_EMAILS" LIKE %s
-                ),
-                case_titles_latest AS (
-                    SELECT DISTINCT
-                        "Case Number",
-                        "Case Title",
-                        ROW_NUMBER() OVER (
-                            PARTITION BY "Case Number" 
-                            ORDER BY "FSR Number" DESC, "FSR Creation Date" DESC
-                        ) as rn
-                    FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_FSR_DETAIL
-                    WHERE "Case Number" IN (SELECT CASE_NUMBER FROM case_numbers_filtered)
-                )
-                SELECT 
-                    cnf.CASE_NUMBER,
-                    ctl."Case Title" as CASE_TITLE
-                FROM case_numbers_filtered cnf
-                LEFT JOIN case_titles_latest ctl 
-                    ON cnf.CASE_NUMBER = ctl."Case Number" 
-                    AND ctl.rn = 1
-                ORDER BY cnf.CASE_NUMBER DESC
-            """
-            query_params = (like_pattern,)
-            print(f"🔒 [CRM] EMAIL FILTERING ENABLED: Getting cases and titles for email '{user_email_upper}'")
-        else:
-            query = """
-                WITH case_titles_latest AS (
-                    SELECT DISTINCT
-                        "Case Number",
-                        "Case Title",
-                        ROW_NUMBER() OVER (
-                            PARTITION BY "Case Number" 
-                            ORDER BY "FSR Number" DESC, "FSR Creation Date" DESC
-                        ) as rn
-                    FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_FSR_DETAIL
-                )
-                SELECT DISTINCT
-                    "Case Number" as CASE_NUMBER,
-                    ctl."Case Title" as CASE_TITLE
-                FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T rls
-                LEFT JOIN case_titles_latest ctl 
-                    ON rls."Case Number" = ctl."Case Number" 
-                    AND ctl.rn = 1
-                WHERE rls."Case Number" IS NOT NULL
-                ORDER BY rls."Case Number" DESC
-            """
-            query_params = ()
-            print(f"🔓 [CRM] EMAIL FILTERING DISABLED: Getting ALL cases and titles")
-        
-        print(f"🔍 [CRM] Executing single query to get case numbers and titles...")
-        result = snowflake_query(query, CONNECTION_PAYLOAD, query_params)
-        
-        case_numbers = []
-        titles = {}
-        
-        if result is not None and not result.empty:
-            for _, row in result.iterrows():
-                case_num = row["CASE_NUMBER"]
-                case_title = row.get("CASE_TITLE")
-                
-                if case_num:
-                    case_numbers.append(case_num)
-                    if case_title and pd.notna(case_title) and str(case_title).strip():
-                        titles[str(case_num)] = str(case_title).strip()
-        
+        # Get all case numbers (no search filter, no limit - get all cases)
+        # IMPORTANT: This function filters by email - only cases matching user_email_upper will be returned
+        case_numbers = get_available_case_numbers(user_email_upper, "", limit=None)
         total_cases = len(case_numbers)
-        total_titles = len(titles)
-        
-        print(f"✅ [CRM] Preloaded {total_cases} case suggestions and {total_titles} titles in single query")
+        print(f"✅ [CRM] Preloaded {total_cases} case suggestions from CRM database for user {user_email_upper}")
         print(f"📊 [CRM] Total preloaded cases from CRM database (filtered by email): {total_cases}")
         print(f"🔒 [CRM] All {total_cases} cases are filtered by email: {user_email_upper}")
         
@@ -1002,16 +929,12 @@ def preload_case_suggestions():
         return jsonify({
             "success": True,
             "case_numbers": case_numbers,
-            "titles": titles,  # Include titles in response
-            "count": total_cases,
-            "titles_count": total_titles,
+            "count": len(case_numbers),
             "filtered_by_email": user_email_upper
         })
         
     except Exception as e:
         print(f"❌ [Backend] Error preloading case suggestions: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({"error": "Failed to preload case suggestions"}), 500
 
 @app.route('/api/cases/suggestions', methods=['GET'])
@@ -1326,7 +1249,14 @@ def check_case_status_batch(case_numbers, user_email=None):
             ORDER BY "[Case Number]" DESC
         """
         
-        result = snowflake_query(query, PROD_PAYLOAD)
+        try:
+            result = snowflake_query(query, PROD_PAYLOAD)
+        except Exception as gear_error:
+            if "Database 'GEAR' does not exist or not authorized" in str(gear_error):
+                print(f"⚠️ [CRM] GEAR database not accessible, returning unknown status for all cases")
+                return {case_num: 'unknown' for case_num in case_numbers}
+            else:
+                raise gear_error
         
         if result is not None and not result.empty:
             open_cases = set(result["Case Number"].tolist())
@@ -1398,7 +1328,14 @@ def get_case_details(case_number, user_email=None):
             ORDER BY "FSR Number", "FSR Creation Date" ASC
         """
         
-        result = snowflake_query(query, PROD_PAYLOAD, params=(case_number,))
+        try:
+            result = snowflake_query(query, PROD_PAYLOAD, params=(case_number,))
+        except Exception as gear_error:
+            if "Database 'GEAR' does not exist or not authorized" in str(gear_error):
+                print(f"⚠️ [CRM] GEAR database not accessible for case {case_number}, returning empty details")
+                return []
+            else:
+                raise gear_error
         
         if result is not None and not result.empty:
             return result.to_dict('records')
@@ -1471,7 +1408,14 @@ def get_case_titles_batch(case_numbers, user_email=None):
         """
         
         print(f"🔍 [CRM] Getting titles for {len(case_numbers)} cases")
-        result = snowflake_query(query, PROD_PAYLOAD)
+        try:
+            result = snowflake_query(query, PROD_PAYLOAD)
+        except Exception as gear_error:
+            if "Database 'GEAR' does not exist or not authorized" in str(gear_error):
+                print(f"⚠️ [CRM] GEAR database not accessible, returning empty titles")
+                return {}
+            else:
+                raise gear_error
         
         titles = {}
         if result is not None and not result.empty:
