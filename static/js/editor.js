@@ -3315,10 +3315,10 @@ class CaseManager {
             }
             
         // Update the optimistic case with real data
-        const caseIndex = this.cases.findIndex(c => c.caseNumber === caseNumberValue && c.isLoading);
-        if (caseIndex !== -1) {
+        const optimisticCaseIndex = this.cases.findIndex(c => c.caseNumber === caseNumberValue && c.isLoading);
+        if (optimisticCaseIndex !== -1) {
             // Update existing optimistic case
-            this.cases[caseIndex] = {
+            this.cases[optimisticCaseIndex] = {
                 id: caseNumberValue,
                 caseNumber: caseNumberValue,
                 caseTitle: untrackedCaseTitle || null,
@@ -3371,10 +3371,10 @@ class CaseManager {
                     }
                 }).then(data => {
                     if (data && data.titles && data.titles[String(caseNumberValue)]) {
-                        const caseIndex = this.cases.findIndex(c => c.caseNumber === caseNumberValue);
-                        if (caseIndex !== -1) {
-                            this.cases[caseIndex].caseTitle = data.titles[String(caseNumberValue)];
-                            this.cases[caseIndex].isLoading = false; // Remove loading state
+                        const titleCaseIndex = this.cases.findIndex(c => c.caseNumber === caseNumberValue);
+                        if (titleCaseIndex !== -1) {
+                            this.cases[titleCaseIndex].caseTitle = data.titles[String(caseNumberValue)];
+                            this.cases[titleCaseIndex].isLoading = false; // Remove loading state
                             this.saveCases();
                             this.renderCasesList();
                             console.log(`✅ [CaseManager] Updated case ${caseNumberValue} with title from CRM`);
@@ -3383,9 +3383,9 @@ class CaseManager {
                 }).catch(error => {
                     console.error(`❌ [CaseManager] Error fetching title for case ${caseNumberValue}:`, error);
                     // Remove loading state even if title fetch fails
-                    const caseIndex = this.cases.findIndex(c => c.caseNumber === caseNumberValue);
-                    if (caseIndex !== -1) {
-                        this.cases[caseIndex].isLoading = false;
+                    const errorCaseIndex = this.cases.findIndex(c => c.caseNumber === caseNumberValue);
+                    if (errorCaseIndex !== -1) {
+                        this.cases[errorCaseIndex].isLoading = false;
                         this.renderCasesList();
                     }
                 });
@@ -3406,9 +3406,9 @@ class CaseManager {
             console.log(`✅ [CaseManager] Case ${caseNumberValue} created successfully`);
             
             // Remove loading state if still present
-            const caseIndex = this.cases.findIndex(c => c.caseNumber === caseNumberValue);
-            if (caseIndex !== -1 && this.cases[caseIndex].isLoading) {
-                this.cases[caseIndex].isLoading = false;
+            const finalCaseIndex = this.cases.findIndex(c => c.caseNumber === caseNumberValue);
+            if (finalCaseIndex !== -1 && this.cases[finalCaseIndex].isLoading) {
+                this.cases[finalCaseIndex].isLoading = false;
                 this.renderCasesList();
             }
             
