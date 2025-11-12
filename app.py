@@ -896,7 +896,8 @@ def get_case_data(case_number):
 @app.route('/api/cases/suggestions/preload', methods=['GET'])
 def preload_case_suggestions():
     """
-    Preload all available case numbers for fast suggestions.
+    Preload all available case numbers and their titles for fast suggestions.
+    Returns both case numbers and titles in a single response.
     """
     user_data = session.get('user_data')
     if not user_data:
@@ -906,7 +907,7 @@ def preload_case_suggestions():
     # Get user email with fallback to default test email
     user_email_upper = get_user_email_for_crm()
     user_email = user_email_upper.lower()  # For display purposes
-    print(f"🔍 [CRM] Preloading case suggestions for user: {user_email} (formatted: {user_email_upper})")
+    print(f"🔍 [CRM] Preloading case suggestions and titles for user: {user_email} (formatted: {user_email_upper})")
     print(f"✅ [CRM] Using email filter: {user_email_upper} for preloading cases")
     
     try:
@@ -917,6 +918,13 @@ def preload_case_suggestions():
         print(f"✅ [CRM] Preloaded {total_cases} case suggestions from CRM database for user {user_email_upper}")
         print(f"📊 [CRM] Total preloaded cases from CRM database (filtered by email): {total_cases}")
         print(f"🔒 [CRM] All {total_cases} cases are filtered by email: {user_email_upper}")
+        
+        # Fetch titles for all case numbers in one batch
+        titles = {}
+        if total_cases > 0:
+            print(f"🔍 [CRM] Fetching titles for {total_cases} cases...")
+            titles = get_case_titles_batch(case_numbers, user_email_upper)
+            print(f"✅ [CRM] Fetched {len(titles)} titles for preloaded cases")
         
         if total_cases == 0:
             print(f"⚠️ [CRM] No cases found in CRM database for preloading for user {user_email_upper}")
@@ -929,12 +937,16 @@ def preload_case_suggestions():
         return jsonify({
             "success": True,
             "case_numbers": case_numbers,
+            "titles": titles,  # Include titles in response
             "count": len(case_numbers),
+            "titles_count": len(titles),
             "filtered_by_email": user_email_upper
         })
         
     except Exception as e:
         print(f"❌ [Backend] Error preloading case suggestions: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": "Failed to preload case suggestions"}), 500
 
 @app.route('/api/cases/suggestions', methods=['GET'])

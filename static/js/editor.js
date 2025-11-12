@@ -2548,16 +2548,23 @@ class CaseManager {
     
     async preloadCaseSuggestions() {
         try {
-            console.log('🔍 [CaseManager] Preloading case suggestions from CRM database...');
+            console.log('🔍 [CaseManager] Preloading case suggestions and titles from CRM database...');
+            const startTime = performance.now();
             const response = await fetch('/api/cases/suggestions/preload');
             if (response.ok) {
                 const data = await response.json();
                 this.preloadedSuggestions = data.case_numbers || [];
+                this.preloadedTitles = data.titles || {};  // Titles come with the preload response
                 const totalCases = this.preloadedSuggestions.length;
+                const titlesCount = Object.keys(this.preloadedTitles).length;
                 const filteredByEmail = data.filtered_by_email || 'unknown';
-                console.log(`✅ [CaseManager] Preloaded ${totalCases} case suggestions from CRM database (filtered by user email: ${filteredByEmail})`);
+                const loadTime = performance.now() - startTime;
+                
+                console.log(`✅ [CaseManager] Preloaded ${totalCases} case suggestions and ${titlesCount} titles in ${loadTime.toFixed(0)}ms`);
                 console.log(`📊 [CaseManager] Total preloaded cases from CRM database: ${totalCases}`);
+                console.log(`📊 [CaseManager] Total preloaded titles: ${titlesCount}`);
                 console.log(`🔒 [CaseManager] All ${totalCases} cases are pre-filtered by email: ${filteredByEmail}`);
+                console.log(`📊 [CaseManager] Title cache ready - suggestions will be instant`);
                 
                 // Log sample of 5 case numbers for testing
                 if (totalCases > 0) {
@@ -2565,79 +2572,17 @@ class CaseManager {
                     const sampleCases = this.preloadedSuggestions.slice(0, sampleCount);
                     console.log(`🔍 [CaseManager] Sample preloaded case numbers from CRM (first ${sampleCount} of ${totalCases}):`, sampleCases);
                     console.log(`📋 [CaseManager] Using ${totalCases} cases from CRM database for suggestions (all filtered by email: ${filteredByEmail})`);
-                    
-                    // Preload titles for all suggestions in background (no blocking)
-                    this.preloadCaseTitles().catch(error => {
-                        console.error('❌ [CaseManager] Error preloading case titles:', error);
-                    });
                 } else {
                     console.log(`⚠️ [CaseManager] No cases found in CRM database for preloading`);
                 }
             } else {
                 console.error('❌ [CaseManager] Failed to preload suggestions:', response.status);
                 this.preloadedSuggestions = [];
+                this.preloadedTitles = {};
             }
         } catch (error) {
             console.error('❌ [CaseManager] Error preloading suggestions:', error);
             this.preloadedSuggestions = [];
-        }
-    }
-    
-    async preloadCaseTitles() {
-        if (this.preloadedSuggestions.length === 0) {
-            return;
-        }
-        
-        try {
-            console.log(`🔍 [CaseManager] Preloading titles for ${this.preloadedSuggestions.length} suggestions...`);
-            const startTime = performance.now();
-            
-            // Fetch titles in batches to avoid overwhelming the server
-            const batchSize = 100;
-            const batches = [];
-            for (let i = 0; i < this.preloadedSuggestions.length; i += batchSize) {
-                batches.push(this.preloadedSuggestions.slice(i, i + batchSize));
-            }
-            
-            console.log(`📦 [CaseManager] Fetching titles in ${batches.length} batches of up to ${batchSize} cases each`);
-            
-            // Fetch all batches in parallel
-            const titlePromises = batches.map(batch => 
-                fetch('/api/cases/titles', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        case_numbers: batch,
-                        crm_only: true,  // Fetch from CRM only (for suggestions)
-                        update_db: false  // Don't update database
-                    })
-                }).then(response => {
-                    if (response.ok) {
-                        return response.json();
-                    }
-                    return { titles: {} };
-                }).catch(error => {
-                    console.error(`❌ [CaseManager] Error fetching title batch:`, error);
-                    return { titles: {} };
-                })
-            );
-            
-            const results = await Promise.all(titlePromises);
-            
-            // Merge all titles into cache
-            this.preloadedTitles = {};
-            results.forEach(result => {
-                if (result.titles) {
-                    Object.assign(this.preloadedTitles, result.titles);
-                }
-            });
-            
-            const loadTime = performance.now() - startTime;
-            const titlesLoaded = Object.keys(this.preloadedTitles).length;
-            console.log(`✅ [CaseManager] Preloaded ${titlesLoaded} case titles in ${loadTime.toFixed(0)}ms`);
-            console.log(`📊 [CaseManager] Title cache ready - suggestions will be instant`);
-        } catch (error) {
-            console.error('❌ [CaseManager] Error preloading case titles:', error);
             this.preloadedTitles = {};
         }
     }
