@@ -3041,8 +3041,9 @@ class CaseManager {
                 const caseNumber = caseData.caseNumber;
                 const savedCase = savedCasesMap.get(caseNumber);
                 
-                // Get title from: 1) batch fetch, 2) saved localStorage, 3) null
-                const caseTitle = caseTitles[String(caseNumber)] || 
+                // Get title from: 1) database (caseData.caseTitle), 2) batch fetch, 3) saved localStorage, 4) null
+                const caseTitle = caseData.caseTitle || 
+                                 caseTitles[String(caseNumber)] || 
                                  caseTitles[caseNumber] || 
                                  (savedCase && savedCase.caseTitle) || 
                                  null;
@@ -3055,7 +3056,7 @@ class CaseManager {
                     createdAt: new Date(caseData.updatedAt || Date.now()),
                     updatedAt: new Date(caseData.updatedAt || Date.now()),
                     isTrackedInDatabase: true, // All cases from database are tracked
-                    caseTitle: caseTitle // Include title from batch fetch or localStorage
+                    caseTitle: caseTitle // Include title from database, batch fetch, or localStorage
                 };
                 
                 console.log(`📝 [CaseManager] Processed case ${caseInfo.caseNumber}:`, {
