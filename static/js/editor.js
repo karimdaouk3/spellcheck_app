@@ -3844,25 +3844,11 @@ class CaseManager {
                     }
                 }
                 
-                // Update current fields with latest CRM data if they're empty or different
-                const editor1 = document.getElementById('editor');
-                const editor2 = document.getElementById('editor2');
-                
-                if (editor1 && latestProblemStatement && latestProblemStatement.trim()) {
-                    const currentProblem = editor1.innerText.trim();
-                    if (!currentProblem || currentProblem !== latestProblemStatement.trim()) {
-                        console.log(`📝 [CaseManager] Updating problem statement with CRM data`);
-                        editor1.innerText = latestProblemStatement;
-                    }
-                }
-                
-                if (editor2 && latestDailyNotes && latestDailyNotes.trim()) {
-                    const currentFSR = editor2.innerText.trim();
-                    if (!currentFSR || currentFSR !== latestDailyNotes.trim()) {
-                        console.log(`📝 [CaseManager] Updating FSR notes with CRM data`);
-                        editor2.innerText = latestDailyNotes;
-                    }
-                }
+                // IMPORTANT: DO NOT overwrite editor content with CRM data
+                // The database (LAST_INPUT_STATE) is the source of truth for current content
+                // CRM data is only used to populate the history sidebar
+                // The editors were already populated from the database before this function was called
+                console.log(`ℹ️ [CaseManager] CRM data loaded for history only, not overwriting editor content`);
                 
                 // Populate history with all FSR records
                 this.populateHistoryWithCRMData(sortedFSR);
