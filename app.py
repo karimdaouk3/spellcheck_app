@@ -37,6 +37,11 @@ CRM_CACHE_TTL = 300  # 5 minutes
 # Default email for non-SSO testing mode
 DEFAULT_TEST_EMAIL = "PRUTHVI.VENKATASEERAMREDDI@KLA.COM"
 
+# Email filtering toggle for CRM queries
+# Set to True to enable email filtering (only returns cases matching user email)
+# Set to False to disable email filtering (returns all cases from CRM)
+CRM_EMAIL_FILTERING_ENABLED = False  # Set to False for testing (no email filtering)
+
 def get_user_email_for_crm():
     """
     Get user email from session data, with fallback to default test email for non-SSO mode.
@@ -45,13 +50,13 @@ def get_user_email_for_crm():
     For SSO mode: Uses the actual SSO user email (already normalized to uppercase)
     For non-SSO mode: Uses DEFAULT_TEST_EMAIL (PRUTHVI.VENKATASEERAMREDDI@KLA.COM)
     """
-    user_data = session.get('user_data')
-    if not user_data:
+        user_data = session.get('user_data')
+        if not user_data:
         print(f"⚠️ [CRM] No user data in session (non-SSO mode), using default test email: {DEFAULT_TEST_EMAIL}")
         return DEFAULT_TEST_EMAIL.upper()
-    
-    user_email = user_data.get('email', '')
-    if not user_email:
+        
+        user_email = user_data.get('email', '')
+        if not user_email:
         print(f"⚠️ [CRM] No email in user data (non-SSO mode), using default test email: {DEFAULT_TEST_EMAIL}")
         return DEFAULT_TEST_EMAIL.upper()
     
@@ -76,23 +81,30 @@ def check_external_crm_exists(case_number):
         user_email_upper = get_user_email_for_crm()
         print(f"🔍 [CRM] Checking if case {case_number} exists for user {user_email_upper}")
         
-        # Query 1: Check if case exists in CRM (email restriction commented out for testing)
         # Convert case_number to string to match database column type
         case_number_str = str(case_number)
         
-        # Email restriction for production
-        like_pattern = f"%~{user_email_upper}~%"
-        
-        query = """
-            SELECT DISTINCT "Case Number"
-            FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
-            WHERE "Case Number" IS NOT NULL
-            AND "Case Number" = %s
-            AND "USER_EMAILS" LIKE %s
-        """
-        
-        print(f"🔍 [CRM] Query parameters: case_number_str='{case_number_str}', email pattern='{like_pattern}'")
-        result = snowflake_query(query, CONNECTION_PAYLOAD, (case_number_str, like_pattern))
+        # Apply email filtering based on toggle
+        if CRM_EMAIL_FILTERING_ENABLED:
+            like_pattern = f"%~{user_email_upper}~%"
+            query = """
+                SELECT DISTINCT "Case Number"
+                FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
+                WHERE "Case Number" IS NOT NULL
+                AND "Case Number" = %s
+                AND "USER_EMAILS" LIKE %s
+            """
+            print(f"🔍 [CRM] Query parameters: case_number_str='{case_number_str}', email pattern='{like_pattern}' (EMAIL FILTERING ENABLED)")
+            result = snowflake_query(query, CONNECTION_PAYLOAD, (case_number_str, like_pattern))
+        else:
+            query = """
+                SELECT DISTINCT "Case Number"
+                FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
+                WHERE "Case Number" IS NOT NULL
+                AND "Case Number" = %s
+            """
+            print(f"🔍 [CRM] Query parameters: case_number_str='{case_number_str}' (EMAIL FILTERING DISABLED - ALL CASES)")
+            result = snowflake_query(query, CONNECTION_PAYLOAD, (case_number_str,))
         
         print(f"📊 [CRM] Query result for case {case_number}:")
         print(f"   - Result is None: {result is None}")
@@ -101,10 +113,16 @@ def check_external_crm_exists(case_number):
             print(f"   - Number of rows returned: {len(result)}")
             print(f"   - Columns: {list(result.columns)}")
             print(f"   - Sample data: {result.head(3).to_dict('records')}")
+            if CRM_EMAIL_FILTERING_ENABLED:
             print(f"✅ [CRM] Case {case_number} found in CRM for user {user_email_upper}")
+            else:
+                print(f"✅ [CRM] Case {case_number} found in CRM")
             return True
         else:
+            if CRM_EMAIL_FILTERING_ENABLED:
             print(f"❌ [CRM] Case {case_number} not found in CRM for user {user_email_upper}")
+            else:
+                print(f"❌ [CRM] Case {case_number} not found in CRM")
             return False
             
     except Exception as e:
@@ -440,7 +458,7 @@ def acs():
         
         # Normalize email to uppercase for CRM compatibility (CRM expects uppercase emails)
         email_upper = email.upper() if email else ""
-        
+ 
         user_info = {
             "username": username,
             "email": email_upper,  # Store email in uppercase format for CRM compatibility
@@ -1083,20 +1101,31 @@ def get_available_case_numbers(user_email, search_query="", limit=10):
         
         # Convert email to uppercase to match CRM format
         user_email_upper = user_email.upper()
-        like_pattern = f"%~{user_email_upper}~%"
         
-        # Base query with email restriction - STRICTLY filter by user email
-        # The USER_EMAILS column contains emails in format: ~EMAIL1~EMAIL2~EMAIL3~
-        # We use LIKE pattern %~EMAIL~% to match emails in the delimited list
-        base_query = """
-            SELECT DISTINCT "Case Number" as CASE_NUMBER
-            FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
-            WHERE "Case Number" IS NOT NULL
-            AND "USER_EMAILS" LIKE %s
-        """
-        
-        print(f"🔒 [CRM] STRICT EMAIL FILTERING: Only cases with email '{user_email_upper}' will be returned")
-        print(f"🔒 [CRM] LIKE pattern: {like_pattern}")
+        # Apply email filtering based on toggle
+        if CRM_EMAIL_FILTERING_ENABLED:
+            like_pattern = f"%~{user_email_upper}~%"
+            # Base query with email restriction - STRICTLY filter by user email
+            # The USER_EMAILS column contains emails in format: ~EMAIL1~EMAIL2~EMAIL3~
+            # We use LIKE pattern %~EMAIL~% to match emails in the delimited list
+            base_query = """
+                SELECT DISTINCT "Case Number" as CASE_NUMBER
+                FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
+                WHERE "Case Number" IS NOT NULL
+                AND "USER_EMAILS" LIKE %s
+            """
+            query_params = [like_pattern]
+            print(f"🔒 [CRM] EMAIL FILTERING ENABLED: Only cases with email '{user_email_upper}' will be returned")
+            print(f"🔒 [CRM] LIKE pattern: {like_pattern}")
+        else:
+            # No email filtering - get all cases
+            base_query = """
+                SELECT DISTINCT "Case Number" as CASE_NUMBER
+                FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
+                WHERE "Case Number" IS NOT NULL
+            """
+            query_params = []
+            print(f"🔓 [CRM] EMAIL FILTERING DISABLED: Returning ALL cases from CRM")
         
         # Add search filtering if provided
         if search_query:
@@ -1109,9 +1138,10 @@ def get_available_case_numbers(user_email, search_query="", limit=10):
             base_query += " ORDER BY \"Case Number\" DESC"
         
         print(f"🔍 [CRM] Executing query with email filter: {user_email_upper}")
-        print(f"🔍 [CRM] Query pattern: {like_pattern}")
+        if CRM_EMAIL_FILTERING_ENABLED:
+            print(f"🔍 [CRM] Query pattern: {like_pattern}")
         print(f"🔍 [CRM] Full SQL query: {base_query}")
-        result = snowflake_query(base_query, CONNECTION_PAYLOAD, (like_pattern,))
+        result = snowflake_query(base_query, CONNECTION_PAYLOAD, tuple(query_params))
         
         print(f"📊 [CRM] Query result:")
         print(f"   - Result is None: {result is None}")
@@ -1123,15 +1153,19 @@ def get_available_case_numbers(user_email, search_query="", limit=10):
         
         if result is not None and not result.empty:
             case_numbers = result["CASE_NUMBER"].tolist()
-            print(f"🔍 [CRM] Found {len(case_numbers)} cases matching search: '{search_query}' with email filter: {user_email_upper}")
-            print(f"✅ [CRM] All {len(case_numbers)} cases are filtered by email: {user_email_upper}")
-            print(f"🔒 [CRM] VERIFICATION: All returned cases have USER_EMAILS containing '{user_email_upper}'")
+            if CRM_EMAIL_FILTERING_ENABLED:
+                print(f"🔍 [CRM] Found {len(case_numbers)} cases matching search: '{search_query}' with email filter: {user_email_upper}")
+                print(f"✅ [CRM] All {len(case_numbers)} cases are filtered by email: {user_email_upper}")
+                print(f"🔒 [CRM] VERIFICATION: All returned cases have USER_EMAILS containing '{user_email_upper}'")
+            else:
+                print(f"🔍 [CRM] Found {len(case_numbers)} cases matching search: '{search_query}' (NO EMAIL FILTER)")
             
             # Verify email filtering is working - log first few case numbers for verification
             if len(case_numbers) > 0:
                 sample_count = min(3, len(case_numbers))
                 print(f"🔍 [CRM] Sample cases (first {sample_count}): {case_numbers[:sample_count]}")
-                print(f"🔒 [CRM] These cases are guaranteed to match email: {user_email_upper} (filtered by SQL query)")
+                if CRM_EMAIL_FILTERING_ENABLED:
+                    print(f"🔒 [CRM] These cases are guaranteed to match email: {user_email_upper} (filtered by SQL query)")
             
             return case_numbers
         else:
@@ -1157,8 +1191,8 @@ def check_case_status_batch(case_numbers, user_email=None):
         if not case_numbers:
             return {}
         
-        # If user_email is provided, validate that cases belong to the user first
-        if user_email:
+        # If email filtering is enabled and user_email is provided, validate that cases belong to the user first
+        if CRM_EMAIL_FILTERING_ENABLED and user_email:
             user_email_upper = user_email.upper()
             like_pattern = f"%~{user_email_upper}~%"
             
@@ -1172,7 +1206,7 @@ def check_case_status_batch(case_numbers, user_email=None):
                 AND "Case Number" IN ('{case_list}')
             """
             
-            print(f"🔍 [CRM] Validating cases belong to user {user_email_upper}")
+            print(f"🔍 [CRM] Validating cases belong to user {user_email_upper} (EMAIL FILTERING ENABLED)")
             validated_result = snowflake_query(validation_query, CONNECTION_PAYLOAD, (like_pattern,))
             
             if validated_result is not None and not validated_result.empty:
@@ -1183,6 +1217,8 @@ def check_case_status_batch(case_numbers, user_email=None):
             else:
                 print(f"⚠️ [CRM] No cases validated for user {user_email_upper}, returning empty status")
                 return {case_num: 'unknown' for case_num in case_numbers}
+        elif not CRM_EMAIL_FILTERING_ENABLED:
+            print(f"🔓 [CRM] EMAIL FILTERING DISABLED: Checking status for all {len(case_numbers)} cases")
         
         if not case_numbers:
             return {}
@@ -1227,8 +1263,8 @@ def get_case_details(case_number, user_email=None):
         user_email: User email to validate case ownership (optional, but recommended for security)
     """
     try:
-        # If user_email is provided, validate that the case belongs to the user first
-        if user_email:
+        # If email filtering is enabled and user_email is provided, validate that the case belongs to the user first
+        if CRM_EMAIL_FILTERING_ENABLED and user_email:
             user_email_upper = user_email.upper()
             like_pattern = f"%~{user_email_upper}~%"
             
@@ -1241,7 +1277,7 @@ def get_case_details(case_number, user_email=None):
                 AND "Case Number" = %s
             """
             
-            print(f"🔍 [CRM] Validating case {case_number} belongs to user {user_email_upper}")
+            print(f"🔍 [CRM] Validating case {case_number} belongs to user {user_email_upper} (EMAIL FILTERING ENABLED)")
             validated_result = snowflake_query(validation_query, CONNECTION_PAYLOAD, (like_pattern, str(case_number)))
             
             if validated_result is None or validated_result.empty:
@@ -1249,6 +1285,8 @@ def get_case_details(case_number, user_email=None):
                 return []
             
             print(f"✅ [CRM] Case {case_number} validated for user {user_email_upper}")
+        elif not CRM_EMAIL_FILTERING_ENABLED:
+            print(f"🔓 [CRM] EMAIL FILTERING DISABLED: Getting details for case {case_number} (no validation)")
         
         query = """
             SELECT DISTINCT
@@ -1293,8 +1331,8 @@ def get_case_titles_batch(case_numbers, user_email=None):
         if not case_numbers:
             return {}
         
-        # If user_email is provided, validate that all cases belong to the user first
-        if user_email:
+        # If email filtering is enabled and user_email is provided, validate that all cases belong to the user first
+        if CRM_EMAIL_FILTERING_ENABLED and user_email:
             user_email_upper = user_email.upper()
             like_pattern = f"%~{user_email_upper}~%"
             
@@ -1308,7 +1346,7 @@ def get_case_titles_batch(case_numbers, user_email=None):
                 AND "Case Number" IN ('{case_list}')
             """
             
-            print(f"🔍 [CRM] Validating {len(case_numbers)} cases belong to user {user_email_upper}")
+            print(f"🔍 [CRM] Validating {len(case_numbers)} cases belong to user {user_email_upper} (EMAIL FILTERING ENABLED)")
             validated_result = snowflake_query(validation_query, CONNECTION_PAYLOAD, (like_pattern,))
             
             if validated_result is not None and not validated_result.empty:
@@ -1319,6 +1357,8 @@ def get_case_titles_batch(case_numbers, user_email=None):
             else:
                 print(f"⚠️ [CRM] No cases validated for user {user_email_upper}, returning empty titles")
                 return {}
+        elif not CRM_EMAIL_FILTERING_ENABLED:
+            print(f"🔓 [CRM] EMAIL FILTERING DISABLED: Getting titles for all {len(case_numbers)} cases")
         
         if not case_numbers:
             return {}
@@ -2337,92 +2377,92 @@ def llm():
         # Move ALL database queries to background thread
         def background_db_operations():
             try:
-                # USER_SESSION_INPUTS
+        # USER_SESSION_INPUTS
                 user_input_id = None
-                try:
-                    snowflake_query(
-                        f"""
-                        INSERT INTO {DATABASE}.{SCHEMA}.USER_SESSION_INPUTS
-                        (USER_ID, APP_SESSION_ID, CASE_ID, LINE_ITEM_ID, INPUT_FIELD_TYPE, INPUT_TEXT, TIMESTAMP)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
-                        """,
-                        CONNECTION_PAYLOAD,
-                        (user_id, app_session_id, case_id, line_item_id, input_field, input_text, timestamp),
-                        return_df=False,
-                    )
-                    df_id = snowflake_query(
-                        f"""
-                        SELECT ID FROM {DATABASE}.{SCHEMA}.USER_SESSION_INPUTS
-                        WHERE APP_SESSION_ID = %s
-                        ORDER BY TIMESTAMP DESC
-                        LIMIT 1
-                        """,
-                        CONNECTION_PAYLOAD,
-                        params=(app_session_id,),
-                    )
-                    user_input_id = int(df_id.iloc[0]["ID"]) if df_id is not None and not df_id.empty else None
-                except Exception as e:
+        try:
+            snowflake_query(
+                f"""
+                INSERT INTO {DATABASE}.{SCHEMA}.USER_SESSION_INPUTS
+                (USER_ID, APP_SESSION_ID, CASE_ID, LINE_ITEM_ID, INPUT_FIELD_TYPE, INPUT_TEXT, TIMESTAMP)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                CONNECTION_PAYLOAD,
+                (user_id, app_session_id, case_id, line_item_id, input_field, input_text, timestamp),
+                return_df=False,
+            )
+            df_id = snowflake_query(
+                f"""
+                SELECT ID FROM {DATABASE}.{SCHEMA}.USER_SESSION_INPUTS
+                WHERE APP_SESSION_ID = %s
+                ORDER BY TIMESTAMP DESC
+                LIMIT 1
+                """,
+                CONNECTION_PAYLOAD,
+                params=(app_session_id,),
+            )
+            user_input_id = int(df_id.iloc[0]["ID"]) if df_id is not None and not df_id.empty else None
+        except Exception as e:
                     print(f"⚠️  [DB] USER_SESSION_INPUTS error: {e}")
-                    user_input_id = None
+            user_input_id = None
 
                 # Prompts - insert and get rewrite_ids
-                name_to_id = {r["name"]: int(r["id"]) for r in (rules_payload.get("rules") or [])}
-                try:
-                    for idx, (rule_name, section) in enumerate(evaluation.items()):
-                        q = section.get("question")
-                        if not q:
-                            continue
-                        crit_id = name_to_id.get(rule_name, idx + 1)
-                        snowflake_query(
-                            f"""
-                            INSERT INTO {DATABASE}.{SCHEMA}.LLM_REWRITE_PROMPTS
-                            (REWRITE_UUID, CRITERIA_ID, CRITERIA_SCORE, REWRITE_QUESTION, TIMESTAMP)
-                            VALUES (%s, %s, %s, %s, %s)
-                            """,
-                            CONNECTION_PAYLOAD,
-                            (rewrite_uuid, crit_id, 0, q, timestamp),
-                            return_df=False,
-                        )
-                        df_prompt = snowflake_query(
-                            f"""
-                            SELECT ID FROM {DATABASE}.{SCHEMA}.LLM_REWRITE_PROMPTS
-                            WHERE REWRITE_UUID = %s AND REWRITE_QUESTION = %s
-                            ORDER BY TIMESTAMP DESC
-                            LIMIT 1
-                            """,
-                            CONNECTION_PAYLOAD,
-                            params=(rewrite_uuid, q),
-                        )
-                except Exception as e:
+        name_to_id = {r["name"]: int(r["id"]) for r in (rules_payload.get("rules") or [])}
+        try:
+            for idx, (rule_name, section) in enumerate(evaluation.items()):
+                q = section.get("question")
+                if not q:
+                    continue
+                crit_id = name_to_id.get(rule_name, idx + 1)
+                snowflake_query(
+                    f"""
+                    INSERT INTO {DATABASE}.{SCHEMA}.LLM_REWRITE_PROMPTS
+                    (REWRITE_UUID, CRITERIA_ID, CRITERIA_SCORE, REWRITE_QUESTION, TIMESTAMP)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    CONNECTION_PAYLOAD,
+                    (rewrite_uuid, crit_id, 0, q, timestamp),
+                    return_df=False,
+                )
+                df_prompt = snowflake_query(
+                    f"""
+                    SELECT ID FROM {DATABASE}.{SCHEMA}.LLM_REWRITE_PROMPTS
+                    WHERE REWRITE_UUID = %s AND REWRITE_QUESTION = %s
+                    ORDER BY TIMESTAMP DESC
+                    LIMIT 1
+                    """,
+                    CONNECTION_PAYLOAD,
+                    params=(rewrite_uuid, q),
+                )
+        except Exception as e:
                     print(f"⚠️  [DB] LLM_REWRITE_PROMPTS error: {e}")
 
                 # LLM_EVALUATION
                 if user_input_id:
-                    try:
-                        total = len(evaluation) if isinstance(evaluation, dict) else 0
-                        passed = sum(1 for v in evaluation.values() if v.get("passed")) if total else 0
-                        score_num = (passed / total) * 100 if total else 0
-                        
-                        # Insert and get the evaluation ID
-                        insert_query = f"""
-                            INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
-                            (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP)
-                            VALUES (%s, %s, %s, %s, %s, %s)
-                        """
-                        snowflake_query(insert_query, CONNECTION_PAYLOAD,
-                                      (user_input_id, input_text, input_text, score_num, None, timestamp),
-                                      return_df=False)
-                        
-                        # Get the evaluation ID that was just inserted
-                        id_query = f"""
-                            SELECT ID FROM {DATABASE}.{SCHEMA}.LLM_EVALUATION 
-                            WHERE USER_INPUT_ID = %s AND TIMESTAMP = %s
-                            ORDER BY ID DESC LIMIT 1
-                        """
-                        id_result = snowflake_query(id_query, CONNECTION_PAYLOAD, (user_input_id, timestamp))
-                        if id_result is not None and not id_result.empty:
+        try:
+            total = len(evaluation) if isinstance(evaluation, dict) else 0
+            passed = sum(1 for v in evaluation.values() if v.get("passed")) if total else 0
+            score_num = (passed / total) * 100 if total else 0
+            
+            # Insert and get the evaluation ID
+            insert_query = f"""
+                INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
+                (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """
+            snowflake_query(insert_query, CONNECTION_PAYLOAD,
+                          (user_input_id, input_text, input_text, score_num, None, timestamp),
+                          return_df=False)
+            
+            # Get the evaluation ID that was just inserted
+            id_query = f"""
+                SELECT ID FROM {DATABASE}.{SCHEMA}.LLM_EVALUATION 
+                WHERE USER_INPUT_ID = %s AND TIMESTAMP = %s
+                ORDER BY ID DESC LIMIT 1
+            """
+            id_result = snowflake_query(id_query, CONNECTION_PAYLOAD, (user_input_id, timestamp))
+            if id_result is not None and not id_result.empty:
                             evaluation_id = int(id_result.iloc[0]["ID"])
-                    except Exception as e:
+        except Exception as e:
                         print(f"⚠️  [DB] LLM_EVALUATION error: {e}")
             except Exception as e:
                 print(f"⚠️  [DB] Step 1 background operations error: {e}")
@@ -2449,114 +2489,114 @@ def llm():
         def background_db_operations():
             try:
                 # USER_REWRITE_INPUTS
-                if isinstance(answers, list):
-                    for item in answers:
-                        pid = item.get("rewrite_id")
-                        ans = (item.get("answer") or "").strip()
+            if isinstance(answers, list):
+                for item in answers:
+                    pid = item.get("rewrite_id")
+                    ans = (item.get("answer") or "").strip()
                         # If rewrite_id is missing (from background Step 1), skip for now
                         if not pid and data.get("rewrite_uuid"):
                             continue
-                        if not pid or not ans:
-                            continue
-                        snowflake_query(
-                            f"""
-                            INSERT INTO {DATABASE}.{SCHEMA}.USER_REWRITE_INPUTS
-                            (REWRITE_ID, USER_REWRITE_INPUT, TIMESTAMP)
-                            VALUES (%s, %s, %s)
-                            """,
-                            CONNECTION_PAYLOAD,
-                            (pid, ans, timestamp),
-                            return_df=False,
-                        )
-                
-                # LLM_EVALUATION (step2)
-                snowflake_query(
-                    f"""
-                    INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
-                    (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                    """,
-                    CONNECTION_PAYLOAD,
-                    (
-                        data.get("user_input_id"),
-                        text,
-                        rewritten or text,
-                        None,
-                        data.get("rewrite_uuid"),
-                        timestamp,
-                    ),
-                    return_df=False,
-                )
-                
-                # Update LAST_INPUT_STATE with the rewritten text for persistence
-                print(f"[DBG] /llm step2 PERSISTENCE CHECK: rewritten={bool(rewritten)}, user_input_id={data.get('user_input_id')}")
-                if rewritten and data.get("user_input_id"):
+                    if not pid or not ans:
+                        continue
+                    snowflake_query(
+                        f"""
+                        INSERT INTO {DATABASE}.{SCHEMA}.USER_REWRITE_INPUTS
+                        (REWRITE_ID, USER_REWRITE_INPUT, TIMESTAMP)
+                        VALUES (%s, %s, %s)
+                        """,
+                        CONNECTION_PAYLOAD,
+                        (pid, ans, timestamp),
+                        return_df=False,
+                    )
+
+        # LLM_EVALUATION (step2)
+            snowflake_query(
+                f"""
+                INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
+                (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                CONNECTION_PAYLOAD,
+                (
+                    data.get("user_input_id"),
+                    text,
+                    rewritten or text,
+                    None,
+                    data.get("rewrite_uuid"),
+                    timestamp,
+                ),
+                return_df=False,
+            )
+            
+            # Update LAST_INPUT_STATE with the rewritten text for persistence
+            print(f"[DBG] /llm step2 PERSISTENCE CHECK: rewritten={bool(rewritten)}, user_input_id={data.get('user_input_id')}")
+            if rewritten and data.get("user_input_id"):
                     print(f"[DBG] /llm step2 PERSISTENCE: user_id={user_id}")
+                
+                # Get the case session ID from the user input
+                case_query = f"""
+                    SELECT CASE_ID, INPUT_FIELD_TYPE 
+                    FROM {DATABASE}.{SCHEMA}.USER_SESSION_INPUTS 
+                    WHERE ID = %s
+                """
+                print(f"[DBG] /llm step2 PERSISTENCE: Querying USER_SESSION_INPUTS for user_input_id={data.get('user_input_id')}")
+                case_result = snowflake_query(case_query, CONNECTION_PAYLOAD, (data.get("user_input_id"),))
+                print(f"[DBG] /llm step2 PERSISTENCE: case_result={case_result is not None}, empty={case_result.empty if case_result is not None else 'N/A'}")
+                
+                if case_result is not None and not case_result.empty:
+                    case_id = case_result.iloc[0]["CASE_ID"]
+                    input_field_type = case_result.iloc[0]["INPUT_FIELD_TYPE"]
+                    print(f"[DBG] /llm step2 PERSISTENCE: Found case_id={case_id}, input_field_type={input_field_type}")
                     
-                    # Get the case session ID from the user input
-                    case_query = f"""
-                        SELECT CASE_ID, INPUT_FIELD_TYPE 
-                        FROM {DATABASE}.{SCHEMA}.USER_SESSION_INPUTS 
-                        WHERE ID = %s
+                    # Get case session ID
+                    session_query = f"""
+                        SELECT ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+                        WHERE CASE_ID = %s AND CREATED_BY_USER = %s
                     """
-                    print(f"[DBG] /llm step2 PERSISTENCE: Querying USER_SESSION_INPUTS for user_input_id={data.get('user_input_id')}")
-                    case_result = snowflake_query(case_query, CONNECTION_PAYLOAD, (data.get("user_input_id"),))
-                    print(f"[DBG] /llm step2 PERSISTENCE: case_result={case_result is not None}, empty={case_result.empty if case_result is not None else 'N/A'}")
+                    print(f"[DBG] /llm step2 PERSISTENCE: Querying CASE_SESSIONS for case_id={case_id}, user_id={user_id}")
+                    session_result = snowflake_query(session_query, CONNECTION_PAYLOAD, (case_id, user_id))
+                    print(f"[DBG] /llm step2 PERSISTENCE: session_result={session_result is not None}, empty={session_result.empty if session_result is not None else 'N/A'}")
                     
-                    if case_result is not None and not case_result.empty:
-                        case_id = case_result.iloc[0]["CASE_ID"]
-                        input_field_type = case_result.iloc[0]["INPUT_FIELD_TYPE"]
-                        print(f"[DBG] /llm step2 PERSISTENCE: Found case_id={case_id}, input_field_type={input_field_type}")
+                    if session_result is not None and not session_result.empty:
+                        case_session_id = session_result.iloc[0]["ID"]
+                        print(f"[DBG] /llm step2 PERSISTENCE: Found case_session_id={case_session_id}")
                         
-                        # Get case session ID
-                        session_query = f"""
-                            SELECT ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
-                            WHERE CASE_ID = %s AND CREATED_BY_USER = %s
+                        # Determine input field ID based on type
+                        input_field_id = 1 if input_field_type == "problem_statement" else 2
+                        print(f"[DBG] /llm step2 PERSISTENCE: input_field_id={input_field_id} (1=problem_statement, 2=fsr_notes)")
+                        
+                        # Update LAST_INPUT_STATE with rewritten text
+                        print(f"[DBG] /llm step2 PERSISTENCE: About to update LAST_INPUT_STATE with:")
+                        print(f"[DBG] /llm step2 PERSISTENCE: - case_session_id={case_session_id}")
+                        print(f"[DBG] /llm step2 PERSISTENCE: - input_field_id={input_field_id}")
+                        print(f"[DBG] /llm step2 PERSISTENCE: - rewritten_text_length={len(rewritten) if rewritten else 0}")
+                        print(f"[DBG] /llm step2 PERSISTENCE: - rewritten_text_preview={rewritten[:100] if rewritten else 'None'}...")
+                        
+                        update_query = f"""
+                            MERGE INTO {DATABASE}.{SCHEMA}.LAST_INPUT_STATE AS target
+                            USING (SELECT %s as CASE_SESSION_ID, %s as INPUT_FIELD_ID, %s as INPUT_FIELD_VALUE, %s as LINE_ITEM_ID, %s as INPUT_FIELD_EVAL_ID) AS source
+                            ON target.CASE_SESSION_ID = source.CASE_SESSION_ID 
+                               AND target.INPUT_FIELD_ID = source.INPUT_FIELD_ID 
+                               AND target.LINE_ITEM_ID = source.LINE_ITEM_ID
+                            WHEN MATCHED THEN UPDATE SET 
+                                INPUT_FIELD_VALUE = source.INPUT_FIELD_VALUE,
+                                LAST_UPDATED = CURRENT_TIMESTAMP()
+                            WHEN NOT MATCHED THEN INSERT 
+                                (CASE_SESSION_ID, INPUT_FIELD_ID, INPUT_FIELD_VALUE, LINE_ITEM_ID, INPUT_FIELD_EVAL_ID, LAST_UPDATED)
+                                VALUES (source.CASE_SESSION_ID, source.INPUT_FIELD_ID, source.INPUT_FIELD_VALUE, source.LINE_ITEM_ID, source.INPUT_FIELD_EVAL_ID, CURRENT_TIMESTAMP())
                         """
-                        print(f"[DBG] /llm step2 PERSISTENCE: Querying CASE_SESSIONS for case_id={case_id}, user_id={user_id}")
-                        session_result = snowflake_query(session_query, CONNECTION_PAYLOAD, (case_id, user_id))
-                        print(f"[DBG] /llm step2 PERSISTENCE: session_result={session_result is not None}, empty={session_result.empty if session_result is not None else 'N/A'}")
-                        
-                        if session_result is not None and not session_result.empty:
-                            case_session_id = session_result.iloc[0]["ID"]
-                            print(f"[DBG] /llm step2 PERSISTENCE: Found case_session_id={case_session_id}")
-                            
-                            # Determine input field ID based on type
-                            input_field_id = 1 if input_field_type == "problem_statement" else 2
-                            print(f"[DBG] /llm step2 PERSISTENCE: input_field_id={input_field_id} (1=problem_statement, 2=fsr_notes)")
-                            
-                            # Update LAST_INPUT_STATE with rewritten text
-                            print(f"[DBG] /llm step2 PERSISTENCE: About to update LAST_INPUT_STATE with:")
-                            print(f"[DBG] /llm step2 PERSISTENCE: - case_session_id={case_session_id}")
-                            print(f"[DBG] /llm step2 PERSISTENCE: - input_field_id={input_field_id}")
-                            print(f"[DBG] /llm step2 PERSISTENCE: - rewritten_text_length={len(rewritten) if rewritten else 0}")
-                            print(f"[DBG] /llm step2 PERSISTENCE: - rewritten_text_preview={rewritten[:100] if rewritten else 'None'}...")
-                            
-                            update_query = f"""
-                                MERGE INTO {DATABASE}.{SCHEMA}.LAST_INPUT_STATE AS target
-                                USING (SELECT %s as CASE_SESSION_ID, %s as INPUT_FIELD_ID, %s as INPUT_FIELD_VALUE, %s as LINE_ITEM_ID, %s as INPUT_FIELD_EVAL_ID) AS source
-                                ON target.CASE_SESSION_ID = source.CASE_SESSION_ID 
-                                   AND target.INPUT_FIELD_ID = source.INPUT_FIELD_ID 
-                                   AND target.LINE_ITEM_ID = source.LINE_ITEM_ID
-                                WHEN MATCHED THEN UPDATE SET 
-                                    INPUT_FIELD_VALUE = source.INPUT_FIELD_VALUE,
-                                    LAST_UPDATED = CURRENT_TIMESTAMP()
-                                WHEN NOT MATCHED THEN INSERT 
-                                    (CASE_SESSION_ID, INPUT_FIELD_ID, INPUT_FIELD_VALUE, LINE_ITEM_ID, INPUT_FIELD_EVAL_ID, LAST_UPDATED)
-                                    VALUES (source.CASE_SESSION_ID, source.INPUT_FIELD_ID, source.INPUT_FIELD_VALUE, source.LINE_ITEM_ID, source.INPUT_FIELD_EVAL_ID, CURRENT_TIMESTAMP())
-                            """
-                            print(f"[DBG] /llm step2 PERSISTENCE: Executing MERGE query...")
-                            snowflake_query(update_query, CONNECTION_PAYLOAD, 
-                                           (case_session_id, input_field_id, rewritten, 1, None), 
-                                           return_df=False)
-                            print(f"[DBG] /llm step2 PERSISTENCE: ✅ Successfully updated LAST_INPUT_STATE with rewritten text for case {case_id}")
-                        else:
-                            print(f"[DBG] /llm step2 PERSISTENCE: ❌ No case session found for case_id={case_id}, user_id={user_id}")
+                        print(f"[DBG] /llm step2 PERSISTENCE: Executing MERGE query...")
+                        snowflake_query(update_query, CONNECTION_PAYLOAD, 
+                                       (case_session_id, input_field_id, rewritten, 1, None), 
+                                       return_df=False)
+                        print(f"[DBG] /llm step2 PERSISTENCE: ✅ Successfully updated LAST_INPUT_STATE with rewritten text for case {case_id}")
                     else:
-                        print(f"[DBG] /llm step2 PERSISTENCE: ❌ No user session input found for user_input_id={data.get('user_input_id')}")
+                        print(f"[DBG] /llm step2 PERSISTENCE: ❌ No case session found for case_id={case_id}, user_id={user_id}")
                 else:
-                    print(f"[DBG] /llm step2 PERSISTENCE: ❌ Skipping persistence - rewritten={bool(rewritten)}, user_input_id={data.get('user_input_id')}")
-            except Exception as e:
+                    print(f"[DBG] /llm step2 PERSISTENCE: ❌ No user session input found for user_input_id={data.get('user_input_id')}")
+            else:
+                print(f"[DBG] /llm step2 PERSISTENCE: ❌ Skipping persistence - rewritten={bool(rewritten)}, user_input_id={data.get('user_input_id')}")
+        except Exception as e:
                 print(f"[DBG] /llm step2 background DB operations error: {e}")
         
         # Start background thread for database operations
