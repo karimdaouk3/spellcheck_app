@@ -2689,6 +2689,48 @@ class CaseManager {
         }
     }
     
+    showCaseLoadingIndicator(message = 'Loading...') {
+        // Create loading overlay for case switching
+        const loadingOverlay = document.createElement('div');
+        loadingOverlay.id = 'case-switch-loading-overlay';
+        loadingOverlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9998;
+            backdrop-filter: blur(3px);
+        `;
+        
+        loadingOverlay.innerHTML = `
+            <div style="text-align: center; padding: 30px;">
+                <div style="width: 50px; height: 50px; border: 4px solid #e5e7eb; border-top: 4px solid #41007F; 
+                     border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 20px;"></div>
+                <div style="font-size: 16px; font-weight: 600; color: #374151;">${message}</div>
+            </div>
+            <style>
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            </style>
+        `;
+        
+        document.body.appendChild(loadingOverlay);
+    }
+    
+    hideCaseLoadingIndicator() {
+        const loadingOverlay = document.getElementById('case-switch-loading-overlay');
+        if (loadingOverlay) {
+            loadingOverlay.remove();
+        }
+    }
+    
     showFeedbackLoadingOverlay() {
         // Create loading overlay for feedback popup
         const feedbackContent = document.querySelector('.feedback-content');
@@ -3568,7 +3610,12 @@ class CaseManager {
             // Only load CRM data for cases tracked in the database
             if (caseData.isTrackedInDatabase !== false) {
                 console.log(`🔍 [CaseManager] Case is tracked, loading CRM history`);
-                await this.loadCRMDataAndPopulateHistory(caseData.caseNumber);
+                this.showCaseLoadingIndicator('Loading CRM Data...');
+                try {
+                    await this.loadCRMDataAndPopulateHistory(caseData.caseNumber);
+                } finally {
+                    this.hideCaseLoadingIndicator();
+                }
             } else {
                 console.log(`⏭️ [CaseManager] Case is not tracked in database, skipping CRM data loading`);
             }
