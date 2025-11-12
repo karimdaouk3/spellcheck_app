@@ -3358,6 +3358,9 @@ class CaseManager {
             return;
         }
         
+        // Show loading indicator immediately
+        this.showCaseLoadingIndicator('Creating Case...');
+        
         // Try to create case in database first
         try {
             console.log(`🚀 [CaseManager] Attempting to create case ${caseNumberValue} in database...`);
@@ -3499,12 +3502,15 @@ class CaseManager {
             this.saveCases();
             this.renderCasesList();
             
-            // If this is a tracked CRM case, fetch the title immediately with loading indicator
+            // Switch to the case first
+            this.switchToCase(newCase.id);
+            
+            // If this is a tracked CRM case, fetch CRM data (title and content) immediately
             if (isTrackedInDatabase !== false && !untrackedCaseTitle) {
-                console.log(`🔍 [CaseManager] Fetching CRM title for case ${caseNumberValue}`);
-                this.showCaseLoadingIndicator('Loading Case Details...');
+                console.log(`🔍 [CaseManager] Fetching CRM data for case ${caseNumberValue}`);
                 
                 try {
+                    // Fetch title
                     const response = await fetch('/api/cases/titles', {
                         method: 'POST',
                         headers: {
@@ -3523,18 +3529,25 @@ class CaseManager {
                                 this.cases[caseIndex].caseTitle = data.titles[String(caseNumberValue)];
                                 this.saveCases();
                                 this.renderCasesList();
-                                console.log(`✅ [CaseManager] Updated case ${caseNumberValue} with title immediately`);
+                                console.log(`✅ [CaseManager] Updated case ${caseNumberValue} with title`);
                             }
                         }
                     }
+                    
+                    // Load CRM content (problem statement and FSR notes)
+                    console.log(`📥 [CaseManager] Loading CRM content for case ${caseNumberValue}`);
+                    await this.loadCRMDataAndPopulateHistory(caseNumberValue, true); // true = populate editors for new case
+                    console.log(`✅ [CaseManager] CRM content loaded for case ${caseNumberValue}`);
+                    
                 } catch (error) {
-                    console.error(`❌ [CaseManager] Error fetching title for case ${caseNumberValue}:`, error);
+                    console.error(`❌ [CaseManager] Error fetching CRM data for case ${caseNumberValue}:`, error);
                 } finally {
                     this.hideCaseLoadingIndicator();
                 }
+            } else {
+                // For untracked cases, just hide the loading indicator
+                this.hideCaseLoadingIndicator();
             }
-            
-            this.switchToCase(newCase.id);
             
             // Close mobile sidebar
             const sidebar = document.querySelector('.cases-sidebar');
@@ -3546,6 +3559,7 @@ class CaseManager {
             
         } catch (error) {
             console.error('❌ [CaseManager] Error creating case:', error);
+            this.hideCaseLoadingIndicator();
             await this.showCustomAlert('Error', 'Error creating case. Please try again.');
         }
     }
@@ -3781,8 +3795,8 @@ class CaseManager {
         window.spellCheckEditor.renderHistory();
     }
     
-    async loadCRMDataAndPopulateHistory(caseNumber) {
-        console.log(`🔍 [CaseManager] Loading CRM data for case ${caseNumber}`);
+    async loadCRMDataAndPopulateHistory(caseNumber, shouldPopulateEditors = false) {
+        console.log(`🔍 [CaseManager] Loading CRM data for case ${caseNumber} (populate editors: ${shouldPopulateEditors})`);
         
         try {
             // Fetch CRM details for this case
@@ -3844,11 +3858,27 @@ class CaseManager {
                     }
                 }
                 
-                // IMPORTANT: DO NOT overwrite editor content with CRM data
-                // The database (LAST_INPUT_STATE) is the source of truth for current content
-                // CRM data is only used to populate the history sidebar
-                // The editors were already populated from the database before this function was called
-                console.log(`ℹ️ [CaseManager] CRM data loaded for history only, not overwriting editor content`);
+                // Populate editors with CRM data if this is a newly created case
+                if (shouldPopulateEditors) {
+                    console.log(`📝 [CaseManager] Populating editors with latest CRM data for new case`);
+                    const editor1 = document.getElementById('editor');
+                    const editor2 = document.getElementById('editor2');
+                    
+                    if (editor1 && latestProblemStatement && latestProblemStatement.trim()) {
+                        console.log(`📝 [CaseManager] Setting problem statement (${latestProblemStatement.length} chars)`);
+                        editor1.innerText = latestProblemStatement;
+                    }
+                    
+                    if (editor2 && latestDailyNotes && latestDailyNotes.trim()) {
+                        console.log(`📝 [CaseManager] Setting FSR notes (${latestDailyNotes.length} chars)`);
+                        editor2.innerText = latestDailyNotes;
+                    }
+                } else {
+                    // For existing cases, DO NOT overwrite editor content with CRM data
+                    // The database (LAST_INPUT_STATE) is the source of truth for current content
+                    // CRM data is only used to populate the history sidebar
+                    console.log(`ℹ️ [CaseManager] CRM data loaded for history only, not overwriting editor content`);
+                }
                 
                 // Populate history with all FSR records
                 this.populateHistoryWithCRMData(sortedFSR);
