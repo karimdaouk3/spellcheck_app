@@ -386,21 +386,6 @@ class LanguageToolEditor {
                     }
                     fieldObj.lastHadContent = !isNowEmpty;
                 }
-                // Detect transition for Problem Statement (editor) - version tracking (no visible label)
-                if (field === 'editor') {
-                    const isNowEmpty = fieldObj.editor.innerText.trim() === '';
-                    const wasNonEmpty = !!fieldObj.lastHadContent;
-                    if (wasNonEmpty && isNowEmpty) {
-                        const anchor = fieldObj.editor.closest('.editor-container') || fieldObj.editor.parentElement;
-                        this.showYesNoPrompt('Are you starting a new problem statement?', anchor).then((confirmNew) => {
-                            if (confirmNew) {
-                                const current = typeof fieldObj.problemVersionId === 'number' ? fieldObj.problemVersionId : 1;
-                                fieldObj.problemVersionId = current + 1;
-                            }
-                        });
-                    }
-                    fieldObj.lastHadContent = !isNowEmpty;
-                }
                 if (!fieldObj.overlayHidden) {
                     this.updateHighlights(field); // Only update overlay if not hidden
                 }
@@ -482,16 +467,6 @@ class LanguageToolEditor {
                                 fieldObj.lineItemId = current + 1;
                                 const lbl = document.getElementById('line-item-label');
                                 if (lbl) lbl.textContent = `Line Item: ${fieldObj.lineItemId}`;
-                            }
-                            fieldObj.lastHadContent = false;
-                        }
-                        // For Problem Statement, prompt before starting recording if there was content
-                        if (field === 'editor' && hadContent) {
-                            const anchor = fieldObj.editor.closest('.editor-container') || fieldObj.editor.parentElement;
-                            const confirmNew = await this.showYesNoPrompt('Are you starting a new problem statement?', anchor);
-                            if (confirmNew) {
-                                const current = typeof fieldObj.problemVersionId === 'number' ? fieldObj.problemVersionId : 1;
-                                fieldObj.problemVersionId = current + 1;
                             }
                             fieldObj.lastHadContent = false;
                         }
