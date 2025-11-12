@@ -37,6 +37,11 @@ CRM_CACHE_TTL = 300  # 5 minutes
 # Default email for non-SSO testing mode
 DEFAULT_TEST_EMAIL = "PRUTHVI.VENKATASEERAMREDDI@KLA.COM"
 
+# Email filtering toggle for CRM queries
+# Set to False to disable email filtering (returns all cases from CRM)
+# Set to True to enable email filtering (only returns cases matching user email)
+CRM_EMAIL_FILTERING_ENABLED = False  # Disabled by default for testing
+
 def get_user_email_for_crm():
     """
     Get user email from session data, with fallback to default test email for non-SSO mode.
@@ -70,10 +75,17 @@ def is_email_filtering_enabled():
     """
     Check if email filtering is enabled for CRM queries.
     Returns True if email filtering should be applied, False otherwise.
-    Can be toggled via session variable 'crm_email_filtering' (default: True)
+    
+    Priority:
+    1. Session variable 'crm_email_filtering' (if set, overrides app-level config)
+    2. App-level config CRM_EMAIL_FILTERING_ENABLED (default)
     """
-    # Default to True (email filtering enabled) for security
-    return session.get('crm_email_filtering', True)
+    # Check if session override is set
+    if 'crm_email_filtering' in session:
+        return session.get('crm_email_filtering', True)
+    
+    # Use app-level configuration
+    return CRM_EMAIL_FILTERING_ENABLED
 
 def check_external_crm_exists(case_number):
     """
