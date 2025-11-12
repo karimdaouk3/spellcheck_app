@@ -574,7 +574,7 @@ def validate_case_number(case_number):
         
         # Check if case exists for this user
         query = f"""
-            SELECT CASE_ID, CASE_STATUS, CRM_LAST_SYNC_TIME
+            SELECT CASE_ID, CASE_STATUS, CASE_TITLE, CRM_LAST_SYNC_TIME
             FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
             WHERE CASE_ID = %s AND CREATED_BY_USER = %s
         """
@@ -687,7 +687,7 @@ def check_external_crm_status():
     try:
         # Get all open cases for the user
         query = f"""
-            SELECT CASE_ID, CASE_STATUS, CRM_LAST_SYNC_TIME
+            SELECT CASE_ID, CASE_STATUS, CASE_TITLE, CRM_LAST_SYNC_TIME
             FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
             WHERE CREATED_BY_USER = %s AND CASE_STATUS = 'open'
         """
