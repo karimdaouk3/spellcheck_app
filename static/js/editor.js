@@ -3499,34 +3499,39 @@ class CaseManager {
             this.saveCases();
             this.renderCasesList();
             
-            // If this is a tracked CRM case, fetch the title immediately
+            // If this is a tracked CRM case, fetch the title immediately with loading indicator
             if (isTrackedInDatabase !== false && !untrackedCaseTitle) {
-                // Fetch title for this case immediately
-                fetch('/api/cases/titles', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        case_numbers: [caseNumberValue]
-                    })
-                }).then(response => {
+                console.log(`🔍 [CaseManager] Fetching CRM title for case ${caseNumberValue}`);
+                this.showCaseLoadingIndicator('Loading Case Details...');
+                
+                try {
+                    const response = await fetch('/api/cases/titles', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            case_numbers: [caseNumberValue]
+                        })
+                    });
+                    
                     if (response.ok) {
-                        return response.json();
-                    }
-                }).then(data => {
-                    if (data && data.titles && data.titles[String(caseNumberValue)]) {
-                        const caseIndex = this.cases.findIndex(c => c.caseNumber === caseNumberValue);
-                        if (caseIndex !== -1) {
-                            this.cases[caseIndex].caseTitle = data.titles[String(caseNumberValue)];
-                            this.saveCases();
-                            this.renderCasesList();
-                            console.log(`✅ [CaseManager] Updated case ${caseNumberValue} with title immediately`);
+                        const data = await response.json();
+                        if (data && data.titles && data.titles[String(caseNumberValue)]) {
+                            const caseIndex = this.cases.findIndex(c => c.caseNumber === caseNumberValue);
+                            if (caseIndex !== -1) {
+                                this.cases[caseIndex].caseTitle = data.titles[String(caseNumberValue)];
+                                this.saveCases();
+                                this.renderCasesList();
+                                console.log(`✅ [CaseManager] Updated case ${caseNumberValue} with title immediately`);
+                            }
                         }
                     }
-                }).catch(error => {
+                } catch (error) {
                     console.error(`❌ [CaseManager] Error fetching title for case ${caseNumberValue}:`, error);
-                });
+                } finally {
+                    this.hideCaseLoadingIndicator();
+                }
             }
             
             this.switchToCase(newCase.id);
@@ -3610,12 +3615,7 @@ class CaseManager {
             // Only load CRM data for cases tracked in the database
             if (caseData.isTrackedInDatabase !== false) {
                 console.log(`🔍 [CaseManager] Case is tracked, loading CRM history`);
-                this.showCaseLoadingIndicator('Loading CRM Data...');
-                try {
-                    await this.loadCRMDataAndPopulateHistory(caseData.caseNumber);
-                } finally {
-                    this.hideCaseLoadingIndicator();
-                }
+                await this.loadCRMDataAndPopulateHistory(caseData.caseNumber);
             } else {
                 console.log(`⏭️ [CaseManager] Case is not tracked in database, skipping CRM data loading`);
             }
