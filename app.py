@@ -1407,32 +1407,36 @@ def get_case_titles_batch(case_numbers, user_email=None):
 
 # ==================== DATABASE MIGRATIONS ====================
 
-def add_case_title_column():
+def add_case_title_column(database, schema, connection_payload, prod_payload):
     """
     Add CASE_TITLE column to CASE_SESSIONS table if it doesn't exist.
     Runs for both DEV and PROD databases.
-    """
-    from utils import DATABASE, SCHEMA, PROD_PAYLOAD
     
+    Args:
+        database: Database name for DEV
+        schema: Schema name for DEV
+        connection_payload: Connection payload for DEV database
+        prod_payload: Connection payload for PROD database
+    """
     # Check and add for DEV database (CONNECTION_PAYLOAD)
     print("🔧 [Migration] Checking if CASE_TITLE column exists in DEV CASE_SESSIONS table...")
     try:
         check_query = f"""
             SELECT COLUMN_NAME 
-            FROM {DATABASE}.INFORMATION_SCHEMA.COLUMNS 
-            WHERE TABLE_SCHEMA = '{SCHEMA}' 
+            FROM {database}.INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = '{schema}' 
             AND TABLE_NAME = 'CASE_SESSIONS' 
             AND COLUMN_NAME = 'CASE_TITLE'
         """
-        result = snowflake_query(check_query, CONNECTION_PAYLOAD)
+        result = snowflake_query(check_query, connection_payload)
         
         if result is None or result.empty:
             print("➕ [Migration] CASE_TITLE column does not exist in DEV. Adding it now...")
             alter_query = f"""
-                ALTER TABLE {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+                ALTER TABLE {database}.{schema}.CASE_SESSIONS 
                 ADD COLUMN CASE_TITLE VARCHAR(500)
             """
-            snowflake_query(alter_query, CONNECTION_PAYLOAD, return_df=False)
+            snowflake_query(alter_query, connection_payload, return_df=False)
             print("✅ [Migration] Successfully added CASE_TITLE column to DEV CASE_SESSIONS table")
         else:
             print("✅ [Migration] CASE_TITLE column already exists in DEV CASE_SESSIONS table")
@@ -1453,7 +1457,7 @@ def add_case_title_column():
             AND TABLE_NAME = 'CASE_SESSIONS' 
             AND COLUMN_NAME = 'CASE_TITLE'
         """
-        result = snowflake_query(check_query, PROD_PAYLOAD)
+        result = snowflake_query(check_query, prod_payload)
         
         if result is None or result.empty:
             print("➕ [Migration] CASE_TITLE column does not exist in PROD. Adding it now...")
@@ -1461,7 +1465,7 @@ def add_case_title_column():
                 ALTER TABLE {prod_database}.{prod_schema}.CASE_SESSIONS 
                 ADD COLUMN CASE_TITLE VARCHAR(500)
             """
-            snowflake_query(alter_query, PROD_PAYLOAD, return_df=False)
+            snowflake_query(alter_query, prod_payload, return_df=False)
             print("✅ [Migration] Successfully added CASE_TITLE column to PROD CASE_SESSIONS table")
         else:
             print("✅ [Migration] CASE_TITLE column already exists in PROD CASE_SESSIONS table")
@@ -3627,7 +3631,7 @@ if __name__ == "__main__":
     print("\n" + "="*80)
     print("🔧 Running database migrations...")
     print("="*80)
-    add_case_title_column()
+    add_case_title_column(DATABASE, SCHEMA, CONNECTION_PAYLOAD, PROD_PAYLOAD)
     print("="*80)
     print("✅ Database migrations completed\n")
     
