@@ -37,11 +37,6 @@ CRM_CACHE_TTL = 300  # 5 minutes
 # Default email for non-SSO testing mode
 DEFAULT_TEST_EMAIL = "PRUTHVI.VENKATASEERAMREDDI@KLA.COM"
 
-# Email filtering toggle for CRM queries
-# Set to False to disable email filtering (returns all cases from CRM)
-# Set to True to enable email filtering (only returns cases matching user email)
-CRM_EMAIL_FILTERING_ENABLED = False  # Set to False for testing (no email filtering)
-
 def get_user_email_for_crm():
     """
     Get user email from session data, with fallback to default test email for non-SSO mode.
@@ -79,34 +74,25 @@ def check_external_crm_exists(case_number):
     try:
         # Get user email with fallback to default test email
         user_email_upper = get_user_email_for_crm()
+        print(f"🔍 [CRM] Checking if case {case_number} exists for user {user_email_upper}")
         
+        # Query 1: Check if case exists in CRM (email restriction commented out for testing)
         # Convert case_number to string to match database column type
         case_number_str = str(case_number)
         
-        if CRM_EMAIL_FILTERING_ENABLED:
-            print(f"🔍 [CRM] Checking if case {case_number} exists for user {user_email_upper} (EMAIL FILTERING ENABLED)")
-            like_pattern = f"%~{user_email_upper}~%"
-            query = """
-                SELECT DISTINCT "Case Number"
-                FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
-                WHERE "Case Number" IS NOT NULL
-                AND "Case Number" = %s
-                AND "USER_EMAILS" LIKE %s
-            """
-            query_params = (case_number_str, like_pattern)
-            print(f"🔍 [CRM] Query parameters: case_number_str='{case_number_str}', email pattern='{like_pattern}'")
-        else:
-            print(f"🔍 [CRM] Checking if case {case_number} exists (EMAIL FILTERING DISABLED - ALL CASES)")
-            query = """
-                SELECT DISTINCT "Case Number"
-                FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
-                WHERE "Case Number" IS NOT NULL
-                AND "Case Number" = %s
-            """
-            query_params = (case_number_str,)
-            print(f"🔍 [CRM] Query parameters: case_number_str='{case_number_str}'")
+        # Email restriction for production
+        like_pattern = f"%~{user_email_upper}~%"
         
-        result = snowflake_query(query, CONNECTION_PAYLOAD, query_params)
+        query = """
+            SELECT DISTINCT "Case Number"
+            FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
+            WHERE "Case Number" IS NOT NULL
+            AND "Case Number" = %s
+            AND "USER_EMAILS" LIKE %s
+        """
+        
+        print(f"🔍 [CRM] Query parameters: case_number_str='{case_number_str}', email pattern='{like_pattern}'")
+        result = snowflake_query(query, CONNECTION_PAYLOAD, (case_number_str, like_pattern))
         
         print(f"📊 [CRM] Query result for case {case_number}:")
         print(f"   - Result is None: {result is None}")
@@ -115,16 +101,10 @@ def check_external_crm_exists(case_number):
             print(f"   - Number of rows returned: {len(result)}")
             print(f"   - Columns: {list(result.columns)}")
             print(f"   - Sample data: {result.head(3).to_dict('records')}")
-            if CRM_EMAIL_FILTERING_ENABLED:
-                print(f"✅ [CRM] Case {case_number} found in CRM for user {user_email_upper}")
-            else:
-                print(f"✅ [CRM] Case {case_number} found in CRM")
+            print(f"✅ [CRM] Case {case_number} found in CRM for user {user_email_upper}")
             return True
         else:
-            if CRM_EMAIL_FILTERING_ENABLED:
-                print(f"❌ [CRM] Case {case_number} not found in CRM for user {user_email_upper}")
-            else:
-                print(f"❌ [CRM] Case {case_number} not found in CRM")
+            print(f"❌ [CRM] Case {case_number} not found in CRM for user {user_email_upper}")
             return False
             
     except Exception as e:
@@ -797,6 +777,7 @@ def get_user_case_data():
             case_data = {}
             for idx, row in cases_result.iterrows():
                 case_id = row["CASE_ID"]
+                case_title = row.get("CASE_TITLE")
                 problem_statement = row["PROBLEM_STATEMENT"] or ""
                 fsr_notes = row["FSR_NOTES"] or ""
                 line_item_id = row["FSR_LINE_ITEM_ID"]
@@ -810,7 +791,6 @@ def get_user_case_data():
                 print(f"📊 [Backend] /api/cases/data: Row {idx}: problem_last_updated={problem_last_updated}, fsr_last_updated={fsr_last_updated}")
                 
                 if case_id not in case_data:
-                    case_title = row.get("CASE_TITLE")
                     case_data[case_id] = {
                         "caseNumber": case_id,
                         "caseTitle": case_title if case_title and pd.notna(case_title) else None,
@@ -1009,10 +989,7 @@ def get_case_details_endpoint(case_number):
 def get_case_titles_batch_endpoint():
     """
     Get case titles for multiple case numbers at once.
-    
-    For suggestions (crm_only=True): Fetches titles from CRM only, no database check.
-    For sidebar cases (crm_only=False): First checks database, then falls back to CRM if not found.
-    Updates database with titles fetched from CRM (only if update_db=True and case exists in DB).
+    Used for displaying titles in suggestions dropdown.
     Returns a map of case_number -> case_title.
     """
     user_data = session.get('user_data')
@@ -1020,80 +997,21 @@ def get_case_titles_batch_endpoint():
         print("❌ [Backend] /api/cases/titles: Not authenticated")
         return jsonify({"error": "Not authenticated"}), 401
     
-    user_id = user_data.get('user_id')
+    # Get user email with fallback to default test email
     user_email_upper = get_user_email_for_crm()
     
     try:
         data = request.get_json()
         case_numbers = data.get('case_numbers', [])
-        crm_only = data.get('crm_only', False)  # For suggestions, skip database check
-        update_db = data.get('update_db', True)  # Default to updating DB
         
         if not case_numbers:
             return jsonify({"success": True, "titles": {}})
         
-        if crm_only:
-            print(f"🔍 [Backend] Getting titles for {len(case_numbers)} cases from CRM ONLY (for suggestions)")
-            # For suggestions, fetch directly from CRM without database check
-            crm_titles = get_case_titles_batch(case_numbers, user_email_upper)
-            return jsonify({
-                "success": True,
-                "titles": crm_titles
-            })
+        print(f"🔍 [CRM] Getting titles for {len(case_numbers)} cases")
         
-        print(f"🔍 [Backend] Getting titles for {len(case_numbers)} cases (checking database first)")
+        # Get titles for all case numbers
+        titles = get_case_titles_batch(case_numbers, user_email_upper)
         
-        # First, try to get titles from database (for sidebar cases)
-        case_list = "', '".join(str(case) for case in case_numbers)
-        db_query = f"""
-            SELECT CASE_ID, CASE_TITLE
-            FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS
-            WHERE CASE_ID IN ('{case_list}')
-            AND CREATED_BY_USER = %s
-        """
-        db_result = snowflake_query(db_query, CONNECTION_PAYLOAD, (user_id,))
-        
-        titles = {}
-        cases_needing_crm_fetch = []
-        
-        if db_result is not None and not db_result.empty:
-            for _, row in db_result.iterrows():
-                case_id = str(row["CASE_ID"])
-                case_title = row.get("CASE_TITLE")
-                if case_title and pd.notna(case_title) and str(case_title).strip():
-                    titles[case_id] = str(case_title).strip()
-                else:
-                    cases_needing_crm_fetch.append(case_id)
-        else:
-            cases_needing_crm_fetch = [str(c) for c in case_numbers]
-        
-        # For cases without titles in DB, fetch from CRM
-        if cases_needing_crm_fetch:
-            print(f"🔍 [Backend] Fetching {len(cases_needing_crm_fetch)} titles from CRM...")
-            crm_titles = get_case_titles_batch(cases_needing_crm_fetch, user_email_upper)
-            
-            # Merge CRM titles
-            for case_num, title in crm_titles.items():
-                titles[case_num] = title
-            
-            # Update database with titles from CRM if requested (only for cases that exist in DB)
-            if update_db and crm_titles:
-                for case_num, title in crm_titles.items():
-                    try:
-                        # Only update if case exists in database for this user
-                        update_query = f"""
-                            UPDATE {DATABASE}.{SCHEMA}.CASE_SESSIONS
-                            SET CASE_TITLE = %s, CRM_LAST_SYNC_TIME = CURRENT_TIMESTAMP()
-                            WHERE CASE_ID = %s AND CREATED_BY_USER = %s
-                        """
-                        snowflake_query(update_query, CONNECTION_PAYLOAD, 
-                                      (title, case_num, user_id), 
-                                      return_df=False)
-                        print(f"✅ [Backend] Updated case {case_num} title in database")
-                    except Exception as e:
-                        print(f"⚠️ [Backend] Error updating case {case_num} title: {e}")
-        
-        print(f"✅ [Backend] Returning {len(titles)} case titles")
         return jsonify({
             "success": True,
             "titles": titles
@@ -1101,9 +1019,55 @@ def get_case_titles_batch_endpoint():
         
     except Exception as e:
         print(f"❌ [Backend] Error getting case titles: {e}")
+        return jsonify({"error": "Failed to get case titles"}), 500
+
+@app.route('/api/cases/update-title', methods=['POST'])
+def update_case_title():
+    """
+    Update the case title in the database for a specific case.
+    Used when case titles are fetched from CRM and need to be persisted.
+    """
+    user_data = session.get('user_data')
+    if not user_data:
+        print("❌ [Backend] /api/cases/update-title: Not authenticated")
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    user_id = user_data.get('user_id')
+    
+    try:
+        data = request.get_json()
+        case_number = data.get('case_number')
+        case_title = data.get('case_title')
+        
+        if not case_number:
+            return jsonify({"error": "Case number required"}), 400
+        
+        if case_title is None:
+            return jsonify({"error": "Case title required"}), 400
+        
+        # Update case title in database
+        update_query = f"""
+            UPDATE {DATABASE}.{SCHEMA}.CASE_SESSIONS
+            SET CASE_TITLE = %s, CRM_LAST_SYNC_TIME = CURRENT_TIMESTAMP()
+            WHERE CASE_ID = %s AND CREATED_BY_USER = %s
+        """
+        snowflake_query(update_query, CONNECTION_PAYLOAD, 
+                       (case_title, case_number, user_id), 
+                       return_df=False)
+        
+        print(f"✅ [Backend] Updated case {case_number} title: {case_title[:50]}...")
+        
+        return jsonify({
+            "success": True,
+            "case_number": case_number,
+            "case_title": case_title
+        })
+        
+    except Exception as e:
+        print(f"❌ [Backend] Error updating case title: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({"error": "Failed to get case titles"}), 500
+        return jsonify({"error": "Failed to update case title"}), 500
 
 # ==================== CRM INTEGRATION FUNCTIONS ====================
 
@@ -1113,37 +1077,26 @@ def get_available_case_numbers(user_email, search_query="", limit=10):
     Use this in: /api/cases/suggestions
     """
     try:
-        if CRM_EMAIL_FILTERING_ENABLED:
-            if not user_email:
-                print("❌ [CRM] No user email provided for case number query")
-                return []
-            
-            # Convert email to uppercase to match CRM format
-            user_email_upper = user_email.upper()
-            like_pattern = f"%~{user_email_upper}~%"
-            
-            # Base query with email restriction - STRICTLY filter by user email
-            # The USER_EMAILS column contains emails in format: ~EMAIL1~EMAIL2~EMAIL3~
-            # We use LIKE pattern %~EMAIL~% to match emails in the delimited list
-            base_query = """
-                SELECT DISTINCT "Case Number" as CASE_NUMBER
-                FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
-                WHERE "Case Number" IS NOT NULL
-                AND "USER_EMAILS" LIKE %s
-            """
-            query_params = [like_pattern]
-            
-            print(f"🔒 [CRM] EMAIL FILTERING ENABLED: Only cases with email '{user_email_upper}' will be returned")
-            print(f"🔒 [CRM] LIKE pattern: {like_pattern}")
-        else:
-            # No email filtering - get all cases
-            base_query = """
-                SELECT DISTINCT "Case Number" as CASE_NUMBER
-                FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
-                WHERE "Case Number" IS NOT NULL
-            """
-            query_params = []
-            print(f"🔓 [CRM] EMAIL FILTERING DISABLED: Returning ALL cases from CRM")
+        if not user_email:
+            print("❌ [CRM] No user email provided for case number query")
+            return []
+        
+        # Convert email to uppercase to match CRM format
+        user_email_upper = user_email.upper()
+        like_pattern = f"%~{user_email_upper}~%"
+        
+        # Base query with email restriction - STRICTLY filter by user email
+        # The USER_EMAILS column contains emails in format: ~EMAIL1~EMAIL2~EMAIL3~
+        # We use LIKE pattern %~EMAIL~% to match emails in the delimited list
+        base_query = """
+            SELECT DISTINCT "Case Number" as CASE_NUMBER
+            FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
+            WHERE "Case Number" IS NOT NULL
+            AND "USER_EMAILS" LIKE %s
+        """
+        
+        print(f"🔒 [CRM] STRICT EMAIL FILTERING: Only cases with email '{user_email_upper}' will be returned")
+        print(f"🔒 [CRM] LIKE pattern: {like_pattern}")
         
         # Add search filtering if provided
         if search_query:
@@ -1155,8 +1108,10 @@ def get_available_case_numbers(user_email, search_query="", limit=10):
         else:
             base_query += " ORDER BY \"Case Number\" DESC"
         
+        print(f"🔍 [CRM] Executing query with email filter: {user_email_upper}")
+        print(f"🔍 [CRM] Query pattern: {like_pattern}")
         print(f"🔍 [CRM] Full SQL query: {base_query}")
-        result = snowflake_query(base_query, CONNECTION_PAYLOAD, tuple(query_params))
+        result = snowflake_query(base_query, CONNECTION_PAYLOAD, (like_pattern,))
         
         print(f"📊 [CRM] Query result:")
         print(f"   - Result is None: {result is None}")
@@ -1168,18 +1123,15 @@ def get_available_case_numbers(user_email, search_query="", limit=10):
         
         if result is not None and not result.empty:
             case_numbers = result["CASE_NUMBER"].tolist()
-            if CRM_EMAIL_FILTERING_ENABLED:
-                print(f"🔍 [CRM] Found {len(case_numbers)} cases matching search: '{search_query}' with email filter: {user_email_upper}")
-                print(f"✅ [CRM] All {len(case_numbers)} cases are filtered by email: {user_email_upper}")
-            else:
-                print(f"🔍 [CRM] Found {len(case_numbers)} cases matching search: '{search_query}' (NO EMAIL FILTER)")
+            print(f"🔍 [CRM] Found {len(case_numbers)} cases matching search: '{search_query}' with email filter: {user_email_upper}")
+            print(f"✅ [CRM] All {len(case_numbers)} cases are filtered by email: {user_email_upper}")
+            print(f"🔒 [CRM] VERIFICATION: All returned cases have USER_EMAILS containing '{user_email_upper}'")
             
             # Verify email filtering is working - log first few case numbers for verification
             if len(case_numbers) > 0:
                 sample_count = min(3, len(case_numbers))
                 print(f"🔍 [CRM] Sample cases (first {sample_count}): {case_numbers[:sample_count]}")
-                if CRM_EMAIL_FILTERING_ENABLED:
-                    print(f"🔒 [CRM] These cases are guaranteed to match email: {user_email_upper} (filtered by SQL query)")
+                print(f"🔒 [CRM] These cases are guaranteed to match email: {user_email_upper} (filtered by SQL query)")
             
             return case_numbers
         else:
@@ -1205,8 +1157,8 @@ def check_case_status_batch(case_numbers, user_email=None):
         if not case_numbers:
             return {}
         
-        # If email filtering is enabled and user_email is provided, validate that cases belong to the user first
-        if CRM_EMAIL_FILTERING_ENABLED and user_email:
+        # If user_email is provided, validate that cases belong to the user first
+        if user_email:
             user_email_upper = user_email.upper()
             like_pattern = f"%~{user_email_upper}~%"
             
@@ -1220,7 +1172,7 @@ def check_case_status_batch(case_numbers, user_email=None):
                 AND "Case Number" IN ('{case_list}')
             """
             
-            print(f"🔍 [CRM] Validating {len(case_numbers)} cases belong to user {user_email_upper} (EMAIL FILTERING ENABLED)")
+            print(f"🔍 [CRM] Validating cases belong to user {user_email_upper}")
             validated_result = snowflake_query(validation_query, CONNECTION_PAYLOAD, (like_pattern,))
             
             if validated_result is not None and not validated_result.empty:
@@ -1231,8 +1183,6 @@ def check_case_status_batch(case_numbers, user_email=None):
             else:
                 print(f"⚠️ [CRM] No cases validated for user {user_email_upper}, returning empty status")
                 return {case_num: 'unknown' for case_num in case_numbers}
-        elif not CRM_EMAIL_FILTERING_ENABLED:
-            print(f"🔓 [CRM] EMAIL FILTERING DISABLED: Checking status for all {len(case_numbers)} cases")
         
         if not case_numbers:
             return {}
@@ -1249,14 +1199,7 @@ def check_case_status_batch(case_numbers, user_email=None):
             ORDER BY "[Case Number]" DESC
         """
         
-        try:
-            result = snowflake_query(query, PROD_PAYLOAD)
-        except Exception as gear_error:
-            if "Database 'GEAR' does not exist or not authorized" in str(gear_error):
-                print(f"⚠️ [CRM] GEAR database not accessible, returning unknown status for all cases")
-                return {case_num: 'unknown' for case_num in case_numbers}
-            else:
-                raise gear_error
+        result = snowflake_query(query, PROD_PAYLOAD)
         
         if result is not None and not result.empty:
             open_cases = set(result["Case Number"].tolist())
@@ -1284,8 +1227,8 @@ def get_case_details(case_number, user_email=None):
         user_email: User email to validate case ownership (optional, but recommended for security)
     """
     try:
-        # If email filtering is enabled and user_email is provided, validate that the case belongs to the user first
-        if CRM_EMAIL_FILTERING_ENABLED and user_email:
+        # If user_email is provided, validate that the case belongs to the user first
+        if user_email:
             user_email_upper = user_email.upper()
             like_pattern = f"%~{user_email_upper}~%"
             
@@ -1298,7 +1241,7 @@ def get_case_details(case_number, user_email=None):
                 AND "Case Number" = %s
             """
             
-            print(f"🔍 [CRM] Validating case {case_number} belongs to user {user_email_upper} (EMAIL FILTERING ENABLED)")
+            print(f"🔍 [CRM] Validating case {case_number} belongs to user {user_email_upper}")
             validated_result = snowflake_query(validation_query, CONNECTION_PAYLOAD, (like_pattern, str(case_number)))
             
             if validated_result is None or validated_result.empty:
@@ -1306,8 +1249,6 @@ def get_case_details(case_number, user_email=None):
                 return []
             
             print(f"✅ [CRM] Case {case_number} validated for user {user_email_upper}")
-        elif not CRM_EMAIL_FILTERING_ENABLED:
-            print(f"🔓 [CRM] EMAIL FILTERING DISABLED: Getting details for case {case_number} (no validation)")
         
         query = """
             SELECT DISTINCT
@@ -1328,14 +1269,7 @@ def get_case_details(case_number, user_email=None):
             ORDER BY "FSR Number", "FSR Creation Date" ASC
         """
         
-        try:
-            result = snowflake_query(query, PROD_PAYLOAD, params=(case_number,))
-        except Exception as gear_error:
-            if "Database 'GEAR' does not exist or not authorized" in str(gear_error):
-                print(f"⚠️ [CRM] GEAR database not accessible for case {case_number}, returning empty details")
-                return []
-            else:
-                raise gear_error
+        result = snowflake_query(query, PROD_PAYLOAD, params=(case_number,))
         
         if result is not None and not result.empty:
             return result.to_dict('records')
@@ -1359,8 +1293,8 @@ def get_case_titles_batch(case_numbers, user_email=None):
         if not case_numbers:
             return {}
         
-        # If email filtering is enabled and user_email is provided, validate that all cases belong to the user first
-        if CRM_EMAIL_FILTERING_ENABLED and user_email:
+        # If user_email is provided, validate that all cases belong to the user first
+        if user_email:
             user_email_upper = user_email.upper()
             like_pattern = f"%~{user_email_upper}~%"
             
@@ -1374,7 +1308,7 @@ def get_case_titles_batch(case_numbers, user_email=None):
                 AND "Case Number" IN ('{case_list}')
             """
             
-            print(f"🔍 [CRM] Validating {len(case_numbers)} cases belong to user {user_email_upper} (EMAIL FILTERING ENABLED)")
+            print(f"🔍 [CRM] Validating {len(case_numbers)} cases belong to user {user_email_upper}")
             validated_result = snowflake_query(validation_query, CONNECTION_PAYLOAD, (like_pattern,))
             
             if validated_result is not None and not validated_result.empty:
@@ -1385,8 +1319,6 @@ def get_case_titles_batch(case_numbers, user_email=None):
             else:
                 print(f"⚠️ [CRM] No cases validated for user {user_email_upper}, returning empty titles")
                 return {}
-        elif not CRM_EMAIL_FILTERING_ENABLED:
-            print(f"🔓 [CRM] EMAIL FILTERING DISABLED: Getting titles for all {len(case_numbers)} cases")
         
         if not case_numbers:
             return {}
@@ -1408,14 +1340,7 @@ def get_case_titles_batch(case_numbers, user_email=None):
         """
         
         print(f"🔍 [CRM] Getting titles for {len(case_numbers)} cases")
-        try:
-            result = snowflake_query(query, PROD_PAYLOAD)
-        except Exception as gear_error:
-            if "Database 'GEAR' does not exist or not authorized" in str(gear_error):
-                print(f"⚠️ [CRM] GEAR database not accessible, returning empty titles")
-                return {}
-            else:
-                raise gear_error
+        result = snowflake_query(query, PROD_PAYLOAD)
         
         titles = {}
         if result is not None and not result.empty:

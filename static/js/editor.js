@@ -2997,15 +2997,6 @@ class CaseManager {
             const backendCases = caseData.cases || {};
             console.log(`📊 [CaseManager] Processing ${Object.keys(backendCases).length} cases from database`);
             
-            // Load existing cases from localStorage to preserve titles (fallback only)
-            const storageKey = `fsr-cases-${this.userId}`;
-            const savedCasesStr = localStorage.getItem(storageKey);
-            const savedCases = savedCasesStr ? JSON.parse(savedCasesStr) : [];
-            const savedCasesMap = new Map(savedCases.map(c => [c.caseNumber, c]));
-            
-            // Titles should come from database (caseData.caseTitle), no need to batch fetch
-            // Database already includes titles from /api/cases/data endpoint
-            
             // Debug each case in detail
             for (const [caseId, caseInfo] of Object.entries(backendCases)) {
                 console.log(`🔍 [CaseManager] Case ${caseId} details:`);
@@ -3017,40 +3008,31 @@ class CaseManager {
             }
             
             this.cases = Object.values(backendCases).map(caseData => {
-                const caseNumber = caseData.caseNumber;
-                const savedCase = savedCasesMap.get(caseNumber);
-                
-                // Get title from: 1) database (caseData.caseTitle), 2) saved localStorage (fallback), 3) null
-                // Database is the primary source - titles are stored when cases are created
-                const caseTitle = caseData.caseTitle || 
-                                 (savedCase && savedCase.caseTitle) || 
-                                 null;
-                
                 const caseInfo = {
-                    id: caseNumber, // Use case number as ID for consistency
-                    caseNumber: caseNumber,
+                    id: caseData.caseNumber, // Use case number as ID for consistency
+                    caseNumber: caseData.caseNumber,
+                    caseTitle: caseData.caseTitle || null, // Use case title from database
                     problemStatement: caseData.problemStatement || '',
                     fsrNotes: caseData.fsrNotes || '',
                     createdAt: new Date(caseData.updatedAt || Date.now()),
                     updatedAt: new Date(caseData.updatedAt || Date.now()),
-                    isTrackedInDatabase: true, // All cases from database are tracked
-                    caseTitle: caseTitle // Include title from database, batch fetch, or localStorage
+                    isTrackedInDatabase: true // All cases from database are tracked
                 };
                 
                 console.log(`📝 [CaseManager] Processed case ${caseInfo.caseNumber}:`, {
+                    caseTitle: caseInfo.caseTitle ? caseInfo.caseTitle.substring(0, 50) + '...' : 'None',
                     problemStatement: caseInfo.problemStatement.substring(0, 50) + '...',
                     fsrNotes: caseInfo.fsrNotes.substring(0, 50) + '...',
-                    isTracked: caseInfo.isTrackedInDatabase,
-                    caseTitle: caseInfo.caseTitle ? caseInfo.caseTitle.substring(0, 50) + '...' : 'None'
+                    isTracked: caseInfo.isTrackedInDatabase
                 });
                 
                 return caseInfo;
             });
             
             console.log(`✅ [CaseManager] Successfully loaded ${this.cases.length} cases from database`);
-            console.log(`📊 [CaseManager] Loaded ${this.cases.length} cases:`, this.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber, caseTitle: c.caseTitle, problemLength: c.problemStatement.length })));
+            console.log(`📊 [CaseManager] Loaded ${this.cases.length} cases:`, this.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber, problemLength: c.problemStatement.length })));
             
-            // Load CRM data for all cases in parallel to get case titles (as backup/update)
+            // Load CRM data for all cases in parallel to get case titles
             console.log('🔍 [CaseManager] Loading CRM data for all cases in parallel to get titles...');
             const crmLoadPromises = this.cases
                 .filter(caseData => caseData.caseNumber)
@@ -3062,7 +3044,7 @@ class CaseManager {
             // Re-render to show updated case titles
             this.renderCasesList();
             
-            // Also sync with localStorage for offline access (now includes titles)
+            // Also sync with localStorage for offline access
             this.saveCasesLocally();
             console.log('💾 [CaseManager] Cases synced to localStorage for offline access');
             
@@ -3194,6 +3176,47 @@ class CaseManager {
         }
     }
     
+    async saveCaseTitleToDatabase(caseNumber, caseTitle) {
+        if (this.userId === null || this.userId === undefined) {
+            console.warn('⚠️ [CaseManager] No user ID available, cannot save case title to backend');
+            return false;
+        }
+        
+        if (!caseTitle || !caseTitle.trim()) {
+            console.warn(`⚠️ [CaseManager] Empty case title, skipping save for case ${caseNumber}`);
+            return false;
+        }
+        
+        console.log(`💾 [CaseManager] Saving case title for case ${caseNumber} to database...`);
+        console.log(`📝 [CaseManager] Case Title: ${caseTitle.substring(0, 50)}...`);
+        
+        try {
+            const response = await fetch('/api/cases/update-title', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    case_number: caseNumber,
+                    case_title: caseTitle.trim()
+                })
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                console.log(`✅ [CaseManager] Successfully saved case title for case ${caseNumber} to database`);
+                return true;
+            } else {
+                const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                console.error(`❌ [CaseManager] Failed to save case title for case ${caseNumber} to database:`, errorData);
+                return false;
+            }
+        } catch (error) {
+            console.error(`❌ [CaseManager] Error saving case title for case ${caseNumber} to database:`, error);
+            return false;
+        }
+    }
+    
     async createNewCase() {
         // Show case number input with suggestions
         const caseNumber = await this.showCaseNumberInputWithSuggestions();
@@ -3239,23 +3262,6 @@ class CaseManager {
             this.switchToCase(existingCase.id);
             return;
         }
-        
-        // Show optimistic case in sidebar immediately (will be updated when API completes)
-        const optimisticCase = {
-            id: caseNumberValue,
-            caseNumber: caseNumberValue,
-            caseTitle: null,
-            problemStatement: '',
-            fsrNotes: '',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            isTrackedInDatabase: true,
-            isLoading: true // Flag to show loading state
-        };
-        
-        this.cases.unshift(optimisticCase);
-        this.renderCasesList();
-        console.log(`⚡ [CaseManager] Added optimistic case ${caseNumberValue} to sidebar (loading...)`);
         
         // Try to create case in database first
         try {
@@ -3314,56 +3320,37 @@ class CaseManager {
                 isTrackedInDatabase = false;
             }
             
-        // Update the optimistic case with real data
-        const optimisticCaseIndex = this.cases.findIndex(c => c.caseNumber === caseNumberValue && c.isLoading);
-        if (optimisticCaseIndex !== -1) {
-            // Update existing optimistic case
-            this.cases[optimisticCaseIndex] = {
-                id: caseNumberValue,
-                caseNumber: caseNumberValue,
-                caseTitle: untrackedCaseTitle || null,
-                problemStatement: '',
-                fsrNotes: '',
-                createdAt: new Date(),
-                updatedAt: new Date(),
-                isTrackedInDatabase: isTrackedInDatabase,
-                isLoading: false
-            };
-            console.log(`✅ [CaseManager] Updated optimistic case ${caseNumberValue} with real data`);
-        } else {
-            // Fallback: create new case if optimistic one wasn't found
-            const newCase = {
-                id: caseNumberValue,
-                caseNumber: caseNumberValue,
-                caseTitle: untrackedCaseTitle || null,
-                problemStatement: '',
-                fsrNotes: '',
-                createdAt: new Date(),
-                updatedAt: new Date(),
-                isTrackedInDatabase: isTrackedInDatabase,
-                isLoading: false
-            };
-            this.cases.unshift(newCase);
-            console.log(`📝 [CaseManager] Created new case (fallback):`, {
+        // Create the case (either tracked or untracked)
+        const newCase = {
+            id: caseNumberValue, // Use case number as ID for consistency
+            caseNumber: caseNumberValue,
+            caseTitle: untrackedCaseTitle || null, // Store the title if provided
+            problemStatement: '',
+            fsrNotes: '',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            isTrackedInDatabase: isTrackedInDatabase
+        };
+            
+            console.log(`📝 [CaseManager] Creating new case:`, {
                 caseNumber: newCase.caseNumber,
                 isTracked: newCase.isTrackedInDatabase
             });
-        }
-        
-        this.saveCases();
-        this.renderCasesList();
             
-            // If this is a tracked CRM case, fetch the title immediately (in background)
+            this.cases.unshift(newCase); // Add to beginning
+            this.saveCases();
+            this.renderCasesList();
+            
+            // If this is a tracked CRM case, fetch the title immediately
             if (isTrackedInDatabase !== false && !untrackedCaseTitle) {
-                // Fetch title for this case immediately (don't block UI)
+                // Fetch title for this case immediately
                 fetch('/api/cases/titles', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        case_numbers: [caseNumberValue],
-                        update_db: true  // Update database with title
+                        case_numbers: [caseNumberValue]
                     })
                 }).then(response => {
                     if (response.ok) {
@@ -3371,31 +3358,20 @@ class CaseManager {
                     }
                 }).then(data => {
                     if (data && data.titles && data.titles[String(caseNumberValue)]) {
-                        const titleCaseIndex = this.cases.findIndex(c => c.caseNumber === caseNumberValue);
-                        if (titleCaseIndex !== -1) {
-                            this.cases[titleCaseIndex].caseTitle = data.titles[String(caseNumberValue)];
-                            this.cases[titleCaseIndex].isLoading = false; // Remove loading state
+                        const caseIndex = this.cases.findIndex(c => c.caseNumber === caseNumberValue);
+                        if (caseIndex !== -1) {
+                            this.cases[caseIndex].caseTitle = data.titles[String(caseNumberValue)];
                             this.saveCases();
                             this.renderCasesList();
-                            console.log(`✅ [CaseManager] Updated case ${caseNumberValue} with title from CRM`);
+                            console.log(`✅ [CaseManager] Updated case ${caseNumberValue} with title immediately`);
                         }
                     }
                 }).catch(error => {
                     console.error(`❌ [CaseManager] Error fetching title for case ${caseNumberValue}:`, error);
-                    // Remove loading state even if title fetch fails
-                    const errorCaseIndex = this.cases.findIndex(c => c.caseNumber === caseNumberValue);
-                    if (errorCaseIndex !== -1) {
-                        this.cases[errorCaseIndex].isLoading = false;
-                        this.renderCasesList();
-                    }
                 });
             }
             
-            // Switch to the case (use the updated case from cases array)
-            const finalCase = this.cases.find(c => c.caseNumber === caseNumberValue);
-            if (finalCase) {
-                this.switchToCase(finalCase.id);
-            }
+            this.switchToCase(newCase.id);
             
             // Close mobile sidebar
             const sidebar = document.querySelector('.cases-sidebar');
@@ -3405,31 +3381,9 @@ class CaseManager {
             
             console.log(`✅ [CaseManager] Case ${caseNumberValue} created successfully`);
             
-            // Remove loading state if still present
-            const finalCaseIndex = this.cases.findIndex(c => c.caseNumber === caseNumberValue);
-            if (finalCaseIndex !== -1 && this.cases[finalCaseIndex].isLoading) {
-                this.cases[finalCaseIndex].isLoading = false;
-                this.renderCasesList();
-            }
-            
         } catch (error) {
             console.error('❌ [CaseManager] Error creating case:', error);
-            
-            // Remove optimistic case if creation failed
-            const failedCaseIndex = this.cases.findIndex(c => c.caseNumber === caseNumberValue && (c.isLoading || c.id === caseNumberValue));
-            if (failedCaseIndex !== -1) {
-                this.cases.splice(failedCaseIndex, 1);
-                this.renderCasesList();
-                console.log(`🗑️ [CaseManager] Removed failed case ${caseNumberValue} from sidebar`);
-            }
-            
             await this.showCustomAlert('Error', 'Error creating case. Please try again.');
-        } finally {
-            // Remove loading indicator from modal if it still exists
-            const loadingIndicator = document.getElementById('case-creation-loading');
-            if (loadingIndicator) {
-                loadingIndicator.remove();
-            }
         }
     }
     
@@ -3706,17 +3660,19 @@ class CaseManager {
                 console.log(`📝 [CaseManager] - Symptom: ${latestSymptom?.substring(0, 100)}...`);
                 
                 // Store the case title for display in sidebar (use Case Title field, not symptom)
-                // Only update if title doesn't already exist (don't overwrite database titles)
                 if (caseTitle && caseTitle.trim()) {
                     // Find the case in our cases array and update it with the case title
                     const caseIndex = this.cases.findIndex(c => c.caseNumber == caseNumber);
                     if (caseIndex !== -1) {
-                        // Only update if case doesn't already have a title (preserve database titles)
-                        if (!this.cases[caseIndex].caseTitle) {
-                            this.cases[caseIndex].caseTitle = caseTitle.trim();
-                            console.log(`📝 [CaseManager] Updated case ${caseNumber} with title from CRM: ${caseTitle.trim()}`);
-                        } else {
-                            console.log(`📝 [CaseManager] Case ${caseNumber} already has title from database, keeping: ${this.cases[caseIndex].caseTitle}`);
+                        const trimmedTitle = caseTitle.trim();
+                        this.cases[caseIndex].caseTitle = trimmedTitle;
+                        console.log(`📝 [CaseManager] Updated case ${caseNumber} with title: ${trimmedTitle}`);
+                        
+                        // Save case title to database if case is tracked in database
+                        if (this.cases[caseIndex].isTrackedInDatabase) {
+                            this.saveCaseTitleToDatabase(caseNumber, trimmedTitle).catch(err => {
+                                console.error(`❌ [CaseManager] Error saving case title to database: ${err}`);
+                            });
                         }
                     }
                 }
@@ -4061,18 +4017,11 @@ class CaseManager {
                 '<div class="untracked-indicator" title="Not tracked in database">⚠️</div>' : '';
             
             // Use case title if available, otherwise fall back to case number
-            // Show loading indicator if case is being created
-            const isLoading = caseData.isLoading === true;
-            const displayTitle = isLoading ? 
-                `Case ${caseData.caseNumber} (creating...)` : 
-                (caseData.caseTitle || `Case ${caseData.caseNumber}`);
+            const displayTitle = caseData.caseTitle || `Case ${caseData.caseNumber}`;
             
             caseItem.innerHTML = `
                 <div>
-                    <div class="case-number" title="${caseData.caseNumber}" style="${isLoading ? 'opacity: 0.7; font-style: italic;' : ''}">
-                        ${displayTitle}
-                        ${isLoading ? '<span style="margin-left: 8px; font-size: 12px; color: #6b7280;">⏳</span>' : ''}
-                    </div>
+                    <div class="case-number" title="${caseData.caseNumber}">${displayTitle}</div>
                     <div class="case-date">Case ${caseData.caseNumber}</div>
                 </div>
                 <div class="case-actions">
@@ -4427,7 +4376,6 @@ class CaseManager {
             let suggestionsData = [];
             let selectedIndex = -1;
             let currentFilteringQuery = null;
-            let isCreating = false; // Track if case is being created
             
             // Function to filter preloaded suggestions and fetch titles
             const filterSuggestions = async (query) => {
@@ -4453,7 +4401,7 @@ class CaseManager {
                 // Display suggestions immediately (with "Available in CRM" placeholder)
                 displaySuggestions();
                 
-                // Fetch titles for filtered cases in background (from CRM only, for suggestions)
+                // Fetch titles for filtered cases in background
                 if (filteredCases.length > 0) {
                     try {
                         const response = await fetch('/api/cases/titles', {
@@ -4462,9 +4410,7 @@ class CaseManager {
                                 'Content-Type': 'application/json'
                             },
                             body: JSON.stringify({
-                                case_numbers: filteredCases,
-                                crm_only: true,  // For suggestions, fetch from CRM only (no database check)
-                                update_db: false  // Don't update database for suggestions
+                                case_numbers: filteredCases
                             })
                         });
                         
@@ -4639,63 +4585,9 @@ class CaseManager {
                 });
             }
             
-            confirmBtn.addEventListener('click', async () => {
+            confirmBtn.addEventListener('click', () => {
                 const value = input.value.trim();
-                
-                if (!value) {
-                    return; // Don't proceed if empty
-                }
-                
-                if (isCreating) {
-                    return; // Prevent double-clicks
-                }
-                
-                isCreating = true;
-                
-                // Show loading state on button
-                const originalText = confirmBtn.textContent;
-                confirmBtn.textContent = 'Creating...';
-                confirmBtn.style.opacity = '0.7';
-                confirmBtn.style.cursor = 'not-allowed';
-                confirmBtn.disabled = true;
-                
-                // Disable input and cancel button
-                input.disabled = true;
-                cancelBtn.disabled = true;
-                
-                // Add a subtle loading indicator
-                const loadingIndicator = document.createElement('div');
-                loadingIndicator.id = 'case-creation-loading';
-                loadingIndicator.style.cssText = `
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background: rgba(255, 255, 255, 0.9);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    z-index: 10001;
-                    border-radius: 16px;
-                `;
-                loadingIndicator.innerHTML = `
-                    <div style="text-align: center;">
-                        <div style="width: 40px; height: 40px; border: 4px solid #e5e7eb; border-top: 4px solid #41007F; 
-                             border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px;"></div>
-                        <div style="font-size: 16px; font-weight: 600; color: #374151; margin-bottom: 8px;">Creating Case</div>
-                        <div style="font-size: 14px; color: #6b7280;">Adding case ${value}...</div>
-                    </div>
-                    <style>
-                        @keyframes spin {
-                            0% { transform: rotate(0deg); }
-                            100% { transform: rotate(360deg); }
-                        }
-                    </style>
-                `;
-                modal.appendChild(loadingIndicator);
-                
-                // Resolve with the value (this will trigger the case creation)
+                document.body.removeChild(overlay);
                 resolve(value);
             });
             
