@@ -2476,7 +2476,6 @@ class CaseManager {
         this.caseCounter = 1;
         this.userId = null;
         this.preloadedSuggestions = []; // Cache for case suggestions
-        this.preloadedTitles = {}; // Cache for case titles (caseNumber -> title)
         // Don't call init() here - will be called from outside
     }
     
@@ -2548,23 +2547,16 @@ class CaseManager {
     
     async preloadCaseSuggestions() {
         try {
-            console.log('🔍 [CaseManager] Preloading case suggestions and titles from CRM database...');
-            const startTime = performance.now();
+            console.log('🔍 [CaseManager] Preloading case suggestions from CRM database...');
             const response = await fetch('/api/cases/suggestions/preload');
             if (response.ok) {
                 const data = await response.json();
                 this.preloadedSuggestions = data.case_numbers || [];
-                this.preloadedTitles = data.titles || {};  // Titles come with the preload response
                 const totalCases = this.preloadedSuggestions.length;
-                const titlesCount = Object.keys(this.preloadedTitles).length;
                 const filteredByEmail = data.filtered_by_email || 'unknown';
-                const loadTime = performance.now() - startTime;
-                
-                console.log(`✅ [CaseManager] Preloaded ${totalCases} case suggestions and ${titlesCount} titles in ${loadTime.toFixed(0)}ms`);
+                console.log(`✅ [CaseManager] Preloaded ${totalCases} case suggestions from CRM database (filtered by user email: ${filteredByEmail})`);
                 console.log(`📊 [CaseManager] Total preloaded cases from CRM database: ${totalCases}`);
-                console.log(`📊 [CaseManager] Total preloaded titles: ${titlesCount}`);
                 console.log(`🔒 [CaseManager] All ${totalCases} cases are pre-filtered by email: ${filteredByEmail}`);
-                console.log(`📊 [CaseManager] Title cache ready - suggestions will be instant`);
                 
                 // Log sample of 5 case numbers for testing
                 if (totalCases > 0) {
@@ -2578,12 +2570,10 @@ class CaseManager {
             } else {
                 console.error('❌ [CaseManager] Failed to preload suggestions:', response.status);
                 this.preloadedSuggestions = [];
-                this.preloadedTitles = {};
             }
         } catch (error) {
             console.error('❌ [CaseManager] Error preloading suggestions:', error);
             this.preloadedSuggestions = [];
-            this.preloadedTitles = {};
         }
     }
     
@@ -3250,6 +3240,23 @@ class CaseManager {
             return;
         }
         
+        // Show optimistic case in sidebar immediately (will be updated when API completes)
+        const optimisticCase = {
+            id: caseNumberValue,
+            caseNumber: caseNumberValue,
+            caseTitle: null,
+            problemStatement: '',
+            fsrNotes: '',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            isTrackedInDatabase: true,
+            isLoading: true // Flag to show loading state
+        };
+        
+        this.cases.unshift(optimisticCase);
+        this.renderCasesList();
+        console.log(`⚡ [CaseManager] Added optimistic case ${caseNumberValue} to sidebar (loading...)`);
+        
         // Try to create case in database first
         try {
             console.log(`🚀 [CaseManager] Attempting to create case ${caseNumberValue} in database...`);
@@ -3307,37 +3314,56 @@ class CaseManager {
                 isTrackedInDatabase = false;
             }
             
-        // Create the case (either tracked or untracked)
-        const newCase = {
-            id: caseNumberValue, // Use case number as ID for consistency
-            caseNumber: caseNumberValue,
-            caseTitle: untrackedCaseTitle || null, // Store the title if provided
-            problemStatement: '',
-            fsrNotes: '',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            isTrackedInDatabase: isTrackedInDatabase
-        };
-            
-            console.log(`📝 [CaseManager] Creating new case:`, {
+        // Update the optimistic case with real data
+        const caseIndex = this.cases.findIndex(c => c.caseNumber === caseNumberValue && c.isLoading);
+        if (caseIndex !== -1) {
+            // Update existing optimistic case
+            this.cases[caseIndex] = {
+                id: caseNumberValue,
+                caseNumber: caseNumberValue,
+                caseTitle: untrackedCaseTitle || null,
+                problemStatement: '',
+                fsrNotes: '',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                isTrackedInDatabase: isTrackedInDatabase,
+                isLoading: false
+            };
+            console.log(`✅ [CaseManager] Updated optimistic case ${caseNumberValue} with real data`);
+        } else {
+            // Fallback: create new case if optimistic one wasn't found
+            const newCase = {
+                id: caseNumberValue,
+                caseNumber: caseNumberValue,
+                caseTitle: untrackedCaseTitle || null,
+                problemStatement: '',
+                fsrNotes: '',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                isTrackedInDatabase: isTrackedInDatabase,
+                isLoading: false
+            };
+            this.cases.unshift(newCase);
+            console.log(`📝 [CaseManager] Created new case (fallback):`, {
                 caseNumber: newCase.caseNumber,
                 isTracked: newCase.isTrackedInDatabase
             });
+        }
+        
+        this.saveCases();
+        this.renderCasesList();
             
-            this.cases.unshift(newCase); // Add to beginning
-            this.saveCases();
-            this.renderCasesList();
-            
-            // If this is a tracked CRM case, fetch the title immediately
+            // If this is a tracked CRM case, fetch the title immediately (in background)
             if (isTrackedInDatabase !== false && !untrackedCaseTitle) {
-                // Fetch title for this case immediately
+                // Fetch title for this case immediately (don't block UI)
                 fetch('/api/cases/titles', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        case_numbers: [caseNumberValue]
+                        case_numbers: [caseNumberValue],
+                        update_db: true  // Update database with title
                     })
                 }).then(response => {
                     if (response.ok) {
@@ -3348,17 +3374,28 @@ class CaseManager {
                         const caseIndex = this.cases.findIndex(c => c.caseNumber === caseNumberValue);
                         if (caseIndex !== -1) {
                             this.cases[caseIndex].caseTitle = data.titles[String(caseNumberValue)];
+                            this.cases[caseIndex].isLoading = false; // Remove loading state
                             this.saveCases();
                             this.renderCasesList();
-                            console.log(`✅ [CaseManager] Updated case ${caseNumberValue} with title immediately`);
+                            console.log(`✅ [CaseManager] Updated case ${caseNumberValue} with title from CRM`);
                         }
                     }
                 }).catch(error => {
                     console.error(`❌ [CaseManager] Error fetching title for case ${caseNumberValue}:`, error);
+                    // Remove loading state even if title fetch fails
+                    const caseIndex = this.cases.findIndex(c => c.caseNumber === caseNumberValue);
+                    if (caseIndex !== -1) {
+                        this.cases[caseIndex].isLoading = false;
+                        this.renderCasesList();
+                    }
                 });
             }
             
-            this.switchToCase(newCase.id);
+            // Switch to the case (use the updated case from cases array)
+            const finalCase = this.cases.find(c => c.caseNumber === caseNumberValue);
+            if (finalCase) {
+                this.switchToCase(finalCase.id);
+            }
             
             // Close mobile sidebar
             const sidebar = document.querySelector('.cases-sidebar');
@@ -3370,7 +3407,22 @@ class CaseManager {
             
         } catch (error) {
             console.error('❌ [CaseManager] Error creating case:', error);
+            
+            // Remove optimistic case if creation failed
+            const failedCaseIndex = this.cases.findIndex(c => c.caseNumber === caseNumberValue && (c.isLoading || c.id === caseNumberValue));
+            if (failedCaseIndex !== -1) {
+                this.cases.splice(failedCaseIndex, 1);
+                this.renderCasesList();
+                console.log(`🗑️ [CaseManager] Removed failed case ${caseNumberValue} from sidebar`);
+            }
+            
             await this.showCustomAlert('Error', 'Error creating case. Please try again.');
+        } finally {
+            // Remove loading indicator from modal if it still exists
+            const loadingIndicator = document.getElementById('case-creation-loading');
+            if (loadingIndicator) {
+                loadingIndicator.remove();
+            }
         }
     }
     
@@ -4002,11 +4054,18 @@ class CaseManager {
                 '<div class="untracked-indicator" title="Not tracked in database">⚠️</div>' : '';
             
             // Use case title if available, otherwise fall back to case number
-            const displayTitle = caseData.caseTitle || `Case ${caseData.caseNumber}`;
+            // Show loading indicator if case is being created
+            const isLoading = caseData.isLoading === true;
+            const displayTitle = isLoading ? 
+                `Case ${caseData.caseNumber} (creating...)` : 
+                (caseData.caseTitle || `Case ${caseData.caseNumber}`);
             
             caseItem.innerHTML = `
                 <div>
-                    <div class="case-number" title="${caseData.caseNumber}">${displayTitle}</div>
+                    <div class="case-number" title="${caseData.caseNumber}" style="${isLoading ? 'opacity: 0.7; font-style: italic;' : ''}">
+                        ${displayTitle}
+                        ${isLoading ? '<span style="margin-left: 8px; font-size: 12px; color: #6b7280;">⏳</span>' : ''}
+                    </div>
                     <div class="case-date">Case ${caseData.caseNumber}</div>
                 </div>
                 <div class="case-actions">
@@ -4361,6 +4420,7 @@ class CaseManager {
             let suggestionsData = [];
             let selectedIndex = -1;
             let currentFilteringQuery = null;
+            let isCreating = false; // Track if case is being created
             
             // Function to filter preloaded suggestions and fetch titles
             const filterSuggestions = async (query) => {
@@ -4377,64 +4437,49 @@ class CaseManager {
                 
                 console.log(`🔍 [CaseManager] Query: "${query}" -> ${filteredCases.length} cases from preloaded suggestions (no DB queries)`);
                 
-                // Build suggestions data with titles from cache (instant, no fetch needed)
-                suggestionsData = filteredCases.map(caseNum => {
-                    const caseNumStr = String(caseNum);
-                    return {
-                        caseNumber: caseNum,
-                        caseName: this.preloadedTitles[caseNumStr] || this.preloadedTitles[caseNum] || null
-                    };
-                });
+                // Build initial suggestions data (without titles)
+                suggestionsData = filteredCases.map(caseNum => ({
+                    caseNumber: caseNum,
+                    caseName: null // Will be fetched next
+                }));
                 
-                // Display suggestions immediately with titles (if cached)
+                // Display suggestions immediately (with "Available in CRM" placeholder)
                 displaySuggestions();
                 
-                // Check if any titles are missing from cache and fetch them in background
-                const missingTitles = filteredCases.filter(caseNum => {
-                    const caseNumStr = String(caseNum);
-                    return !this.preloadedTitles[caseNumStr] && !this.preloadedTitles[caseNum];
-                });
-                
-                if (missingTitles.length > 0) {
-                    console.log(`🔍 [CaseManager] Fetching ${missingTitles.length} missing titles from cache...`);
-                    // Fetch missing titles in background and update cache
-                    fetch('/api/cases/titles', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            case_numbers: missingTitles,
-                            crm_only: true,  // For suggestions, fetch from CRM only (no database check)
-                            update_db: false  // Don't update database for suggestions
-                        })
-                    }).then(response => {
+                // Fetch titles for filtered cases in background (from CRM only, for suggestions)
+                if (filteredCases.length > 0) {
+                    try {
+                        const response = await fetch('/api/cases/titles', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                case_numbers: filteredCases,
+                                crm_only: true,  // For suggestions, fetch from CRM only (no database check)
+                                update_db: false  // Don't update database for suggestions
+                            })
+                        });
+                        
                         if (response.ok) {
-                            return response.json();
-                        }
-                        return { titles: {} };
-                    }).then(data => {
-                        if (data.titles) {
-                            // Update cache with new titles
-                            Object.assign(this.preloadedTitles, data.titles);
+                            const data = await response.json();
+                            const titles = data.titles || {};
                             
-                            // Update suggestions with newly fetched titles
-                            suggestionsData = filteredCases.map(caseNum => {
-                                const caseNumStr = String(caseNum);
-                                return {
-                                    caseNumber: caseNum,
-                                    caseName: this.preloadedTitles[caseNumStr] || this.preloadedTitles[caseNum] || null
-                                };
-                            });
+                            // Update suggestions with titles
+                            suggestionsData = filteredCases.map(caseNum => ({
+                                caseNumber: caseNum,
+                                caseName: titles[String(caseNum)] || null
+                            }));
                             
-                            console.log(`✅ [CaseManager] Fetched and cached ${Object.keys(data.titles).length} missing titles`);
-                            displaySuggestions(); // Re-render with newly fetched titles
+                            console.log(`✅ [CaseManager] Fetched titles for ${filteredCases.length} cases`);
+                            displaySuggestions(); // Re-render with titles
+                        } else {
+                            console.log(`⚠️ [CaseManager] Failed to fetch titles: ${response.status}`);
                         }
-                    }).catch(error => {
-                        console.error(`❌ [CaseManager] Error fetching missing titles:`, error);
-                    });
-                } else {
-                    console.log(`✅ [CaseManager] All ${filteredCases.length} titles found in cache - instant display`);
+                    } catch (error) {
+                        console.error(`❌ [CaseManager] Error fetching titles:`, error);
+                        // Continue with suggestions without titles
+                    }
                 }
             };
             
@@ -4587,9 +4632,63 @@ class CaseManager {
                 });
             }
             
-            confirmBtn.addEventListener('click', () => {
+            confirmBtn.addEventListener('click', async () => {
                 const value = input.value.trim();
-                document.body.removeChild(overlay);
+                
+                if (!value) {
+                    return; // Don't proceed if empty
+                }
+                
+                if (isCreating) {
+                    return; // Prevent double-clicks
+                }
+                
+                isCreating = true;
+                
+                // Show loading state on button
+                const originalText = confirmBtn.textContent;
+                confirmBtn.textContent = 'Creating...';
+                confirmBtn.style.opacity = '0.7';
+                confirmBtn.style.cursor = 'not-allowed';
+                confirmBtn.disabled = true;
+                
+                // Disable input and cancel button
+                input.disabled = true;
+                cancelBtn.disabled = true;
+                
+                // Add a subtle loading indicator
+                const loadingIndicator = document.createElement('div');
+                loadingIndicator.id = 'case-creation-loading';
+                loadingIndicator.style.cssText = `
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(255, 255, 255, 0.9);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 10001;
+                    border-radius: 16px;
+                `;
+                loadingIndicator.innerHTML = `
+                    <div style="text-align: center;">
+                        <div style="width: 40px; height: 40px; border: 4px solid #e5e7eb; border-top: 4px solid #41007F; 
+                             border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px;"></div>
+                        <div style="font-size: 16px; font-weight: 600; color: #374151; margin-bottom: 8px;">Creating Case</div>
+                        <div style="font-size: 14px; color: #6b7280;">Adding case ${value}...</div>
+                    </div>
+                    <style>
+                        @keyframes spin {
+                            0% { transform: rotate(0deg); }
+                            100% { transform: rotate(360deg); }
+                        }
+                    </style>
+                `;
+                modal.appendChild(loadingIndicator);
+                
+                // Resolve with the value (this will trigger the case creation)
                 resolve(value);
             });
             
