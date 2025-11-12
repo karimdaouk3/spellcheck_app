@@ -640,7 +640,7 @@ def get_user_cases():
                     "needs_feedback": False  # Will be determined by external CRM check
                 }
                 cases.append(case_info)
-                print(f"📝 [Backend] Case {case_info['case_id']}: status={case_info['case_status']}, title={case_info['case_title'][:50] if case_info['case_title'] else 'None'}...")
+                print(f"📝 [Backend] Case {case_info['case_id']}: title={case_info['case_title'][:50] if case_info['case_title'] else 'None'}...")
         else:
             print("ℹ️ [Backend] No cases found for user")
         
@@ -804,14 +804,6 @@ def get_user_case_data():
                 fsr_notes = row["FSR_NOTES"] or ""
                 line_item_id = row["FSR_LINE_ITEM_ID"]
                 
-                problem_last_updated = row.get("PROBLEM_LAST_UPDATED", "N/A")
-                fsr_last_updated = row.get("FSR_LAST_UPDATED", "N/A")
-                
-                print(f"📊 [Backend] /api/cases/data: Row {idx}: case_id={case_id}, problem_length={len(problem_statement)}, fsr_length={len(fsr_notes)}, line_item_id={line_item_id}")
-                print(f"📊 [Backend] /api/cases/data: Row {idx}: problem_preview={problem_statement[:50]}...")
-                print(f"📊 [Backend] /api/cases/data: Row {idx}: fsr_preview={fsr_notes[:50]}...")
-                print(f"📊 [Backend] /api/cases/data: Row {idx}: problem_last_updated={problem_last_updated}, fsr_last_updated={fsr_last_updated}")
-                
                 if case_id not in case_data:
                     case_data[case_id] = {
                         "caseNumber": case_id,
@@ -820,25 +812,16 @@ def get_user_case_data():
                         "fsrNotes": "",
                         "updatedAt": datetime.utcnow().isoformat() + 'Z'
                     }
-                    print(f"📊 [Backend] /api/cases/data: Created new case_data entry for case_id={case_id}, title={case_title[:50] if case_title and pd.notna(case_title) else 'None'}...")
+                    print(f"📊 [Backend] Case {case_id}: title={case_title[:50] if case_title and pd.notna(case_title) else 'None'}...")
                 
                 # Use the last FSR line item (highest LINE_ITEM_ID)
                 if fsr_notes and (not case_data[case_id]["fsrNotes"] or line_item_id > case_data[case_id].get("lastLineItemId", 0)):
                     case_data[case_id]["fsrNotes"] = fsr_notes
                     case_data[case_id]["lastLineItemId"] = line_item_id
-                    print(f"📊 [Backend] /api/cases/data: Updated FSR notes for case_id={case_id} with line_item_id={line_item_id}")
             
             # Convert to the expected format
             cases = {case_id: data for case_id, data in case_data.items()}
-            print(f"✅ [Backend] Processed {len(cases)} cases with optimized query")
-            
-            # Debug: Print final case data
-            for case_id, data in cases.items():
-                print(f"📊 [Backend] /api/cases/data: Final case {case_id}:")
-                print(f"📊 [Backend] /api/cases/data: - problemStatement_length={len(data['problemStatement'])}")
-                print(f"📊 [Backend] /api/cases/data: - fsrNotes_length={len(data['fsrNotes'])}")
-                print(f"📊 [Backend] /api/cases/data: - problemStatement_preview={data['problemStatement'][:100]}...")
-                print(f"📊 [Backend] /api/cases/data: - fsrNotes_preview={data['fsrNotes'][:100]}...")
+            print(f"✅ [Backend] Processed {len(cases)} cases")
         
         return jsonify({
             "user_id": str(user_id),

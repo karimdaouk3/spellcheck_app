@@ -2985,27 +2985,9 @@ class CaseManager {
                 caseDataResponse.json()
             ]);
             
-            console.log('✅ [CaseManager] User cases response:', userCasesData);
-            console.log('✅ [CaseManager] Case data response:', caseData);
-            console.log('🔍 [CaseManager] Case data keys:', Object.keys(caseData));
-            console.log('🔍 [CaseManager] Cases object type:', typeof caseData.cases);
-            console.log('🔍 [CaseManager] Cases object keys:', Object.keys(caseData.cases || {}));
-            console.log('🔍 [CaseManager] Response timestamp:', caseData.timestamp);
-            console.log('🔍 [CaseManager] Cache bust value:', caseData.cache_bust);
-            
             // Convert backend format to frontend format
             const backendCases = caseData.cases || {};
             console.log(`📊 [CaseManager] Processing ${Object.keys(backendCases).length} cases from database`);
-            
-            // Debug each case in detail
-            for (const [caseId, caseInfo] of Object.entries(backendCases)) {
-                console.log(`🔍 [CaseManager] Case ${caseId} details:`);
-                console.log(`🔍 [CaseManager] - caseNumber: ${caseInfo.caseNumber}`);
-                console.log(`🔍 [CaseManager] - problemStatement length: ${caseInfo.problemStatement ? caseInfo.problemStatement.length : 0}`);
-                console.log(`🔍 [CaseManager] - fsrNotes length: ${caseInfo.fsrNotes ? caseInfo.fsrNotes.length : 0}`);
-                console.log(`🔍 [CaseManager] - problemStatement preview: ${caseInfo.problemStatement ? caseInfo.problemStatement.substring(0, 100) + '...' : 'None'}`);
-                console.log(`🔍 [CaseManager] - fsrNotes preview: ${caseInfo.fsrNotes ? caseInfo.fsrNotes.substring(0, 100) + '...' : 'None'}`);
-            }
             
             this.cases = Object.values(backendCases).map(caseData => {
                 const caseInfo = {
@@ -3019,18 +3001,11 @@ class CaseManager {
                     isTrackedInDatabase: true // All cases from database are tracked
                 };
                 
-                console.log(`📝 [CaseManager] Processed case ${caseInfo.caseNumber}:`, {
-                    caseTitle: caseInfo.caseTitle ? caseInfo.caseTitle.substring(0, 50) + '...' : 'None',
-                    problemStatement: caseInfo.problemStatement.substring(0, 50) + '...',
-                    fsrNotes: caseInfo.fsrNotes.substring(0, 50) + '...',
-                    isTracked: caseInfo.isTrackedInDatabase
-                });
-                
                 return caseInfo;
             });
             
             console.log(`✅ [CaseManager] Successfully loaded ${this.cases.length} cases from database`);
-            console.log(`📊 [CaseManager] Loaded ${this.cases.length} cases:`, this.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber, caseTitle: c.caseTitle, problemLength: c.problemStatement.length })));
+            console.log(`📊 [CaseManager] Case titles from DB:`, this.cases.map(c => ({ caseNumber: c.caseNumber, caseTitle: c.caseTitle })));
             
             // Only load CRM data for cases that don't have titles in the database
             const casesNeedingTitles = this.cases.filter(caseData => caseData.caseNumber && !caseData.caseTitle);
@@ -3999,9 +3974,6 @@ class CaseManager {
     
     
     renderCasesList() {
-        console.log('🔄 [CaseManager] renderCasesList() called');
-        console.log('🔍 [CaseManager] Cases to render:', this.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber, caseTitle: c.caseTitle })));
-        console.log('🔍 [CaseManager] Cases count:', this.cases.length);
         
         const casesList = document.getElementById('cases-list');
         if (!casesList) {
@@ -4010,14 +3982,11 @@ class CaseManager {
         }
         
         casesList.innerHTML = '';
-        console.log('🔄 [CaseManager] Cleared cases list HTML');
         
         // Sort cases by case number descending (highest first)
         const sortedCases = [...this.cases].sort((a, b) => b.caseNumber - a.caseNumber);
-        console.log('🔄 [CaseManager] Cases sorted by case number (descending)');
         
         sortedCases.forEach(caseData => {
-            console.log(`🔄 [CaseManager] Rendering case: ${caseData.caseNumber} (ID: ${caseData.id})`);
             const caseItem = document.createElement('div');
             caseItem.className = `case-item ${this.currentCase && this.currentCase.id === caseData.id ? 'active' : ''}`;
             
