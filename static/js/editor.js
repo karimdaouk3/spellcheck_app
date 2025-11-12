@@ -3358,9 +3358,6 @@ class CaseManager {
             return;
         }
         
-        // Show loading indicator immediately
-        this.showCaseLoadingIndicator('Creating Case...');
-        
         // Try to create case in database first
         try {
             console.log(`🚀 [CaseManager] Attempting to create case ${caseNumberValue} in database...`);
@@ -3386,13 +3383,13 @@ class CaseManager {
                 if (createData.warning) {
                     console.log(`⚠️ [CaseManager] CRM warning for case ${caseNumberValue}:`, createData.warning);
                     
-                    // Show title prompt for untracked case
+                    // Show title prompt for untracked case (no loading indicator for untracked)
                     const caseTitleInput = await this.showUntrackedCasePrompt(caseNumberValue);
                     
                     if (caseTitleInput === null) {
                         // User cancelled - remove the case we just created
                         await fetch(`/api/cases/delete/${caseNumberValue}`, { method: 'DELETE' });
-                        return;
+                        return; // Exit early
                     }
                     
                     // User provided a title (or left it empty)
@@ -3433,20 +3430,20 @@ class CaseManager {
                         });
                     }
                     
-                    return; // Exit early, case is already created
+                    return; // Exit early - untracked case is already created and shown
                 }
             } else if (createResponse.status === 409) {
                 // Case already exists - this is actually good, means it's tracked
                 console.log(`ℹ️ [CaseManager] Case ${caseNumberValue} already exists in database (tracked)`);
             } else {
-                // Case creation failed - treat as untracked
+                // Case creation failed - treat as untracked (no loading indicator)
                 console.log(`⚠️ [CaseManager] Failed to create case ${caseNumberValue} in database:`, createResponse.status);
                 
                 const caseTitleInput = await this.showUntrackedCasePrompt(caseNumberValue);
                 
                 if (caseTitleInput === null) {
                     // User cancelled
-                    return;
+                    return; // Exit early
                 }
                 
                 // User provided a title (or left it empty)
@@ -3478,8 +3475,11 @@ class CaseManager {
                 }
                 
                 console.log(`✅ [CaseManager] Untracked case ${caseNumberValue} added to sidebar`);
-                return; // Exit early
+                return; // Exit early - untracked case is already created and shown
             }
+            
+            // If we reach here, it's a tracked CRM case - show loading indicator
+            this.showCaseLoadingIndicator('Loading Case Details...');
             
         // Create the case (either tracked or untracked)
         const newCase = {
@@ -3544,9 +3544,6 @@ class CaseManager {
                 } finally {
                     this.hideCaseLoadingIndicator();
                 }
-            } else {
-                // For untracked cases, just hide the loading indicator
-                this.hideCaseLoadingIndicator();
             }
             
             // Close mobile sidebar
@@ -3559,6 +3556,7 @@ class CaseManager {
             
         } catch (error) {
             console.error('❌ [CaseManager] Error creating case:', error);
+            // Only hide loading if it was shown (for tracked cases)
             this.hideCaseLoadingIndicator();
             await this.showCustomAlert('Error', 'Error creating case. Please try again.');
         }
