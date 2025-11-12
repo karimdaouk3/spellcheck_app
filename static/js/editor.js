@@ -4867,6 +4867,10 @@ class CaseManager {
             const cleanup = () => {
                 popup.style.display = 'none';
                 popupMessage.innerHTML = '<p></p>';
+                popupTitle.style.color = '';
+                popupConfirm.style.background = '';
+                popupConfirm.style.fontWeight = '';
+                popupConfirm.textContent = 'Confirm';
                 popupConfirm.removeEventListener('click', handleConfirm);
                 popupClose.removeEventListener('click', handleClose);
                 popupCancel.removeEventListener('click', handleCancel);
