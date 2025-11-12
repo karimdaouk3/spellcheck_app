@@ -1164,10 +1164,10 @@ def get_available_case_numbers(user_email, search_query="", limit=10):
             # Base query with email restriction - STRICTLY filter by user email
             # The USER_EMAILS column contains emails in format: ~EMAIL1~EMAIL2~EMAIL3~
             # We use LIKE pattern %~EMAIL~% to match emails in the delimited list
-        base_query = """
-            SELECT DISTINCT "Case Number" as CASE_NUMBER
-            FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
-            WHERE "Case Number" IS NOT NULL
+            base_query = """
+                SELECT DISTINCT "Case Number" as CASE_NUMBER
+                FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
+                WHERE "Case Number" IS NOT NULL
                 AND "USER_EMAILS" LIKE %s
             """
             query_params = [like_pattern]
