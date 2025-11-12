@@ -3405,6 +3405,13 @@ class CaseManager {
             
             console.log(`✅ [CaseManager] Case ${caseNumberValue} created successfully`);
             
+            // Remove loading state if still present
+            const caseIndex = this.cases.findIndex(c => c.caseNumber === caseNumberValue);
+            if (caseIndex !== -1 && this.cases[caseIndex].isLoading) {
+                this.cases[caseIndex].isLoading = false;
+                this.renderCasesList();
+            }
+            
         } catch (error) {
             console.error('❌ [CaseManager] Error creating case:', error);
             
