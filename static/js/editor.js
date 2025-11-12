@@ -1331,6 +1331,9 @@ class LanguageToolEditor {
                             }
                         }
                         
+                        // Mark LLM as no longer in progress since it completed
+                        originalCase.editorStates[field].llmInProgress = false;
+                        
                         // Update the case's text with the new content if it's a rewrite
                         if (answers && data.result && data.result.rewrite) {
                             const fieldName = field === 'editor' ? 'problemStatement' : 'fsrNotes';
@@ -3990,6 +3993,7 @@ class CaseManager {
             
             // UI state
             isCollapsed: window.spellCheckEditor.evalCollapsed ? window.spellCheckEditor.evalCollapsed[fieldName] : true,
+            llmInProgress: field.llmInProgress || false, // Save if LLM is in progress
             
             // Line item tracking
             lineItemId: field.lineItemId,
@@ -4001,7 +4005,8 @@ class CaseManager {
             has_llmResult: !!state.llmLastResult,
             history_count: state.history.length,
             calculatedScore: state.calculatedScore,
-            userInputId: state.userInputId
+            userInputId: state.userInputId,
+            llmInProgress: state.llmInProgress
         });
         
         return state;
@@ -4028,7 +4033,8 @@ class CaseManager {
             text_length: state.text ? state.text.length : 0,
             has_llmResult: !!state.llmLastResult,
             history_count: state.history ? state.history.length : 0,
-            calculatedScore: state.calculatedScore
+            calculatedScore: state.calculatedScore,
+            llmInProgress: state.llmInProgress
         });
         
         // Restore text content
@@ -4067,6 +4073,15 @@ class CaseManager {
         // Restore line item tracking
         field.lineItemId = state.lineItemId || 1;
         field.problemVersionId = state.problemVersionId || 1;
+        
+        // Restore LLM in-progress state and button animation
+        field.llmInProgress = state.llmInProgress || false;
+        if (state.llmInProgress) {
+            console.log(`🔄 [CaseManager] LLM is still in progress for ${fieldName}, restoring button animation`);
+            // Determine if this is a review or rewrite based on whether we have questions
+            const isRewrite = state.lastRewriteQA && Object.keys(state.lastRewriteQA).length > 0;
+            window.spellCheckEditor.updateButtonState(fieldName, isRewrite ? 'rewriting' : 'reviewing');
+        }
         
         // Re-render evaluation if we have results
         if (state.llmLastResult) {
