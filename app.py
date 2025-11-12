@@ -1009,8 +1009,10 @@ def get_case_details_endpoint(case_number):
 def get_case_titles_batch_endpoint():
     """
     Get case titles for multiple case numbers at once.
-    First checks database, then falls back to CRM if not found.
-    Updates database with titles fetched from CRM.
+    
+    For suggestions (crm_only=True): Fetches titles from CRM only, no database check.
+    For sidebar cases (crm_only=False): First checks database, then falls back to CRM if not found.
+    Updates database with titles fetched from CRM (only if update_db=True and case exists in DB).
     Returns a map of case_number -> case_title.
     """
     user_data = session.get('user_data')
@@ -1024,14 +1026,24 @@ def get_case_titles_batch_endpoint():
     try:
         data = request.get_json()
         case_numbers = data.get('case_numbers', [])
+        crm_only = data.get('crm_only', False)  # For suggestions, skip database check
         update_db = data.get('update_db', True)  # Default to updating DB
         
         if not case_numbers:
             return jsonify({"success": True, "titles": {}})
         
-        print(f"🔍 [Backend] Getting titles for {len(case_numbers)} cases")
+        if crm_only:
+            print(f"🔍 [Backend] Getting titles for {len(case_numbers)} cases from CRM ONLY (for suggestions)")
+            # For suggestions, fetch directly from CRM without database check
+            crm_titles = get_case_titles_batch(case_numbers, user_email_upper)
+            return jsonify({
+                "success": True,
+                "titles": crm_titles
+            })
         
-        # First, try to get titles from database
+        print(f"🔍 [Backend] Getting titles for {len(case_numbers)} cases (checking database first)")
+        
+        # First, try to get titles from database (for sidebar cases)
         case_list = "', '".join(str(case) for case in case_numbers)
         db_query = f"""
             SELECT CASE_ID, CASE_TITLE
@@ -1064,10 +1076,11 @@ def get_case_titles_batch_endpoint():
             for case_num, title in crm_titles.items():
                 titles[case_num] = title
             
-            # Update database with titles from CRM if requested
+            # Update database with titles from CRM if requested (only for cases that exist in DB)
             if update_db and crm_titles:
                 for case_num, title in crm_titles.items():
                     try:
+                        # Only update if case exists in database for this user
                         update_query = f"""
                             UPDATE {DATABASE}.{SCHEMA}.CASE_SESSIONS
                             SET CASE_TITLE = %s, CRM_LAST_SYNC_TIME = CURRENT_TIMESTAMP()

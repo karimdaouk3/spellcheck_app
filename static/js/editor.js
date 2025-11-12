@@ -3659,12 +3659,18 @@ class CaseManager {
                 console.log(`📝 [CaseManager] - Symptom: ${latestSymptom?.substring(0, 100)}...`);
                 
                 // Store the case title for display in sidebar (use Case Title field, not symptom)
+                // Only update if title doesn't already exist (don't overwrite database titles)
                 if (caseTitle && caseTitle.trim()) {
                     // Find the case in our cases array and update it with the case title
                     const caseIndex = this.cases.findIndex(c => c.caseNumber == caseNumber);
                     if (caseIndex !== -1) {
-                        this.cases[caseIndex].caseTitle = caseTitle.trim();
-                        console.log(`📝 [CaseManager] Updated case ${caseNumber} with title: ${caseTitle.trim()}`);
+                        // Only update if case doesn't already have a title (preserve database titles)
+                        if (!this.cases[caseIndex].caseTitle) {
+                            this.cases[caseIndex].caseTitle = caseTitle.trim();
+                            console.log(`📝 [CaseManager] Updated case ${caseNumber} with title from CRM: ${caseTitle.trim()}`);
+                        } else {
+                            console.log(`📝 [CaseManager] Case ${caseNumber} already has title from database, keeping: ${this.cases[caseIndex].caseTitle}`);
+                        }
                     }
                 }
                 
@@ -4392,7 +4398,7 @@ class CaseManager {
                 // Display suggestions immediately (with "Available in CRM" placeholder)
                 displaySuggestions();
                 
-                // Fetch titles for filtered cases in background
+                // Fetch titles for filtered cases in background (from CRM only, for suggestions)
                 if (filteredCases.length > 0) {
                     try {
                         const response = await fetch('/api/cases/titles', {
@@ -4401,7 +4407,9 @@ class CaseManager {
                                 'Content-Type': 'application/json'
                             },
                             body: JSON.stringify({
-                                case_numbers: filteredCases
+                                case_numbers: filteredCases,
+                                crm_only: true,  // For suggestions, fetch from CRM only (no database check)
+                                update_db: false  // Don't update database for suggestions
                             })
                         });
                         
