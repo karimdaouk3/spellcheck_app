@@ -206,8 +206,10 @@ def check_external_crm_status_batch(case_ids, user_email=None):
     # Only query database for uncached cases
     if uncached_cases:
         try:
-            # If user_email is provided, validate that cases belong to the user first
-            if user_email:
+            email_filtering = is_email_filtering_enabled()
+            
+            # If email filtering is enabled and user_email is provided, validate that cases belong to the user first
+            if email_filtering and user_email:
                 user_email_upper = user_email.upper()
                 like_pattern = f"%~{user_email_upper}~%"
                 
@@ -221,7 +223,7 @@ def check_external_crm_status_batch(case_ids, user_email=None):
                     AND "Case Number" IN ('{case_list}')
                 """
                 
-                print(f"🔍 [CRM] Validating {len(uncached_cases)} cases belong to user {user_email_upper}")
+                print(f"🔍 [CRM] Validating {len(uncached_cases)} cases belong to user {user_email_upper} (EMAIL FILTERING ENABLED)")
                 validated_result = snowflake_query(validation_query, CONNECTION_PAYLOAD, (like_pattern,))
                 
                 if validated_result is not None and not validated_result.empty:
@@ -234,6 +236,8 @@ def check_external_crm_status_batch(case_ids, user_email=None):
                     for case_id in uncached_cases:
                         status_map[case_id] = "unknown"
                     return status_map
+            elif not email_filtering:
+                print(f"🔓 [CRM] EMAIL FILTERING DISABLED: Checking status for all {len(uncached_cases)} cases")
             
             if not uncached_cases:
                 return status_map
@@ -538,7 +542,32 @@ def current_user():
         "first_name": info.get("first_name"),
         "last_name": info.get("last_name"),
         "email": email,
-        "employee_id": info.get("employee_id")
+        "employee_id": info.get("employee_id"),
+        "crm_email_filtering": session.get('crm_email_filtering', True)
+    })
+
+@app.route('/api/crm/toggle-email-filtering', methods=['POST'])
+def toggle_email_filtering():
+    """
+    Toggle email filtering for CRM queries.
+    POST body: {"enabled": true/false}
+    """
+    user_data = session.get('user_data')
+    if not user_data:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    data = request.get_json() or {}
+    enabled = data.get('enabled', True)
+    
+    session['crm_email_filtering'] = bool(enabled)
+    
+    status = "ENABLED" if enabled else "DISABLED"
+    print(f"🔓 [CRM] Email filtering {status} for user {user_data.get('email')}")
+    
+    return jsonify({
+        "success": True,
+        "email_filtering_enabled": enabled,
+        "message": f"Email filtering {status.lower()}"
     })
 
 # ==================== MOCK CASE MANAGEMENT ENDPOINTS ====================
