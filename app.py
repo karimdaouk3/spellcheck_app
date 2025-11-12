@@ -1061,11 +1061,30 @@ def update_case_title():
         case_number = data.get('case_number')
         case_title = data.get('case_title')
         
+        print(f"📥 [Backend] /api/cases/update-title: Received request to update case {case_number}")
+        print(f"📥 [Backend] Case title to save: {case_title[:100] if case_title else 'None'}...")
+        print(f"📥 [Backend] User ID: {user_id}")
+        
         if not case_number:
             return jsonify({"error": "Case number required"}), 400
         
         if case_title is None:
             return jsonify({"error": "Case title required"}), 400
+        
+        # First, verify the case exists for this user
+        check_query = f"""
+            SELECT CASE_ID, CASE_TITLE 
+            FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+            WHERE CASE_ID = %s AND CREATED_BY_USER = %s
+        """
+        check_result = snowflake_query(check_query, CONNECTION_PAYLOAD, (case_number, user_id))
+        
+        if check_result is None or check_result.empty:
+            print(f"❌ [Backend] Case {case_number} not found for user {user_id}")
+            return jsonify({"error": "Case not found"}), 404
+        
+        old_title = check_result.iloc[0]['CASE_TITLE']
+        print(f"📊 [Backend] Current title in database: {old_title[:50] if old_title and pd.notna(old_title) else 'None'}...")
         
         # Update case title in database
         update_query = f"""
@@ -1073,11 +1092,17 @@ def update_case_title():
             SET CASE_TITLE = %s, CRM_LAST_SYNC_TIME = CURRENT_TIMESTAMP()
             WHERE CASE_ID = %s AND CREATED_BY_USER = %s
         """
+        print(f"🔄 [Backend] Executing UPDATE query...")
         snowflake_query(update_query, CONNECTION_PAYLOAD, 
                        (case_title, case_number, user_id), 
                        return_df=False)
         
-        print(f"✅ [Backend] Updated case {case_number} title: {case_title[:50]}...")
+        # Verify the update
+        verify_result = snowflake_query(check_query, CONNECTION_PAYLOAD, (case_number, user_id))
+        if verify_result is not None and not verify_result.empty:
+            new_title = verify_result.iloc[0]['CASE_TITLE']
+            print(f"✅ [Backend] Updated case {case_number} title successfully")
+            print(f"✅ [Backend] New title in database: {new_title[:50] if new_title and pd.notna(new_title) else 'None'}...")
         
         return jsonify({
             "success": True,
