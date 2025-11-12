@@ -3030,7 +3030,7 @@ class CaseManager {
             });
             
             console.log(`✅ [CaseManager] Successfully loaded ${this.cases.length} cases from database`);
-            console.log(`📊 [CaseManager] Loaded ${this.cases.length} cases:`, this.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber, problemLength: c.problemStatement.length })));
+            console.log(`📊 [CaseManager] Loaded ${this.cases.length} cases:`, this.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber, caseTitle: c.caseTitle, problemLength: c.problemStatement.length })));
             
             // Load CRM data for all cases in parallel to get case titles
             console.log('🔍 [CaseManager] Loading CRM data for all cases in parallel to get titles...');
@@ -3040,6 +3040,11 @@ class CaseManager {
             
             await Promise.all(crmLoadPromises);
             console.log(`✅ [CaseManager] Loaded CRM data for ${crmLoadPromises.length} cases in parallel`);
+            console.log(`📊 [CaseManager] Cases after CRM load:`, this.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber, caseTitle: c.caseTitle })));
+            
+            // Wait a moment for async saves to complete
+            await new Promise(resolve => setTimeout(resolve, 500));
+            console.log(`⏱️ [CaseManager] Waited for case title saves to complete`);
             
             // Re-render to show updated case titles
             this.renderCasesList();

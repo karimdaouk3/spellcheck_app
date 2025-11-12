@@ -1405,73 +1405,6 @@ def get_case_titles_batch(case_numbers, user_email=None):
         traceback.print_exc()
         return {}
 
-# ==================== DATABASE MIGRATIONS ====================
-
-def add_case_title_column(database, schema, connection_payload, prod_payload):
-    """
-    Add CASE_TITLE column to CASE_SESSIONS table if it doesn't exist.
-    Runs for both DEV and PROD databases.
-    
-    Args:
-        database: Database name for DEV
-        schema: Schema name for DEV
-        connection_payload: Connection payload for DEV database
-        prod_payload: Connection payload for PROD database
-    """
-    # Check and add for DEV database (CONNECTION_PAYLOAD)
-    print("🔧 [Migration] Checking if CASE_TITLE column exists in DEV CASE_SESSIONS table...")
-    try:
-        check_query = f"""
-            SELECT COLUMN_NAME 
-            FROM {database}.INFORMATION_SCHEMA.COLUMNS 
-            WHERE TABLE_SCHEMA = '{schema}' 
-            AND TABLE_NAME = 'CASE_SESSIONS' 
-            AND COLUMN_NAME = 'CASE_TITLE'
-        """
-        result = snowflake_query(check_query, connection_payload)
-        
-        if result is None or result.empty:
-            print("➕ [Migration] CASE_TITLE column does not exist in DEV. Adding it now...")
-            alter_query = f"""
-                ALTER TABLE {database}.{schema}.CASE_SESSIONS 
-                ADD COLUMN CASE_TITLE VARCHAR(500)
-            """
-            snowflake_query(alter_query, connection_payload, return_df=False)
-            print("✅ [Migration] Successfully added CASE_TITLE column to DEV CASE_SESSIONS table")
-        else:
-            print("✅ [Migration] CASE_TITLE column already exists in DEV CASE_SESSIONS table")
-    except Exception as e:
-        print(f"⚠️ [Migration] Error checking/adding CASE_TITLE in DEV: {e}")
-    
-    # Check and add for PROD database (PROD_PAYLOAD)
-    print("🔧 [Migration] Checking if CASE_TITLE column exists in PROD CASE_SESSIONS table...")
-    try:
-        # For PROD, use GEAR.INSIGHTS schema
-        prod_database = "GEAR"
-        prod_schema = "INSIGHTS"
-        
-        check_query = f"""
-            SELECT COLUMN_NAME 
-            FROM {prod_database}.INFORMATION_SCHEMA.COLUMNS 
-            WHERE TABLE_SCHEMA = '{prod_schema}' 
-            AND TABLE_NAME = 'CASE_SESSIONS' 
-            AND COLUMN_NAME = 'CASE_TITLE'
-        """
-        result = snowflake_query(check_query, prod_payload)
-        
-        if result is None or result.empty:
-            print("➕ [Migration] CASE_TITLE column does not exist in PROD. Adding it now...")
-            alter_query = f"""
-                ALTER TABLE {prod_database}.{prod_schema}.CASE_SESSIONS 
-                ADD COLUMN CASE_TITLE VARCHAR(500)
-            """
-            snowflake_query(alter_query, prod_payload, return_df=False)
-            print("✅ [Migration] Successfully added CASE_TITLE column to PROD CASE_SESSIONS table")
-        else:
-            print("✅ [Migration] CASE_TITLE column already exists in PROD CASE_SESSIONS table")
-    except Exception as e:
-        print(f"⚠️ [Migration] Error checking/adding CASE_TITLE in PROD: {e}")
-
 # ==================== END MOCK ENDPOINTS ====================
 
 @app.before_request
@@ -3626,14 +3559,6 @@ if __name__ == "__main__":
         SCHEMA = f"DEV_{SCHEMA}"
     print(f"SSO Enabled: {app.config['ENABLE_SSO']}")
     print(f"Development Mode Enabled: {app.config['DEV_MODE']}")
-    
-    # Run database migrations
-    print("\n" + "="*80)
-    print("🔧 Running database migrations...")
-    print("="*80)
-    add_case_title_column(DATABASE, SCHEMA, CONNECTION_PAYLOAD, PROD_PAYLOAD)
-    print("="*80)
-    print("✅ Database migrations completed\n")
     
     app.run(host='127.0.0.1', port=8055)
 
