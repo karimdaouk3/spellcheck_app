@@ -1192,8 +1192,10 @@ def check_case_status_batch(case_numbers, user_email=None):
         if not case_numbers:
             return {}
         
-        # If user_email is provided, validate that cases belong to the user first
-        if user_email:
+        email_filtering = is_email_filtering_enabled()
+        
+        # If email filtering is enabled and user_email is provided, validate that cases belong to the user first
+        if email_filtering and user_email:
             user_email_upper = user_email.upper()
             like_pattern = f"%~{user_email_upper}~%"
             
@@ -1207,7 +1209,7 @@ def check_case_status_batch(case_numbers, user_email=None):
                 AND "Case Number" IN ('{case_list}')
             """
             
-            print(f"🔍 [CRM] Validating cases belong to user {user_email_upper}")
+            print(f"🔍 [CRM] Validating cases belong to user {user_email_upper} (EMAIL FILTERING ENABLED)")
             validated_result = snowflake_query(validation_query, CONNECTION_PAYLOAD, (like_pattern,))
             
             if validated_result is not None and not validated_result.empty:
@@ -1218,6 +1220,8 @@ def check_case_status_batch(case_numbers, user_email=None):
             else:
                 print(f"⚠️ [CRM] No cases validated for user {user_email_upper}, returning empty status")
                 return {case_num: 'unknown' for case_num in case_numbers}
+        elif not email_filtering:
+            print(f"🔓 [CRM] EMAIL FILTERING DISABLED: Checking status for all {len(case_numbers)} cases")
         
         if not case_numbers:
             return {}
@@ -1332,8 +1336,10 @@ def get_case_titles_batch(case_numbers, user_email=None):
         if not case_numbers:
             return {}
         
-        # If user_email is provided, validate that all cases belong to the user first
-        if user_email:
+        email_filtering = is_email_filtering_enabled()
+        
+        # If email filtering is enabled and user_email is provided, validate that all cases belong to the user first
+        if email_filtering and user_email:
             user_email_upper = user_email.upper()
             like_pattern = f"%~{user_email_upper}~%"
             
@@ -1347,7 +1353,7 @@ def get_case_titles_batch(case_numbers, user_email=None):
                 AND "Case Number" IN ('{case_list}')
             """
             
-            print(f"🔍 [CRM] Validating {len(case_numbers)} cases belong to user {user_email_upper}")
+            print(f"🔍 [CRM] Validating {len(case_numbers)} cases belong to user {user_email_upper} (EMAIL FILTERING ENABLED)")
             validated_result = snowflake_query(validation_query, CONNECTION_PAYLOAD, (like_pattern,))
             
             if validated_result is not None and not validated_result.empty:
@@ -1358,6 +1364,8 @@ def get_case_titles_batch(case_numbers, user_email=None):
             else:
                 print(f"⚠️ [CRM] No cases validated for user {user_email_upper}, returning empty titles")
                 return {}
+        elif not email_filtering:
+            print(f"🔓 [CRM] EMAIL FILTERING DISABLED: Getting titles for all {len(case_numbers)} cases")
         
         if not case_numbers:
             return {}
