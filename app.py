@@ -50,13 +50,13 @@ def get_user_email_for_crm():
     For SSO mode: Uses the actual SSO user email (already normalized to uppercase)
     For non-SSO mode: Uses DEFAULT_TEST_EMAIL (PRUTHVI.VENKATASEERAMREDDI@KLA.COM)
     """
-        user_data = session.get('user_data')
-        if not user_data:
+    user_data = session.get('user_data')
+    if not user_data:
         print(f"⚠️ [CRM] No user data in session (non-SSO mode), using default test email: {DEFAULT_TEST_EMAIL}")
         return DEFAULT_TEST_EMAIL.upper()
-        
-        user_email = user_data.get('email', '')
-        if not user_email:
+    
+    user_email = user_data.get('email', '')
+    if not user_email:
         print(f"⚠️ [CRM] No email in user data (non-SSO mode), using default test email: {DEFAULT_TEST_EMAIL}")
         return DEFAULT_TEST_EMAIL.upper()
     
@@ -102,14 +102,14 @@ def check_external_crm_exists(case_number):
         
         if email_filtering:
             print(f"🔍 [CRM] Checking if case {case_number} exists for user {user_email_upper} (EMAIL FILTERING ENABLED)")
-        like_pattern = f"%~{user_email_upper}~%"
-        query = """
-            SELECT DISTINCT "Case Number"
-            FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
-            WHERE "Case Number" IS NOT NULL
-            AND "Case Number" = %s
-            AND "USER_EMAILS" LIKE %s
-        """
+            like_pattern = f"%~{user_email_upper}~%"
+            query = """
+                SELECT DISTINCT "Case Number"
+                FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
+                WHERE "Case Number" IS NOT NULL
+                AND "Case Number" = %s
+                AND "USER_EMAILS" LIKE %s
+            """
             query_params = (case_number_str, like_pattern)
         else:
             print(f"🔍 [CRM] Checking if case {case_number} exists (EMAIL FILTERING DISABLED - ALL CASES)")
