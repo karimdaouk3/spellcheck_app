@@ -2997,35 +2997,14 @@ class CaseManager {
             const backendCases = caseData.cases || {};
             console.log(`📊 [CaseManager] Processing ${Object.keys(backendCases).length} cases from database`);
             
-            // Get case numbers for batch title fetch
-            const caseNumbers = Object.values(backendCases).map(c => c.caseNumber).filter(Boolean);
-            
-            // Load existing cases from localStorage to preserve titles
+            // Load existing cases from localStorage to preserve titles (fallback only)
             const storageKey = `fsr-cases-${this.userId}`;
             const savedCasesStr = localStorage.getItem(storageKey);
             const savedCases = savedCasesStr ? JSON.parse(savedCasesStr) : [];
             const savedCasesMap = new Map(savedCases.map(c => [c.caseNumber, c]));
             
-            // Fetch case titles in batch BEFORE creating case objects
-            let caseTitles = {};
-            if (caseNumbers.length > 0) {
-                try {
-                    console.log(`🔍 [CaseManager] Fetching titles for ${caseNumbers.length} cases in batch...`);
-                    const titlesResponse = await fetch('/api/cases/titles', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ case_numbers: caseNumbers })
-                    });
-                    
-                    if (titlesResponse.ok) {
-                        const titlesData = await titlesResponse.json();
-                        caseTitles = titlesData.titles || {};
-                        console.log(`✅ [CaseManager] Fetched ${Object.keys(caseTitles).length} case titles`);
-                    }
-                } catch (error) {
-                    console.error(`❌ [CaseManager] Error fetching case titles:`, error);
-                }
-            }
+            // Titles should come from database (caseData.caseTitle), no need to batch fetch
+            // Database already includes titles from /api/cases/data endpoint
             
             // Debug each case in detail
             for (const [caseId, caseInfo] of Object.entries(backendCases)) {
@@ -3041,10 +3020,9 @@ class CaseManager {
                 const caseNumber = caseData.caseNumber;
                 const savedCase = savedCasesMap.get(caseNumber);
                 
-                // Get title from: 1) database (caseData.caseTitle), 2) batch fetch, 3) saved localStorage, 4) null
+                // Get title from: 1) database (caseData.caseTitle), 2) saved localStorage (fallback), 3) null
+                // Database is the primary source - titles are stored when cases are created
                 const caseTitle = caseData.caseTitle || 
-                                 caseTitles[String(caseNumber)] || 
-                                 caseTitles[caseNumber] || 
                                  (savedCase && savedCase.caseTitle) || 
                                  null;
                 
