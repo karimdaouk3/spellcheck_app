@@ -2501,6 +2501,12 @@ class CaseManager {
         this.hideLoadingIndicator();
         console.log('✅ Site is now usable - database cases loaded');
         
+        // Check if there are no cases and show placeholder if needed
+        if (this.cases.length === 0) {
+            console.log('📄 [CaseManager] No cases found on init, showing no cases placeholder');
+            this.clearAllEditorsAndUI();
+        }
+        
         // Step 3: Preload CRM cases in background (slow - don't block UI)
         // This happens after the site is usable, so user doesn't wait
         this.preloadCaseSuggestions().then(() => {
