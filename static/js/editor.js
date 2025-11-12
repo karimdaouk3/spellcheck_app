@@ -1241,6 +1241,11 @@ class LanguageToolEditor {
                     console.log(`⚠️ [LLM] No active case, using UUID: ${body.case_id}`);
                 }
             }
+            
+            // Capture the case number that this LLM call is for
+            const llmCallCaseNumber = body.case_id;
+            console.log(`🔒 [LLM] Locking LLM call to case: ${llmCallCaseNumber}`);
+            
             const fetchStart = performance.now();
             const response = await fetch('/llm', {
                 method: 'POST',
@@ -1269,6 +1274,86 @@ class LanguageToolEditor {
                     });
                 }
             }
+            // Check if the user is still on the same case
+            const currentCaseNumber = this.caseManager && this.caseManager.currentCase 
+                ? this.caseManager.currentCase.caseNumber 
+                : null;
+            const isSameCase = currentCaseNumber === llmCallCaseNumber;
+            
+            console.log(`🔍 [LLM] Response received - Original case: ${llmCallCaseNumber}, Current case: ${currentCaseNumber}, Same: ${isSameCase}`);
+            
+            if (!isSameCase) {
+                // User switched to a different case - save results to the original case but don't display
+                console.log(`⚠️ [LLM] User switched cases during LLM call. Saving results to case ${llmCallCaseNumber} without displaying.`);
+                
+                // Find the original case in the case manager
+                if (window.caseManager) {
+                    const originalCase = window.caseManager.cases.find(c => c.caseNumber === llmCallCaseNumber);
+                    if (originalCase) {
+                        // Save the LLM result to that case's editor state
+                        if (!originalCase.editorStates) {
+                            originalCase.editorStates = {};
+                        }
+                        if (!originalCase.editorStates[field]) {
+                            originalCase.editorStates[field] = {};
+                        }
+                        
+                        // Store the result in the case's editor state
+                        originalCase.editorStates[field].llmLastResult = data.result;
+                        originalCase.editorStates[field].llmQuestions = data.result && data.result.questions ? data.result.questions : [];
+                        originalCase.editorStates[field].llmAnswers = answers || {};
+                        
+                        // Store IDs
+                        if (data.result && data.result.user_input_id) {
+                            originalCase.editorStates[field].userInputId = data.result.user_input_id;
+                        }
+                        if (data.result && data.result.rewrite_uuid) {
+                            originalCase.editorStates[field].rewriteUuid = data.result.rewrite_uuid;
+                        }
+                        if (data.result && data.result.evaluation_id) {
+                            originalCase.editorStates[field].evaluationId = data.result.evaluation_id;
+                            originalCase.lastEvaluationId = data.result.evaluation_id;
+                        }
+                        
+                        // Store calculated score
+                        if (!answers) {
+                            const evaluation = data.result && data.result.evaluation ? data.result.evaluation : {};
+                            const calculatedScore = this.calculateWeightedScore(field, evaluation);
+                            originalCase.editorStates[field].calculatedScore = calculatedScore;
+                        }
+                        
+                        // Store rewrite state
+                        if (answers) {
+                            originalCase.editorStates[field].rewrittenSnapshot = text; // Store the rewritten text
+                            originalCase.editorStates[field].lastRewriteQA = answers;
+                            if (Array.isArray(data.result && data.result.user_inputs)) {
+                                originalCase.editorStates[field].lastRewriteUserInputs = data.result.user_inputs;
+                            }
+                        }
+                        
+                        // Update the case's text with the new content if it's a rewrite
+                        if (answers && data.result && data.result.rewrite) {
+                            const fieldName = field === 'editor' ? 'problemStatement' : 'fsrNotes';
+                            originalCase[fieldName] = data.result.rewrite;
+                        }
+                        
+                        // Save to localStorage
+                        window.caseManager.saveCases();
+                        console.log(`✅ [LLM] Results saved to case ${llmCallCaseNumber} for later viewing`);
+                    } else {
+                        console.warn(`⚠️ [LLM] Could not find case ${llmCallCaseNumber} to save results`);
+                    }
+                }
+                
+                // Reset the field's loading state but don't display anything
+                fieldObj.llmInProgress = false;
+                this.resetButtonState(field);
+                return; // Exit early - don't display results
+            }
+            
+            // User is still on the same case - display results normally
+            console.log(`✅ [LLM] User still on same case. Displaying results.`);
+            
             fieldObj.llmLastResult = data.result;
             // Capture IDs returned from backend for coordination (no DB lookups)
             if (data.result && data.result.user_input_id) {
