@@ -40,7 +40,7 @@ DEFAULT_TEST_EMAIL = "PRUTHVI.VENKATASEERAMREDDI@KLA.COM"
 # Email filtering toggle for CRM queries
 # Set to False to disable email filtering (returns all cases from CRM)
 # Set to True to enable email filtering (only returns cases matching user email)
-CRM_EMAIL_FILTERING_ENABLED = False  # Disabled by default for testing
+CRM_EMAIL_FILTERING_ENABLED = False  # Set to False for testing (no email filtering)
 
 def get_user_email_for_crm():
     """
@@ -215,10 +215,10 @@ def check_external_crm_status_batch(case_ids, user_email=None):
             uncached_cases.append(case_id)
     
     # Only query database for uncached cases
-        if uncached_cases:
-            try:
-                # If email filtering is enabled and user_email is provided, validate that cases belong to the user first
-                if CRM_EMAIL_FILTERING_ENABLED and user_email:
+    if uncached_cases:
+        try:
+            # If user_email is provided, validate that cases belong to the user first
+            if user_email:
                 user_email_upper = user_email.upper()
                 like_pattern = f"%~{user_email_upper}~%"
                 
@@ -232,7 +232,7 @@ def check_external_crm_status_batch(case_ids, user_email=None):
                     AND "Case Number" IN ('{case_list}')
                 """
                 
-                print(f"🔍 [CRM] Validating {len(uncached_cases)} cases belong to user {user_email_upper} (EMAIL FILTERING ENABLED)")
+                print(f"🔍 [CRM] Validating {len(uncached_cases)} cases belong to user {user_email_upper}")
                 validated_result = snowflake_query(validation_query, CONNECTION_PAYLOAD, (like_pattern,))
                 
                 if validated_result is not None and not validated_result.empty:
@@ -245,8 +245,6 @@ def check_external_crm_status_batch(case_ids, user_email=None):
                     for case_id in uncached_cases:
                         status_map[case_id] = "unknown"
                     return status_map
-                elif not CRM_EMAIL_FILTERING_ENABLED:
-                    print(f"🔓 [CRM] EMAIL FILTERING DISABLED: Checking status for all {len(uncached_cases)} cases")
             
             if not uncached_cases:
                 return status_map
@@ -1194,8 +1192,8 @@ def check_case_status_batch(case_numbers, user_email=None):
         if not case_numbers:
             return {}
         
-        # If user_email is provided, validate that cases belong to the user first
-        if user_email:
+        # If email filtering is enabled and user_email is provided, validate that cases belong to the user first
+        if CRM_EMAIL_FILTERING_ENABLED and user_email:
             user_email_upper = user_email.upper()
             like_pattern = f"%~{user_email_upper}~%"
             
@@ -1209,7 +1207,7 @@ def check_case_status_batch(case_numbers, user_email=None):
                 AND "Case Number" IN ('{case_list}')
             """
             
-            print(f"🔍 [CRM] Validating cases belong to user {user_email_upper}")
+            print(f"🔍 [CRM] Validating {len(case_numbers)} cases belong to user {user_email_upper} (EMAIL FILTERING ENABLED)")
             validated_result = snowflake_query(validation_query, CONNECTION_PAYLOAD, (like_pattern,))
             
             if validated_result is not None and not validated_result.empty:
@@ -1220,6 +1218,8 @@ def check_case_status_batch(case_numbers, user_email=None):
             else:
                 print(f"⚠️ [CRM] No cases validated for user {user_email_upper}, returning empty status")
                 return {case_num: 'unknown' for case_num in case_numbers}
+        elif not CRM_EMAIL_FILTERING_ENABLED:
+            print(f"🔓 [CRM] EMAIL FILTERING DISABLED: Checking status for all {len(case_numbers)} cases")
         
         if not case_numbers:
             return {}
