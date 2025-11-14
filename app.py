@@ -2296,32 +2296,23 @@ def llm():
                         if id_result is not None and not id_result.empty:
                             evaluation_id = int(id_result.iloc[0]["ID"])
                         
-                        # Save version to VERSION_HISTORY
+                        # Save to VERSION_HISTORY
                         try:
-                            # Convert input_field to input_field_id
-                            # "problem_statement" or "editor" → 1, "fsr" or "FSR_DAILY_NOTE" or "editor2" → 2
-                            if input_field in ["problem_statement", "editor"]:
-                                input_field_id = 1
-                            elif input_field in ["fsr", "FSR_DAILY_NOTE", "editor2"]:
-                                input_field_id = 2
-                            else:
-                                input_field_id = 1  # Default to problem statement
-                            
+                            # Map input_field to INPUT_FIELD_ID (1=problem_statement, 2=fsr)
+                            input_field_id = 1 if input_field == "problem_statement" else 2
                             version_id = str(uuid.uuid4())
-                            version_query = f"""
+                            
+                            version_insert = f"""
                                 INSERT INTO {DATABASE}.{SCHEMA}.VERSION_HISTORY
-                                (VERSION_ID, CASE_SESSION_ID, INPUT_FIELD_ID, VERSION_TYPE, CONTENT, SCORE, FSR_NUMBER, CREATED_BY_USER, CREATED_AT)
-                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP())
+                                (VERSION_ID, CASE_SESSION_ID, INPUT_FIELD_ID, VERSION_TYPE, CONTENT, SCORE, CREATED_BY_USER, CREATED_AT)
+                                VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP())
                             """
-                            snowflake_query(
-                                version_query,
-                                CONNECTION_PAYLOAD,
-                                (version_id, case_id, input_field_id, 'llm_evaluation', input_text, int(score_num), None, user_id),
-                                return_df=False
-                            )
-                            print(f"💾 [Version History] Saved evaluation version for case {case_id}, field {input_field_id}, score {int(score_num)}%")
+                            snowflake_query(version_insert, CONNECTION_PAYLOAD,
+                                          (version_id, case_id, input_field_id, 'llm_evaluation', input_text, int(score_num), user_id),
+                                          return_df=False)
+                            print(f"✅ [VERSION_HISTORY] Saved evaluation version for case {case_id}, field {input_field_id}, score {int(score_num)}%")
                         except Exception as ve:
-                            print(f"⚠️  [Version History] Error saving evaluation version: {ve}")
+                            print(f"⚠️  [DB] VERSION_HISTORY save error: {ve}")
                     except Exception as e:
                         print(f"⚠️  [DB] LLM_EVALUATION error: {e}")
             except Exception as e:
@@ -3401,63 +3392,11 @@ def clear_feedback_flags():
         "instructions": "Run localStorage.clear() in browser console to clear all feedback flags"
     })
 
-# ==================== VERSION HISTORY ====================
-
-def create_version_history_table(database, schema, connection_payload):
-    """
-    Create VERSION_HISTORY table if it doesn't exist (DEV only).
-    This table stores historical versions of case inputs for persistence across sessions.
-    
-    Stores:
-    - CRM updates (when FSR data is loaded)
-    - LLM evaluations (when user submits for review)
-    """
-    print(f"🔧 [DB Migration] Checking VERSION_HISTORY table in schema: {schema}...")
-    
-    try:
-        # Check if table exists
-        check_query = f"""
-            SELECT COUNT(*) as table_exists
-            FROM {database}.INFORMATION_SCHEMA.TABLES
-            WHERE TABLE_SCHEMA = '{schema}'
-            AND TABLE_NAME = 'VERSION_HISTORY'
-        """
-        
-        result = snowflake_query(check_query, connection_payload)
-        table_exists = result.iloc[0]['TABLE_EXISTS'] > 0 if result is not None and not result.empty else False
-        
-        if table_exists:
-            print(f"✅ [DB Migration] VERSION_HISTORY table already exists in {database}.{schema}")
-            return
-        
-        # Create table
-        create_query = f"""
-            CREATE TABLE {database}.{schema}.VERSION_HISTORY (
-                VERSION_ID VARCHAR(36) PRIMARY KEY,
-                CASE_SESSION_ID VARCHAR(50) NOT NULL,
-                INPUT_FIELD_ID INT NOT NULL,
-                VERSION_TYPE VARCHAR(50) NOT NULL,
-                CONTENT TEXT,
-                SCORE INT,
-                FSR_NUMBER VARCHAR(50),
-                CREATED_AT TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP(),
-                CREATED_BY_USER VARCHAR(255)
-            )
-        """
-        
-        snowflake_query(create_query, connection_payload, return_df=False)
-        print(f"✅ [DB Migration] VERSION_HISTORY table created successfully in {database}.{schema}")
-        
-    except Exception as e:
-        print(f"❌ [DB Migration] Error creating VERSION_HISTORY table: {e}")
-        import traceback
-        traceback.print_exc()
-
 @app.route('/api/cases/<case_number>/version-history', methods=['GET'])
 def get_version_history(case_number):
     """
     Get version history for a specific case.
-    Returns all saved versions (CRM updates and evaluations) for both fields.
+    Returns all CRM and evaluation versions ordered from oldest to newest.
     """
     user_data = session.get('user_data')
     if not user_data:
@@ -3466,11 +3405,10 @@ def get_version_history(case_number):
     user_id = user_data.get('user_id')
     
     try:
-        # Query version history for this case
+        # Get version history for this case, ordered from oldest to newest
         query = f"""
             SELECT 
                 VERSION_ID,
-                CASE_SESSION_ID,
                 INPUT_FIELD_ID,
                 VERSION_TYPE,
                 CONTENT,
@@ -3480,182 +3418,128 @@ def get_version_history(case_number):
                 CREATED_BY_USER
             FROM {DATABASE}.{SCHEMA}.VERSION_HISTORY
             WHERE CASE_SESSION_ID = %s
-            ORDER BY CREATED_AT DESC
+            ORDER BY CREATED_AT ASC
         """
-        
         result = snowflake_query(query, CONNECTION_PAYLOAD, (case_number,))
         
         if result is None or result.empty:
             return jsonify({"versions": []})
         
-        # Convert to list of dicts
         versions = []
         for _, row in result.iterrows():
             version = {
                 "versionId": row['VERSION_ID'],
-                "caseNumber": row['CASE_SESSION_ID'],
-                "inputFieldId": int(row['INPUT_FIELD_ID']),
-                "versionType": row['VERSION_TYPE'],
+                "fieldId": int(row['INPUT_FIELD_ID']),
+                "type": row['VERSION_TYPE'],
                 "content": row['CONTENT'],
                 "score": int(row['SCORE']) if pd.notna(row['SCORE']) else None,
                 "fsrNumber": row['FSR_NUMBER'] if pd.notna(row['FSR_NUMBER']) else None,
                 "timestamp": row['CREATED_AT'].isoformat() if pd.notna(row['CREATED_AT']) else None,
-                "createdBy": row['CREATED_BY_USER'] if pd.notna(row['CREATED_BY_USER']) else None
+                "createdBy": row['CREATED_BY_USER']
             }
             versions.append(version)
-        
-        print(f"📚 [Version History] Retrieved {len(versions)} versions for case {case_number}")
         
         return jsonify({"versions": versions})
         
     except Exception as e:
-        print(f"❌ [Version History] Error retrieving history for case {case_number}: {e}")
+        print(f"❌ Error fetching version history for case {case_number}: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({"error": "Failed to retrieve version history"}), 500
+        return jsonify({"error": "Failed to fetch version history"}), 500
 
-@app.route('/api/cases/<case_number>/save-version', methods=['POST'])
-def save_version(case_number):
+@app.route('/api/cases/<case_number>/save-crm-version', methods=['POST'])
+def save_crm_version(case_number):
     """
-    Save a version to history.
-    Called from frontend when CRM data loads or when evaluation happens.
-    Prevents duplicates by checking if version already exists.
+    Save a CRM version to version history.
+    Called when CRM data is loaded on the frontend.
     """
     user_data = session.get('user_data')
     if not user_data:
         return jsonify({"error": "Not authenticated"}), 401
     
     user_id = user_data.get('user_id')
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    required_fields = ['fieldId', 'content', 'fsrNumber']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({"error": f"Missing required field: {field}"}), 400
     
     try:
-        data = request.get_json()
-        input_field_id = data.get('inputFieldId')  # 1 or 2
-        version_type = data.get('versionType')  # 'crm' or 'llm_evaluation'
-        content = data.get('content')
-        score = data.get('score')  # Optional, only for llm_evaluation
-        fsr_number = data.get('fsrNumber')  # Optional, only for crm
-        creation_date = data.get('creationDate')  # Optional, for CRM versions
-        
-        print(f"📅 [CRM Date Debug] Received save-version request:")
-        print(f"   - Version Type: {version_type}")
-        print(f"   - FSR Number: {fsr_number}")
-        print(f"   - Creation Date: {creation_date} (type: {type(creation_date).__name__})")
-        print(f"   - Case: {case_number}, Field: {input_field_id}")
-        
-        if not all([input_field_id, version_type, content]):
-            return jsonify({"error": "Missing required fields"}), 400
-        
-        # Check if this version already exists (prevent duplicates)
-        # For CRM: check by case, field, type, content, and FSR number
-        # For evaluations: check by case, field, type, and content
-        if version_type == 'crm' and fsr_number:
-            check_query = f"""
-                SELECT VERSION_ID 
-                FROM {DATABASE}.{SCHEMA}.VERSION_HISTORY
-                WHERE CASE_SESSION_ID = %s 
-                  AND INPUT_FIELD_ID = %s 
-                  AND VERSION_TYPE = %s
-                  AND FSR_NUMBER = %s
-                  AND CONTENT = %s
-                LIMIT 1
-            """
-            check_result = snowflake_query(
-                check_query, 
-                CONNECTION_PAYLOAD, 
-                (case_number, input_field_id, version_type, fsr_number, content)
-            )
-        else:
-            # For non-CRM or CRM without FSR number, just check content
-            check_query = f"""
-                SELECT VERSION_ID 
-                FROM {DATABASE}.{SCHEMA}.VERSION_HISTORY
-                WHERE CASE_SESSION_ID = %s 
-                  AND INPUT_FIELD_ID = %s 
-                  AND VERSION_TYPE = %s
-                  AND CONTENT = %s
-                LIMIT 1
-            """
-            check_result = snowflake_query(
-                check_query, 
-                CONNECTION_PAYLOAD, 
-                (case_number, input_field_id, version_type, content)
-            )
-        
-        # If version already exists, return existing ID
-        if check_result is not None and not check_result.empty:
-            existing_version_id = check_result.iloc[0]['VERSION_ID']
-            print(f"ℹ️ [Version History] Version already exists for case {case_number}, field {input_field_id} (skipping duplicate)")
-            return jsonify({
-                "success": True,
-                "versionId": existing_version_id,
-                "duplicate": True
-            })
-        
-        # Generate unique version ID
         version_id = str(uuid.uuid4())
+        field_id = int(data['fieldId'])
+        content = data['content']
+        fsr_number = data['fsrNumber']
         
-        # Parse creation date if provided (for CRM versions)
-        timestamp_value = None
-        if creation_date:
-            try:
-                from dateutil import parser
-                print(f"📅 [CRM Date Debug] Attempting to parse: '{creation_date}'")
-                parsed_date = parser.parse(creation_date)
-                timestamp_value = parsed_date.strftime('%Y-%m-%d %H:%M:%S')
-                print(f"📅 [CRM Date Debug] ✅ Successfully parsed to: {timestamp_value}")
-                print(f"📅 [CRM Date Debug] This will be saved to database (not CURRENT_TIMESTAMP)")
-            except Exception as e:
-                print(f"❌ [CRM Date Debug] Error parsing creation date '{creation_date}': {e}")
-                print(f"❌ [CRM Date Debug] Will use CURRENT_TIMESTAMP() instead")
-                import traceback
-                traceback.print_exc()
-                timestamp_value = None
-        else:
-            print(f"📅 [CRM Date Debug] No creation date provided, will use CURRENT_TIMESTAMP()")
+        # Save CRM version
+        insert_query = f"""
+            INSERT INTO {DATABASE}.{SCHEMA}.VERSION_HISTORY
+            (VERSION_ID, CASE_SESSION_ID, INPUT_FIELD_ID, VERSION_TYPE, CONTENT, FSR_NUMBER, CREATED_BY_USER, CREATED_AT)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP())
+        """
+        snowflake_query(insert_query, CONNECTION_PAYLOAD,
+                       (version_id, case_number, field_id, 'crm', content, fsr_number, user_id),
+                       return_df=False)
         
-        # Insert new version with appropriate timestamp
-        if timestamp_value:
-            print(f"📅 [CRM Date Debug] Inserting with CRM date: {timestamp_value}")
-            insert_query = f"""
-                INSERT INTO {DATABASE}.{SCHEMA}.VERSION_HISTORY
-                (VERSION_ID, CASE_SESSION_ID, INPUT_FIELD_ID, VERSION_TYPE, CONTENT, SCORE, FSR_NUMBER, CREATED_BY_USER, CREATED_AT)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """
-            snowflake_query(
-                insert_query,
-                CONNECTION_PAYLOAD,
-                (version_id, case_number, input_field_id, version_type, content, score, fsr_number, user_id, timestamp_value),
-                return_df=False
-            )
-            print(f"✅ [CRM Date Debug] Inserted with timestamp: {timestamp_value}")
-        else:
-            print(f"📅 [CRM Date Debug] Inserting with CURRENT_TIMESTAMP()")
-            insert_query = f"""
-                INSERT INTO {DATABASE}.{SCHEMA}.VERSION_HISTORY
-                (VERSION_ID, CASE_SESSION_ID, INPUT_FIELD_ID, VERSION_TYPE, CONTENT, SCORE, FSR_NUMBER, CREATED_BY_USER, CREATED_AT)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP())
-            """
-            snowflake_query(
-                insert_query,
-                CONNECTION_PAYLOAD,
-                (version_id, case_number, input_field_id, version_type, content, score, fsr_number, user_id),
-                return_df=False
-            )
-            print(f"✅ [CRM Date Debug] Inserted with CURRENT_TIMESTAMP()")
-        
-        print(f"💾 [Version History] Saved NEW {version_type} version for case {case_number}, field {input_field_id}")
+        print(f"✅ [VERSION_HISTORY] Saved CRM version for case {case_number}, field {field_id}, FSR {fsr_number}")
         
         return jsonify({
             "success": True,
-            "versionId": version_id,
-            "duplicate": False
+            "versionId": version_id
         })
         
     except Exception as e:
-        print(f"❌ [Version History] Error saving version: {e}")
+        print(f"❌ Error saving CRM version for case {case_number}: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({"error": "Failed to save version"}), 500
+        return jsonify({"error": "Failed to save CRM version"}), 500
+
+def create_version_history_table_if_not_exists(database, schema, connection_payload):
+    """
+    Create VERSION_HISTORY table if it doesn't exist.
+    This table stores the history of all text versions for cases.
+    """
+    try:
+        print(f"📋 Checking if VERSION_HISTORY table exists in {database}.{schema}...")
+        
+        # Check if table exists
+        check_query = f"""
+            SELECT COUNT(*) as cnt
+            FROM {database}.INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = '{schema}'
+            AND TABLE_NAME = 'VERSION_HISTORY'
+        """
+        result = snowflake_query(check_query, connection_payload)
+        
+        if result is not None and not result.empty and result.iloc[0]['CNT'] > 0:
+            print(f"✅ VERSION_HISTORY table already exists in {database}.{schema}")
+            return
+        
+        # Create table
+        print(f"📝 Creating VERSION_HISTORY table in {database}.{schema}...")
+        create_query = f"""
+            CREATE TABLE {database}.{schema}.VERSION_HISTORY (
+                VERSION_ID VARCHAR(100) PRIMARY KEY,
+                CASE_SESSION_ID VARCHAR(100) NOT NULL,
+                INPUT_FIELD_ID INT NOT NULL,
+                VERSION_TYPE VARCHAR(50) NOT NULL,
+                CONTENT TEXT,
+                SCORE INT,
+                FSR_NUMBER VARCHAR(50),
+                CREATED_AT TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP(),
+                CREATED_BY_USER VARCHAR(100)
+            )
+        """
+        snowflake_query(create_query, connection_payload, return_df=False)
+        print(f"✅ Successfully created VERSION_HISTORY table in {database}.{schema}")
+        
+    except Exception as e:
+        print(f"❌ Error creating VERSION_HISTORY table: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     print("Starting LanguageTool Flask App...")
@@ -3673,103 +3557,8 @@ if __name__ == "__main__":
     print(f"SSO Enabled: {app.config['ENABLE_SSO']}")
     print(f"Development Mode Enabled: {app.config['DEV_MODE']}")
     
-    # Create VERSION_HISTORY table if it doesn't exist (DEV only)
-    create_version_history_table(DATABASE, SCHEMA, CONNECTION_PAYLOAD)
-    
-    # DEBUG: Compare CRM dates vs Database dates for case 502771543
-    print("\n" + "="*80)
-    print("🔍 DEBUG: Comparing CRM dates vs Database dates for case 502771543")
-    print("="*80)
-    
-    test_case = "502771543"
-    
-    # 1. Get CRM data
-    print(f"\n📊 STEP 1: Fetching CRM data for case {test_case}...")
-    crm_query = """
-        SELECT DISTINCT
-            "FSR Number",
-            "FSR Creation Date",
-            "FSR Current Problem Statement",
-            "FSR Daily Notes"
-        FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_FSR_DETAIL
-        WHERE "Case Number" = %s
-        ORDER BY "FSR Number" DESC
-    """
-    crm_result = snowflake_query(crm_query, PROD_PAYLOAD, params=(test_case,))
-    
-    if crm_result is not None and not crm_result.empty:
-        print(f"✅ Found {len(crm_result)} FSR records in CRM:")
-        for idx, row in crm_result.iterrows():
-            print(f"\n   FSR {row['FSR Number']}:")
-            print(f"   - Creation Date: {row['FSR Creation Date']}")
-            print(f"   - Date Type: {type(row['FSR Creation Date'])}")
-            if row['FSR Current Problem Statement']:
-                print(f"   - Problem Statement: {str(row['FSR Current Problem Statement'])[:60]}...")
-            if row['FSR Daily Notes']:
-                print(f"   - Daily Notes: {str(row['FSR Daily Notes'])[:60]}...")
-    else:
-        print(f"❌ No CRM data found for case {test_case}")
-    
-    # 2. Get Database data
-    print(f"\n📊 STEP 2: Fetching Database data for case {test_case}...")
-    db_query = f"""
-        SELECT 
-            VERSION_ID,
-            INPUT_FIELD_ID,
-            VERSION_TYPE,
-            FSR_NUMBER,
-            CREATED_AT,
-            CONTENT
-        FROM {DATABASE}.{SCHEMA}.VERSION_HISTORY
-        WHERE CASE_SESSION_ID = %s
-        ORDER BY CREATED_AT DESC
-    """
-    db_result = snowflake_query(db_query, CONNECTION_PAYLOAD, params=(test_case,))
-    
-    if db_result is not None and not db_result.empty:
-        print(f"✅ Found {len(db_result)} versions in Database:")
-        for idx, row in db_result.iterrows():
-            print(f"\n   Database Record {idx + 1}:")
-            print(f"   - FSR Number: {row['FSR_NUMBER']}")
-            print(f"   - Created At: {row['CREATED_AT']}")
-            print(f"   - Field: {row['INPUT_FIELD_ID']} ({'Problem Statement' if row['INPUT_FIELD_ID'] == 1 else 'Daily Notes'})")
-            print(f"   - Content: {str(row['CONTENT'])[:60]}...")
-    else:
-        print(f"⚠️ No database versions found for case {test_case}")
-    
-    # 3. Compare dates
-    print(f"\n📊 STEP 3: Comparison Analysis")
-    print("="*80)
-    if crm_result is not None and not crm_result.empty and db_result is not None and not db_result.empty:
-        print(f"\n🔍 CRM has {len(crm_result)} FSR records")
-        print(f"🔍 Database has {len(db_result)} version records")
-        
-        print("\n⚠️ Date Mismatch Detection:")
-        for _, db_row in db_result.iterrows():
-            fsr_num = db_row['FSR_NUMBER']
-            db_date = db_row['CREATED_AT']
-            
-            # Find matching CRM record
-            crm_match = crm_result[crm_result['FSR Number'] == fsr_num]
-            if not crm_match.empty:
-                crm_date = crm_match.iloc[0]['FSR Creation Date']
-                
-                # Convert db_date to comparable format
-                db_date_str = str(db_date)[:10] if db_date else "None"
-                crm_date_str = str(crm_date)[:10] if crm_date else "None"
-                
-                if db_date_str != crm_date_str:
-                    print(f"\n   ❌ MISMATCH for FSR {fsr_num}:")
-                    print(f"      CRM Date:  {crm_date}")
-                    print(f"      DB Date:   {db_date}")
-                    print(f"      Field: {db_row['INPUT_FIELD_ID']}")
-                else:
-                    print(f"\n   ✅ MATCH for FSR {fsr_num}:")
-                    print(f"      Both dates: {crm_date_str}")
-    
-    print("\n" + "="*80)
-    print("🔍 DEBUG: Comparison complete")
-    print("="*80 + "\n")
+    # Create VERSION_HISTORY table if it doesn't exist
+    create_version_history_table_if_not_exists(DATABASE, SCHEMA, CONNECTION_PAYLOAD)
     
     app.run(host='127.0.0.1', port=8055)
 

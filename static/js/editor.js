@@ -2087,21 +2087,9 @@ class LanguageToolEditor {
             const llmResult = typeof item === 'object' ? item.llmLastResult : null;
             
             // Calculate score if available and set border color to a discrete bucket matching the temperature bar palette
-            let percentage = null;
-            
-            // Check for score from llmLastResult (old format)
             if (llmResult && llmResult.evaluation) {
                 const score = this.calculateWeightedScore(this.activeField, llmResult.evaluation);
-                percentage = Math.round(score);
-            }
-            // Check for score property directly (database format)
-            else if (typeof item === 'object' && item.score !== null && item.score !== undefined && !item.crmSource) {
-                percentage = Math.round(item.score);
-                console.log(`📊 [Color Coding Debug] Item has direct score: ${percentage}%`, item);
-            }
-            
-            // Apply color coding if we have a percentage
-            if (percentage !== null) {
+                const percentage = Math.round(score);
                 // Discrete buckets aligned with the temperature bar gradient
                 // 0–20: red, 21–40: orange-red, 41–60: yellow, 61–80: yellow-green, 81–100: green
                 let borderColor = '#e8eaed';
@@ -2117,7 +2105,6 @@ class LanguageToolEditor {
                     borderColor = '#6bcf7f';
                 }
                 historyItem.style.border = `2px solid ${borderColor}`;
-                console.log(`🎨 [Color Coding Debug] Applied border color ${borderColor} for score ${percentage}%`);
             }
             
             // Replace newlines with <br> tags for proper rendering
@@ -3548,8 +3535,8 @@ class CaseManager {
                     }
                     
                     // Load CRM content (problem statement and FSR notes)
-                    console.log(`📥 [CaseManager] Loading CRM content for NEW case ${caseNumberValue}`);
-                    await this.loadCRMDataAndPopulateHistory(caseNumberValue, true, true); // populate editors = true, save to DB = true (new case)
+                    console.log(`📥 [CaseManager] Loading CRM content for case ${caseNumberValue}`);
+                    await this.loadCRMDataAndPopulateHistory(caseNumberValue, true); // true = populate editors for new case
                     console.log(`✅ [CaseManager] CRM content loaded for case ${caseNumberValue}`);
                     
                 } catch (error) {
@@ -3622,35 +3609,26 @@ class CaseManager {
                 console.log('✅ [CaseManager] Score bars updated after state restoration');
             }
         } else {
-            console.log(`📝 [CaseManager] No saved state, loading fresh data for case ${caseData.caseNumber}`);
+            console.log(`📝 [CaseManager] No saved state, loading data for case ${caseData.caseNumber}`);
             
-            // Load text content into editors
-            const editor1 = document.getElementById('editor');
-            const editor2 = document.getElementById('editor2');
+            // Load version history from database first
+            // This will auto-populate editors with most recent version
+            await this.loadVersionHistoryFromDatabase(caseData.caseNumber);
             
-            if (editor1) {
-                editor1.innerText = caseData.problemStatement || '';
-                console.log(`📝 [CaseManager] Loaded problem statement (${editor1.innerText.length} chars)`);
-            }
-            if (editor2) {
-                editor2.innerText = caseData.fsrNotes || '';
-                console.log(`📝 [CaseManager] Loaded FSR notes (${editor2.innerText.length} chars)`);
-            }
-            
-            // Only load CRM data for cases tracked in the database
+            // Only load NEW CRM data for cases tracked in the database (if history is empty)
             if (caseData.isTrackedInDatabase !== false) {
-                console.log(`🔍 [CaseManager] Case is tracked, loading CRM history`);
-                await this.loadCRMDataAndPopulateHistory(caseData.caseNumber);
+                const hasHistory = window.spellCheckEditor && 
+                                 (window.spellCheckEditor.fields.editor.history.length > 0 ||
+                                  window.spellCheckEditor.fields.editor2.history.length > 0);
                 
-                // Load version history from database
-                console.log(`📚 [CaseManager] Loading version history from database`);
-                await this.loadVersionHistoryFromDatabase(caseData.caseNumber);
+                if (!hasHistory) {
+                    console.log(`🔍 [CaseManager] No history found, loading fresh CRM data`);
+                    await this.loadCRMDataAndPopulateHistory(caseData.caseNumber);
+                } else {
+                    console.log(`✅ [CaseManager] History loaded from database, skipping CRM reload`);
+                }
             } else {
-                console.log(`⏭️ [CaseManager] Case is not tracked in database, skipping CRM data loading`);
-                
-                // Still load version history for untracked cases (they may have evaluations)
-                console.log(`📚 [CaseManager] Loading version history from database for untracked case`);
-                await this.loadVersionHistoryFromDatabase(caseData.caseNumber);
+                console.log(`⏭️ [CaseManager] Case is not tracked in database`);
             }
         }
         
@@ -3814,8 +3792,8 @@ class CaseManager {
         window.spellCheckEditor.renderHistory();
     }
     
-    async loadCRMDataAndPopulateHistory(caseNumber, shouldPopulateEditors = false, saveToDatabase = false) {
-        console.log(`🔍 [CaseManager] Loading CRM data for case ${caseNumber} (populate editors: ${shouldPopulateEditors}, save to DB: ${saveToDatabase})`);
+    async loadCRMDataAndPopulateHistory(caseNumber, shouldPopulateEditors = false) {
+        console.log(`🔍 [CaseManager] Loading CRM data for case ${caseNumber} (populate editors: ${shouldPopulateEditors})`);
         
         try {
             // Fetch CRM details for this case
@@ -3827,23 +3805,10 @@ class CaseManager {
             }
             
             const crmData = await response.json();
-            
-            console.log(`📊 [CaseManager] ========== STEP 1: CRM DATA RECEIVED ==========`);
-            console.log(`📊 [CaseManager] Found ${crmData.details?.length || 0} FSR records`);
-            
-            // Show FSR dates from raw CRM data
-            if (crmData.details && crmData.details.length > 0) {
-                console.log(`📊 [CaseManager] FSR Records with Dates:`);
-                console.table(crmData.details.map(fsr => ({
-                    'FSR Number': fsr["FSR Number"],
-                    'Creation Date': fsr["FSR Creation Date"],
-                    'Date Type': typeof fsr["FSR Creation Date"],
-                    'Problem Statement': fsr["FSR Current Problem Statement"]?.substring(0, 30) + '...',
-                    'Daily Notes': fsr["FSR Daily Notes"]?.substring(0, 30) + '...'
-                })));
-            }
+            console.log(`📊 [CaseManager] CRM data for case ${caseNumber}:`, crmData);
             
             if (crmData.success && crmData.details && crmData.details.length > 0) {
+                console.log(`✅ [CaseManager] Found ${crmData.details.length} FSR records in CRM`);
                 
                 // Sort FSR records by FSR Number (descending) to get latest first
                 const sortedFSR = crmData.details.sort((a, b) => {
@@ -3913,7 +3878,7 @@ class CaseManager {
                 }
                 
                 // Populate history with all FSR records
-                await this.populateHistoryWithCRMData(sortedFSR, saveToDatabase);
+                this.populateHistoryWithCRMData(sortedFSR);
                 
             } else {
                 console.log(`ℹ️ [CaseManager] No CRM details found for case ${caseNumber}`);
@@ -3924,185 +3889,8 @@ class CaseManager {
         }
     }
     
-    async loadVersionHistoryFromDatabase(caseNumber) {
-        console.log(`📚 [CaseManager] Loading version history from database for case ${caseNumber}`);
-        
-        try {
-            const response = await fetch(`/api/cases/${caseNumber}/version-history`);
-            
-            if (!response.ok) {
-                console.log(`⚠️ [CaseManager] No version history available for case ${caseNumber}: ${response.status}`);
-                return;
-            }
-            
-            const data = await response.json();
-            console.log(`✅ [CaseManager] Retrieved ${data.versions?.length || 0} versions from database`);
-            
-            if (!data.versions || data.versions.length === 0) {
-                return;
-            }
-            
-            // Access the global spellCheckEditor instance
-            if (!window.spellCheckEditor) {
-                console.error(`❌ [CaseManager] spellCheckEditor not available`);
-                return;
-            }
-            
-            // Separate versions by field (don't separate by type anymore)
-            const field1Versions = [];
-            const field2Versions = [];
-            
-            data.versions.forEach(version => {
-                const targetArray = version.inputFieldId === 1 ? field1Versions : field2Versions;
-                targetArray.push(version);
-            });
-            
-            // Helper function to group matching text content (keeps CRM and evaluations separate)
-            const groupByText = (versions) => {
-                const groups = new Map();
-                
-                versions.forEach(version => {
-                    const text = version.content?.trim();
-                    if (!text) return;
-                    
-                    // Use a composite key: text + version type to keep CRM and evaluations separate
-                    const isCRM = version.versionType === 'crm';
-                    const groupKey = `${text}|||${version.versionType}`;
-                    
-                    if (!groups.has(groupKey)) {
-                        groups.set(groupKey, {
-                            text: text,
-                            fsrNumbers: [],
-                            timestamps: [],
-                            versionIds: [],
-                            score: version.score,
-                            versionType: version.versionType,
-                            crmSource: isCRM
-                        });
-                    }
-                    
-                    const group = groups.get(groupKey);
-                    if (version.versionType === 'crm' && version.fsrNumber) {
-                        group.fsrNumbers.push(version.fsrNumber);
-                    }
-                    group.timestamps.push(new Date(version.timestamp));
-                    group.versionIds.push(version.versionId);
-                });
-                
-                return Array.from(groups.values());
-            };
-            
-            // Group all versions by matching text (regardless of type)
-            const field1Grouped = groupByText(field1Versions);
-            const field2Grouped = groupByText(field2Versions);
-            
-            // Helper to create history item
-            const createHistoryItem = (group) => {
-                // Use the earliest timestamp (oldest) for sorting purposes
-                const earliestTimestamp = new Date(Math.min(...group.timestamps));
-                
-                const item = {
-                    text: group.text,
-                    timestamp: earliestTimestamp,
-                    versionId: group.versionIds[0],
-                    fromDatabase: true,
-                    crmSource: group.crmSource
-                };
-                
-                if (group.crmSource) {
-                    // CRM version
-                    item.fsrNumbers = group.fsrNumbers;
-                    item.creationDate = earliestTimestamp;
-                    item.score = null;
-                } else {
-                    // Evaluation version
-                    item.score = group.score;
-                }
-                
-                return item;
-            };
-            
-            // Add to field histories - sorted by timestamp (newest first, oldest last)
-            const field1 = window.spellCheckEditor.fields.editor;
-            const field2 = window.spellCheckEditor.fields.editor2;
-            
-            if (field1) {
-                // Sort all groups by timestamp (newest first = reverse chronological)
-                const sortedGroups = field1Grouped
-                    .map(group => createHistoryItem(group))
-                    .sort((a, b) => b.timestamp - a.timestamp); // Newest first
-                
-                field1.history.push(...sortedGroups);
-                
-                console.log(`✅ [CaseManager] Field 1 history: ${field1.history.length} items (sorted by timestamp, newest first)`);
-            }
-            
-            if (field2) {
-                // Sort all groups by timestamp (newest first = reverse chronological)
-                const sortedGroups = field2Grouped
-                    .map(group => createHistoryItem(group))
-                    .sort((a, b) => b.timestamp - a.timestamp); // Newest first
-                
-                field2.history.push(...sortedGroups);
-                
-                console.log(`✅ [CaseManager] Field 2 history: ${field2.history.length} items (sorted by timestamp, newest first)`);
-            }
-            
-            // Render the updated history
-            window.spellCheckEditor.renderHistory();
-            console.log(`✅ [CaseManager] Version history loaded and rendered`);
-            
-        } catch (error) {
-            console.error(`❌ [CaseManager] Error loading version history from database:`, error);
-        }
-    }
-    
-    async saveCRMVersionToDatabase(caseNumber, inputFieldId, content, fsrNumber, creationDate = null) {
-        console.log(`📤 [CaseManager] ========== SENDING TO BACKEND ==========`);
-        console.log(`📤 [CaseManager] Case: ${caseNumber}`);
-        console.log(`📤 [CaseManager] Field: ${inputFieldId} (${inputFieldId === 1 ? 'Problem Statement' : 'Daily Notes'})`);
-        console.log(`📤 [CaseManager] FSR: ${fsrNumber}`);
-        console.log(`📤 [CaseManager] Date: ${creationDate}`);
-        console.log(`📤 [CaseManager] Date Type: ${typeof creationDate}`);
-        console.log(`📤 [CaseManager] Date is null/undefined: ${creationDate == null}`);
-        
-        const payload = {
-            inputFieldId: inputFieldId,
-            versionType: 'crm',
-            content: content,
-            fsrNumber: fsrNumber,
-            creationDate: creationDate
-        };
-        
-        console.log(`📤 [CaseManager] Full payload being sent:`, payload);
-        
-        try {
-            const response = await fetch(`/api/cases/${caseNumber}/save-version`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
-            
-            if (response.ok) {
-                const result = await response.json();
-                console.log(`✅ [CaseManager] Backend response:`, result);
-                console.log(`✅ [CaseManager] CRM version saved with ID: ${result.versionId}`);
-                return result.versionId;
-            } else {
-                console.error(`❌ [CaseManager] Failed to save CRM version:`, response.status);
-                return null;
-            }
-        } catch (error) {
-            console.error(`❌ [CaseManager] Error saving CRM version:`, error);
-            return null;
-        }
-    }
-    
-    async populateHistoryWithCRMData(fsrRecords, saveToDatabase = false) {
-        console.log(`📚 [CaseManager] ========== STEP 2: GROUPING FSR RECORDS ==========`);
-        console.log(`📚 [CaseManager] Processing ${fsrRecords.length} FSR records (save to DB: ${saveToDatabase})`);
+    async populateHistoryWithCRMData(fsrRecords) {
+        console.log(`📚 [CaseManager] Populating history with ${fsrRecords.length} FSR records`);
         
         // Access the global spellCheckEditor instance
         if (!window.spellCheckEditor) {
@@ -4116,17 +3904,11 @@ class CaseManager {
         const problemStatementGroups = new Map(); // text -> [fsrNumbers]
         const dailyNotesGroups = new Map(); // text -> [fsrNumbers]
         
-        fsrRecords.forEach((fsr, index) => {
+        fsrRecords.forEach((fsr) => {
             const problemStatement = fsr["FSR Current Problem Statement"];
             const dailyNotes = fsr["FSR Daily Notes"];
             const fsrNumber = fsr["FSR Number"];
             const creationDate = fsr["FSR Creation Date"];
-            
-            console.log(`📋 [CaseManager] FSR Record ${index + 1}/${fsrRecords.length}:`);
-            console.log(`   - FSR Number: ${fsrNumber}`);
-            console.log(`   - Creation Date: ${creationDate} (type: ${typeof creationDate})`);
-            console.log(`   - Has Problem Statement: ${!!problemStatement}`);
-            console.log(`   - Has Daily Notes: ${!!dailyNotes}`);
             
             // Group problem statements
             if (problemStatement && problemStatement.trim()) {
@@ -4157,37 +3939,24 @@ class CaseManager {
             }
         });
         
-        console.log(`📊 [CaseManager] ========== STEP 3: GROUPING COMPLETE ==========`);
-        console.log(`📊 [CaseManager] Problem Statement Groups: ${problemStatementGroups.size}`);
-        console.log(`📊 [CaseManager] Daily Notes Groups: ${dailyNotesGroups.size}`);
+        console.log(`📊 [CaseManager] Grouped duplicates:`, {
+            uniqueProblemStatements: problemStatementGroups.size,
+            totalProblemStatements: fsrRecords.filter(f => f["FSR Current Problem Statement"]).length,
+            uniqueDailyNotes: dailyNotesGroups.size,
+            totalDailyNotes: fsrRecords.filter(f => f["FSR Daily Notes"]).length
+        });
         
-        // Show grouped data with dates
-        if (problemStatementGroups.size > 0) {
-            console.log(`📊 [CaseManager] Problem Statement Groups with Dates:`);
-            const psGroupsArray = Array.from(problemStatementGroups.values());
-            console.table(psGroupsArray.map(group => ({
-                'Text Preview': group.text.substring(0, 40) + '...',
-                'FSR Numbers': group.fsrNumbers.join(', '),
-                'Dates': group.dates.map(d => d ? d.substring(0, 10) : 'null').join(', '),
-                'First Date': group.dates[0],
-                'Date Type': typeof group.dates[0]
-            })));
+        const currentCase = this.cases.find(c => c.id === this.currentCaseId);
+        if (!currentCase) {
+            console.warn('⚠️ [CaseManager] No current case found, skipping CRM version save');
+            return;
         }
         
-        if (dailyNotesGroups.size > 0) {
-            console.log(`📊 [CaseManager] Daily Notes Groups with Dates:`);
-            const dnGroupsArray = Array.from(dailyNotesGroups.values());
-            console.table(dnGroupsArray.map(group => ({
-                'Text Preview': group.text.substring(0, 40) + '...',
-                'FSR Numbers': group.fsrNumbers.join(', '),
-                'Dates': group.dates.map(d => d ? d.substring(0, 10) : 'null').join(', '),
-                'First Date': group.dates[0],
-                'Date Type': typeof group.dates[0]
-            })));
-        }
+        // Save CRM versions to database and add to history
+        const saveCRMVersionPromises = [];
         
-        // Add grouped problem statements to history
-        problemStatementGroups.forEach((group) => {
+        // Add grouped problem statements to history and save to database
+        for (const group of problemStatementGroups.values()) {
             const problemHistoryEntry = {
                 text: group.text,
                 llmLastResult: null,
@@ -4200,10 +3969,23 @@ class CaseManager {
                 creationDate: group.dates[0] // Use first date for display
             };
             window.spellCheckEditor.fields.editor.history.push(problemHistoryEntry);
-        });
+            
+            // Save to database (use first FSR number as representative)
+            saveCRMVersionPromises.push(
+                fetch(`/api/cases/${currentCase.caseNumber}/save-crm-version`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fieldId: 1, // Problem Statement
+                        content: group.text,
+                        fsrNumber: group.fsrNumbers[0]
+                    })
+                }).catch(err => console.error('❌ Error saving CRM version:', err))
+            );
+        }
         
-        // Add grouped daily notes to history
-        dailyNotesGroups.forEach((group) => {
+        // Add grouped daily notes to history and save to database
+        for (const group of dailyNotesGroups.values()) {
             const dailyNotesHistoryEntry = {
                 text: group.text,
                 llmLastResult: null,
@@ -4216,58 +3998,117 @@ class CaseManager {
                 creationDate: group.dates[0] // Use first date for display
             };
             window.spellCheckEditor.fields.editor2.history.push(dailyNotesHistoryEntry);
-        });
+            
+            // Save to database (use first FSR number as representative)
+            saveCRMVersionPromises.push(
+                fetch(`/api/cases/${currentCase.caseNumber}/save-crm-version`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fieldId: 2, // FSR Daily Notes
+                        content: group.text,
+                        fsrNumber: group.fsrNumbers[0]
+                    })
+                }).catch(err => console.error('❌ Error saving CRM version:', err))
+            );
+        }
         
-        console.log(`✅ [CaseManager] History populated with grouped entries:`, {
+        // Wait for all CRM versions to be saved
+        await Promise.all(saveCRMVersionPromises);
+        
+        console.log(`✅ [CaseManager] History populated with grouped entries and saved to database:`, {
             problemStatement_history_count: window.spellCheckEditor.fields.editor.history.length,
             fsrNotes_history_count: window.spellCheckEditor.fields.editor2.history.length
         });
         
         // Update the history display
         window.spellCheckEditor.renderHistory();
+    }
+    
+    async loadVersionHistoryFromDatabase(caseNumber) {
+        console.log(`📚 [CaseManager] Loading version history from database for case ${caseNumber}`);
         
-        // Save CRM versions to database ONLY if explicitly requested (new case creation)
-        if (saveToDatabase) {
-            const caseNumber = this.currentCase?.caseNumber;
-            if (caseNumber) {
-                console.log(`💾 [CaseManager] ========== STEP 4: SAVING TO DATABASE ==========`);
-                console.log(`💾 [CaseManager] Case: ${caseNumber}`);
-                console.log(`💾 [CaseManager] Total versions to save: ${problemStatementGroups.size + dailyNotesGroups.size}`);
-                
-                // Save problem statements to database
-                let psIndex = 0;
-                problemStatementGroups.forEach((group) => {
-                    psIndex++;
-                    const fsrNumber = group.fsrNumbers[0];
-                    const creationDate = group.dates[0]; // Use the first (earliest) date from the group
-                    console.log(`📅 [SAVE ${psIndex}] Problem Statement:`);
-                    console.log(`   - FSR Number: ${fsrNumber}`);
-                    console.log(`   - Date: ${creationDate}`);
-                    console.log(`   - Date Type: ${typeof creationDate}`);
-                    console.log(`   - Text Preview: ${group.text.substring(0, 50)}...`);
-                    this.saveCRMVersionToDatabase(caseNumber, 1, group.text, fsrNumber, creationDate)
-                        .catch(err => console.error(`⚠️ [CaseManager] Error saving CRM version:`, err));
-                });
-                
-                // Save daily notes to database
-                let dnIndex = 0;
-                dailyNotesGroups.forEach((group) => {
-                    dnIndex++;
-                    const fsrNumber = group.fsrNumbers[0];
-                    const creationDate = group.dates[0]; // Use the first (earliest) date from the group
-                    console.log(`📅 [SAVE ${psIndex + dnIndex}] Daily Notes:`);
-                    console.log(`   - FSR Number: ${fsrNumber}`);
-                    console.log(`   - Date: ${creationDate}`);
-                    console.log(`   - Date Type: ${typeof creationDate}`);
-                    console.log(`   - Text Preview: ${group.text.substring(0, 50)}...`);
-                    this.saveCRMVersionToDatabase(caseNumber, 2, group.text, fsrNumber, creationDate)
-                        .catch(err => console.error(`⚠️ [CaseManager] Error saving CRM version:`, err));
-                });
-                
-                console.log(`✅ [CaseManager] Initiated save of all ${problemStatementGroups.size + dailyNotesGroups.size} CRM versions`);
+        if (!window.spellCheckEditor) {
+            console.error(`❌ [CaseManager] spellCheckEditor not available`);
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/cases/${caseNumber}/version-history`);
+            if (!response.ok) {
+                console.error('❌ Failed to load version history:', response.status);
+                return;
             }
-        } else {
-            console.log(`ℹ️ [CaseManager] Skipping CRM version save (loading existing case)`);
+            
+            const data = await response.json();
+            const versions = data.versions || [];
+            
+            console.log(`📊 [CaseManager] Loaded ${versions.length} versions from database`);
+            
+            // Group versions by field
+            const problemStatementVersions = versions.filter(v => v.fieldId === 1);
+            const fsrNotesVersions = versions.filter(v => v.fieldId === 2);
+            
+            // Add to history (oldest first, so they render oldest at bottom, newest at top)
+            problemStatementVersions.forEach(version => {
+                const historyEntry = {
+                    text: version.content,
+                    llmLastResult: version.score !== null ? { evaluation: {}, score: version.score } : null,
+                    userInputId: null,
+                    rewriteUuid: null,
+                    reviewId: null,
+                    timestamp: version.timestamp,
+                    crmSource: version.type === 'crm',
+                    fsrNumbers: version.fsrNumber ? [version.fsrNumber] : [],
+                    creationDate: version.timestamp
+                };
+                window.spellCheckEditor.fields.editor.history.push(historyEntry);
+            });
+            
+            fsrNotesVersions.forEach(version => {
+                const historyEntry = {
+                    text: version.content,
+                    llmLastResult: version.score !== null ? { evaluation: {}, score: version.score } : null,
+                    userInputId: null,
+                    rewriteUuid: null,
+                    reviewId: null,
+                    timestamp: version.timestamp,
+                    crmSource: version.type === 'crm',
+                    fsrNumbers: version.fsrNumber ? [version.fsrNumber] : [],
+                    creationDate: version.timestamp
+                };
+                window.spellCheckEditor.fields.editor2.history.push(historyEntry);
+            });
+            
+            // Auto-populate with most recent version if available
+            if (problemStatementVersions.length > 0) {
+                const latestPS = problemStatementVersions[problemStatementVersions.length - 1];
+                const editor1 = document.getElementById('editor');
+                if (editor1 && (!editor1.innerText || editor1.innerText.trim() === '')) {
+                    editor1.innerText = latestPS.content;
+                    console.log(`✅ [CaseManager] Auto-populated Problem Statement with most recent version`);
+                }
+            }
+            
+            if (fsrNotesVersions.length > 0) {
+                const latestFSR = fsrNotesVersions[fsrNotesVersions.length - 1];
+                const editor2 = document.getElementById('editor2');
+                if (editor2 && (!editor2.innerText || editor2.innerText.trim() === '')) {
+                    editor2.innerText = latestFSR.content;
+                    console.log(`✅ [CaseManager] Auto-populated FSR Notes with most recent version`);
+                }
+            }
+            
+            console.log(`✅ [CaseManager] Version history loaded:`, {
+                problemStatement_count: problemStatementVersions.length,
+                fsrNotes_count: fsrNotesVersions.length
+            });
+            
+            // Update the history display
+            window.spellCheckEditor.renderHistory();
+            
+        } catch (error) {
+            console.error('❌ Error loading version history from database:', error);
         }
     }
     
