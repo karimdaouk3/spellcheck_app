@@ -3945,7 +3945,7 @@ class CaseManager {
                 targetArray.push(version);
             });
             
-            // Helper function to group matching text content (combines CRM and evaluations)
+            // Helper function to group matching text content (keeps CRM and evaluations separate)
             const groupByText = (versions) => {
                 const groups = new Map();
                 
@@ -3953,9 +3953,12 @@ class CaseManager {
                     const text = version.content?.trim();
                     if (!text) return;
                     
-                    if (!groups.has(text)) {
-                        const isCRM = version.versionType === 'crm';
-                        groups.set(text, {
+                    // Use a composite key: text + version type to keep CRM and evaluations separate
+                    const isCRM = version.versionType === 'crm';
+                    const groupKey = `${text}|||${version.versionType}`;
+                    
+                    if (!groups.has(groupKey)) {
+                        groups.set(groupKey, {
                             text: text,
                             fsrNumbers: [],
                             timestamps: [],
@@ -3966,7 +3969,7 @@ class CaseManager {
                         });
                     }
                     
-                    const group = groups.get(text);
+                    const group = groups.get(groupKey);
                     if (version.versionType === 'crm' && version.fsrNumber) {
                         group.fsrNumbers.push(version.fsrNumber);
                     }
