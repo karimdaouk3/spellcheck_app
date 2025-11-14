@@ -3519,6 +3519,7 @@ def save_version(case_number):
     """
     Save a version to history.
     Called from frontend when CRM data loads or when evaluation happens.
+    Prevents duplicates by checking if version already exists.
     """
     user_data = session.get('user_data')
     if not user_data:
@@ -3537,10 +3538,56 @@ def save_version(case_number):
         if not all([input_field_id, version_type, content]):
             return jsonify({"error": "Missing required fields"}), 400
         
+        # Check if this version already exists (prevent duplicates)
+        # For CRM: check by case, field, type, content, and FSR number
+        # For evaluations: check by case, field, type, and content
+        if version_type == 'crm' and fsr_number:
+            check_query = f"""
+                SELECT VERSION_ID 
+                FROM {DATABASE}.{SCHEMA}.VERSION_HISTORY
+                WHERE CASE_SESSION_ID = %s 
+                  AND INPUT_FIELD_ID = %s 
+                  AND VERSION_TYPE = %s
+                  AND FSR_NUMBER = %s
+                  AND CONTENT = %s
+                LIMIT 1
+            """
+            check_result = snowflake_query(
+                check_query, 
+                CONNECTION_PAYLOAD, 
+                (case_number, input_field_id, version_type, fsr_number, content)
+            )
+        else:
+            # For non-CRM or CRM without FSR number, just check content
+            check_query = f"""
+                SELECT VERSION_ID 
+                FROM {DATABASE}.{SCHEMA}.VERSION_HISTORY
+                WHERE CASE_SESSION_ID = %s 
+                  AND INPUT_FIELD_ID = %s 
+                  AND VERSION_TYPE = %s
+                  AND CONTENT = %s
+                LIMIT 1
+            """
+            check_result = snowflake_query(
+                check_query, 
+                CONNECTION_PAYLOAD, 
+                (case_number, input_field_id, version_type, content)
+            )
+        
+        # If version already exists, return existing ID
+        if check_result is not None and not check_result.empty:
+            existing_version_id = check_result.iloc[0]['VERSION_ID']
+            print(f"ℹ️ [Version History] Version already exists for case {case_number}, field {input_field_id} (skipping duplicate)")
+            return jsonify({
+                "success": True,
+                "versionId": existing_version_id,
+                "duplicate": True
+            })
+        
         # Generate unique version ID
         version_id = str(uuid.uuid4())
         
-        # Insert version
+        # Insert new version
         insert_query = f"""
             INSERT INTO {DATABASE}.{SCHEMA}.VERSION_HISTORY
             (VERSION_ID, CASE_SESSION_ID, INPUT_FIELD_ID, VERSION_TYPE, CONTENT, SCORE, FSR_NUMBER, CREATED_BY_USER, CREATED_AT)
@@ -3554,11 +3601,12 @@ def save_version(case_number):
             return_df=False
         )
         
-        print(f"💾 [Version History] Saved {version_type} version for case {case_number}, field {input_field_id}")
+        print(f"💾 [Version History] Saved NEW {version_type} version for case {case_number}, field {input_field_id}")
         
         return jsonify({
             "success": True,
-            "versionId": version_id
+            "versionId": version_id,
+            "duplicate": False
         })
         
     except Exception as e:
