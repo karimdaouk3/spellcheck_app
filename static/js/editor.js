@@ -4051,8 +4051,8 @@ class CaseManager {
         }
     }
     
-    async saveCRMVersionToDatabase(caseNumber, inputFieldId, content, fsrNumber) {
-        console.log(`💾 [CaseManager] Saving CRM version to database: case=${caseNumber}, field=${inputFieldId}, fsr=${fsrNumber}`);
+    async saveCRMVersionToDatabase(caseNumber, inputFieldId, content, fsrNumber, creationDate = null) {
+        console.log(`💾 [CaseManager] Saving CRM version to database: case=${caseNumber}, field=${inputFieldId}, fsr=${fsrNumber}, date=${creationDate}`);
         
         try {
             const response = await fetch(`/api/cases/${caseNumber}/save-version`, {
@@ -4064,7 +4064,8 @@ class CaseManager {
                     inputFieldId: inputFieldId,
                     versionType: 'crm',
                     content: content,
-                    fsrNumber: fsrNumber
+                    fsrNumber: fsrNumber,
+                    creationDate: creationDate
                 })
             });
             
@@ -4188,14 +4189,16 @@ class CaseManager {
                 // Save problem statements to database
                 problemStatementGroups.forEach((group) => {
                     const fsrNumber = group.fsrNumbers[0];
-                    this.saveCRMVersionToDatabase(caseNumber, 1, group.text, fsrNumber)
+                    const creationDate = group.dates[0]; // Use the first (earliest) date from the group
+                    this.saveCRMVersionToDatabase(caseNumber, 1, group.text, fsrNumber, creationDate)
                         .catch(err => console.error(`⚠️ [CaseManager] Error saving CRM version:`, err));
                 });
                 
                 // Save daily notes to database
                 dailyNotesGroups.forEach((group) => {
                     const fsrNumber = group.fsrNumbers[0];
-                    this.saveCRMVersionToDatabase(caseNumber, 2, group.text, fsrNumber)
+                    const creationDate = group.dates[0]; // Use the first (earliest) date from the group
+                    this.saveCRMVersionToDatabase(caseNumber, 2, group.text, fsrNumber, creationDate)
                         .catch(err => console.error(`⚠️ [CaseManager] Error saving CRM version:`, err));
                 });
                 

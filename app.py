@@ -3534,6 +3534,7 @@ def save_version(case_number):
         content = data.get('content')
         score = data.get('score')  # Optional, only for llm_evaluation
         fsr_number = data.get('fsrNumber')  # Optional, only for crm
+        creation_date = data.get('creationDate')  # Optional, for CRM versions
         
         if not all([input_field_id, version_type, content]):
             return jsonify({"error": "Missing required fields"}), 400
@@ -3587,19 +3588,43 @@ def save_version(case_number):
         # Generate unique version ID
         version_id = str(uuid.uuid4())
         
-        # Insert new version
-        insert_query = f"""
-            INSERT INTO {DATABASE}.{SCHEMA}.VERSION_HISTORY
-            (VERSION_ID, CASE_SESSION_ID, INPUT_FIELD_ID, VERSION_TYPE, CONTENT, SCORE, FSR_NUMBER, CREATED_BY_USER, CREATED_AT)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP())
-        """
+        # Parse creation date if provided (for CRM versions)
+        timestamp_value = None
+        if creation_date:
+            try:
+                from dateutil import parser
+                parsed_date = parser.parse(creation_date)
+                timestamp_value = parsed_date.strftime('%Y-%m-%d %H:%M:%S')
+                print(f"📅 [Version History] Using CRM creation date: {timestamp_value}")
+            except Exception as e:
+                print(f"⚠️ [Version History] Error parsing creation date: {e}, using CURRENT_TIMESTAMP()")
+                timestamp_value = None
         
-        snowflake_query(
-            insert_query,
-            CONNECTION_PAYLOAD,
-            (version_id, case_number, input_field_id, version_type, content, score, fsr_number, user_id),
-            return_df=False
-        )
+        # Insert new version with appropriate timestamp
+        if timestamp_value:
+            insert_query = f"""
+                INSERT INTO {DATABASE}.{SCHEMA}.VERSION_HISTORY
+                (VERSION_ID, CASE_SESSION_ID, INPUT_FIELD_ID, VERSION_TYPE, CONTENT, SCORE, FSR_NUMBER, CREATED_BY_USER, CREATED_AT)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            snowflake_query(
+                insert_query,
+                CONNECTION_PAYLOAD,
+                (version_id, case_number, input_field_id, version_type, content, score, fsr_number, user_id, timestamp_value),
+                return_df=False
+            )
+        else:
+            insert_query = f"""
+                INSERT INTO {DATABASE}.{SCHEMA}.VERSION_HISTORY
+                (VERSION_ID, CASE_SESSION_ID, INPUT_FIELD_ID, VERSION_TYPE, CONTENT, SCORE, FSR_NUMBER, CREATED_BY_USER, CREATED_AT)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP())
+            """
+            snowflake_query(
+                insert_query,
+                CONNECTION_PAYLOAD,
+                (version_id, case_number, input_field_id, version_type, content, score, fsr_number, user_id),
+                return_df=False
+            )
         
         print(f"💾 [Version History] Saved NEW {version_type} version for case {case_number}, field {input_field_id}")
         
