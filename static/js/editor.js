@@ -3993,9 +3993,9 @@ class CaseManager {
             };
             window.spellCheckEditor.fields.editor.history.push(problemHistoryEntry);
             
-            // Save each unique FSR version to database
+            // Save each unique FSR version to database with creation date
             group.fsrNumbers.forEach(fsrNum => {
-                this.saveCRMVersionToDatabase(caseNumber, 1, group.text, fsrNum).catch(err => {
+                this.saveCRMVersionToDatabase(caseNumber, 1, group.text, fsrNum, group.dates[0]).catch(err => {
                     console.error(`❌ [CaseManager] Error saving CRM version: ${err}`);
                 });
             });
@@ -4016,9 +4016,9 @@ class CaseManager {
             };
             window.spellCheckEditor.fields.editor2.history.push(dailyNotesHistoryEntry);
             
-            // Save each unique FSR version to database
+            // Save each unique FSR version to database with creation date
             group.fsrNumbers.forEach(fsrNum => {
-                this.saveCRMVersionToDatabase(caseNumber, 2, group.text, fsrNum).catch(err => {
+                this.saveCRMVersionToDatabase(caseNumber, 2, group.text, fsrNum, group.dates[0]).catch(err => {
                     console.error(`❌ [CaseManager] Error saving CRM version: ${err}`);
                 });
             });
@@ -4090,7 +4090,7 @@ class CaseManager {
     /**
      * Save CRM version to database
      */
-    async saveCRMVersionToDatabase(caseNumber, inputFieldId, content, fsrNumber) {
+    async saveCRMVersionToDatabase(caseNumber, inputFieldId, content, fsrNumber, creationDate) {
         try {
             const response = await fetch('/api/cases/save-crm-version', {
                 method: 'POST',
@@ -4099,7 +4099,8 @@ class CaseManager {
                     case_number: caseNumber,
                     input_field_id: inputFieldId,
                     content: content,
-                    fsr_number: fsrNumber
+                    fsr_number: fsrNumber,
+                    creation_date: creationDate
                 })
             });
             

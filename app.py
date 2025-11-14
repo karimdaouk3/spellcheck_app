@@ -3472,6 +3472,7 @@ def save_crm_version():
     input_field_id = data.get('input_field_id')  # 1 or 2
     content = data.get('content')
     fsr_number = data.get('fsr_number')
+    creation_date = data.get('creation_date')  # FSR creation date from CRM
     
     if not all([case_number, input_field_id, content, fsr_number]):
         return jsonify({"error": "case_number, input_field_id, content, and fsr_number required"}), 400
@@ -3486,14 +3487,25 @@ def save_crm_version():
     try:
         version_id = str(uuid.uuid4())
         
-        insert_query = f"""
-            INSERT INTO {DATABASE}.{SCHEMA}.VERSION_HISTORY
-            (VERSION_ID, CASE_SESSION_ID, INPUT_FIELD_ID, VERSION_TYPE, CONTENT, SCORE, FSR_NUMBER, CREATED_AT, CREATED_BY_USER)
-            VALUES (%s, %s, %s, 'crm', %s, NULL, %s, CURRENT_TIMESTAMP(), %s)
-        """
-        snowflake_query(insert_query, CONNECTION_PAYLOAD, 
-                       (version_id, case_number, input_field_id, content, fsr_number, user_id),
-                       return_df=False)
+        # Use provided creation_date if available, otherwise use current timestamp
+        if creation_date:
+            insert_query = f"""
+                INSERT INTO {DATABASE}.{SCHEMA}.VERSION_HISTORY
+                (VERSION_ID, CASE_SESSION_ID, INPUT_FIELD_ID, VERSION_TYPE, CONTENT, SCORE, FSR_NUMBER, CREATED_AT, CREATED_BY_USER)
+                VALUES (%s, %s, %s, 'crm', %s, NULL, %s, %s, %s)
+            """
+            snowflake_query(insert_query, CONNECTION_PAYLOAD, 
+                           (version_id, case_number, input_field_id, content, fsr_number, creation_date, user_id),
+                           return_df=False)
+        else:
+            insert_query = f"""
+                INSERT INTO {DATABASE}.{SCHEMA}.VERSION_HISTORY
+                (VERSION_ID, CASE_SESSION_ID, INPUT_FIELD_ID, VERSION_TYPE, CONTENT, SCORE, FSR_NUMBER, CREATED_AT, CREATED_BY_USER)
+                VALUES (%s, %s, %s, 'crm', %s, NULL, %s, CURRENT_TIMESTAMP(), %s)
+            """
+            snowflake_query(insert_query, CONNECTION_PAYLOAD, 
+                           (version_id, case_number, input_field_id, content, fsr_number, user_id),
+                           return_df=False)
         
         print(f"✅ [Backend] Saved CRM version for case {case_number}, field {input_field_id}, FSR {fsr_number}")
         return jsonify({"success": True, "version_id": version_id})
