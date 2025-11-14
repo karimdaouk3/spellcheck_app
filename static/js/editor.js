@@ -3827,10 +3827,23 @@ class CaseManager {
             }
             
             const crmData = await response.json();
-            console.log(`📊 [CaseManager] CRM data for case ${caseNumber}:`, crmData);
+            
+            console.log(`📊 [CaseManager] ========== STEP 1: CRM DATA RECEIVED ==========`);
+            console.log(`📊 [CaseManager] Found ${crmData.details?.length || 0} FSR records`);
+            
+            // Show FSR dates from raw CRM data
+            if (crmData.details && crmData.details.length > 0) {
+                console.log(`📊 [CaseManager] FSR Records with Dates:`);
+                console.table(crmData.details.map(fsr => ({
+                    'FSR Number': fsr["FSR Number"],
+                    'Creation Date': fsr["FSR Creation Date"],
+                    'Date Type': typeof fsr["FSR Creation Date"],
+                    'Problem Statement': fsr["FSR Current Problem Statement"]?.substring(0, 30) + '...',
+                    'Daily Notes': fsr["FSR Daily Notes"]?.substring(0, 30) + '...'
+                })));
+            }
             
             if (crmData.success && crmData.details && crmData.details.length > 0) {
-                console.log(`✅ [CaseManager] Found ${crmData.details.length} FSR records in CRM`);
                 
                 // Sort FSR records by FSR Number (descending) to get latest first
                 const sortedFSR = crmData.details.sort((a, b) => {
@@ -4045,7 +4058,13 @@ class CaseManager {
     }
     
     async saveCRMVersionToDatabase(caseNumber, inputFieldId, content, fsrNumber, creationDate = null) {
-        console.log(`📅 [CRM Date Debug] saveCRMVersionToDatabase called with date: ${creationDate} (type: ${typeof creationDate})`);
+        console.log(`📤 [CaseManager] ========== SENDING TO BACKEND ==========`);
+        console.log(`📤 [CaseManager] Case: ${caseNumber}`);
+        console.log(`📤 [CaseManager] Field: ${inputFieldId} (${inputFieldId === 1 ? 'Problem Statement' : 'Daily Notes'})`);
+        console.log(`📤 [CaseManager] FSR: ${fsrNumber}`);
+        console.log(`📤 [CaseManager] Date: ${creationDate}`);
+        console.log(`📤 [CaseManager] Date Type: ${typeof creationDate}`);
+        console.log(`📤 [CaseManager] Date is null/undefined: ${creationDate == null}`);
         
         const payload = {
             inputFieldId: inputFieldId,
@@ -4055,7 +4074,7 @@ class CaseManager {
             creationDate: creationDate
         };
         
-        console.log(`📅 [CRM Date Debug] Request payload:`, JSON.stringify(payload, null, 2));
+        console.log(`📤 [CaseManager] Full payload being sent:`, payload);
         
         try {
             const response = await fetch(`/api/cases/${caseNumber}/save-version`, {
@@ -4068,7 +4087,8 @@ class CaseManager {
             
             if (response.ok) {
                 const result = await response.json();
-                console.log(`✅ [CaseManager] CRM version saved: ${result.versionId}`);
+                console.log(`✅ [CaseManager] Backend response:`, result);
+                console.log(`✅ [CaseManager] CRM version saved with ID: ${result.versionId}`);
                 return result.versionId;
             } else {
                 console.error(`❌ [CaseManager] Failed to save CRM version:`, response.status);
@@ -4081,7 +4101,8 @@ class CaseManager {
     }
     
     async populateHistoryWithCRMData(fsrRecords, saveToDatabase = false) {
-        console.log(`📚 [CaseManager] Populating history with ${fsrRecords.length} FSR records (save to DB: ${saveToDatabase})`);
+        console.log(`📚 [CaseManager] ========== STEP 2: GROUPING FSR RECORDS ==========`);
+        console.log(`📚 [CaseManager] Processing ${fsrRecords.length} FSR records (save to DB: ${saveToDatabase})`);
         
         // Access the global spellCheckEditor instance
         if (!window.spellCheckEditor) {
@@ -4095,11 +4116,17 @@ class CaseManager {
         const problemStatementGroups = new Map(); // text -> [fsrNumbers]
         const dailyNotesGroups = new Map(); // text -> [fsrNumbers]
         
-        fsrRecords.forEach((fsr) => {
+        fsrRecords.forEach((fsr, index) => {
             const problemStatement = fsr["FSR Current Problem Statement"];
             const dailyNotes = fsr["FSR Daily Notes"];
             const fsrNumber = fsr["FSR Number"];
             const creationDate = fsr["FSR Creation Date"];
+            
+            console.log(`📋 [CaseManager] FSR Record ${index + 1}/${fsrRecords.length}:`);
+            console.log(`   - FSR Number: ${fsrNumber}`);
+            console.log(`   - Creation Date: ${creationDate} (type: ${typeof creationDate})`);
+            console.log(`   - Has Problem Statement: ${!!problemStatement}`);
+            console.log(`   - Has Daily Notes: ${!!dailyNotes}`);
             
             // Group problem statements
             if (problemStatement && problemStatement.trim()) {
@@ -4130,12 +4157,34 @@ class CaseManager {
             }
         });
         
-        console.log(`📊 [CaseManager] Grouped duplicates:`, {
-            uniqueProblemStatements: problemStatementGroups.size,
-            totalProblemStatements: fsrRecords.filter(f => f["FSR Current Problem Statement"]).length,
-            uniqueDailyNotes: dailyNotesGroups.size,
-            totalDailyNotes: fsrRecords.filter(f => f["FSR Daily Notes"]).length
-        });
+        console.log(`📊 [CaseManager] ========== STEP 3: GROUPING COMPLETE ==========`);
+        console.log(`📊 [CaseManager] Problem Statement Groups: ${problemStatementGroups.size}`);
+        console.log(`📊 [CaseManager] Daily Notes Groups: ${dailyNotesGroups.size}`);
+        
+        // Show grouped data with dates
+        if (problemStatementGroups.size > 0) {
+            console.log(`📊 [CaseManager] Problem Statement Groups with Dates:`);
+            const psGroupsArray = Array.from(problemStatementGroups.values());
+            console.table(psGroupsArray.map(group => ({
+                'Text Preview': group.text.substring(0, 40) + '...',
+                'FSR Numbers': group.fsrNumbers.join(', '),
+                'Dates': group.dates.map(d => d ? d.substring(0, 10) : 'null').join(', '),
+                'First Date': group.dates[0],
+                'Date Type': typeof group.dates[0]
+            })));
+        }
+        
+        if (dailyNotesGroups.size > 0) {
+            console.log(`📊 [CaseManager] Daily Notes Groups with Dates:`);
+            const dnGroupsArray = Array.from(dailyNotesGroups.values());
+            console.table(dnGroupsArray.map(group => ({
+                'Text Preview': group.text.substring(0, 40) + '...',
+                'FSR Numbers': group.fsrNumbers.join(', '),
+                'Dates': group.dates.map(d => d ? d.substring(0, 10) : 'null').join(', '),
+                'First Date': group.dates[0],
+                'Date Type': typeof group.dates[0]
+            })));
+        }
         
         // Add grouped problem statements to history
         problemStatementGroups.forEach((group) => {
@@ -4181,27 +4230,41 @@ class CaseManager {
         if (saveToDatabase) {
             const caseNumber = this.currentCase?.caseNumber;
             if (caseNumber) {
-                console.log(`💾 [CaseManager] Saving CRM versions to database for NEW case ${caseNumber}`);
+                console.log(`💾 [CaseManager] ========== STEP 4: SAVING TO DATABASE ==========`);
+                console.log(`💾 [CaseManager] Case: ${caseNumber}`);
+                console.log(`💾 [CaseManager] Total versions to save: ${problemStatementGroups.size + dailyNotesGroups.size}`);
                 
                 // Save problem statements to database
+                let psIndex = 0;
                 problemStatementGroups.forEach((group) => {
+                    psIndex++;
                     const fsrNumber = group.fsrNumbers[0];
                     const creationDate = group.dates[0]; // Use the first (earliest) date from the group
-                    console.log(`📅 [CRM Date Debug] Problem Statement - FSR: ${fsrNumber}, Date from CRM: ${creationDate}, Type: ${typeof creationDate}`);
+                    console.log(`📅 [SAVE ${psIndex}] Problem Statement:`);
+                    console.log(`   - FSR Number: ${fsrNumber}`);
+                    console.log(`   - Date: ${creationDate}`);
+                    console.log(`   - Date Type: ${typeof creationDate}`);
+                    console.log(`   - Text Preview: ${group.text.substring(0, 50)}...`);
                     this.saveCRMVersionToDatabase(caseNumber, 1, group.text, fsrNumber, creationDate)
                         .catch(err => console.error(`⚠️ [CaseManager] Error saving CRM version:`, err));
                 });
                 
                 // Save daily notes to database
+                let dnIndex = 0;
                 dailyNotesGroups.forEach((group) => {
+                    dnIndex++;
                     const fsrNumber = group.fsrNumbers[0];
                     const creationDate = group.dates[0]; // Use the first (earliest) date from the group
-                    console.log(`📅 [CRM Date Debug] Daily Notes - FSR: ${fsrNumber}, Date from CRM: ${creationDate}, Type: ${typeof creationDate}`);
+                    console.log(`📅 [SAVE ${psIndex + dnIndex}] Daily Notes:`);
+                    console.log(`   - FSR Number: ${fsrNumber}`);
+                    console.log(`   - Date: ${creationDate}`);
+                    console.log(`   - Date Type: ${typeof creationDate}`);
+                    console.log(`   - Text Preview: ${group.text.substring(0, 50)}...`);
                     this.saveCRMVersionToDatabase(caseNumber, 2, group.text, fsrNumber, creationDate)
                         .catch(err => console.error(`⚠️ [CaseManager] Error saving CRM version:`, err));
                 });
                 
-                console.log(`✅ [CaseManager] Initiated save of ${problemStatementGroups.size + dailyNotesGroups.size} CRM versions to database`);
+                console.log(`✅ [CaseManager] Initiated save of all ${problemStatementGroups.size + dailyNotesGroups.size} CRM versions`);
             }
         } else {
             console.log(`ℹ️ [CaseManager] Skipping CRM version save (loading existing case)`);
