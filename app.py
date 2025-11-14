@@ -3403,58 +3403,55 @@ def clear_feedback_flags():
 
 # ==================== VERSION HISTORY ====================
 
-def create_version_history_table(database, schema, connection_payload, prod_payload):
+def create_version_history_table(database, schema, connection_payload):
     """
-    Create VERSION_HISTORY table if it doesn't exist.
+    Create VERSION_HISTORY table if it doesn't exist (DEV only).
     This table stores historical versions of case inputs for persistence across sessions.
     
     Stores:
     - CRM updates (when FSR data is loaded)
     - LLM evaluations (when user submits for review)
     """
-    print(f"🔧 [DB Migration] Checking VERSION_HISTORY table...")
+    print(f"🔧 [DB Migration] Checking VERSION_HISTORY table in schema: {schema}...")
     
-    for env_name, payload in [("DEV", connection_payload), ("PROD", prod_payload)]:
-        try:
-            current_schema = f"DEV_{schema}" if env_name == "DEV" else schema
-            
-            # Check if table exists
-            check_query = f"""
-                SELECT COUNT(*) as table_exists
-                FROM {database}.INFORMATION_SCHEMA.TABLES
-                WHERE TABLE_SCHEMA = '{current_schema}'
-                AND TABLE_NAME = 'VERSION_HISTORY'
-            """
-            
-            result = snowflake_query(check_query, payload)
-            table_exists = result.iloc[0]['TABLE_EXISTS'] > 0 if result is not None and not result.empty else False
-            
-            if table_exists:
-                print(f"✅ [DB Migration] VERSION_HISTORY table already exists in {env_name}")
-                continue
-            
-            # Create table
-            create_query = f"""
-                CREATE TABLE {database}.{current_schema}.VERSION_HISTORY (
-                    VERSION_ID VARCHAR(36) PRIMARY KEY,
-                    CASE_SESSION_ID VARCHAR(50) NOT NULL,
-                    INPUT_FIELD_ID INT NOT NULL,
-                    VERSION_TYPE VARCHAR(50) NOT NULL,
-                    CONTENT TEXT,
-                    SCORE INT,
-                    FSR_NUMBER VARCHAR(50),
-                    CREATED_AT TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP(),
-                    CREATED_BY_USER VARCHAR(255)
-                )
-            """
-            
-            snowflake_query(create_query, payload, return_df=False)
-            print(f"✅ [DB Migration] VERSION_HISTORY table created successfully in {env_name}")
-            
-        except Exception as e:
-            print(f"❌ [DB Migration] Error creating VERSION_HISTORY table in {env_name}: {e}")
-            import traceback
-            traceback.print_exc()
+    try:
+        # Check if table exists
+        check_query = f"""
+            SELECT COUNT(*) as table_exists
+            FROM {database}.INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = '{schema}'
+            AND TABLE_NAME = 'VERSION_HISTORY'
+        """
+        
+        result = snowflake_query(check_query, connection_payload)
+        table_exists = result.iloc[0]['TABLE_EXISTS'] > 0 if result is not None and not result.empty else False
+        
+        if table_exists:
+            print(f"✅ [DB Migration] VERSION_HISTORY table already exists in {database}.{schema}")
+            return
+        
+        # Create table
+        create_query = f"""
+            CREATE TABLE {database}.{schema}.VERSION_HISTORY (
+                VERSION_ID VARCHAR(36) PRIMARY KEY,
+                CASE_SESSION_ID VARCHAR(50) NOT NULL,
+                INPUT_FIELD_ID INT NOT NULL,
+                VERSION_TYPE VARCHAR(50) NOT NULL,
+                CONTENT TEXT,
+                SCORE INT,
+                FSR_NUMBER VARCHAR(50),
+                CREATED_AT TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP(),
+                CREATED_BY_USER VARCHAR(255)
+            )
+        """
+        
+        snowflake_query(create_query, connection_payload, return_df=False)
+        print(f"✅ [DB Migration] VERSION_HISTORY table created successfully in {database}.{schema}")
+        
+    except Exception as e:
+        print(f"❌ [DB Migration] Error creating VERSION_HISTORY table: {e}")
+        import traceback
+        traceback.print_exc()
 
 @app.route('/api/cases/<case_number>/version-history', methods=['GET'])
 def get_version_history(case_number):
@@ -3586,8 +3583,8 @@ if __name__ == "__main__":
     print(f"SSO Enabled: {app.config['ENABLE_SSO']}")
     print(f"Development Mode Enabled: {app.config['DEV_MODE']}")
     
-    # Create VERSION_HISTORY table if it doesn't exist
-    create_version_history_table(DATABASE, SCHEMA, CONNECTION_PAYLOAD, PROD_PAYLOAD)
+    # Create VERSION_HISTORY table if it doesn't exist (DEV only)
+    create_version_history_table(DATABASE, SCHEMA, CONNECTION_PAYLOAD)
     
     app.run(host='127.0.0.1', port=8055)
 
