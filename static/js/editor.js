@@ -2087,9 +2087,21 @@ class LanguageToolEditor {
             const llmResult = typeof item === 'object' ? item.llmLastResult : null;
             
             // Calculate score if available and set border color to a discrete bucket matching the temperature bar palette
+            let percentage = null;
+            
+            // Check for score from llmLastResult (old format)
             if (llmResult && llmResult.evaluation) {
                 const score = this.calculateWeightedScore(this.activeField, llmResult.evaluation);
-                const percentage = Math.round(score);
+                percentage = Math.round(score);
+            }
+            // Check for score property directly (database format)
+            else if (typeof item === 'object' && item.score !== null && item.score !== undefined && !item.crmSource) {
+                percentage = Math.round(item.score);
+                console.log(`📊 [Color Coding Debug] Item has direct score: ${percentage}%`, item);
+            }
+            
+            // Apply color coding if we have a percentage
+            if (percentage !== null) {
                 // Discrete buckets aligned with the temperature bar gradient
                 // 0–20: red, 21–40: orange-red, 41–60: yellow, 61–80: yellow-green, 81–100: green
                 let borderColor = '#e8eaed';
@@ -2105,6 +2117,7 @@ class LanguageToolEditor {
                     borderColor = '#6bcf7f';
                 }
                 historyItem.style.border = `2px solid ${borderColor}`;
+                console.log(`🎨 [Color Coding Debug] Applied border color ${borderColor} for score ${percentage}%`);
             }
             
             // Replace newlines with <br> tags for proper rendering
@@ -3911,6 +3924,7 @@ class CaseManager {
             
             const data = await response.json();
             console.log(`✅ [CaseManager] Retrieved ${data.versions?.length || 0} versions from database`);
+            console.log(`📊 [Version History Debug] Raw versions:`, data.versions);
             
             if (!data.versions || data.versions.length === 0) {
                 return;
@@ -3922,55 +3936,120 @@ class CaseManager {
                 return;
             }
             
-            // Add database versions to history
-            // Group by field to add to the correct history array
+            // Separate CRM and evaluation versions by field
+            const field1CRM = [];
+            const field1Evaluations = [];
+            const field2CRM = [];
+            const field2Evaluations = [];
+            
             data.versions.forEach(version => {
-                const fieldName = version.inputFieldId === 1 ? 'editor' : 'editor2';
-                const field = window.spellCheckEditor.fields[fieldName];
+                const targetArray = version.inputFieldId === 1 
+                    ? (version.versionType === 'crm' ? field1CRM : field1Evaluations)
+                    : (version.versionType === 'crm' ? field2CRM : field2Evaluations);
                 
-                if (!field) {
-                    console.warn(`⚠️ [CaseManager] Field ${fieldName} not found for version ${version.versionId}`);
-                    return;
-                }
-                
-                // Create history item based on version type
-                if (version.versionType === 'crm') {
-                    // CRM version - no score, just FSR number
-                    const historyItem = {
-                        text: version.content,
-                        score: null,
-                        crmSource: true,
-                        fsrNumber: version.fsrNumber,
-                        timestamp: new Date(version.timestamp),
-                        versionId: version.versionId,
-                        fromDatabase: true
-                    };
-                    field.history.push(historyItem);
-                } else if (version.versionType === 'llm_evaluation') {
-                    // Evaluation version - has score
-                    const historyItem = {
-                        text: version.content,
-                        score: version.score,
-                        crmSource: false,
-                        timestamp: new Date(version.timestamp),
-                        versionId: version.versionId,
-                        fromDatabase: true
-                    };
-                    field.history.push(historyItem);
-                }
+                targetArray.push(version);
             });
             
-            // Sort history by timestamp (newest first)
-            window.spellCheckEditor.fields.editor.history.sort((a, b) => {
-                const timeA = a.timestamp || new Date(0);
-                const timeB = b.timestamp || new Date(0);
-                return timeB - timeA;
-            });
-            window.spellCheckEditor.fields.editor2.history.sort((a, b) => {
-                const timeA = a.timestamp || new Date(0);
-                const timeB = b.timestamp || new Date(0);
-                return timeB - timeA;
-            });
+            // Helper function to group matching text content (like CRM grouping)
+            const groupByText = (versions, isCRM) => {
+                const groups = new Map();
+                
+                versions.forEach(version => {
+                    const text = version.content?.trim();
+                    if (!text) return;
+                    
+                    if (!groups.has(text)) {
+                        groups.set(text, {
+                            text: text,
+                            fsrNumbers: [],
+                            timestamps: [],
+                            versionIds: [],
+                            score: version.score,
+                            versionType: version.versionType,
+                            crmSource: isCRM
+                        });
+                    }
+                    
+                    const group = groups.get(text);
+                    if (isCRM && version.fsrNumber) {
+                        group.fsrNumbers.push(version.fsrNumber);
+                    }
+                    group.timestamps.push(new Date(version.timestamp));
+                    group.versionIds.push(version.versionId);
+                });
+                
+                return Array.from(groups.values());
+            };
+            
+            // Group CRM versions by matching text
+            const field1CRMGrouped = groupByText(field1CRM, true);
+            const field2CRMGrouped = groupByText(field2CRM, true);
+            
+            // Group evaluation versions by matching text
+            const field1EvalGrouped = groupByText(field1Evaluations, false);
+            const field2EvalGrouped = groupByText(field2Evaluations, false);
+            
+            console.log(`📊 [Version History Debug] Field 1 - CRM groups: ${field1CRMGrouped.length}, Eval groups: ${field1EvalGrouped.length}`);
+            console.log(`📊 [Version History Debug] Field 2 - CRM groups: ${field2CRMGrouped.length}, Eval groups: ${field2EvalGrouped.length}`);
+            
+            // Helper to create history item
+            const createHistoryItem = (group) => {
+                const item = {
+                    text: group.text,
+                    timestamp: group.timestamps[0], // Use first timestamp
+                    versionId: group.versionIds[0],
+                    fromDatabase: true,
+                    crmSource: group.crmSource
+                };
+                
+                if (group.crmSource) {
+                    // CRM version
+                    item.fsrNumbers = group.fsrNumbers;
+                    item.creationDate = group.timestamps[0];
+                    item.score = null;
+                } else {
+                    // Evaluation version
+                    item.score = group.score;
+                    console.log(`📊 [Version History Debug] Created eval item with score: ${item.score}`);
+                }
+                
+                return item;
+            };
+            
+            // Add to field histories
+            // CRM first (oldest at bottom), then evaluations (newest at top)
+            const field1 = window.spellCheckEditor.fields.editor;
+            const field2 = window.spellCheckEditor.fields.editor2;
+            
+            if (field1) {
+                // Add CRM versions (sorted oldest first for display at bottom)
+                field1CRMGrouped
+                    .sort((a, b) => a.timestamps[0] - b.timestamps[0])
+                    .forEach(group => field1.history.push(createHistoryItem(group)));
+                
+                // Add evaluation versions (sorted newest first for display at top)
+                field1EvalGrouped
+                    .sort((a, b) => b.timestamps[0] - a.timestamps[0])
+                    .forEach(group => field1.history.push(createHistoryItem(group)));
+                
+                console.log(`✅ [CaseManager] Field 1 history: ${field1.history.length} items`);
+                console.log(`📊 [Version History Debug] Field 1 history:`, field1.history);
+            }
+            
+            if (field2) {
+                // Add CRM versions (sorted oldest first for display at bottom)
+                field2CRMGrouped
+                    .sort((a, b) => a.timestamps[0] - b.timestamps[0])
+                    .forEach(group => field2.history.push(createHistoryItem(group)));
+                
+                // Add evaluation versions (sorted newest first for display at top)
+                field2EvalGrouped
+                    .sort((a, b) => b.timestamps[0] - a.timestamps[0])
+                    .forEach(group => field2.history.push(createHistoryItem(group)));
+                
+                console.log(`✅ [CaseManager] Field 2 history: ${field2.history.length} items`);
+                console.log(`📊 [Version History Debug] Field 2 history:`, field2.history);
+            }
             
             // Render the updated history
             window.spellCheckEditor.renderHistory();
