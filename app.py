@@ -3676,5 +3676,100 @@ if __name__ == "__main__":
     # Create VERSION_HISTORY table if it doesn't exist (DEV only)
     create_version_history_table(DATABASE, SCHEMA, CONNECTION_PAYLOAD)
     
+    # DEBUG: Compare CRM dates vs Database dates for case 502771543
+    print("\n" + "="*80)
+    print("🔍 DEBUG: Comparing CRM dates vs Database dates for case 502771543")
+    print("="*80)
+    
+    test_case = "502771543"
+    
+    # 1. Get CRM data
+    print(f"\n📊 STEP 1: Fetching CRM data for case {test_case}...")
+    crm_query = """
+        SELECT DISTINCT
+            "FSR Number",
+            "FSR Creation Date",
+            "FSR Current Problem Statement",
+            "FSR Daily Notes"
+        FROM GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_FSR_DETAIL
+        WHERE "Case Number" = %s
+        ORDER BY "FSR Number" DESC
+    """
+    crm_result = snowflake_query(crm_query, PROD_PAYLOAD, params=(test_case,))
+    
+    if crm_result is not None and not crm_result.empty:
+        print(f"✅ Found {len(crm_result)} FSR records in CRM:")
+        for idx, row in crm_result.iterrows():
+            print(f"\n   FSR {row['FSR Number']}:")
+            print(f"   - Creation Date: {row['FSR Creation Date']}")
+            print(f"   - Date Type: {type(row['FSR Creation Date'])}")
+            if row['FSR Current Problem Statement']:
+                print(f"   - Problem Statement: {str(row['FSR Current Problem Statement'])[:60]}...")
+            if row['FSR Daily Notes']:
+                print(f"   - Daily Notes: {str(row['FSR Daily Notes'])[:60]}...")
+    else:
+        print(f"❌ No CRM data found for case {test_case}")
+    
+    # 2. Get Database data
+    print(f"\n📊 STEP 2: Fetching Database data for case {test_case}...")
+    db_query = f"""
+        SELECT 
+            VERSION_ID,
+            INPUT_FIELD_ID,
+            VERSION_TYPE,
+            FSR_NUMBER,
+            CREATED_AT,
+            CONTENT
+        FROM {DATABASE}.{SCHEMA}.VERSION_HISTORY
+        WHERE CASE_SESSION_ID = %s
+        ORDER BY CREATED_AT DESC
+    """
+    db_result = snowflake_query(db_query, CONNECTION_PAYLOAD, params=(test_case,))
+    
+    if db_result is not None and not db_result.empty:
+        print(f"✅ Found {len(db_result)} versions in Database:")
+        for idx, row in db_result.iterrows():
+            print(f"\n   Database Record {idx + 1}:")
+            print(f"   - FSR Number: {row['FSR_NUMBER']}")
+            print(f"   - Created At: {row['CREATED_AT']}")
+            print(f"   - Field: {row['INPUT_FIELD_ID']} ({'Problem Statement' if row['INPUT_FIELD_ID'] == 1 else 'Daily Notes'})")
+            print(f"   - Content: {str(row['CONTENT'])[:60]}...")
+    else:
+        print(f"⚠️ No database versions found for case {test_case}")
+    
+    # 3. Compare dates
+    print(f"\n📊 STEP 3: Comparison Analysis")
+    print("="*80)
+    if crm_result is not None and not crm_result.empty and db_result is not None and not db_result.empty:
+        print(f"\n🔍 CRM has {len(crm_result)} FSR records")
+        print(f"🔍 Database has {len(db_result)} version records")
+        
+        print("\n⚠️ Date Mismatch Detection:")
+        for _, db_row in db_result.iterrows():
+            fsr_num = db_row['FSR_NUMBER']
+            db_date = db_row['CREATED_AT']
+            
+            # Find matching CRM record
+            crm_match = crm_result[crm_result['FSR Number'] == fsr_num]
+            if not crm_match.empty:
+                crm_date = crm_match.iloc[0]['FSR Creation Date']
+                
+                # Convert db_date to comparable format
+                db_date_str = str(db_date)[:10] if db_date else "None"
+                crm_date_str = str(crm_date)[:10] if crm_date else "None"
+                
+                if db_date_str != crm_date_str:
+                    print(f"\n   ❌ MISMATCH for FSR {fsr_num}:")
+                    print(f"      CRM Date:  {crm_date}")
+                    print(f"      DB Date:   {db_date}")
+                    print(f"      Field: {db_row['INPUT_FIELD_ID']}")
+                else:
+                    print(f"\n   ✅ MATCH for FSR {fsr_num}:")
+                    print(f"      Both dates: {crm_date_str}")
+    
+    print("\n" + "="*80)
+    print("🔍 DEBUG: Comparison complete")
+    print("="*80 + "\n")
+    
     app.run(host='127.0.0.1', port=8055)
 
