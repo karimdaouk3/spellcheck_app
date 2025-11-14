@@ -3548,8 +3548,8 @@ class CaseManager {
                     }
                     
                     // Load CRM content (problem statement and FSR notes)
-                    console.log(`📥 [CaseManager] Loading CRM content for case ${caseNumberValue}`);
-                    await this.loadCRMDataAndPopulateHistory(caseNumberValue, true); // true = populate editors for new case
+                    console.log(`📥 [CaseManager] Loading CRM content for NEW case ${caseNumberValue}`);
+                    await this.loadCRMDataAndPopulateHistory(caseNumberValue, true, true); // populate editors = true, save to DB = true (new case)
                     console.log(`✅ [CaseManager] CRM content loaded for case ${caseNumberValue}`);
                     
                 } catch (error) {
@@ -3814,8 +3814,8 @@ class CaseManager {
         window.spellCheckEditor.renderHistory();
     }
     
-    async loadCRMDataAndPopulateHistory(caseNumber, shouldPopulateEditors = false) {
-        console.log(`🔍 [CaseManager] Loading CRM data for case ${caseNumber} (populate editors: ${shouldPopulateEditors})`);
+    async loadCRMDataAndPopulateHistory(caseNumber, shouldPopulateEditors = false, saveToDatabase = false) {
+        console.log(`🔍 [CaseManager] Loading CRM data for case ${caseNumber} (populate editors: ${shouldPopulateEditors}, save to DB: ${saveToDatabase})`);
         
         try {
             // Fetch CRM details for this case
@@ -3900,7 +3900,7 @@ class CaseManager {
                 }
                 
                 // Populate history with all FSR records
-                this.populateHistoryWithCRMData(sortedFSR);
+                await this.populateHistoryWithCRMData(sortedFSR, saveToDatabase);
                 
             } else {
                 console.log(`ℹ️ [CaseManager] No CRM details found for case ${caseNumber}`);
@@ -4079,8 +4079,8 @@ class CaseManager {
         }
     }
     
-    populateHistoryWithCRMData(fsrRecords) {
-        console.log(`📚 [CaseManager] Populating history with ${fsrRecords.length} FSR records`);
+    async populateHistoryWithCRMData(fsrRecords, saveToDatabase = false) {
+        console.log(`📚 [CaseManager] Populating history with ${fsrRecords.length} FSR records (save to DB: ${saveToDatabase})`);
         
         // Access the global spellCheckEditor instance
         if (!window.spellCheckEditor) {
@@ -4176,26 +4176,30 @@ class CaseManager {
         // Update the history display
         window.spellCheckEditor.renderHistory();
         
-        // Save CRM versions to database (in background, don't wait)
-        const caseNumber = this.currentCase?.caseNumber;
-        if (caseNumber) {
-            // Save problem statements to database
-            problemStatementGroups.forEach((group) => {
-                // Use the first FSR number from the group
-                const fsrNumber = group.fsrNumbers[0];
-                this.saveCRMVersionToDatabase(caseNumber, 1, group.text, fsrNumber)
-                    .catch(err => console.error(`⚠️ [CaseManager] Error saving CRM version:`, err));
-            });
-            
-            // Save daily notes to database
-            dailyNotesGroups.forEach((group) => {
-                // Use the first FSR number from the group
-                const fsrNumber = group.fsrNumbers[0];
-                this.saveCRMVersionToDatabase(caseNumber, 2, group.text, fsrNumber)
-                    .catch(err => console.error(`⚠️ [CaseManager] Error saving CRM version:`, err));
-            });
-            
-            console.log(`💾 [CaseManager] Saving ${problemStatementGroups.size + dailyNotesGroups.size} CRM versions to database in background`);
+        // Save CRM versions to database ONLY if explicitly requested (new case creation)
+        if (saveToDatabase) {
+            const caseNumber = this.currentCase?.caseNumber;
+            if (caseNumber) {
+                console.log(`💾 [CaseManager] Saving CRM versions to database for NEW case ${caseNumber}`);
+                
+                // Save problem statements to database
+                problemStatementGroups.forEach((group) => {
+                    const fsrNumber = group.fsrNumbers[0];
+                    this.saveCRMVersionToDatabase(caseNumber, 1, group.text, fsrNumber)
+                        .catch(err => console.error(`⚠️ [CaseManager] Error saving CRM version:`, err));
+                });
+                
+                // Save daily notes to database
+                dailyNotesGroups.forEach((group) => {
+                    const fsrNumber = group.fsrNumbers[0];
+                    this.saveCRMVersionToDatabase(caseNumber, 2, group.text, fsrNumber)
+                        .catch(err => console.error(`⚠️ [CaseManager] Error saving CRM version:`, err));
+                });
+                
+                console.log(`✅ [CaseManager] Initiated save of ${problemStatementGroups.size + dailyNotesGroups.size} CRM versions to database`);
+            }
+        } else {
+            console.log(`ℹ️ [CaseManager] Skipping CRM version save (loading existing case)`);
         }
     }
     
