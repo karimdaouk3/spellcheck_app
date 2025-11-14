@@ -3536,6 +3536,12 @@ def save_version(case_number):
         fsr_number = data.get('fsrNumber')  # Optional, only for crm
         creation_date = data.get('creationDate')  # Optional, for CRM versions
         
+        print(f"📅 [CRM Date Debug] Received save-version request:")
+        print(f"   - Version Type: {version_type}")
+        print(f"   - FSR Number: {fsr_number}")
+        print(f"   - Creation Date: {creation_date} (type: {type(creation_date).__name__})")
+        print(f"   - Case: {case_number}, Field: {input_field_id}")
+        
         if not all([input_field_id, version_type, content]):
             return jsonify({"error": "Missing required fields"}), 400
         
@@ -3593,15 +3599,23 @@ def save_version(case_number):
         if creation_date:
             try:
                 from dateutil import parser
+                print(f"📅 [CRM Date Debug] Attempting to parse: '{creation_date}'")
                 parsed_date = parser.parse(creation_date)
                 timestamp_value = parsed_date.strftime('%Y-%m-%d %H:%M:%S')
-                print(f"📅 [Version History] Using CRM creation date: {timestamp_value}")
+                print(f"📅 [CRM Date Debug] ✅ Successfully parsed to: {timestamp_value}")
+                print(f"📅 [CRM Date Debug] This will be saved to database (not CURRENT_TIMESTAMP)")
             except Exception as e:
-                print(f"⚠️ [Version History] Error parsing creation date: {e}, using CURRENT_TIMESTAMP()")
+                print(f"❌ [CRM Date Debug] Error parsing creation date '{creation_date}': {e}")
+                print(f"❌ [CRM Date Debug] Will use CURRENT_TIMESTAMP() instead")
+                import traceback
+                traceback.print_exc()
                 timestamp_value = None
+        else:
+            print(f"📅 [CRM Date Debug] No creation date provided, will use CURRENT_TIMESTAMP()")
         
         # Insert new version with appropriate timestamp
         if timestamp_value:
+            print(f"📅 [CRM Date Debug] Inserting with CRM date: {timestamp_value}")
             insert_query = f"""
                 INSERT INTO {DATABASE}.{SCHEMA}.VERSION_HISTORY
                 (VERSION_ID, CASE_SESSION_ID, INPUT_FIELD_ID, VERSION_TYPE, CONTENT, SCORE, FSR_NUMBER, CREATED_BY_USER, CREATED_AT)
@@ -3613,7 +3627,9 @@ def save_version(case_number):
                 (version_id, case_number, input_field_id, version_type, content, score, fsr_number, user_id, timestamp_value),
                 return_df=False
             )
+            print(f"✅ [CRM Date Debug] Inserted with timestamp: {timestamp_value}")
         else:
+            print(f"📅 [CRM Date Debug] Inserting with CURRENT_TIMESTAMP()")
             insert_query = f"""
                 INSERT INTO {DATABASE}.{SCHEMA}.VERSION_HISTORY
                 (VERSION_ID, CASE_SESSION_ID, INPUT_FIELD_ID, VERSION_TYPE, CONTENT, SCORE, FSR_NUMBER, CREATED_BY_USER, CREATED_AT)
@@ -3625,6 +3641,7 @@ def save_version(case_number):
                 (version_id, case_number, input_field_id, version_type, content, score, fsr_number, user_id),
                 return_df=False
             )
+            print(f"✅ [CRM Date Debug] Inserted with CURRENT_TIMESTAMP()")
         
         print(f"💾 [Version History] Saved NEW {version_type} version for case {case_number}, field {input_field_id}")
         

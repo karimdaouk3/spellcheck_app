@@ -3924,7 +3924,6 @@ class CaseManager {
             
             const data = await response.json();
             console.log(`✅ [CaseManager] Retrieved ${data.versions?.length || 0} versions from database`);
-            console.log(`📊 [Version History Debug] Raw versions:`, data.versions);
             
             if (!data.versions || data.versions.length === 0) {
                 return;
@@ -3984,9 +3983,6 @@ class CaseManager {
             const field1Grouped = groupByText(field1Versions);
             const field2Grouped = groupByText(field2Versions);
             
-            console.log(`📊 [Version History Debug] Field 1 - Total groups: ${field1Grouped.length}`);
-            console.log(`📊 [Version History Debug] Field 2 - Total groups: ${field2Grouped.length}`);
-            
             // Helper to create history item
             const createHistoryItem = (group) => {
                 // Use the earliest timestamp (oldest) for sorting purposes
@@ -4008,7 +4004,6 @@ class CaseManager {
                 } else {
                     // Evaluation version
                     item.score = group.score;
-                    console.log(`📊 [Version History Debug] Created eval item with score: ${item.score}, timestamp: ${earliestTimestamp}`);
                 }
                 
                 return item;
@@ -4027,7 +4022,6 @@ class CaseManager {
                 field1.history.push(...sortedGroups);
                 
                 console.log(`✅ [CaseManager] Field 1 history: ${field1.history.length} items (sorted by timestamp, newest first)`);
-                console.log(`📊 [Version History Debug] Field 1 history:`, field1.history);
             }
             
             if (field2) {
@@ -4039,7 +4033,6 @@ class CaseManager {
                 field2.history.push(...sortedGroups);
                 
                 console.log(`✅ [CaseManager] Field 2 history: ${field2.history.length} items (sorted by timestamp, newest first)`);
-                console.log(`📊 [Version History Debug] Field 2 history:`, field2.history);
             }
             
             // Render the updated history
@@ -4052,7 +4045,17 @@ class CaseManager {
     }
     
     async saveCRMVersionToDatabase(caseNumber, inputFieldId, content, fsrNumber, creationDate = null) {
-        console.log(`💾 [CaseManager] Saving CRM version to database: case=${caseNumber}, field=${inputFieldId}, fsr=${fsrNumber}, date=${creationDate}`);
+        console.log(`📅 [CRM Date Debug] saveCRMVersionToDatabase called with date: ${creationDate} (type: ${typeof creationDate})`);
+        
+        const payload = {
+            inputFieldId: inputFieldId,
+            versionType: 'crm',
+            content: content,
+            fsrNumber: fsrNumber,
+            creationDate: creationDate
+        };
+        
+        console.log(`📅 [CRM Date Debug] Request payload:`, JSON.stringify(payload, null, 2));
         
         try {
             const response = await fetch(`/api/cases/${caseNumber}/save-version`, {
@@ -4060,13 +4063,7 @@ class CaseManager {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    inputFieldId: inputFieldId,
-                    versionType: 'crm',
-                    content: content,
-                    fsrNumber: fsrNumber,
-                    creationDate: creationDate
-                })
+                body: JSON.stringify(payload)
             });
             
             if (response.ok) {
@@ -4190,6 +4187,7 @@ class CaseManager {
                 problemStatementGroups.forEach((group) => {
                     const fsrNumber = group.fsrNumbers[0];
                     const creationDate = group.dates[0]; // Use the first (earliest) date from the group
+                    console.log(`📅 [CRM Date Debug] Problem Statement - FSR: ${fsrNumber}, Date from CRM: ${creationDate}, Type: ${typeof creationDate}`);
                     this.saveCRMVersionToDatabase(caseNumber, 1, group.text, fsrNumber, creationDate)
                         .catch(err => console.error(`⚠️ [CaseManager] Error saving CRM version:`, err));
                 });
@@ -4198,6 +4196,7 @@ class CaseManager {
                 dailyNotesGroups.forEach((group) => {
                     const fsrNumber = group.fsrNumbers[0];
                     const creationDate = group.dates[0]; // Use the first (earliest) date from the group
+                    console.log(`📅 [CRM Date Debug] Daily Notes - FSR: ${fsrNumber}, Date from CRM: ${creationDate}, Type: ${typeof creationDate}`);
                     this.saveCRMVersionToDatabase(caseNumber, 2, group.text, fsrNumber, creationDate)
                         .catch(err => console.error(`⚠️ [CaseManager] Error saving CRM version:`, err));
                 });
