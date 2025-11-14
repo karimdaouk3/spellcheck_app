@@ -2381,24 +2381,36 @@ def llm():
                 )
                 
                 # Update LAST_INPUT_STATE with the rewritten text for persistence
-                print(f"[DBG] /llm step2 PERSISTENCE CHECK: rewritten={bool(rewritten)}, user_input_id={data.get('user_input_id')}")
-                if rewritten and data.get("user_input_id"):
+                print(f"[DBG] /llm step2 PERSISTENCE CHECK: rewritten={bool(rewritten)}, user_input_id={data.get('user_input_id')}, case_id={data.get('case_id')}")
+                if rewritten:
                     print(f"[DBG] /llm step2 PERSISTENCE: user_id={user_id}")
                     
-                    # Get the case session ID from the user input
-                    case_query = f"""
-                        SELECT CASE_ID, INPUT_FIELD_TYPE 
-                        FROM {DATABASE}.{SCHEMA}.USER_SESSION_INPUTS 
-                        WHERE ID = %s
-                    """
-                    print(f"[DBG] /llm step2 PERSISTENCE: Querying USER_SESSION_INPUTS for user_input_id={data.get('user_input_id')}")
-                    case_result = snowflake_query(case_query, CONNECTION_PAYLOAD, (data.get("user_input_id"),))
-                    print(f"[DBG] /llm step2 PERSISTENCE: case_result={case_result is not None}, empty={case_result.empty if case_result is not None else 'N/A'}")
+                    case_id = None
+                    input_field_type = None
                     
-                    if case_result is not None and not case_result.empty:
-                        case_id = case_result.iloc[0]["CASE_ID"]
-                        input_field_type = case_result.iloc[0]["INPUT_FIELD_TYPE"]
-                        print(f"[DBG] /llm step2 PERSISTENCE: Found case_id={case_id}, input_field_type={input_field_type}")
+                    # Try to get case info from user_input_id first (if available)
+                    if data.get("user_input_id"):
+                        case_query = f"""
+                            SELECT CASE_ID, INPUT_FIELD_TYPE 
+                            FROM {DATABASE}.{SCHEMA}.USER_SESSION_INPUTS 
+                            WHERE ID = %s
+                        """
+                        print(f"[DBG] /llm step2 PERSISTENCE: Querying USER_SESSION_INPUTS for user_input_id={data.get('user_input_id')}")
+                        case_result = snowflake_query(case_query, CONNECTION_PAYLOAD, (data.get("user_input_id"),))
+                        
+                        if case_result is not None and not case_result.empty:
+                            case_id = case_result.iloc[0]["CASE_ID"]
+                            input_field_type = case_result.iloc[0]["INPUT_FIELD_TYPE"]
+                            print(f"[DBG] /llm step2 PERSISTENCE: Found via user_input_id - case_id={case_id}, input_field_type={input_field_type}")
+                    
+                    # Fallback: use case_id directly from request if not found via user_input_id
+                    if not case_id and data.get("case_id"):
+                        case_id = data.get("case_id")
+                        input_field_type = data.get("input_field", "problem_statement")
+                        print(f"[DBG] /llm step2 PERSISTENCE: Using case_id from request - case_id={case_id}, input_field_type={input_field_type}")
+                    
+                    if case_id and input_field_type:
+                        print(f"[DBG] /llm step2 PERSISTENCE: Processing with case_id={case_id}, input_field_type={input_field_type}")
                         
                         # Get case session ID
                         session_query = f"""
