@@ -2298,21 +2298,22 @@ def llm():
                         
                         # Save to VERSION_HISTORY
                         try:
-                            # Map input_field to INPUT_FIELD_ID (1=problem_statement, 2=fsr)
-                            input_field_id = 1 if input_field == "problem_statement" else 2
                             version_id = str(uuid.uuid4())
+                            # Determine INPUT_FIELD_ID: 1 for problem_statement, 2 for fsr
+                            input_field_id = 1 if input_field == "problem_statement" else 2
                             
                             version_insert = f"""
                                 INSERT INTO {DATABASE}.{SCHEMA}.VERSION_HISTORY
-                                (VERSION_ID, CASE_SESSION_ID, INPUT_FIELD_ID, VERSION_TYPE, CONTENT, SCORE, CREATED_BY_USER, CREATED_AT)
-                                VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP())
+                                (VERSION_ID, CASE_SESSION_ID, INPUT_FIELD_ID, VERSION_TYPE, CONTENT, SCORE, FSR_NUMBER, CREATED_AT, CREATED_BY_USER)
+                                VALUES (%s, %s, %s, 'llm_evaluation', %s, %s, NULL, CURRENT_TIMESTAMP(), %s)
                             """
                             snowflake_query(version_insert, CONNECTION_PAYLOAD,
-                                          (version_id, case_id, input_field_id, 'llm_evaluation', input_text, int(score_num), user_id),
+                                          (version_id, case_id, input_field_id, input_text, int(score_num), user_id),
                                           return_df=False)
-                            print(f"✅ [VERSION_HISTORY] Saved evaluation version for case {case_id}, field {input_field_id}, score {int(score_num)}%")
+                            print(f"✅ [DB] Saved evaluation version to VERSION_HISTORY (score: {int(score_num)}%)")
                         except Exception as ve:
                             print(f"⚠️  [DB] VERSION_HISTORY save error: {ve}")
+                        
                     except Exception as e:
                         print(f"⚠️  [DB] LLM_EVALUATION error: {e}")
             except Exception as e:
@@ -3392,35 +3393,44 @@ def clear_feedback_flags():
         "instructions": "Run localStorage.clear() in browser console to clear all feedback flags"
     })
 
-@app.route('/api/cases/<case_number>/version-history', methods=['GET'])
-def get_version_history(case_number):
+@app.route('/api/cases/version-history', methods=['GET'])
+def get_version_history():
     """
-    Get version history for a specific case.
-    Returns all CRM and evaluation versions ordered from oldest to newest.
+    Get version history for a case and field.
+    Returns CRM versions and evaluation versions ordered by most recent first.
     """
     user_data = session.get('user_data')
     if not user_data:
         return jsonify({"error": "Not authenticated"}), 401
     
-    user_id = user_data.get('user_id')
+    case_number = request.args.get('case_number')
+    input_field_id = request.args.get('input_field_id')  # 1 or 2
+    
+    if not case_number or not input_field_id:
+        return jsonify({"error": "case_number and input_field_id required"}), 400
     
     try:
-        # Get version history for this case, ordered from oldest to newest
+        input_field_id = int(input_field_id)
+        if input_field_id not in [1, 2]:
+            return jsonify({"error": "input_field_id must be 1 or 2"}), 400
+    except ValueError:
+        return jsonify({"error": "input_field_id must be a number"}), 400
+    
+    try:
         query = f"""
             SELECT 
                 VERSION_ID,
-                INPUT_FIELD_ID,
                 VERSION_TYPE,
                 CONTENT,
                 SCORE,
                 FSR_NUMBER,
-                CREATED_AT,
-                CREATED_BY_USER
+                CREATED_AT
             FROM {DATABASE}.{SCHEMA}.VERSION_HISTORY
-            WHERE CASE_SESSION_ID = %s
-            ORDER BY CREATED_AT ASC
+            WHERE CASE_SESSION_ID = %s 
+            AND INPUT_FIELD_ID = %s
+            ORDER BY CREATED_AT DESC
         """
-        result = snowflake_query(query, CONNECTION_PAYLOAD, (case_number,))
+        result = snowflake_query(query, CONNECTION_PAYLOAD, (case_number, input_field_id))
         
         if result is None or result.empty:
             return jsonify({"versions": []})
@@ -3428,30 +3438,28 @@ def get_version_history(case_number):
         versions = []
         for _, row in result.iterrows():
             version = {
-                "versionId": row['VERSION_ID'],
-                "fieldId": int(row['INPUT_FIELD_ID']),
+                "id": row['VERSION_ID'],
                 "type": row['VERSION_TYPE'],
                 "content": row['CONTENT'],
                 "score": int(row['SCORE']) if pd.notna(row['SCORE']) else None,
-                "fsrNumber": row['FSR_NUMBER'] if pd.notna(row['FSR_NUMBER']) else None,
-                "timestamp": row['CREATED_AT'].isoformat() if pd.notna(row['CREATED_AT']) else None,
-                "createdBy": row['CREATED_BY_USER']
+                "fsr_number": row['FSR_NUMBER'] if pd.notna(row['FSR_NUMBER']) else None,
+                "timestamp": row['CREATED_AT'].isoformat() if pd.notna(row['CREATED_AT']) else None
             }
             versions.append(version)
         
         return jsonify({"versions": versions})
         
     except Exception as e:
-        print(f"❌ Error fetching version history for case {case_number}: {e}")
+        print(f"❌ [Backend] Error fetching version history: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"error": "Failed to fetch version history"}), 500
 
-@app.route('/api/cases/<case_number>/save-crm-version', methods=['POST'])
-def save_crm_version(case_number):
+@app.route('/api/cases/save-crm-version', methods=['POST'])
+def save_crm_version():
     """
     Save a CRM version to version history.
-    Called when CRM data is loaded on the frontend.
+    Called from frontend when CRM data is loaded.
     """
     user_data = session.get('user_data')
     if not user_data:
@@ -3460,84 +3468,83 @@ def save_crm_version(case_number):
     user_id = user_data.get('user_id')
     data = request.get_json()
     
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
+    case_number = data.get('case_number')
+    input_field_id = data.get('input_field_id')  # 1 or 2
+    content = data.get('content')
+    fsr_number = data.get('fsr_number')
     
-    required_fields = ['fieldId', 'content', 'fsrNumber']
-    for field in required_fields:
-        if field not in data:
-            return jsonify({"error": f"Missing required field: {field}"}), 400
+    if not all([case_number, input_field_id, content, fsr_number]):
+        return jsonify({"error": "case_number, input_field_id, content, and fsr_number required"}), 400
+    
+    try:
+        input_field_id = int(input_field_id)
+        if input_field_id not in [1, 2]:
+            return jsonify({"error": "input_field_id must be 1 or 2"}), 400
+    except ValueError:
+        return jsonify({"error": "input_field_id must be a number"}), 400
     
     try:
         version_id = str(uuid.uuid4())
-        field_id = int(data['fieldId'])
-        content = data['content']
-        fsr_number = data['fsrNumber']
         
-        # Save CRM version
         insert_query = f"""
             INSERT INTO {DATABASE}.{SCHEMA}.VERSION_HISTORY
-            (VERSION_ID, CASE_SESSION_ID, INPUT_FIELD_ID, VERSION_TYPE, CONTENT, FSR_NUMBER, CREATED_BY_USER, CREATED_AT)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP())
+            (VERSION_ID, CASE_SESSION_ID, INPUT_FIELD_ID, VERSION_TYPE, CONTENT, SCORE, FSR_NUMBER, CREATED_AT, CREATED_BY_USER)
+            VALUES (%s, %s, %s, 'crm', %s, NULL, %s, CURRENT_TIMESTAMP(), %s)
         """
-        snowflake_query(insert_query, CONNECTION_PAYLOAD,
-                       (version_id, case_number, field_id, 'crm', content, fsr_number, user_id),
+        snowflake_query(insert_query, CONNECTION_PAYLOAD, 
+                       (version_id, case_number, input_field_id, content, fsr_number, user_id),
                        return_df=False)
         
-        print(f"✅ [VERSION_HISTORY] Saved CRM version for case {case_number}, field {field_id}, FSR {fsr_number}")
-        
-        return jsonify({
-            "success": True,
-            "versionId": version_id
-        })
+        print(f"✅ [Backend] Saved CRM version for case {case_number}, field {input_field_id}, FSR {fsr_number}")
+        return jsonify({"success": True, "version_id": version_id})
         
     except Exception as e:
-        print(f"❌ Error saving CRM version for case {case_number}: {e}")
+        print(f"❌ [Backend] Error saving CRM version: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"error": "Failed to save CRM version"}), 500
 
-def create_version_history_table_if_not_exists(database, schema, connection_payload):
+def create_version_history_table(database, schema, connection_payload):
     """
     Create VERSION_HISTORY table if it doesn't exist.
-    This table stores the history of all text versions for cases.
+    This table stores the history of text versions for cases.
     """
     try:
-        print(f"📋 Checking if VERSION_HISTORY table exists in {database}.{schema}...")
+        print(f"🔧 [Migration] Checking VERSION_HISTORY table in {database}.{schema}...")
         
         # Check if table exists
         check_query = f"""
-            SELECT COUNT(*) as cnt
+            SELECT COUNT(*) as count
             FROM {database}.INFORMATION_SCHEMA.TABLES
             WHERE TABLE_SCHEMA = '{schema}'
             AND TABLE_NAME = 'VERSION_HISTORY'
         """
         result = snowflake_query(check_query, connection_payload)
         
-        if result is not None and not result.empty and result.iloc[0]['CNT'] > 0:
-            print(f"✅ VERSION_HISTORY table already exists in {database}.{schema}")
+        if result is not None and not result.empty and result.iloc[0]['COUNT'] > 0:
+            print(f"✅ [Migration] VERSION_HISTORY table already exists in {database}.{schema}")
             return
         
         # Create table
-        print(f"📝 Creating VERSION_HISTORY table in {database}.{schema}...")
+        print(f"📦 [Migration] Creating VERSION_HISTORY table in {database}.{schema}...")
         create_query = f"""
-            CREATE TABLE {database}.{schema}.VERSION_HISTORY (
-                VERSION_ID VARCHAR(100) PRIMARY KEY,
-                CASE_SESSION_ID VARCHAR(100) NOT NULL,
+            CREATE TABLE IF NOT EXISTS {database}.{schema}.VERSION_HISTORY (
+                VERSION_ID VARCHAR(255) PRIMARY KEY,
+                CASE_SESSION_ID VARCHAR(255) NOT NULL,
                 INPUT_FIELD_ID INT NOT NULL,
                 VERSION_TYPE VARCHAR(50) NOT NULL,
                 CONTENT TEXT,
                 SCORE INT,
-                FSR_NUMBER VARCHAR(50),
-                CREATED_AT TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP(),
-                CREATED_BY_USER VARCHAR(100)
+                FSR_NUMBER VARCHAR(255),
+                CREATED_AT TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
+                CREATED_BY_USER VARCHAR(255)
             )
         """
         snowflake_query(create_query, connection_payload, return_df=False)
-        print(f"✅ Successfully created VERSION_HISTORY table in {database}.{schema}")
+        print(f"✅ [Migration] VERSION_HISTORY table created successfully in {database}.{schema}")
         
     except Exception as e:
-        print(f"❌ Error creating VERSION_HISTORY table: {e}")
+        print(f"❌ [Migration] Error creating VERSION_HISTORY table: {e}")
         import traceback
         traceback.print_exc()
 
@@ -3558,7 +3565,7 @@ if __name__ == "__main__":
     print(f"Development Mode Enabled: {app.config['DEV_MODE']}")
     
     # Create VERSION_HISTORY table if it doesn't exist
-    create_version_history_table_if_not_exists(DATABASE, SCHEMA, CONNECTION_PAYLOAD)
+    create_version_history_table(DATABASE, SCHEMA, CONNECTION_PAYLOAD)
     
     app.run(host='127.0.0.1', port=8055)
 
