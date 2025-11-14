@@ -1371,12 +1371,7 @@ class LanguageToolEditor {
                 if (Array.isArray(data.result && data.result.user_inputs)) {
                     this.logDb('USER_REWRITE_INPUTS inserted', { user_inputs: data.result.user_inputs });
                 }
-                
-                // Auto-evaluate the rewritten text to get new score
-                console.log('🔄 [LLM] Auto-evaluating rewritten text...');
-                setTimeout(() => {
-                    this.submitToLLM(field, false); // false = not a rewrite, just evaluation
-                }, 500); // Small delay to ensure UI updates properly
+                // Note: Auto-evaluation happens in displayLLMResult() when rewrite text is placed in editor
             }
             
             // Auto-save case state after LLM evaluation or rewrite

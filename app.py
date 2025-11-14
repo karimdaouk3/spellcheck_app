@@ -2445,9 +2445,9 @@ def llm():
                         else:
                             print(f"[DBG] /llm step2 PERSISTENCE: ❌ No case session found for case_id={case_id}, user_id={user_id}")
                     else:
-                        print(f"[DBG] /llm step2 PERSISTENCE: ❌ No user session input found for user_input_id={data.get('user_input_id')}")
+                        print(f"[DBG] /llm step2 PERSISTENCE: ❌ No case_id or input_field_type available")
                 else:
-                    print(f"[DBG] /llm step2 PERSISTENCE: ❌ Skipping persistence - rewritten={bool(rewritten)}, user_input_id={data.get('user_input_id')}")
+                    print(f"[DBG] /llm step2 PERSISTENCE: ❌ Skipping persistence - rewritten={bool(rewritten)}")
             except Exception as e:
                 print(f"[DBG] /llm step2 background DB operations error: {e}")
         
