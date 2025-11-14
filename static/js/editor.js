@@ -3936,22 +3936,17 @@ class CaseManager {
                 return;
             }
             
-            // Separate CRM and evaluation versions by field
-            const field1CRM = [];
-            const field1Evaluations = [];
-            const field2CRM = [];
-            const field2Evaluations = [];
+            // Separate versions by field (don't separate by type anymore)
+            const field1Versions = [];
+            const field2Versions = [];
             
             data.versions.forEach(version => {
-                const targetArray = version.inputFieldId === 1 
-                    ? (version.versionType === 'crm' ? field1CRM : field1Evaluations)
-                    : (version.versionType === 'crm' ? field2CRM : field2Evaluations);
-                
+                const targetArray = version.inputFieldId === 1 ? field1Versions : field2Versions;
                 targetArray.push(version);
             });
             
-            // Helper function to group matching text content (like CRM grouping)
-            const groupByText = (versions, isCRM) => {
+            // Helper function to group matching text content (combines CRM and evaluations)
+            const groupByText = (versions) => {
                 const groups = new Map();
                 
                 versions.forEach(version => {
@@ -3959,6 +3954,7 @@ class CaseManager {
                     if (!text) return;
                     
                     if (!groups.has(text)) {
+                        const isCRM = version.versionType === 'crm';
                         groups.set(text, {
                             text: text,
                             fsrNumbers: [],
@@ -3971,7 +3967,7 @@ class CaseManager {
                     }
                     
                     const group = groups.get(text);
-                    if (isCRM && version.fsrNumber) {
+                    if (version.versionType === 'crm' && version.fsrNumber) {
                         group.fsrNumbers.push(version.fsrNumber);
                     }
                     group.timestamps.push(new Date(version.timestamp));
@@ -3981,22 +3977,21 @@ class CaseManager {
                 return Array.from(groups.values());
             };
             
-            // Group CRM versions by matching text
-            const field1CRMGrouped = groupByText(field1CRM, true);
-            const field2CRMGrouped = groupByText(field2CRM, true);
+            // Group all versions by matching text (regardless of type)
+            const field1Grouped = groupByText(field1Versions);
+            const field2Grouped = groupByText(field2Versions);
             
-            // Group evaluation versions by matching text
-            const field1EvalGrouped = groupByText(field1Evaluations, false);
-            const field2EvalGrouped = groupByText(field2Evaluations, false);
-            
-            console.log(`📊 [Version History Debug] Field 1 - CRM groups: ${field1CRMGrouped.length}, Eval groups: ${field1EvalGrouped.length}`);
-            console.log(`📊 [Version History Debug] Field 2 - CRM groups: ${field2CRMGrouped.length}, Eval groups: ${field2EvalGrouped.length}`);
+            console.log(`📊 [Version History Debug] Field 1 - Total groups: ${field1Grouped.length}`);
+            console.log(`📊 [Version History Debug] Field 2 - Total groups: ${field2Grouped.length}`);
             
             // Helper to create history item
             const createHistoryItem = (group) => {
+                // Use the earliest timestamp (oldest) for sorting purposes
+                const earliestTimestamp = new Date(Math.min(...group.timestamps));
+                
                 const item = {
                     text: group.text,
-                    timestamp: group.timestamps[0], // Use first timestamp
+                    timestamp: earliestTimestamp,
                     versionId: group.versionIds[0],
                     fromDatabase: true,
                     crmSource: group.crmSource
@@ -4005,49 +4000,42 @@ class CaseManager {
                 if (group.crmSource) {
                     // CRM version
                     item.fsrNumbers = group.fsrNumbers;
-                    item.creationDate = group.timestamps[0];
+                    item.creationDate = earliestTimestamp;
                     item.score = null;
                 } else {
                     // Evaluation version
                     item.score = group.score;
-                    console.log(`📊 [Version History Debug] Created eval item with score: ${item.score}`);
+                    console.log(`📊 [Version History Debug] Created eval item with score: ${item.score}, timestamp: ${earliestTimestamp}`);
                 }
                 
                 return item;
             };
             
-            // Add to field histories
-            // CRM first (oldest at bottom), then evaluations (newest at top)
+            // Add to field histories - sorted by timestamp (newest first, oldest last)
             const field1 = window.spellCheckEditor.fields.editor;
             const field2 = window.spellCheckEditor.fields.editor2;
             
             if (field1) {
-                // Add CRM versions (sorted oldest first for display at bottom)
-                field1CRMGrouped
-                    .sort((a, b) => a.timestamps[0] - b.timestamps[0])
-                    .forEach(group => field1.history.push(createHistoryItem(group)));
+                // Sort all groups by timestamp (newest first = reverse chronological)
+                const sortedGroups = field1Grouped
+                    .map(group => createHistoryItem(group))
+                    .sort((a, b) => b.timestamp - a.timestamp); // Newest first
                 
-                // Add evaluation versions (sorted newest first for display at top)
-                field1EvalGrouped
-                    .sort((a, b) => b.timestamps[0] - a.timestamps[0])
-                    .forEach(group => field1.history.push(createHistoryItem(group)));
+                field1.history.push(...sortedGroups);
                 
-                console.log(`✅ [CaseManager] Field 1 history: ${field1.history.length} items`);
+                console.log(`✅ [CaseManager] Field 1 history: ${field1.history.length} items (sorted by timestamp, newest first)`);
                 console.log(`📊 [Version History Debug] Field 1 history:`, field1.history);
             }
             
             if (field2) {
-                // Add CRM versions (sorted oldest first for display at bottom)
-                field2CRMGrouped
-                    .sort((a, b) => a.timestamps[0] - b.timestamps[0])
-                    .forEach(group => field2.history.push(createHistoryItem(group)));
+                // Sort all groups by timestamp (newest first = reverse chronological)
+                const sortedGroups = field2Grouped
+                    .map(group => createHistoryItem(group))
+                    .sort((a, b) => b.timestamp - a.timestamp); // Newest first
                 
-                // Add evaluation versions (sorted newest first for display at top)
-                field2EvalGrouped
-                    .sort((a, b) => b.timestamps[0] - a.timestamps[0])
-                    .forEach(group => field2.history.push(createHistoryItem(group)));
+                field2.history.push(...sortedGroups);
                 
-                console.log(`✅ [CaseManager] Field 2 history: ${field2.history.length} items`);
+                console.log(`✅ [CaseManager] Field 2 history: ${field2.history.length} items (sorted by timestamp, newest first)`);
                 console.log(`📊 [Version History Debug] Field 2 history:`, field2.history);
             }
             
