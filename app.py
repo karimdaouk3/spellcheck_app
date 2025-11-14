@@ -2295,25 +2295,6 @@ def llm():
                         id_result = snowflake_query(id_query, CONNECTION_PAYLOAD, (user_input_id, timestamp))
                         if id_result is not None and not id_result.empty:
                             evaluation_id = int(id_result.iloc[0]["ID"])
-                        
-                        # Save to VERSION_HISTORY
-                        try:
-                            version_id = str(uuid.uuid4())
-                            # Determine INPUT_FIELD_ID: 1 for problem_statement, 2 for fsr
-                            input_field_id = 1 if input_field == "problem_statement" else 2
-                            
-                            version_insert = f"""
-                                INSERT INTO {DATABASE}.{SCHEMA}.VERSION_HISTORY
-                                (VERSION_ID, CASE_SESSION_ID, INPUT_FIELD_ID, VERSION_TYPE, CONTENT, SCORE, FSR_NUMBER, CREATED_AT, CREATED_BY_USER)
-                                VALUES (%s, %s, %s, 'llm_evaluation', %s, %s, NULL, CURRENT_TIMESTAMP(), %s)
-                            """
-                            snowflake_query(version_insert, CONNECTION_PAYLOAD,
-                                          (version_id, case_id, input_field_id, input_text, int(score_num), user_id),
-                                          return_df=False)
-                            print(f"✅ [DB] Saved evaluation version to VERSION_HISTORY (score: {int(score_num)}%)")
-                        except Exception as ve:
-                            print(f"⚠️  [DB] VERSION_HISTORY save error: {ve}")
-                        
                     except Exception as e:
                         print(f"⚠️  [DB] LLM_EVALUATION error: {e}")
             except Exception as e:
@@ -2381,36 +2362,24 @@ def llm():
                 )
                 
                 # Update LAST_INPUT_STATE with the rewritten text for persistence
-                print(f"[DBG] /llm step2 PERSISTENCE CHECK: rewritten={bool(rewritten)}, user_input_id={data.get('user_input_id')}, case_id={data.get('case_id')}")
-                if rewritten:
+                print(f"[DBG] /llm step2 PERSISTENCE CHECK: rewritten={bool(rewritten)}, user_input_id={data.get('user_input_id')}")
+                if rewritten and data.get("user_input_id"):
                     print(f"[DBG] /llm step2 PERSISTENCE: user_id={user_id}")
                     
-                    case_id = None
-                    input_field_type = None
+                    # Get the case session ID from the user input
+                    case_query = f"""
+                        SELECT CASE_ID, INPUT_FIELD_TYPE 
+                        FROM {DATABASE}.{SCHEMA}.USER_SESSION_INPUTS 
+                        WHERE ID = %s
+                    """
+                    print(f"[DBG] /llm step2 PERSISTENCE: Querying USER_SESSION_INPUTS for user_input_id={data.get('user_input_id')}")
+                    case_result = snowflake_query(case_query, CONNECTION_PAYLOAD, (data.get("user_input_id"),))
+                    print(f"[DBG] /llm step2 PERSISTENCE: case_result={case_result is not None}, empty={case_result.empty if case_result is not None else 'N/A'}")
                     
-                    # Try to get case info from user_input_id first (if available)
-                    if data.get("user_input_id"):
-                        case_query = f"""
-                            SELECT CASE_ID, INPUT_FIELD_TYPE 
-                            FROM {DATABASE}.{SCHEMA}.USER_SESSION_INPUTS 
-                            WHERE ID = %s
-                        """
-                        print(f"[DBG] /llm step2 PERSISTENCE: Querying USER_SESSION_INPUTS for user_input_id={data.get('user_input_id')}")
-                        case_result = snowflake_query(case_query, CONNECTION_PAYLOAD, (data.get("user_input_id"),))
-                        
-                        if case_result is not None and not case_result.empty:
-                            case_id = case_result.iloc[0]["CASE_ID"]
-                            input_field_type = case_result.iloc[0]["INPUT_FIELD_TYPE"]
-                            print(f"[DBG] /llm step2 PERSISTENCE: Found via user_input_id - case_id={case_id}, input_field_type={input_field_type}")
-                    
-                    # Fallback: use case_id directly from request if not found via user_input_id
-                    if not case_id and data.get("case_id"):
-                        case_id = data.get("case_id")
-                        input_field_type = data.get("input_field", "problem_statement")
-                        print(f"[DBG] /llm step2 PERSISTENCE: Using case_id from request - case_id={case_id}, input_field_type={input_field_type}")
-                    
-                    if case_id and input_field_type:
-                        print(f"[DBG] /llm step2 PERSISTENCE: Processing with case_id={case_id}, input_field_type={input_field_type}")
+                    if case_result is not None and not case_result.empty:
+                        case_id = case_result.iloc[0]["CASE_ID"]
+                        input_field_type = case_result.iloc[0]["INPUT_FIELD_TYPE"]
+                        print(f"[DBG] /llm step2 PERSISTENCE: Found case_id={case_id}, input_field_type={input_field_type}")
                         
                         # Get case session ID
                         session_query = f"""
@@ -2457,9 +2426,9 @@ def llm():
                         else:
                             print(f"[DBG] /llm step2 PERSISTENCE: ❌ No case session found for case_id={case_id}, user_id={user_id}")
                     else:
-                        print(f"[DBG] /llm step2 PERSISTENCE: ❌ No case_id or input_field_type available")
+                        print(f"[DBG] /llm step2 PERSISTENCE: ❌ No user session input found for user_input_id={data.get('user_input_id')}")
                 else:
-                    print(f"[DBG] /llm step2 PERSISTENCE: ❌ Skipping persistence - rewritten={bool(rewritten)}")
+                    print(f"[DBG] /llm step2 PERSISTENCE: ❌ Skipping persistence - rewritten={bool(rewritten)}, user_input_id={data.get('user_input_id')}")
             except Exception as e:
                 print(f"[DBG] /llm step2 background DB operations error: {e}")
         
@@ -3405,173 +3374,6 @@ def clear_feedback_flags():
         "instructions": "Run localStorage.clear() in browser console to clear all feedback flags"
     })
 
-@app.route('/api/cases/version-history', methods=['GET'])
-def get_version_history():
-    """
-    Get version history for a case and field.
-    Returns CRM versions and evaluation versions ordered by most recent first.
-    """
-    user_data = session.get('user_data')
-    if not user_data:
-        return jsonify({"error": "Not authenticated"}), 401
-    
-    case_number = request.args.get('case_number')
-    input_field_id = request.args.get('input_field_id')  # 1 or 2
-    
-    if not case_number or not input_field_id:
-        return jsonify({"error": "case_number and input_field_id required"}), 400
-    
-    try:
-        input_field_id = int(input_field_id)
-        if input_field_id not in [1, 2]:
-            return jsonify({"error": "input_field_id must be 1 or 2"}), 400
-    except ValueError:
-        return jsonify({"error": "input_field_id must be a number"}), 400
-    
-    try:
-        query = f"""
-            SELECT 
-                VERSION_ID,
-                VERSION_TYPE,
-                CONTENT,
-                SCORE,
-                FSR_NUMBER,
-                CREATED_AT
-            FROM {DATABASE}.{SCHEMA}.VERSION_HISTORY
-            WHERE CASE_SESSION_ID = %s 
-            AND INPUT_FIELD_ID = %s
-            ORDER BY CREATED_AT DESC
-        """
-        result = snowflake_query(query, CONNECTION_PAYLOAD, (case_number, input_field_id))
-        
-        if result is None or result.empty:
-            return jsonify({"versions": []})
-        
-        versions = []
-        for _, row in result.iterrows():
-            version = {
-                "id": row['VERSION_ID'],
-                "type": row['VERSION_TYPE'],
-                "content": row['CONTENT'],
-                "score": int(row['SCORE']) if pd.notna(row['SCORE']) else None,
-                "fsr_number": row['FSR_NUMBER'] if pd.notna(row['FSR_NUMBER']) else None,
-                "timestamp": row['CREATED_AT'].isoformat() if pd.notna(row['CREATED_AT']) else None
-            }
-            versions.append(version)
-        
-        return jsonify({"versions": versions})
-        
-    except Exception as e:
-        print(f"❌ [Backend] Error fetching version history: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": "Failed to fetch version history"}), 500
-
-@app.route('/api/cases/save-crm-version', methods=['POST'])
-def save_crm_version():
-    """
-    Save a CRM version to version history.
-    Called from frontend when CRM data is loaded.
-    """
-    user_data = session.get('user_data')
-    if not user_data:
-        return jsonify({"error": "Not authenticated"}), 401
-    
-    user_id = user_data.get('user_id')
-    data = request.get_json()
-    
-    case_number = data.get('case_number')
-    input_field_id = data.get('input_field_id')  # 1 or 2
-    content = data.get('content')
-    fsr_number = data.get('fsr_number')
-    creation_date = data.get('creation_date')  # FSR creation date from CRM
-    
-    if not all([case_number, input_field_id, content, fsr_number]):
-        return jsonify({"error": "case_number, input_field_id, content, and fsr_number required"}), 400
-    
-    try:
-        input_field_id = int(input_field_id)
-        if input_field_id not in [1, 2]:
-            return jsonify({"error": "input_field_id must be 1 or 2"}), 400
-    except ValueError:
-        return jsonify({"error": "input_field_id must be a number"}), 400
-    
-    try:
-        version_id = str(uuid.uuid4())
-        
-        # Use provided creation_date if available, otherwise use current timestamp
-        if creation_date:
-            insert_query = f"""
-                INSERT INTO {DATABASE}.{SCHEMA}.VERSION_HISTORY
-                (VERSION_ID, CASE_SESSION_ID, INPUT_FIELD_ID, VERSION_TYPE, CONTENT, SCORE, FSR_NUMBER, CREATED_AT, CREATED_BY_USER)
-                VALUES (%s, %s, %s, 'crm', %s, NULL, %s, %s, %s)
-            """
-            snowflake_query(insert_query, CONNECTION_PAYLOAD, 
-                           (version_id, case_number, input_field_id, content, fsr_number, creation_date, user_id),
-                           return_df=False)
-        else:
-            insert_query = f"""
-                INSERT INTO {DATABASE}.{SCHEMA}.VERSION_HISTORY
-                (VERSION_ID, CASE_SESSION_ID, INPUT_FIELD_ID, VERSION_TYPE, CONTENT, SCORE, FSR_NUMBER, CREATED_AT, CREATED_BY_USER)
-                VALUES (%s, %s, %s, 'crm', %s, NULL, %s, CURRENT_TIMESTAMP(), %s)
-            """
-            snowflake_query(insert_query, CONNECTION_PAYLOAD, 
-                           (version_id, case_number, input_field_id, content, fsr_number, user_id),
-                           return_df=False)
-        
-        print(f"✅ [Backend] Saved CRM version for case {case_number}, field {input_field_id}, FSR {fsr_number}")
-        return jsonify({"success": True, "version_id": version_id})
-        
-    except Exception as e:
-        print(f"❌ [Backend] Error saving CRM version: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": "Failed to save CRM version"}), 500
-
-def create_version_history_table(database, schema, connection_payload):
-    """
-    Create VERSION_HISTORY table if it doesn't exist.
-    This table stores the history of text versions for cases.
-    """
-    try:
-        print(f"🔧 [Migration] Checking VERSION_HISTORY table in {database}.{schema}...")
-        
-        # Check if table exists
-        check_query = f"""
-            SELECT COUNT(*) as count
-            FROM {database}.INFORMATION_SCHEMA.TABLES
-            WHERE TABLE_SCHEMA = '{schema}'
-            AND TABLE_NAME = 'VERSION_HISTORY'
-        """
-        result = snowflake_query(check_query, connection_payload)
-        
-        if result is not None and not result.empty and result.iloc[0]['COUNT'] > 0:
-            print(f"✅ [Migration] VERSION_HISTORY table already exists in {database}.{schema}")
-            return
-        
-        # Create table
-        print(f"📦 [Migration] Creating VERSION_HISTORY table in {database}.{schema}...")
-        create_query = f"""
-            CREATE TABLE IF NOT EXISTS {database}.{schema}.VERSION_HISTORY (
-                VERSION_ID VARCHAR(255) PRIMARY KEY,
-                CASE_SESSION_ID VARCHAR(255) NOT NULL,
-                INPUT_FIELD_ID INT NOT NULL,
-                VERSION_TYPE VARCHAR(50) NOT NULL,
-                CONTENT TEXT,
-                SCORE INT,
-                FSR_NUMBER VARCHAR(255),
-                CREATED_AT TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
-                CREATED_BY_USER VARCHAR(255)
-            )
-        """
-        snowflake_query(create_query, connection_payload, return_df=False)
-        print(f"✅ [Migration] VERSION_HISTORY table created successfully in {database}.{schema}")
-        
-    except Exception as e:
-        print(f"❌ [Migration] Error creating VERSION_HISTORY table: {e}")
-        import traceback
-        traceback.print_exc()
-
 if __name__ == "__main__":
     print("Starting LanguageTool Flask App...")
     with open("./config.yaml", 'r') as f:
@@ -3587,9 +3389,6 @@ if __name__ == "__main__":
         SCHEMA = f"DEV_{SCHEMA}"
     print(f"SSO Enabled: {app.config['ENABLE_SSO']}")
     print(f"Development Mode Enabled: {app.config['DEV_MODE']}")
-    
-    # Create VERSION_HISTORY table if it doesn't exist
-    create_version_history_table(DATABASE, SCHEMA, CONNECTION_PAYLOAD)
     
     app.run(host='127.0.0.1', port=8055)
 
