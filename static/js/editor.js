@@ -4485,27 +4485,37 @@ class CaseManager {
             
             console.log('🗑️ [CaseManager] Deleting case:', caseToDelete.caseNumber);
             
-            // If it's the current case, handle case switching
+            // OPTIMISTIC: Remove from local array IMMEDIATELY (before any async operations)
+            this.cases = this.cases.filter(c => c.id !== caseId);
+            
+            // OPTIMISTIC: Re-render the cases list IMMEDIATELY (case disappears from sidebar instantly)
+            this.renderCasesList();
+            console.log('⚡ [CaseManager] Case removed from sidebar instantly');
+            
+            // Now handle case switching if needed
             if (this.currentCase && this.currentCase.id === caseId) {
-                const otherCases = this.cases.filter(c => c.id !== caseId);
-                if (otherCases.length > 0) {
-                    // Switch to another case before deleting
-                    await this.switchToCase(otherCases[0].id);
+                const sortedByAccess = [...this.cases].sort((a, b) => {
+                    const aTime = a.lastAccessedAt ? new Date(a.lastAccessedAt).getTime() : 0;
+                    const bTime = b.lastAccessedAt ? new Date(b.lastAccessedAt).getTime() : 0;
+                    return bTime - aTime;
+                });
+                
+                if (sortedByAccess.length > 0) {
+                    // Switch to the most recently used case (top of the list)
+                    console.log(`🔄 [CaseManager] Switching to most recent case: ${sortedByAccess[0].caseNumber}`);
+                    await this.switchToCase(sortedByAccess[0].id);
                 } else {
                     // No other cases will remain, clear everything
                     console.log('🧹 [CaseManager] Last case being deleted, clearing all UI');
                     this.currentCase = null;
+                    this.clearAllEditorsAndUI();
                 }
             }
             
-            // OPTIMISTIC: Remove from local array immediately (before backend call)
-            this.cases = this.cases.filter(c => c.id !== caseId);
-            
-            // OPTIMISTIC: Save to localStorage immediately
+            // OPTIMISTIC: Save to localStorage
             this.saveCasesLocally();
             
-            // OPTIMISTIC: Re-render the cases list immediately (case disappears from sidebar)
-            this.renderCasesList();
+            // Update header
             this.updateActiveCaseHeader();
             
             // OPTIMISTIC: If no cases left, clear all editors and UI immediately
