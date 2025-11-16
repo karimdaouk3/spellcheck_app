@@ -3346,7 +3346,7 @@ class CaseManager {
                 // Convert DB history to full format with evaluation details
                 const dbHistoryEntries = dbHistory.map(item => ({
                     text: item.text,
-                    llmLastResult: item.evaluationDetails || null,  // Full evaluation details from JSON!
+                    llmLastResult: item.evaluationDetails || null,  // Full evaluation/rewrite details from JSON!
                     score: item.score,
                     timestamp: item.timestamp,
                     isRewrite: item.isRewrite,
@@ -3377,17 +3377,6 @@ class CaseManager {
                 field.history = mergedHistory.slice(0, 50);
                 
                 console.log(`✅ [CaseManager] Merged history for ${fieldType}: ${field.history.length} total items (${dbHistory.length} from DB, ${existingHistory.length} from session)`);
-                
-                // Auto-load most recent history item if available (only for first field to avoid overwriting)
-                if (fieldType === 'problem_statement' && field.history.length > 0) {
-                    const mostRecent = field.history[0];  // Sorted by timestamp DESC
-                    if (mostRecent.llmLastResult) {
-                        console.log(`📥 [CaseManager] Auto-loading most recent evaluation for ${fieldType}`);
-                        // Don't call restoreFromHistory here - wait until switchToCase completes
-                        // We'll do it after all history is loaded
-                        field.pendingRestore = mostRecent;
-                    }
-                }
             }
             
             // Re-render history sidebar if active
@@ -3769,14 +3758,21 @@ class CaseManager {
         await this.loadHistoryFromDatabase(caseData.caseNumber);
         
         // ============================================================
-        // STEP 6: AUTO-LOAD most recent history item (if available)
+        // STEP 6: AUTO-LOAD most recent history item (if available and no saved state)
         // ============================================================
-        if (window.spellCheckEditor) {
-            const editorField = window.spellCheckEditor.fields['editor'];
-            if (editorField && editorField.pendingRestore) {
-                console.log('📥 [CaseManager] Restoring most recent evaluation');
-                window.spellCheckEditor.restoreFromHistory(editorField.pendingRestore, 'editor');
-                delete editorField.pendingRestore;  // Clear the flag
+        if (!caseData.editorStates && window.spellCheckEditor) {
+            console.log(`🔄 [CaseManager] Checking for most recent history to auto-load...`);
+            
+            // Check problem statement history
+            const editor1Field = window.spellCheckEditor.fields['editor'];
+            if (editor1Field && editor1Field.history && editor1Field.history.length > 0) {
+                const mostRecent = editor1Field.history[0];  // Most recent (sorted DESC)
+                
+                // Only auto-load if it has full evaluation details
+                if (mostRecent.llmLastResult) {
+                    console.log(`📥 [CaseManager] Auto-loading most recent evaluation for problem statement`);
+                    window.spellCheckEditor.restoreFromHistory(mostRecent, 'editor');
+                }
             }
         }
         
