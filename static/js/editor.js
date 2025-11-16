@@ -2086,11 +2086,20 @@ class LanguageToolEditor {
             
             const text = typeof item === 'string' ? item : item.text;
             const llmResult = typeof item === 'object' ? item.llmLastResult : null;
+            const dbScore = typeof item === 'object' && item.dbSource ? item.score : null;
             
             // Calculate score if available and set border color to a discrete bucket matching the temperature bar palette
+            let percentage = null;
             if (llmResult && llmResult.evaluation) {
+                // Full evaluation available (in-session history)
                 const score = this.calculateWeightedScore(this.activeField, llmResult.evaluation);
-                const percentage = Math.round(score);
+                percentage = Math.round(score);
+            } else if (dbScore !== null && dbScore !== undefined) {
+                // DB-sourced history with just a score
+                percentage = Math.round(dbScore);
+            }
+            
+            if (percentage !== null) {
                 // Discrete buckets aligned with the temperature bar gradient
                 // 0–20: red, 21–40: orange-red, 41–60: yellow, 61–80: yellow-green, 81–100: green
                 let borderColor = '#e8eaed';
@@ -2111,10 +2120,37 @@ class LanguageToolEditor {
             // Replace newlines with <br> tags for proper rendering
             const textWithNewlines = text.replace(/\n/g, '<br>');
             
-            // Add CRM source indicator if this is from CRM
+            // Add source indicators
             let sourceIndicator = '';
             let fsrFooter = '';
-            if (typeof item === 'object' && item.crmSource) {
+            
+            // DB-sourced history item
+            if (typeof item === 'object' && item.dbSource) {
+                let typeLabel = item.isRewrite ? 'Rewrite' : 'Review';
+                let formattedDate = '';
+                if (item.timestamp) {
+                    try {
+                        const date = new Date(item.timestamp);
+                        if (!isNaN(date.getTime())) {
+                            formattedDate = date.toLocaleDateString('en-US', {
+                                weekday: 'short',
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                        }
+                    } catch (e) {
+                        formattedDate = item.timestamp;
+                    }
+                }
+                sourceIndicator = `<div style="font-size: 11px; color: #7C3AED; margin-bottom: 4px; font-weight: bold;">
+                    💾 ${typeLabel} ${dbScore !== null ? `(Score: ${Math.round(dbScore)}%)` : ''} - ${formattedDate}
+                </div>`;
+            }
+            // CRM-sourced history item
+            else if (typeof item === 'object' && item.crmSource) {
                 // Format date properly from FSR Creation Date
                 let formattedDate = item.creationDate;
                 if (item.creationDate) {
@@ -3272,6 +3308,90 @@ class CaseManager {
         }
     }
     
+    async loadHistoryFromDatabase(caseNumber) {
+        /**
+         * Load simplified history from database for a case.
+         * Merges with existing in-session history.
+         */
+        if (!window.spellCheckEditor) {
+            console.warn('⚠️ [CaseManager] spellCheckEditor not initialized, skipping history load');
+            return;
+        }
+        
+        try {
+            // Load history for both fields
+            const fields = ['problem_statement', 'fsr'];
+            
+            for (const fieldType of fields) {
+                const fieldName = fieldType === 'problem_statement' ? 'editor' : 'editor2';
+                const field = window.spellCheckEditor.fields[fieldName];
+                
+                if (!field) continue;
+                
+                // Fetch history from database
+                const response = await fetch(`/api/cases/history?case_number=${caseNumber}&field_type=${fieldType}`);
+                
+                if (!response.ok) {
+                    console.warn(`⚠️ [CaseManager] Failed to load history for ${fieldType}`);
+                    continue;
+                }
+                
+                const data = await response.json();
+                const dbHistory = data.history || [];
+                
+                console.log(`📜 [CaseManager] Loaded ${dbHistory.length} history items from DB for ${fieldType}`);
+                
+                if (dbHistory.length === 0) continue;
+                
+                // Get existing in-session history
+                const existingHistory = field.history || [];
+                
+                // Convert DB history to simplified format
+                const dbHistoryEntries = dbHistory.map(item => ({
+                    text: item.text,
+                    llmLastResult: null,  // No evaluation details for DB history
+                    score: item.score,  // Just the score number
+                    timestamp: item.timestamp,
+                    isRewrite: item.isRewrite,
+                    dbSource: true,  // Mark as from database
+                    userInputId: null,
+                    rewriteUuid: null,
+                    reviewId: null
+                }));
+                
+                // Merge: Keep in-session history at top (most recent), then DB history
+                // Remove duplicates based on text and timestamp
+                const mergedHistory = [...existingHistory];
+                
+                for (const dbEntry of dbHistoryEntries) {
+                    // Check if this entry already exists in session history
+                    const isDuplicate = existingHistory.some(existing => 
+                        existing.text === dbEntry.text && 
+                        Math.abs(new Date(existing.timestamp) - new Date(dbEntry.timestamp)) < 1000 // Within 1 second
+                    );
+                    
+                    if (!isDuplicate) {
+                        mergedHistory.push(dbEntry);
+                    }
+                }
+                
+                // Sort by timestamp (most recent first) and limit to 50
+                mergedHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                field.history = mergedHistory.slice(0, 50);
+                
+                console.log(`✅ [CaseManager] Merged history for ${fieldType}: ${field.history.length} total items (${dbHistory.length} from DB, ${existingHistory.length} from session)`);
+            }
+            
+            // Re-render history sidebar if active
+            if (window.spellCheckEditor.renderHistory) {
+                window.spellCheckEditor.renderHistory();
+            }
+            
+        } catch (error) {
+            console.error(`❌ [CaseManager] Error loading history from database:`, error);
+        }
+    }
+    
     async saveCaseTitleToDatabase(caseNumber, caseTitle) {
         if (this.userId === null || this.userId === undefined) {
             console.warn('⚠️ [CaseManager] No user ID available, cannot save case title to backend');
@@ -3635,13 +3755,19 @@ class CaseManager {
         }
         
         // ============================================================
-        // STEP 5: UPDATE UI
+        // STEP 5: LOAD HISTORY from database
+        // ============================================================
+        console.log(`📜 [CaseManager] Loading history from database for case ${caseData.caseNumber}`);
+        await this.loadHistoryFromDatabase(caseData.caseNumber);
+        
+        // ============================================================
+        // STEP 6: UPDATE UI
         // ============================================================
         this.renderCasesList();
         this.updateActiveCaseHeader();
         
         // ============================================================
-        // STEP 6: RUN SPELL CHECK on restored content
+        // STEP 7: RUN SPELL CHECK on restored content
         // ============================================================
         if (window.spellCheckEditor) {
             console.log('🔍 [CaseManager] Running spell check on both editors');

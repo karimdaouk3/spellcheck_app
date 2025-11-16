@@ -3374,6 +3374,74 @@ def clear_feedback_flags():
         "instructions": "Run localStorage.clear() in browser console to clear all feedback flags"
     })
 
+@app.route('/api/cases/history', methods=['GET'])
+def get_case_history():
+    """
+    Get simplified history for a case from database.
+    Returns text content, score, and timestamp for each evaluation/rewrite.
+    """
+    user_data = session.get('user_data')
+    if not user_data:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    user_id = user_data.get('user_id')
+    case_number = request.args.get('case_number')
+    field_type = request.args.get('field_type', 'problem_statement')  # or 'fsr'
+    
+    if not case_number:
+        return jsonify({"error": "case_number required"}), 400
+    
+    try:
+        # Query LLM_EVALUATION joined with USER_SESSION_INPUTS to get history
+        query = f"""
+            SELECT 
+                e.ORIGINAL_TEXT,
+                e.REWRITTEN_TEXT,
+                e.SCORE,
+                e.TIMESTAMP,
+                i.INPUT_FIELD_TYPE,
+                e.REWRITE_UUID
+            FROM {DATABASE}.{SCHEMA}.LLM_EVALUATION e
+            JOIN {DATABASE}.{SCHEMA}.USER_SESSION_INPUTS i ON e.USER_INPUT_ID = i.ID
+            WHERE i.CASE_ID = %s 
+              AND i.USER_ID = %s
+              AND i.INPUT_FIELD_TYPE = %s
+            ORDER BY e.TIMESTAMP DESC
+            LIMIT 50
+        """
+        
+        result = snowflake_query(query, CONNECTION_PAYLOAD, (case_number, user_id, field_type))
+        
+        if result is None or result.empty:
+            return jsonify({"history": []})
+        
+        history_items = []
+        for _, row in result.iterrows():
+            # Use REWRITTEN_TEXT if available (for rewrites), otherwise ORIGINAL_TEXT
+            text = row['REWRITTEN_TEXT'] if pd.notna(row['REWRITTEN_TEXT']) and row['REWRITTEN_TEXT'] else row['ORIGINAL_TEXT']
+            
+            # Only include if we have text
+            if not text or not text.strip():
+                continue
+            
+            history_item = {
+                "text": text.strip(),
+                "score": float(row['SCORE']) if pd.notna(row['SCORE']) else None,
+                "timestamp": row['TIMESTAMP'].isoformat() if pd.notna(row['TIMESTAMP']) else None,
+                "isRewrite": pd.notna(row['REWRITE_UUID']) and row['REWRITE_UUID'] is not None,
+                "dbSource": True  # Mark as coming from database
+            }
+            history_items.append(history_item)
+        
+        print(f"✅ [Backend] Loaded {len(history_items)} history items for case {case_number}, field {field_type}")
+        return jsonify({"history": history_items})
+        
+    except Exception as e:
+        print(f"❌ [Backend] Error fetching case history: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": "Failed to fetch history"}), 500
+
 if __name__ == "__main__":
     print("Starting LanguageTool Flask App...")
     with open("./config.yaml", 'r') as f:
