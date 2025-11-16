@@ -2126,7 +2126,6 @@ class LanguageToolEditor {
             
             // DB-sourced history item
             if (typeof item === 'object' && item.dbSource) {
-                let typeLabel = item.isRewrite ? 'Rewrite' : 'Review';
                 let formattedDate = '';
                 if (item.timestamp) {
                     try {
@@ -2136,17 +2135,15 @@ class LanguageToolEditor {
                                 weekday: 'short',
                                 day: 'numeric',
                                 month: 'short',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
+                                year: 'numeric'
                             });
                         }
                     } catch (e) {
                         formattedDate = item.timestamp;
                     }
                 }
-                sourceIndicator = `<div style="font-size: 11px; color: #7C3AED; margin-bottom: 4px; font-weight: bold;">
-                    💾 ${typeLabel} ${dbScore !== null ? `(Score: ${Math.round(dbScore)}%)` : ''} - ${formattedDate}
+                sourceIndicator = `<div style="font-size: 11px; color: #666; margin-bottom: 4px; font-weight: bold;">
+                    💾 History (${formattedDate})
                 </div>`;
             }
             // CRM-sourced history item
