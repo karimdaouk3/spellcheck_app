@@ -3163,6 +3163,7 @@ class CaseManager {
                     fsrNotes: caseData.fsrNotes || '',
                     createdAt: new Date(caseData.updatedAt || Date.now()),
                     updatedAt: new Date(caseData.updatedAt || Date.now()),
+                    lastAccessedAt: new Date(caseData.updatedAt || Date.now()), // Track last access for sorting
                     isTrackedInDatabase: true // All cases from database are tracked
                 };
                 
@@ -3543,6 +3544,7 @@ class CaseManager {
                         fsrNotes: '',
                         createdAt: new Date(),
                         updatedAt: new Date(),
+                        lastAccessedAt: new Date(), // Set last access time for sorting
                         isTrackedInDatabase: false
                     };
                     
@@ -3597,6 +3599,7 @@ class CaseManager {
                     fsrNotes: '',
                     createdAt: new Date(),
                     updatedAt: new Date(),
+                    lastAccessedAt: new Date(), // Set last access time for sorting
                     isTrackedInDatabase: false
                 };
                 
@@ -3628,6 +3631,7 @@ class CaseManager {
             fsrNotes: '',
             createdAt: new Date(),
             updatedAt: new Date(),
+            lastAccessedAt: new Date(), // Set last access time for sorting
             isTrackedInDatabase: isTrackedInDatabase
         };
             
@@ -3728,9 +3732,10 @@ class CaseManager {
         this.clearAllEditorState();
         
         // ============================================================
-        // STEP 3: SET new current case
+        // STEP 3: SET new current case and update last accessed time
         // ============================================================
         this.currentCase = caseData;
+        caseData.lastAccessedAt = new Date(); // Update last access time for sorting
         console.log(`✅ [CaseManager] Current case set to: ${caseData.caseNumber}`);
         
         // ============================================================
@@ -4356,8 +4361,12 @@ class CaseManager {
         
         casesList.innerHTML = '';
         
-        // Sort cases by case number descending (highest first)
-        const sortedCases = [...this.cases].sort((a, b) => b.caseNumber - a.caseNumber);
+        // Sort cases by last accessed time descending (most recent first)
+        const sortedCases = [...this.cases].sort((a, b) => {
+            const aTime = a.lastAccessedAt ? new Date(a.lastAccessedAt).getTime() : 0;
+            const bTime = b.lastAccessedAt ? new Date(b.lastAccessedAt).getTime() : 0;
+            return bTime - aTime;
+        });
         
         sortedCases.forEach(caseData => {
             const caseItem = document.createElement('div');
