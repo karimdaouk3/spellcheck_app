@@ -3764,7 +3764,17 @@ class CaseManager {
         this.updateActiveCaseHeader();
         
         // ============================================================
-        // STEP 7: RUN SPELL CHECK on restored content
+        // STEP 7: SET ACTIVE FIELD to problem statement (editor)
+        // ============================================================
+        if (window.spellCheckEditor) {
+            console.log('📝 [CaseManager] Setting active field to problem statement');
+            window.spellCheckEditor.activeField = 'editor';
+            window.spellCheckEditor.updateActiveEditorHighlight();
+            window.spellCheckEditor.renderHistory();
+        }
+        
+        // ============================================================
+        // STEP 8: RUN SPELL CHECK on restored content
         // ============================================================
         if (window.spellCheckEditor) {
             console.log('🔍 [CaseManager] Running spell check on both editors');
