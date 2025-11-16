@@ -2289,58 +2289,72 @@ def llm():
                         print(f"[DEBUG] 📊 JSON preview (first 200 chars): {evaluation_details_json[:200]}...")
                         print(f"[DEBUG] 📊 JSON is valid: {json.loads(evaluation_details_json) is not None}")
                         
-                        # Try Method 1: Direct parameterized insert (Snowflake auto-converts)
+                        # Try Method 1: SELECT with PARSE_JSON (CORRECT Snowflake approach for VARIANT)
                         try:
-                            print(f"[DEBUG] 🔄 Attempting Method 1: Direct parameterized insert")
+                            print(f"[DEBUG] 🔄 Attempting Method 1: SELECT with PARSE_JSON")
                             insert_query = f"""
                                 INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
                                 (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP, EVALUATION_DETAILS)
-                                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                                SELECT %s, %s, %s, %s, %s, %s, PARSE_JSON(%s)
                             """
                             snowflake_query(insert_query, CONNECTION_PAYLOAD,
                                           (user_input_id, input_text, input_text, score_num, None, timestamp, evaluation_details_json),
                                           return_df=False)
-                            print(f"[DEBUG] ✅ Method 1 SUCCESS: Direct parameterized insert worked!")
+                            print(f"[DEBUG] ✅ Method 1 SUCCESS: SELECT with PARSE_JSON worked!")
                             
                         except Exception as method1_error:
                             print(f"[DEBUG] ❌ Method 1 FAILED: {method1_error}")
-                            print(f"[DEBUG] 🔄 Attempting Method 2: TO_VARIANT with literal")
+                            print(f"[DEBUG] 🔄 Attempting Method 2: SELECT with TO_VARIANT")
                             
-                            # Try Method 2: Use TO_VARIANT with string literal (no parameterization for JSON)
+                            # Try Method 2: SELECT with TO_VARIANT (alternative approach)
                             try:
-                                # Escape single quotes in JSON for SQL
-                                escaped_json = evaluation_details_json.replace("'", "''")
                                 insert_query = f"""
                                     INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
                                     (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP, EVALUATION_DETAILS)
-                                    VALUES (%s, %s, %s, %s, %s, %s, TO_VARIANT(PARSE_JSON('{escaped_json}')))
+                                    SELECT %s, %s, %s, %s, %s, %s, TO_VARIANT(PARSE_JSON(%s))
                                 """
                                 snowflake_query(insert_query, CONNECTION_PAYLOAD,
-                                              (user_input_id, input_text, input_text, score_num, None, timestamp),
+                                              (user_input_id, input_text, input_text, score_num, None, timestamp, evaluation_details_json),
                                               return_df=False)
-                                print(f"[DEBUG] ✅ Method 2 SUCCESS: TO_VARIANT with literal worked!")
+                                print(f"[DEBUG] ✅ Method 2 SUCCESS: SELECT with TO_VARIANT worked!")
                                 
                             except Exception as method2_error:
                                 print(f"[DEBUG] ❌ Method 2 FAILED: {method2_error}")
-                                print(f"[DEBUG] 🔄 Attempting Method 3: Insert without EVALUATION_DETAILS")
+                                print(f"[DEBUG] 🔄 Attempting Method 3: Direct parameterized (no function)")
                                 
-                                # Try Method 3: Insert without EVALUATION_DETAILS (fallback)
+                                # Try Method 3: Direct parameterized (Snowflake should auto-convert)
                                 try:
                                     insert_query = f"""
                                         INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
-                                        (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP)
-                                        VALUES (%s, %s, %s, %s, %s, %s)
+                                        (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP, EVALUATION_DETAILS)
+                                        SELECT %s, %s, %s, %s, %s, %s, %s
                                     """
                                     snowflake_query(insert_query, CONNECTION_PAYLOAD,
-                                                  (user_input_id, input_text, input_text, score_num, None, timestamp),
+                                                  (user_input_id, input_text, input_text, score_num, None, timestamp, evaluation_details_json),
                                                   return_df=False)
-                                    print(f"[DEBUG] ⚠️ Method 3 SUCCESS: Inserted without EVALUATION_DETAILS (fallback)")
-                                    print(f"[DEBUG] ⚠️ WARNING: Evaluation details were NOT saved!")
+                                    print(f"[DEBUG] ✅ Method 3 SUCCESS: Direct parameterized with SELECT worked!")
                                     
                                 except Exception as method3_error:
                                     print(f"[DEBUG] ❌ Method 3 FAILED: {method3_error}")
-                                    print(f"[DEBUG] 💥 ALL METHODS FAILED - This is a serious issue!")
-                                    raise
+                                    print(f"[DEBUG] 🔄 Attempting Method 4: Fallback without EVALUATION_DETAILS")
+                                    
+                                    # Try Method 4: Insert without EVALUATION_DETAILS (last resort)
+                                    try:
+                                        insert_query = f"""
+                                            INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
+                                            (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP)
+                                            VALUES (%s, %s, %s, %s, %s, %s)
+                                        """
+                                        snowflake_query(insert_query, CONNECTION_PAYLOAD,
+                                                      (user_input_id, input_text, input_text, score_num, None, timestamp),
+                                                      return_df=False)
+                                        print(f"[DEBUG] ⚠️ Method 4 SUCCESS: Inserted without EVALUATION_DETAILS (fallback)")
+                                        print(f"[DEBUG] ⚠️ WARNING: Evaluation details were NOT saved!")
+                                        
+                                    except Exception as method4_error:
+                                        print(f"[DEBUG] ❌ Method 4 FAILED: {method4_error}")
+                                        print(f"[DEBUG] 💥 ALL METHODS FAILED - This is a serious issue!")
+                                        raise
                         
                         # Get the evaluation ID that was just inserted
                         id_query = f"""
@@ -2429,12 +2443,12 @@ def llm():
                 print(f"[DEBUG] 📊 JSON preview: {evaluation_details_json[:200]}...")
                 
                 try:
-                    print(f"[DEBUG] 🔄 Inserting rewrite evaluation with EVALUATION_DETAILS")
+                    print(f"[DEBUG] 🔄 Inserting rewrite evaluation with EVALUATION_DETAILS using SELECT")
                     snowflake_query(
                         f"""
                         INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
                         (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP, EVALUATION_DETAILS)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        SELECT %s, %s, %s, %s, %s, %s, PARSE_JSON(%s)
                         """,
                         CONNECTION_PAYLOAD,
                         (
