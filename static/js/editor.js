@@ -1316,9 +1316,15 @@ class LanguageToolEditor {
                             originalCase[fieldName] = data.result.rewrite;
                         }
                         
-                        // Update lastAccessedAt since LLM work was done on this case
-                        originalCase.lastAccessedAt = new Date();
-                        console.log(`🕐 [LLM] Updated lastAccessedAt for case ${llmCallCaseNumber} to: ${originalCase.lastAccessedAt.toISOString()}`);
+                        // Update lastAccessedAt only for review (step 1), not rewrite (step 2)
+                        if (!answers) {
+                            originalCase.lastAccessedAt = new Date();
+                            console.log(`🕐 [LLM] Updated lastAccessedAt for case ${llmCallCaseNumber} to: ${originalCase.lastAccessedAt.toISOString()}`);
+                            
+                            // Re-render sidebar to show new order
+                            window.caseManager.renderCasesList();
+                            console.log(`📋 [LLM] Sidebar re-rendered with new case order`);
+                        }
                         
                         // Save to localStorage
                         window.caseManager.saveCases();
@@ -1361,6 +1367,17 @@ class LanguageToolEditor {
                 const evaluation = data.result && data.result.evaluation ? data.result.evaluation : {};
                 const calculatedScore = this.calculateWeightedScore(field, evaluation);
                 this.fields[field].calculatedScore = calculatedScore;
+                
+                // Update lastAccessedAt and re-render sidebar for active case
+                if (this.caseManager && this.caseManager.currentCase) {
+                    this.caseManager.currentCase.lastAccessedAt = new Date();
+                    console.log(`🕐 [LLM] Updated lastAccessedAt for current case ${this.caseManager.currentCase.caseNumber} to: ${this.caseManager.currentCase.lastAccessedAt.toISOString()}`);
+                    
+                    // Re-render sidebar to show new order
+                    this.caseManager.renderCasesList();
+                    this.caseManager.saveCases();
+                    console.log(`📋 [LLM] Sidebar re-rendered with new case order`);
+                }
             }
             
             this.displayLLMResult(data.result, answers !== null, field, !answers);
