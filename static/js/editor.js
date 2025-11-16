@@ -3172,8 +3172,11 @@ class CaseManager {
                     fsrNotes: caseData.fsrNotes || '',
                     createdAt: new Date(caseData.updatedAt || Date.now()),
                     updatedAt: new Date(caseData.updatedAt || Date.now()),
-                    // Preserve lastAccessedAt from localStorage if it exists, otherwise use updatedAt
-                    lastAccessedAt: localCase?.lastAccessedAt ? new Date(localCase.lastAccessedAt) : new Date(caseData.updatedAt || Date.now()),
+                    // Preserve lastAccessedAt from localStorage if it exists
+                    // Otherwise use updatedAt if available, or a very old date (epoch) so unaccessed cases appear at bottom
+                    lastAccessedAt: localCase?.lastAccessedAt 
+                        ? new Date(localCase.lastAccessedAt) 
+                        : (caseData.updatedAt ? new Date(caseData.updatedAt) : new Date(0)),
                     isTrackedInDatabase: true // All cases from database are tracked
                 };
                 
