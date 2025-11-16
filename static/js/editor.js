@@ -3154,7 +3154,16 @@ class CaseManager {
             const backendCases = caseData.cases || {};
             console.log(`📊 [CaseManager] Processing ${Object.keys(backendCases).length} cases from database`);
             
+            // Load existing lastAccessedAt from localStorage for merging
+            const storageKey = `fsr-cases-${this.userId}`;
+            const savedCases = localStorage.getItem(storageKey);
+            const localStorageCases = savedCases ? JSON.parse(savedCases) : [];
+            const localStorageMap = new Map(localStorageCases.map(c => [c.caseNumber, c]));
+            
             this.cases = Object.values(backendCases).map(caseData => {
+                // Check if we have lastAccessedAt from localStorage for this case
+                const localCase = localStorageMap.get(caseData.caseNumber);
+                
                 const caseInfo = {
                     id: caseData.caseNumber, // Use case number as ID for consistency
                     caseNumber: caseData.caseNumber,
@@ -3163,7 +3172,8 @@ class CaseManager {
                     fsrNotes: caseData.fsrNotes || '',
                     createdAt: new Date(caseData.updatedAt || Date.now()),
                     updatedAt: new Date(caseData.updatedAt || Date.now()),
-                    lastAccessedAt: new Date(caseData.updatedAt || Date.now()), // Track last access for sorting
+                    // Preserve lastAccessedAt from localStorage if it exists, otherwise use updatedAt
+                    lastAccessedAt: localCase?.lastAccessedAt ? new Date(localCase.lastAccessedAt) : new Date(caseData.updatedAt || Date.now()),
                     isTrackedInDatabase: true // All cases from database are tracked
                 };
                 
@@ -3260,7 +3270,7 @@ class CaseManager {
     // Removed: filterClosedCases() - No longer needed, case status is provided by database endpoints
     
     saveCases() {
-        // Save to localStorage for quick access
+        // Save cases to localStorage (persists lastAccessedAt and other metadata)
         this.saveCasesLocally();
     }
     
@@ -3736,6 +3746,7 @@ class CaseManager {
         // ============================================================
         this.currentCase = caseData;
         caseData.lastAccessedAt = new Date(); // Update last access time for sorting
+        this.saveCases(); // Persist lastAccessedAt to localStorage
         console.log(`✅ [CaseManager] Current case set to: ${caseData.caseNumber}`);
         
         // ============================================================
