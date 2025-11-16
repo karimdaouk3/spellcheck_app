@@ -3514,10 +3514,5 @@ if __name__ == "__main__":
     print(f"SSO Enabled: {app.config['ENABLE_SSO']}")
     print(f"Development Mode Enabled: {app.config['DEV_MODE']}")
     
-    # Run migration for DEV only
-    if app.config['DEV_MODE']:
-        print(f"🔄 [Migration] Running database migrations for DEV schema...")
-        add_evaluation_details_column(DATABASE, SCHEMA, CONNECTION_PAYLOAD)
-    
     app.run(host='127.0.0.1', port=8055)
 
