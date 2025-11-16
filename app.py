@@ -2277,11 +2277,13 @@ def llm():
                         score_num = (passed / total) * 100 if total else 0
                         
                         # Insert and get the evaluation ID (with full evaluation details as JSON)
+                        # Note: For VARIANT columns, Snowflake automatically converts JSON strings
+                        # Do NOT use PARSE_JSON() with parameterized queries - it causes SQL compilation errors
                         evaluation_details_json = json.dumps(llm_result)
                         insert_query = f"""
                             INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
                             (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP, EVALUATION_DETAILS)
-                            VALUES (%s, %s, %s, %s, %s, %s, PARSE_JSON(%s))
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)
                         """
                         snowflake_query(insert_query, CONNECTION_PAYLOAD,
                                       (user_input_id, input_text, input_text, score_num, None, timestamp, evaluation_details_json),
@@ -2344,12 +2346,14 @@ def llm():
                         )
                 
                 # LLM_EVALUATION (step2) - with full rewrite details as JSON
+                # Note: For VARIANT columns, Snowflake automatically converts JSON strings
+                # Do NOT use PARSE_JSON() with parameterized queries - it causes SQL compilation errors
                 evaluation_details_json = json.dumps(llm_result)
                 snowflake_query(
                     f"""
                     INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
                     (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP, EVALUATION_DETAILS)
-                    VALUES (%s, %s, %s, %s, %s, %s, PARSE_JSON(%s))
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                     """,
                     CONNECTION_PAYLOAD,
                     (
