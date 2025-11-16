@@ -3462,42 +3462,6 @@ def get_case_history():
         traceback.print_exc()
         return jsonify({"error": "Failed to fetch history"}), 500
 
-def add_evaluation_details_column(database, schema, connection_payload):
-    """
-    Add EVALUATION_DETAILS column to LLM_EVALUATION table for storing full JSON.
-    This allows complete persistence of evaluation and rewrite details.
-    """
-    try:
-        print(f"🔧 [Migration] Checking EVALUATION_DETAILS column in {database}.{schema}.LLM_EVALUATION...")
-        
-        # Check if column already exists
-        check_query = f"""
-            SELECT COUNT(*) as count
-            FROM {database}.INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_SCHEMA = '{schema}'
-            AND TABLE_NAME = 'LLM_EVALUATION'
-            AND COLUMN_NAME = 'EVALUATION_DETAILS'
-        """
-        result = snowflake_query(check_query, connection_payload)
-        
-        if result is not None and not result.empty and result.iloc[0]['COUNT'] > 0:
-            print(f"✅ [Migration] EVALUATION_DETAILS column already exists in {database}.{schema}.LLM_EVALUATION")
-            return
-        
-        # Add the column
-        print(f"📦 [Migration] Adding EVALUATION_DETAILS column to {database}.{schema}.LLM_EVALUATION...")
-        alter_query = f"""
-            ALTER TABLE {database}.{schema}.LLM_EVALUATION 
-            ADD COLUMN EVALUATION_DETAILS VARIANT
-        """
-        snowflake_query(alter_query, connection_payload, return_df=False)
-        print(f"✅ [Migration] EVALUATION_DETAILS column added successfully to {database}.{schema}.LLM_EVALUATION")
-        
-    except Exception as e:
-        print(f"❌ [Migration] Error adding EVALUATION_DETAILS column: {e}")
-        import traceback
-        traceback.print_exc()
-
 if __name__ == "__main__":
     print("Starting LanguageTool Flask App...")
     with open("./config.yaml", 'r') as f:
