@@ -3734,7 +3734,14 @@ class CaseManager {
         console.log(`✅ [CaseManager] Current case set to: ${caseData.caseNumber}`);
         
         // ============================================================
-        // STEP 4: RESTORE the new case's saved state (if it exists)
+        // STEP 4: UPDATE UI IMMEDIATELY (for instant visual feedback)
+        // ============================================================
+        this.renderCasesList();
+        this.updateActiveCaseHeader();
+        console.log(`🎨 [CaseManager] UI updated - highlight switched to case ${caseData.caseNumber}`);
+        
+        // ============================================================
+        // STEP 5: RESTORE the new case's saved state (if it exists)
         // ============================================================
         if (caseData.editorStates) {
             console.log(`🔄 [CaseManager] Restoring saved state for case ${caseData.caseNumber}`);
@@ -3772,13 +3779,13 @@ class CaseManager {
         }
         
         // ============================================================
-        // STEP 5: LOAD HISTORY from database
+        // STEP 6: LOAD HISTORY from database
         // ============================================================
         console.log(`📜 [CaseManager] Loading history from database for case ${caseData.caseNumber}`);
         await this.loadHistoryFromDatabase(caseData.caseNumber);
         
         // ============================================================
-        // STEP 6: AUTO-LOAD most recent history item (if available and no saved state)
+        // STEP 7: AUTO-LOAD most recent history item (if available and no saved state)
         // ============================================================
         if (!caseData.editorStates && window.spellCheckEditor) {
             console.log(`🔄 [CaseManager] Checking for most recent history to auto-load...`);
@@ -3795,12 +3802,6 @@ class CaseManager {
                 }
             }
         }
-        
-        // ============================================================
-        // STEP 7: UPDATE UI
-        // ============================================================
-        this.renderCasesList();
-        this.updateActiveCaseHeader();
         
         // ============================================================
         // STEP 8: RUN SPELL CHECK on restored content
