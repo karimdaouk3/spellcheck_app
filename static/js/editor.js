@@ -3232,6 +3232,12 @@ class CaseManager {
             this.saveCasesLocally();
             console.log('💾 [CaseManager] Cases synced to localStorage for offline access');
             
+            // Preload history for all cases in background (don't await - non-blocking)
+            console.log('📜 [CaseManager] Starting history preload for all cases...');
+            this.preloadAllCaseHistory().catch(err => {
+                console.warn('⚠️ [CaseManager] Error preloading history:', err);
+            });
+            
         } catch (error) {
             console.error('❌ [CaseManager] Error loading cases from database:', error);
             console.log('🔄 [CaseManager] Falling back to localStorage...');
@@ -3489,6 +3495,11 @@ class CaseManager {
                 field.history = mergedHistory.slice(0, 50);
                 
                 console.log(`✅ [CaseManager] Merged history for ${fieldType}: ${field.history.length} total items (${dbHistory.length} from DB, ${existingHistory.length} from session)`);
+            }
+            
+            // Mark history as loaded for this case to avoid reloading
+            if (caseData) {
+                caseData._historyLoaded = true;
             }
             
             // Re-render history sidebar if active
