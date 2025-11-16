@@ -2188,6 +2188,26 @@ class LanguageToolEditor {
                     </div>`;
                 }
             }
+            // In-session history item (neither DB nor CRM)
+            else if (typeof item === 'object' && item.timestamp) {
+                let formattedDate = '';
+                try {
+                    const date = new Date(item.timestamp);
+                    if (!isNaN(date.getTime())) {
+                        formattedDate = date.toLocaleDateString('en-US', {
+                            weekday: 'short',
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric'
+                        });
+                    }
+                } catch (e) {
+                    formattedDate = item.timestamp;
+                }
+                sourceIndicator = `<div style="font-size: 11px; color: #666; margin-bottom: 4px; font-weight: bold;">
+                    💾 FSR Coach (${formattedDate})
+                </div>`;
+            }
             
             historyItem.innerHTML = `
                 ${sourceIndicator}
@@ -3783,17 +3803,7 @@ class CaseManager {
         this.updateActiveCaseHeader();
         
         // ============================================================
-        // STEP 8: SET ACTIVE FIELD to problem statement (editor)
-        // ============================================================
-        if (window.spellCheckEditor) {
-            console.log('📝 [CaseManager] Setting active field to problem statement');
-            window.spellCheckEditor.activeField = 'editor';
-            window.spellCheckEditor.updateActiveEditorHighlight();
-            window.spellCheckEditor.renderHistory();
-        }
-        
-        // ============================================================
-        // STEP 9: RUN SPELL CHECK on restored content
+        // STEP 8: RUN SPELL CHECK on restored content
         // ============================================================
         if (window.spellCheckEditor) {
             console.log('🔍 [CaseManager] Running spell check on both editors');
