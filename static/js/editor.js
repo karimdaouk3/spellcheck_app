@@ -1316,6 +1316,10 @@ class LanguageToolEditor {
                             originalCase[fieldName] = data.result.rewrite;
                         }
                         
+                        // Update lastAccessedAt since LLM work was done on this case
+                        originalCase.lastAccessedAt = new Date();
+                        console.log(`🕐 [LLM] Updated lastAccessedAt for case ${llmCallCaseNumber} to: ${originalCase.lastAccessedAt.toISOString()}`);
+                        
                         // Save to localStorage
                         window.caseManager.saveCases();
                         console.log(`✅ [LLM] Results saved to case ${llmCallCaseNumber} for later viewing`);
@@ -3765,13 +3769,11 @@ class CaseManager {
         this.clearAllEditorState();
         
         // ============================================================
-        // STEP 3: SET new current case and update last accessed time
+        // STEP 3: SET new current case (don't update lastAccessedAt yet)
         // ============================================================
         this.currentCase = caseData;
-        caseData.lastAccessedAt = new Date(); // Update last access time for sorting
-        this.saveCases(); // Persist lastAccessedAt to localStorage
+        // Note: lastAccessedAt is only updated on LLM calls (review/rewrite), not on case switch
         console.log(`✅ [CaseManager] Current case set to: ${caseData.caseNumber}`);
-        console.log(`🕐 [DEBUG] Updated lastAccessedAt for case ${caseData.caseNumber} to: ${caseData.lastAccessedAt.toISOString()}`);
         
         // ============================================================
         // STEP 4: UPDATE UI IMMEDIATELY (for instant visual feedback)
