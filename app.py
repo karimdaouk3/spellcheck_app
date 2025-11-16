@@ -2277,13 +2277,16 @@ def llm():
                         score_num = (passed / total) * 100 if total else 0
                         
                         # Insert and get the evaluation ID
+                        # Store full llm_result as JSON for complete history persistence
+                        evaluation_details_json = json.dumps(llm_result)
+                        
                         insert_query = f"""
                             INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
-                            (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP)
-                            VALUES (%s, %s, %s, %s, %s, %s)
+                            (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP, EVALUATION_DETAILS)
+                            VALUES (%s, %s, %s, %s, %s, %s, PARSE_JSON(%s))
                         """
                         snowflake_query(insert_query, CONNECTION_PAYLOAD,
-                                      (user_input_id, input_text, input_text, score_num, None, timestamp),
+                                      (user_input_id, input_text, input_text, score_num, None, timestamp, evaluation_details_json),
                                       return_df=False)
                         
                         # Get the evaluation ID that was just inserted
@@ -2343,11 +2346,14 @@ def llm():
                         )
                 
                 # LLM_EVALUATION (step2)
+                # Store full llm_result as JSON for complete history persistence
+                evaluation_details_json = json.dumps(llm_result)
+                
                 snowflake_query(
                     f"""
                     INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
-                    (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP, EVALUATION_DETAILS)
+                    VALUES (%s, %s, %s, %s, %s, %s, PARSE_JSON(%s))
                     """,
                     CONNECTION_PAYLOAD,
                     (
@@ -2357,6 +2363,7 @@ def llm():
                         None,
                         data.get("rewrite_uuid"),
                         timestamp,
+                        evaluation_details_json,
                     ),
                     return_df=False,
                 )
@@ -3400,7 +3407,8 @@ def get_case_history():
                 e.SCORE,
                 e.TIMESTAMP,
                 i.INPUT_FIELD_TYPE,
-                e.REWRITE_UUID
+                e.REWRITE_UUID,
+                e.EVALUATION_DETAILS
             FROM {DATABASE}.{SCHEMA}.LLM_EVALUATION e
             JOIN {DATABASE}.{SCHEMA}.USER_SESSION_INPUTS i ON e.USER_INPUT_ID = i.ID
             WHERE i.CASE_ID = %s 
@@ -3424,11 +3432,22 @@ def get_case_history():
             if not text or not text.strip():
                 continue
             
+            # Parse EVALUATION_DETAILS JSON if available
+            evaluation_details = None
+            if pd.notna(row['EVALUATION_DETAILS']) and row['EVALUATION_DETAILS']:
+                try:
+                    # Snowflake returns JSON as string, parse it
+                    evaluation_details = json.loads(row['EVALUATION_DETAILS']) if isinstance(row['EVALUATION_DETAILS'], str) else row['EVALUATION_DETAILS']
+                except Exception as e:
+                    print(f"⚠️ [Backend] Error parsing EVALUATION_DETAILS: {e}")
+                    evaluation_details = None
+            
             history_item = {
                 "text": text.strip(),
                 "score": float(row['SCORE']) if pd.notna(row['SCORE']) else None,
                 "timestamp": row['TIMESTAMP'].isoformat() if pd.notna(row['TIMESTAMP']) else None,
                 "isRewrite": pd.notna(row['REWRITE_UUID']) and row['REWRITE_UUID'] is not None,
+                "evaluationDetails": evaluation_details,  # Full LLM result
                 "dbSource": True  # Mark as coming from database
             }
             history_items.append(history_item)
@@ -3441,6 +3460,42 @@ def get_case_history():
         import traceback
         traceback.print_exc()
         return jsonify({"error": "Failed to fetch history"}), 500
+
+def add_evaluation_details_column(database, schema, connection_payload):
+    """
+    Add EVALUATION_DETAILS column to LLM_EVALUATION table if it doesn't exist.
+    This column stores the complete LLM result as JSON for full history persistence.
+    """
+    try:
+        print(f"🔧 [Migration] Checking EVALUATION_DETAILS column in {database}.{schema}.LLM_EVALUATION...")
+        
+        # Check if column exists
+        check_query = f"""
+            SELECT COUNT(*) as count
+            FROM {database}.INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = '{schema}'
+            AND TABLE_NAME = 'LLM_EVALUATION'
+            AND COLUMN_NAME = 'EVALUATION_DETAILS'
+        """
+        result = snowflake_query(check_query, connection_payload)
+        
+        if result is not None and not result.empty and result.iloc[0]['COUNT'] > 0:
+            print(f"✅ [Migration] EVALUATION_DETAILS column already exists in {database}.{schema}.LLM_EVALUATION")
+            return
+        
+        # Add column
+        print(f"📦 [Migration] Adding EVALUATION_DETAILS column to {database}.{schema}.LLM_EVALUATION...")
+        alter_query = f"""
+            ALTER TABLE {database}.{schema}.LLM_EVALUATION 
+            ADD COLUMN EVALUATION_DETAILS VARIANT
+        """
+        snowflake_query(alter_query, connection_payload, return_df=False)
+        print(f"✅ [Migration] EVALUATION_DETAILS column added successfully to {database}.{schema}.LLM_EVALUATION")
+        
+    except Exception as e:
+        print(f"❌ [Migration] Error adding EVALUATION_DETAILS column: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     print("Starting LanguageTool Flask App...")
@@ -3457,6 +3512,9 @@ if __name__ == "__main__":
         SCHEMA = f"DEV_{SCHEMA}"
     print(f"SSO Enabled: {app.config['ENABLE_SSO']}")
     print(f"Development Mode Enabled: {app.config['DEV_MODE']}")
+    
+    # Run migration to add EVALUATION_DETAILS column
+    add_evaluation_details_column(DATABASE, SCHEMA, CONNECTION_PAYLOAD)
     
     app.run(host='127.0.0.1', port=8055)
 

@@ -3343,11 +3343,11 @@ class CaseManager {
                 // Get existing in-session history
                 const existingHistory = field.history || [];
                 
-                // Convert DB history to simplified format
+                // Convert DB history to full format with evaluation details
                 const dbHistoryEntries = dbHistory.map(item => ({
                     text: item.text,
-                    llmLastResult: null,  // No evaluation details for DB history
-                    score: item.score,  // Just the score number
+                    llmLastResult: item.evaluationDetails || null,  // Full evaluation details from JSON!
+                    score: item.score,
                     timestamp: item.timestamp,
                     isRewrite: item.isRewrite,
                     dbSource: true,  // Mark as from database
@@ -3377,6 +3377,17 @@ class CaseManager {
                 field.history = mergedHistory.slice(0, 50);
                 
                 console.log(`✅ [CaseManager] Merged history for ${fieldType}: ${field.history.length} total items (${dbHistory.length} from DB, ${existingHistory.length} from session)`);
+                
+                // Auto-load most recent history item if available (only for first field to avoid overwriting)
+                if (fieldType === 'problem_statement' && field.history.length > 0) {
+                    const mostRecent = field.history[0];  // Sorted by timestamp DESC
+                    if (mostRecent.llmLastResult) {
+                        console.log(`📥 [CaseManager] Auto-loading most recent evaluation for ${fieldType}`);
+                        // Don't call restoreFromHistory here - wait until switchToCase completes
+                        // We'll do it after all history is loaded
+                        field.pendingRestore = mostRecent;
+                    }
+                }
             }
             
             // Re-render history sidebar if active
@@ -3758,13 +3769,25 @@ class CaseManager {
         await this.loadHistoryFromDatabase(caseData.caseNumber);
         
         // ============================================================
-        // STEP 6: UPDATE UI
+        // STEP 6: AUTO-LOAD most recent history item (if available)
+        // ============================================================
+        if (window.spellCheckEditor) {
+            const editorField = window.spellCheckEditor.fields['editor'];
+            if (editorField && editorField.pendingRestore) {
+                console.log('📥 [CaseManager] Restoring most recent evaluation');
+                window.spellCheckEditor.restoreFromHistory(editorField.pendingRestore, 'editor');
+                delete editorField.pendingRestore;  // Clear the flag
+            }
+        }
+        
+        // ============================================================
+        // STEP 7: UPDATE UI
         // ============================================================
         this.renderCasesList();
         this.updateActiveCaseHeader();
         
         // ============================================================
-        // STEP 7: SET ACTIVE FIELD to problem statement (editor)
+        // STEP 8: SET ACTIVE FIELD to problem statement (editor)
         // ============================================================
         if (window.spellCheckEditor) {
             console.log('📝 [CaseManager] Setting active field to problem statement');
@@ -3774,7 +3797,7 @@ class CaseManager {
         }
         
         // ============================================================
-        // STEP 8: RUN SPELL CHECK on restored content
+        // STEP 9: RUN SPELL CHECK on restored content
         // ============================================================
         if (window.spellCheckEditor) {
             console.log('🔍 [CaseManager] Running spell check on both editors');
