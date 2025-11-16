@@ -4498,44 +4498,53 @@ class CaseManager {
                 }
             }
             
-            // Remove from local array
+            // OPTIMISTIC: Remove from local array immediately (before backend call)
             this.cases = this.cases.filter(c => c.id !== caseId);
             
-            // Save to localStorage
+            // OPTIMISTIC: Save to localStorage immediately
             this.saveCasesLocally();
             
-            // If case is tracked in database, delete from backend
-            if (caseToDelete.isTrackedInDatabase) {
-                try {
-                    // Convert to string to avoid scientific notation for large numbers
-                    const caseNumberStr = String(caseToDelete.caseNumber);
-                    console.log(`🔍 [CaseManager] Deleting from backend with case number: ${caseNumberStr}`);
-                    
-                    const response = await fetch(`/api/cases/delete/${caseNumberStr}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    
-                    if (response.ok) {
-                        console.log('✅ [CaseManager] Case deleted from database');
-                    } else {
-                        console.error('❌ [CaseManager] Failed to delete case from database');
-                    }
-                } catch (error) {
-                    console.error('❌ [CaseManager] Error deleting case from database:', error);
-                }
-            }
-            
-            // Re-render the cases list
+            // OPTIMISTIC: Re-render the cases list immediately (case disappears from sidebar)
             this.renderCasesList();
             this.updateActiveCaseHeader();
             
-            // If no cases left, clear all editors and UI
+            // OPTIMISTIC: If no cases left, clear all editors and UI immediately
             if (this.cases.length === 0) {
                 console.log('🧹 [CaseManager] No cases left, clearing all editors and UI');
                 this.clearAllEditorsAndUI();
+            }
+            
+            console.log('⚡ [CaseManager] Case removed from UI optimistically');
+            
+            // Delete from backend in background (don't block UI)
+            if (caseToDelete.isTrackedInDatabase) {
+                // Don't await - run in background
+                (async () => {
+                    try {
+                        // Convert to string to avoid scientific notation for large numbers
+                        const caseNumberStr = String(caseToDelete.caseNumber);
+                        console.log(`🔍 [CaseManager] Deleting from backend with case number: ${caseNumberStr}`);
+                        
+                        const response = await fetch(`/api/cases/delete/${caseNumberStr}`, {
+                            method: 'DELETE',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            }
+                        });
+                        
+                        if (response.ok) {
+                            console.log('✅ [CaseManager] Case deleted from backend:', caseToDelete.caseNumber);
+                        } else {
+                            console.error('❌ [CaseManager] Failed to delete case from backend:', caseToDelete.caseNumber);
+                            // Note: Case already removed from UI, user won't see backend failure
+                        }
+                    } catch (error) {
+                        console.error('❌ [CaseManager] Error deleting case from backend:', error);
+                        // Note: Case already removed from UI, user won't see backend failure
+                    }
+                })();
+            } else {
+                console.log('⏭️ [CaseManager] Untracked case, skipping backend delete');
             }
             
             console.log('✅ [CaseManager] Case deleted successfully');
