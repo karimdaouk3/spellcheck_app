@@ -3219,10 +3219,30 @@ class CaseManager {
         }
         
         // Set first case as current if none selected
+        // Sort by lastAccessedAt BEFORE auto-selecting to pick the most recently used case
         if (this.cases.length > 0 && !this.currentCase) {
-            console.log(`🎯 [CaseManager] Setting current case to: ${this.cases[0].caseNumber} (ID: ${this.cases[0].id})`);
-            console.log(`🎯 [CaseManager] Available cases:`, this.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber })));
-            this.switchToCase(this.cases[0].id);
+            console.log(`🎯 [DEBUG] Auto-selecting case on load. Cases BEFORE sort:`, 
+                this.cases.map(c => ({ 
+                    caseNumber: c.caseNumber, 
+                    lastAccessedAt: c.lastAccessedAt ? new Date(c.lastAccessedAt).toISOString() : 'null' 
+                })));
+            
+            // Sort by lastAccessedAt to find the most recently used case
+            const sortedByAccess = [...this.cases].sort((a, b) => {
+                const aTime = a.lastAccessedAt ? new Date(a.lastAccessedAt).getTime() : 0;
+                const bTime = b.lastAccessedAt ? new Date(b.lastAccessedAt).getTime() : 0;
+                return bTime - aTime;
+            });
+            
+            console.log(`🎯 [DEBUG] Auto-selecting case on load. Cases AFTER sort:`, 
+                sortedByAccess.map(c => ({ 
+                    caseNumber: c.caseNumber, 
+                    lastAccessedAt: c.lastAccessedAt ? new Date(c.lastAccessedAt).toISOString() : 'null' 
+                })));
+            
+            const mostRecentCase = sortedByAccess[0];
+            console.log(`🎯 [CaseManager] Auto-selecting most recently used case: ${mostRecentCase.caseNumber} (ID: ${mostRecentCase.id})`);
+            this.switchToCase(mostRecentCase.id);
         }
     }
     
@@ -3751,6 +3771,7 @@ class CaseManager {
         caseData.lastAccessedAt = new Date(); // Update last access time for sorting
         this.saveCases(); // Persist lastAccessedAt to localStorage
         console.log(`✅ [CaseManager] Current case set to: ${caseData.caseNumber}`);
+        console.log(`🕐 [DEBUG] Updated lastAccessedAt for case ${caseData.caseNumber} to: ${caseData.lastAccessedAt.toISOString()}`);
         
         // ============================================================
         // STEP 4: UPDATE UI IMMEDIATELY (for instant visual feedback)
