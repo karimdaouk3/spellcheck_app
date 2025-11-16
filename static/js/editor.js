@@ -2143,7 +2143,7 @@ class LanguageToolEditor {
                     }
                 }
                 sourceIndicator = `<div style="font-size: 11px; color: #666; margin-bottom: 4px; font-weight: bold;">
-                    💾 History (${formattedDate})
+                    💾 FSR Coach (${formattedDate})
                 </div>`;
             }
             // CRM-sourced history item
