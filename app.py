@@ -2284,7 +2284,7 @@ def llm():
                         insert_query = f"""
                             INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
                             (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP, EVALUATION_DETAILS)
-                            VALUES (%s, %s, %s, %s, %s, %s, PARSE_JSON('{evaluation_details_json}'))
+                            VALUES (%s, %s, %s, %s, %s, %s, PARSE_JSON($${evaluation_details_json}$$))
                         """
                         snowflake_query(insert_query, CONNECTION_PAYLOAD,
                                       (user_input_id, input_text, input_text, score_num, None, timestamp),
@@ -2349,13 +2349,13 @@ def llm():
                 # LLM_EVALUATION (step2)
                 # Store full llm_result as JSON for complete history persistence
                 # Use PARSE_JSON directly in query since parameterized binding doesn't work well with VARIANT
-                evaluation_details_json = json.dumps(llm_result).replace("'", "''")  # Escape single quotes for SQL
+                evaluation_details_json = json.dumps(llm_result)  # No escaping needed with $$ delimiter
                 
                 snowflake_query(
                     f"""
                     INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
                     (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP, EVALUATION_DETAILS)
-                    VALUES (%s, %s, %s, %s, %s, %s, PARSE_JSON('{evaluation_details_json}'))
+                    VALUES (%s, %s, %s, %s, %s, %s, PARSE_JSON($${evaluation_details_json}$$))
                     """,
                     CONNECTION_PAYLOAD,
                     (
