@@ -2278,15 +2278,16 @@ def llm():
                         
                         # Insert and get the evaluation ID
                         # Store full llm_result as JSON for complete history persistence
-                        evaluation_details_json = json.dumps(llm_result)
+                        # Use PARSE_JSON directly in query since parameterized binding doesn't work well with VARIANT
+                        evaluation_details_json = json.dumps(llm_result).replace("'", "''")  # Escape single quotes for SQL
                         
                         insert_query = f"""
                             INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
                             (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP, EVALUATION_DETAILS)
-                            VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS VARIANT))
+                            VALUES (%s, %s, %s, %s, %s, %s, PARSE_JSON('{evaluation_details_json}'))
                         """
                         snowflake_query(insert_query, CONNECTION_PAYLOAD,
-                                      (user_input_id, input_text, input_text, score_num, None, timestamp, evaluation_details_json),
+                                      (user_input_id, input_text, input_text, score_num, None, timestamp),
                                       return_df=False)
                         
                         # Get the evaluation ID that was just inserted
@@ -2347,13 +2348,14 @@ def llm():
                 
                 # LLM_EVALUATION (step2)
                 # Store full llm_result as JSON for complete history persistence
-                evaluation_details_json = json.dumps(llm_result)
+                # Use PARSE_JSON directly in query since parameterized binding doesn't work well with VARIANT
+                evaluation_details_json = json.dumps(llm_result).replace("'", "''")  # Escape single quotes for SQL
                 
                 snowflake_query(
                     f"""
                     INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
                     (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP, EVALUATION_DETAILS)
-                    VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS VARIANT))
+                    VALUES (%s, %s, %s, %s, %s, %s, PARSE_JSON('{evaluation_details_json}'))
                     """,
                     CONNECTION_PAYLOAD,
                     (
@@ -2363,7 +2365,6 @@ def llm():
                         None,
                         data.get("rewrite_uuid"),
                         timestamp,
-                        evaluation_details_json,
                     ),
                     return_df=False,
                 )
