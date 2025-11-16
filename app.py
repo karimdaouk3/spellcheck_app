@@ -2283,7 +2283,7 @@ def llm():
                         insert_query = f"""
                             INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
                             (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP, EVALUATION_DETAILS)
-                            VALUES (%s, %s, %s, %s, %s, %s, TRY_PARSE_JSON(%s))
+                            VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS VARIANT))
                         """
                         snowflake_query(insert_query, CONNECTION_PAYLOAD,
                                       (user_input_id, input_text, input_text, score_num, None, timestamp, evaluation_details_json),
@@ -2353,7 +2353,7 @@ def llm():
                     f"""
                     INSERT INTO {DATABASE}.{SCHEMA}.LLM_EVALUATION
                     (USER_INPUT_ID, ORIGINAL_TEXT, REWRITTEN_TEXT, SCORE, REWRITE_UUID, TIMESTAMP, EVALUATION_DETAILS)
-                    VALUES (%s, %s, %s, %s, %s, %s, TRY_PARSE_JSON(%s))
+                    VALUES (%s, %s, %s, %s, %s, %s, CAST(%s AS VARIANT))
                     """,
                     CONNECTION_PAYLOAD,
                     (
