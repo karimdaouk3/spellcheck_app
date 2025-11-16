@@ -3380,13 +3380,50 @@ class CaseManager {
         }
     }
     
+    async preloadAllCaseHistory() {
+        /**
+         * Preload history for all cases to avoid loading delays when switching.
+         * Runs in background after cases are loaded.
+         */
+        if (!window.spellCheckEditor) {
+            console.warn('⚠️ [CaseManager] spellCheckEditor not initialized, skipping history preload');
+            return;
+        }
+        
+        if (this.cases.length === 0) {
+            console.log('📜 [CaseManager] No cases to preload history for');
+            return;
+        }
+        
+        console.log(`📜 [CaseManager] Preloading history for ${this.cases.length} cases...`);
+        const startTime = performance.now();
+        
+        // Load history for all cases in parallel
+        const historyPromises = this.cases.map(caseData => 
+            this.loadHistoryFromDatabase(caseData.caseNumber)
+        );
+        
+        await Promise.all(historyPromises);
+        
+        const loadTime = performance.now() - startTime;
+        console.log(`✅ [CaseManager] Preloaded history for ${this.cases.length} cases in ${loadTime.toFixed(0)}ms`);
+    }
+    
     async loadHistoryFromDatabase(caseNumber) {
         /**
          * Load simplified history from database for a case.
          * Merges with existing in-session history.
+         * History is cached on the case object to avoid reloading.
          */
         if (!window.spellCheckEditor) {
             console.warn('⚠️ [CaseManager] spellCheckEditor not initialized, skipping history load');
+            return;
+        }
+        
+        // Check if we already loaded history for this case
+        const caseData = this.cases.find(c => c.caseNumber === caseNumber);
+        if (caseData && caseData._historyLoaded) {
+            console.log(`📜 [CaseManager] History already loaded for case ${caseNumber}, skipping`);
             return;
         }
         
@@ -3838,10 +3875,14 @@ class CaseManager {
         }
         
         // ============================================================
-        // STEP 6: LOAD HISTORY from database
+        // STEP 6: LOAD HISTORY from database (if not already loaded)
         // ============================================================
-        console.log(`📜 [CaseManager] Loading history from database for case ${caseData.caseNumber}`);
-        await this.loadHistoryFromDatabase(caseData.caseNumber);
+        if (!caseData._historyLoaded) {
+            console.log(`📜 [CaseManager] Loading history from database for case ${caseData.caseNumber}`);
+            await this.loadHistoryFromDatabase(caseData.caseNumber);
+        } else {
+            console.log(`✅ [CaseManager] History already preloaded for case ${caseData.caseNumber}`);
+        }
         
         // ============================================================
         // STEP 7: AUTO-LOAD most recent history item (if available and no saved state)
