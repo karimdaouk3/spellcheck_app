@@ -2662,12 +2662,37 @@ class CaseManager {
                 console.warn('⚠️ [CaseManager] Error preloading history:', err);
             }
             
+            // Step 4: Now auto-select the most recently used case
+            console.log(`🎯 [DEBUG] Auto-selecting case on load. Cases BEFORE sort:`, 
+                this.cases.map(c => ({ 
+                    caseNumber: c.caseNumber, 
+                    lastAccessedAt: c.lastAccessedAt ? new Date(c.lastAccessedAt).toISOString() : 'null' 
+                })));
+            
+            // Sort by lastAccessedAt to find the most recently used case
+            const sortedByAccess = [...this.cases].sort((a, b) => {
+                const aTime = a.lastAccessedAt ? new Date(a.lastAccessedAt).getTime() : 0;
+                const bTime = b.lastAccessedAt ? new Date(b.lastAccessedAt).getTime() : 0;
+                return bTime - aTime;
+            });
+            
+            console.log(`🎯 [DEBUG] Auto-selecting case on load. Cases AFTER sort:`, 
+                sortedByAccess.map(c => ({ 
+                    caseNumber: c.caseNumber, 
+                    lastAccessedAt: c.lastAccessedAt ? new Date(c.lastAccessedAt).toISOString() : 'null' 
+                })));
+            
+            const mostRecentCase = sortedByAccess[0];
+            console.log(`🎯 [CaseManager] Auto-selecting most recently used case: ${mostRecentCase.caseNumber} (ID: ${mostRecentCase.id})`);
+            await this.switchToCase(mostRecentCase.id);
+            console.log(`✅ [CaseManager] Initial case fully loaded with all content`);
+            
             // Hide loading indicator - user can now use the site
             this.hideLoadingIndicator();
             console.log('✅ Site is now usable - cases and history loaded');
         }
         
-        // Step 4: Preload CRM cases in background (slow - don't block UI)
+        // Step 5: Preload CRM cases in background (slow - don't block UI)
         // This happens after the site is usable, so user doesn't wait
         this.preloadCaseSuggestions().then(() => {
             console.log('✅ CRM case suggestions preloaded in background');
@@ -2675,7 +2700,7 @@ class CaseManager {
             console.error('❌ Error preloading CRM suggestions in background:', error);
         });
         
-        // Step 5: Check for closed cases in background (non-blocking)
+        // Step 6: Check for closed cases in background (non-blocking)
         this.checkForClosedCases().then(() => {
             console.log('✅ Closed cases check completed in background');
         }).catch((error) => {
@@ -3261,33 +3286,7 @@ class CaseManager {
             this.loadCasesFromLocalStorage();
         }
         
-        // Set first case as current if none selected
-        // Sort by lastAccessedAt BEFORE auto-selecting to pick the most recently used case
-        if (this.cases.length > 0 && !this.currentCase) {
-            console.log(`🎯 [DEBUG] Auto-selecting case on load. Cases BEFORE sort:`, 
-                this.cases.map(c => ({ 
-                    caseNumber: c.caseNumber, 
-                    lastAccessedAt: c.lastAccessedAt ? new Date(c.lastAccessedAt).toISOString() : 'null' 
-                })));
-            
-            // Sort by lastAccessedAt to find the most recently used case
-            const sortedByAccess = [...this.cases].sort((a, b) => {
-                const aTime = a.lastAccessedAt ? new Date(a.lastAccessedAt).getTime() : 0;
-                const bTime = b.lastAccessedAt ? new Date(b.lastAccessedAt).getTime() : 0;
-                return bTime - aTime;
-            });
-            
-            console.log(`🎯 [DEBUG] Auto-selecting case on load. Cases AFTER sort:`, 
-                sortedByAccess.map(c => ({ 
-                    caseNumber: c.caseNumber, 
-                    lastAccessedAt: c.lastAccessedAt ? new Date(c.lastAccessedAt).toISOString() : 'null' 
-                })));
-            
-            const mostRecentCase = sortedByAccess[0];
-            console.log(`🎯 [CaseManager] Auto-selecting most recently used case: ${mostRecentCase.caseNumber} (ID: ${mostRecentCase.id})`);
-            await this.switchToCase(mostRecentCase.id);
-            console.log(`✅ [CaseManager] Initial case fully loaded with all content`);
-        }
+        // Don't auto-select case here - will be done in init() after history preload
     }
     
     async refreshCases() {
