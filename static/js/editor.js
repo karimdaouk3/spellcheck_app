@@ -3801,8 +3801,8 @@ class CaseManager {
             this.saveCases();
             this.renderCasesList();
             
-            // Switch to the case first
-            this.switchToCase(newCase.id);
+            // Switch to the case first (await to ensure it completes)
+            await this.switchToCase(newCase.id);
             
             // If this is a tracked CRM case, fetch CRM data (title and content) immediately
             if (isTrackedInDatabase !== false && !untrackedCaseTitle) {
@@ -3843,6 +3843,9 @@ class CaseManager {
                 } finally {
                     this.hideCaseLoadingIndicator();
                 }
+            } else {
+                // Not a tracked CRM case, hide loading indicator immediately
+                this.hideCaseLoadingIndicator();
             }
             
             // Close mobile sidebar
