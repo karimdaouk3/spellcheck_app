@@ -2236,8 +2236,16 @@ class LanguageToolEditor {
                 ${fsrFooter}
             `;
             
-            historyItem.onclick = () => {
-                this.restoreFromHistory(item, this.activeField);
+            historyItem.onclick = async () => {
+                // Show confirmation popup before restoring
+                const confirmed = await this.caseManager.showCustomConfirm(
+                    'Revert to Previous Version',
+                    'Are you sure you want to revert to this version? Your current unsaved changes will be lost.'
+                );
+                
+                if (confirmed) {
+                    this.restoreFromHistory(item, this.activeField);
+                }
             };
             
             this.historyList.appendChild(historyItem);
