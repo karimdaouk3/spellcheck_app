@@ -4871,6 +4871,7 @@ class CaseManager {
             
             // Function to filter preloaded suggestions and fetch titles
             const filterSuggestions = async (query) => {
+                const filterStartTime = performance.now();
                 console.log(`🔍 [DEBUG] filterSuggestions called with query: "${query}"`);
                 console.log(`🔍 [DEBUG] preloadedSuggestions type: ${typeof this.preloadedSuggestions}`);
                 console.log(`🔍 [DEBUG] preloadedSuggestions is array: ${Array.isArray(this.preloadedSuggestions)}`);
@@ -4902,34 +4903,50 @@ class CaseManager {
                 console.log(`🔍 [DEBUG] Filtering with query (lowercase): "${queryLower}"`);
                 
                 let matchCount = 0;
+                let checkedCount = 0;
                 const filteredCases = this.preloadedSuggestions.filter(caseNum => {
+                    checkedCount++;
                     const caseNumStr = caseNum.toString().toLowerCase();
                     const matches = caseNumStr.startsWith(queryLower);
+                    
+                    // Log first few checks to see what's being compared
+                    if (checkedCount <= 5) {
+                        console.log(`🔍 [DEBUG] Checking case ${checkedCount}: "${caseNum}" (${caseNumStr}) against "${queryLower}" -> ${matches}`);
+                    }
+                    
                     if (matches) {
                         matchCount++;
                         if (matchCount <= 5) {
-                            console.log(`🔍 [DEBUG] Match found: ${caseNum} (${caseNumStr}) matches "${queryLower}"`);
+                            console.log(`🔍 [DEBUG] ✅ Match found: ${caseNum} (${caseNumStr}) matches "${queryLower}"`);
                         }
                     }
                     return matches;
                 }).slice(0, 10); // Limit to 10 suggestions
+                
+                const filterTime = performance.now() - filterStartTime;
+                console.log(`🔍 [DEBUG] Checked ${checkedCount} cases total, found ${matchCount} matches in ${filterTime.toFixed(2)}ms`);
                 
                 console.log(`🔍 [DEBUG] Filtered cases count: ${filteredCases.length}`);
                 console.log(`🔍 [DEBUG] Filtered cases:`, filteredCases);
                 console.log(`🔍 [CaseManager] Query: "${query}" -> ${filteredCases.length} cases from preloaded suggestions (no DB queries)`);
                 
                 // Build initial suggestions data (without titles)
+                const buildStartTime = performance.now();
                 suggestionsData = filteredCases.map(caseNum => ({
                     caseNumber: caseNum,
                     caseName: null // Will be fetched next
                 }));
+                const buildTime = performance.now() - buildStartTime;
                 
-                console.log(`🔍 [DEBUG] suggestionsData built:`, suggestionsData);
+                console.log(`🔍 [DEBUG] suggestionsData built in ${buildTime.toFixed(2)}ms:`, suggestionsData);
                 console.log(`🔍 [DEBUG] suggestionsData length: ${suggestionsData.length}`);
                 
                 // Display suggestions immediately (with "Available in CRM" placeholder)
                 console.log(`🔍 [DEBUG] Calling displaySuggestions() with ${suggestionsData.length} items`);
+                const displayStartTime = performance.now();
                 displaySuggestions();
+                const displayTime = performance.now() - displayStartTime;
+                console.log(`🔍 [DEBUG] displaySuggestions() completed in ${displayTime.toFixed(2)}ms`);
                 
                 // Fetch titles for filtered cases in background
                 if (filteredCases.length > 0) {
