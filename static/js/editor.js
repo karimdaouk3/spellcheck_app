@@ -3598,6 +3598,10 @@ class CaseManager {
     }
     
     async createNewCase() {
+        // Show loading indicator immediately when user clicks "create case"
+        // This will be hidden if user cancels or if it's an untracked case
+        this.showCaseLoadingIndicator('Creating Case...');
+        
         // Show case number input with suggestions
         const caseNumber = await this.showCaseNumberInputWithSuggestions();
         
@@ -3621,12 +3625,14 @@ class CaseManager {
         const MAX_CASE_NUMBER_LENGTH = 50;
         
         if (trimmedCaseNumber.length > MAX_CASE_NUMBER_LENGTH) {
+            this.hideCaseLoadingIndicator();
             await this.showCustomAlert('Invalid Case Number', 
                 `Case number is too long. Maximum length is ${MAX_CASE_NUMBER_LENGTH} characters.`);
             return;
         }
         
         if (trimmedCaseNumber.length < 1) {
+            this.hideCaseLoadingIndicator();
             await this.showCustomAlert('Invalid Case Number', 'Case number cannot be empty.');
             return;
         }
@@ -3637,6 +3643,7 @@ class CaseManager {
         // Check if case number already exists locally
         const existingCase = this.cases.find(c => c.caseNumber === caseNumberValue || String(c.caseNumber) === caseNumberValue);
         if (existingCase) {
+            this.hideCaseLoadingIndicator();
             await this.showCustomAlert('Case Already Exists', 'This case number already exists in your list.');
             // Switch to existing case
             this.switchToCase(existingCase.id);
@@ -3722,8 +3729,11 @@ class CaseManager {
                 // Case already exists - this is actually good, means it's tracked
                 console.log(`ℹ️ [CaseManager] Case ${caseNumberValue} already exists in database (tracked)`);
             } else {
-                // Case creation failed - treat as untracked (no loading indicator)
+                // Case creation failed - treat as untracked
                 console.log(`⚠️ [CaseManager] Failed to create case ${caseNumberValue} in database:`, createResponse.status);
+                
+                // Hide loading indicator for untracked case
+                this.hideCaseLoadingIndicator();
                 
                 const caseTitleInput = await this.showUntrackedCasePrompt(caseNumberValue);
                 
