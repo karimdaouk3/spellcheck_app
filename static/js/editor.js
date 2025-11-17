@@ -4933,11 +4933,14 @@ class CaseManager {
             
             // Function to display suggestions
             const displaySuggestions = () => {
+                console.log(`📋 [CaseManager] displaySuggestions called with ${suggestionsData.length} suggestions`);
                 if (suggestionsData.length === 0) {
+                    console.log(`📋 [CaseManager] No suggestions to display, hiding suggestions box`);
                     suggestions.style.display = 'none';
                     return;
                 }
                 
+                console.log(`📋 [CaseManager] Rendering ${suggestionsData.length} suggestions`);
                 suggestions.innerHTML = suggestionsData.map((suggestion, index) => {
                     const caseNum = suggestion.caseNumber;
                     const caseName = suggestion.caseName;
@@ -4960,6 +4963,7 @@ class CaseManager {
                     `;
                 }).join('');
                 
+                console.log(`📋 [CaseManager] Suggestions HTML generated, showing suggestions box`);
                 suggestions.style.display = 'block';
                 
                 // Add click handlers and hover effects for suggestions
