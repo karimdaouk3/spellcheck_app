@@ -1848,12 +1848,18 @@ class LanguageToolEditor {
  
     // Auto-scroll to rewrite questions when they are generated (mobile stacked layout only)
     autoScrollToRewriteQuestions() {
-        // Only auto-scroll on mobile (stacked layout) - when content-flex is column
-        const contentFlex = document.querySelector('.content-flex');
-        const isStacked = contentFlex && window.getComputedStyle(contentFlex).flexDirection === 'column';
+        // Only auto-scroll on mobile (stacked layout) - check both width and flex direction
+        const isStacked = window.innerWidth <= 950;
         
         if (!isStacked) {
             return; // No auto-scroll on unstacked screens
+        }
+        
+        const contentFlex = document.querySelector('.content-flex');
+        const isColumnLayout = contentFlex && window.getComputedStyle(contentFlex).flexDirection === 'column';
+        
+        if (!isColumnLayout) {
+            return; // No auto-scroll if not column layout
         }
         
         const rewritePopup = document.getElementById('rewrite-popup');
@@ -1869,12 +1875,18 @@ class LanguageToolEditor {
     
     // Auto-scroll back to the rewritten editor box when rewrite is completed (mobile stacked layout only)
     autoScrollToRewrittenBox(field) {
-        // Only auto-scroll on mobile (stacked layout) - when content-flex is column
-        const contentFlex = document.querySelector('.content-flex');
-        const isStacked = contentFlex && window.getComputedStyle(contentFlex).flexDirection === 'column';
+        // Only auto-scroll on mobile (stacked layout) - check both width and flex direction
+        const isStacked = window.innerWidth <= 950;
         
         if (!isStacked) {
             return; // No auto-scroll on unstacked screens
+        }
+        
+        const contentFlex = document.querySelector('.content-flex');
+        const isColumnLayout = contentFlex && window.getComputedStyle(contentFlex).flexDirection === 'column';
+        
+        if (!isColumnLayout) {
+            return; // No auto-scroll if not column layout
         }
         
         const editorContainer = document.querySelector(`#${field}`).closest('.editor-container');
@@ -3257,8 +3269,11 @@ class CaseManager {
         }
         
         // Header sidebar toggle button - works exactly like activeCaseBox
-        if (sidebarToggleBtn && sidebar) {
-            sidebarToggleBtn.addEventListener('click', () => {
+        if (sidebarToggleBtn && sidebar && activeCaseBox) {
+            // Use the exact same handler as activeCaseBox
+            sidebarToggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent any event bubbling
+                // Trigger the same behavior as clicking activeCaseBox
                 const isCurrentlyCollapsed = sidebar.classList.contains('collapsed');
                 
                 if (isCurrentlyCollapsed) {
