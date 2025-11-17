@@ -2555,11 +2555,14 @@ class LanguageToolEditor {
                     // Find the corresponding textarea for this criteria
                     const textarea = rewritePopup.querySelector(`textarea[data-criteria="${criteria}"]`);
                     if (textarea) {
-                        // Only auto-scroll on mobile (stacked layout) - when content-flex is column
-                        const contentFlex = document.querySelector('.content-flex');
-                        if (contentFlex && window.getComputedStyle(contentFlex).flexDirection === 'column') {
-                            // Scroll to the textarea and focus it
-                            textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        // Only auto-scroll on mobile (stacked layout) - check both width and flex direction
+                        const isStacked = window.innerWidth <= 950;
+                        if (isStacked) {
+                            const contentFlex = document.querySelector('.content-flex');
+                            if (contentFlex && window.getComputedStyle(contentFlex).flexDirection === 'column') {
+                                // Scroll to the textarea and focus it
+                                textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
                         }
                         setTimeout(() => {
                             textarea.focus();
