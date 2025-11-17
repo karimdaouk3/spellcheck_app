@@ -133,16 +133,9 @@ class LanguageToolEditor {
         this.createHighlightOverlay('editor');
         this.createHighlightOverlay('editor2');
         
-        // Auto-select problem statement on initial load
-        this.updateActiveEditorHighlight();
-        
         // Case management - initialize asynchronously
         this.caseManager = new CaseManager();
         window.caseManager = this.caseManager; // Make globally accessible for auto-save
-        
-        // Show loading indicator IMMEDIATELY before async operations start
-        this.caseManager.showLoadingIndicator();
-        
         this.caseManager.init(); // Call init() to start async initialization
         this.currentCase = null;
     }
@@ -1203,16 +1196,16 @@ class LanguageToolEditor {
                 body.line_item_id = this.fields.editor && typeof this.fields.editor.problemVersionId === 'number' ? this.fields.editor.problemVersionId : 1;
             }
             // Set case_id for both step 1 and step 2
-                if (this.caseManager && this.caseManager.currentCase) {
-                    body.case_id = this.caseManager.currentCase.caseNumber;
-                    fieldObj.caseId = this.caseManager.currentCase.caseNumber;
-                    console.log(`📝 [LLM] Using case number: ${body.case_id}`);
-                } else {
-                    // Fallback to UUID if no case is active
-                    fieldObj.caseId = this.generateUUIDv4();
-                    body.case_id = fieldObj.caseId;
-                    console.log(`⚠️ [LLM] No active case, using UUID: ${body.case_id}`);
-                }
+            if (this.caseManager && this.caseManager.currentCase) {
+                body.case_id = this.caseManager.currentCase.caseNumber;
+                fieldObj.caseId = this.caseManager.currentCase.caseNumber;
+                console.log(`📝 [LLM] Using case number: ${body.case_id}`);
+            } else {
+                // Fallback to UUID if no case is active
+                fieldObj.caseId = this.generateUUIDv4();
+                body.case_id = fieldObj.caseId;
+                console.log(`⚠️ [LLM] No active case, using UUID: ${body.case_id}`);
+            }
             
             // For step 1, include the actual case number from case manager
             if (answers) {
@@ -2251,7 +2244,7 @@ class LanguageToolEditor {
                 );
                 
                 if (confirmed) {
-                this.restoreFromHistory(item, this.activeField);
+                    this.restoreFromHistory(item, this.activeField);
                 }
             };
             
@@ -2635,8 +2628,8 @@ class CaseManager {
     async init() {
         console.log('🚀 Initializing CaseManager...');
         
-        // Note: Loading indicator already shown in LanguageToolEditor constructor
-        // This ensures it appears IMMEDIATELY without waiting for async operations
+        // Show loading indicator
+        this.showLoadingIndicator();
         
         await this.fetchUserInfo();
         console.log('✅ User info fetched, userId:', this.userId);
@@ -3432,8 +3425,9 @@ class CaseManager {
     
     async loadHistoryFromDatabase(caseNumber) {
         /**
-         * Load history from database for a case and cache it in the case object.
-         * This allows instant history display when switching to any case.
+         * Load simplified history from database for a case.
+         * Merges with existing in-session history.
+         * History is cached on the case object to avoid reloading.
          */
         if (!window.spellCheckEditor) {
             console.warn('⚠️ [CaseManager] spellCheckEditor not initialized, skipping history load');
@@ -3442,28 +3436,20 @@ class CaseManager {
         
         // Check if we already loaded history for this case
         const caseData = this.cases.find(c => c.caseNumber === caseNumber);
-        if (!caseData) {
-            console.warn(`⚠️ [CaseManager] Case ${caseNumber} not found in cases array`);
-            return;
-        }
-        
-        if (caseData._historyCache) {
-            console.log(`📜 [CaseManager] History already cached for case ${caseNumber}, skipping`);
+        if (caseData && caseData._historyLoaded) {
+            console.log(`📜 [CaseManager] History already loaded for case ${caseNumber}, skipping`);
             return;
         }
         
         try {
-            // Initialize history cache for this case
-            caseData._historyCache = {
-                editor: [],
-                editor2: []
-            };
-            
             // Load history for both fields
             const fields = ['problem_statement', 'fsr'];
             
             for (const fieldType of fields) {
                 const fieldName = fieldType === 'problem_statement' ? 'editor' : 'editor2';
+                const field = window.spellCheckEditor.fields[fieldName];
+                
+                if (!field) continue;
                 
                 // Fetch history from database
                 const response = await fetch(`/api/cases/history?case_number=${caseNumber}&field_type=${fieldType}`);
@@ -3476,7 +3462,12 @@ class CaseManager {
                 const data = await response.json();
                 const dbHistory = data.history || [];
                 
-                console.log(`📜 [CaseManager] Loaded ${dbHistory.length} history items from DB for case ${caseNumber} ${fieldType}`);
+                console.log(`📜 [CaseManager] Loaded ${dbHistory.length} history items from DB for ${fieldType}`);
+                
+                if (dbHistory.length === 0) continue;
+                
+                // Get existing in-session history
+                const existingHistory = field.history || [];
                 
                 // Convert DB history to full format with evaluation details
                 const dbHistoryEntries = dbHistory.map(item => ({
@@ -3491,21 +3482,41 @@ class CaseManager {
                     reviewId: null
                 }));
                 
+                // Merge: Keep in-session history at top (most recent), then DB history
+                // Remove duplicates based on text and timestamp
+                const mergedHistory = [...existingHistory];
+                
+                for (const dbEntry of dbHistoryEntries) {
+                    // Check if this entry already exists in session history
+                    const isDuplicate = existingHistory.some(existing => 
+                        existing.text === dbEntry.text && 
+                        Math.abs(new Date(existing.timestamp) - new Date(dbEntry.timestamp)) < 1000 // Within 1 second
+                    );
+                    
+                    if (!isDuplicate) {
+                        mergedHistory.push(dbEntry);
+                    }
+                }
+                
                 // Sort by timestamp (most recent first) and limit to 50
-                dbHistoryEntries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                mergedHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                field.history = mergedHistory.slice(0, 50);
                 
-                // Store in case's history cache
-                caseData._historyCache[fieldName] = dbHistoryEntries.slice(0, 50);
-                
-                console.log(`✅ [CaseManager] Cached ${caseData._historyCache[fieldName].length} history items for case ${caseNumber} ${fieldType}`);
+                console.log(`✅ [CaseManager] Merged history for ${fieldType}: ${field.history.length} total items (${dbHistory.length} from DB, ${existingHistory.length} from session)`);
+            }
+            
+            // Mark history as loaded for this case to avoid reloading
+            if (caseData) {
+                caseData._historyLoaded = true;
+            }
+            
+            // Re-render history sidebar if active
+            if (window.spellCheckEditor.renderHistory) {
+                window.spellCheckEditor.renderHistory();
             }
             
         } catch (error) {
-            console.error(`❌ [CaseManager] Error loading history for case ${caseNumber}:`, error);
-            // Set empty cache to avoid retrying
-            if (caseData) {
-                caseData._historyCache = { editor: [], editor2: [] };
-            }
+            console.error(`❌ [CaseManager] Error loading history from database:`, error);
         }
     }
     
@@ -3883,56 +3894,13 @@ class CaseManager {
         }
         
         // ============================================================
-        // STEP 6: APPLY CACHED HISTORY from preloaded data
+        // STEP 6: LOAD HISTORY from database (if not already loaded)
         // ============================================================
-        if (caseData._historyCache && window.spellCheckEditor) {
-            console.log(`✅ [CaseManager] Applying preloaded history cache for case ${caseData.caseNumber}`);
-            
-            // Apply cached history to both fields
-            ['editor', 'editor2'].forEach(fieldName => {
-                const field = window.spellCheckEditor.fields[fieldName];
-                if (field && caseData._historyCache[fieldName]) {
-                    // Get existing in-session history for this field
-                    const inSessionHistory = field.history || [];
-                    
-                    // Merge: Keep in-session history at top (most recent), then cached DB history
-                    // Remove duplicates based on text and timestamp
-                    const mergedHistory = [...inSessionHistory];
-                    
-                    for (const cachedEntry of caseData._historyCache[fieldName]) {
-                        // Check if this entry already exists in session history
-                        const isDuplicate = inSessionHistory.some(existing => 
-                            existing.text === cachedEntry.text && 
-                            Math.abs(new Date(existing.timestamp) - new Date(cachedEntry.timestamp)) < 1000 // Within 1 second
-                        );
-                        
-                        if (!isDuplicate) {
-                            mergedHistory.push(cachedEntry);
-                        }
-                    }
-                    
-                    // Sort by timestamp (most recent first) and limit to 50
-                    mergedHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-                    field.history = mergedHistory.slice(0, 50);
-                    
-                    console.log(`📜 [CaseManager] Applied cached history to ${fieldName}: ${field.history.length} total items (${caseData._historyCache[fieldName].length} from cache, ${inSessionHistory.length} from session)`);
-                }
-            });
-        } else if (!caseData._historyCache) {
-            // History not preloaded yet (shouldn't happen if preloadAllCaseHistory ran)
-            console.log(`⚠️ [CaseManager] History not yet cached for case ${caseData.caseNumber}, loading now...`);
+        if (!caseData._historyLoaded) {
+            console.log(`📜 [CaseManager] Loading history from database for case ${caseData.caseNumber}`);
             await this.loadHistoryFromDatabase(caseData.caseNumber);
-            
-            // Now apply the newly loaded cache
-            if (caseData._historyCache && window.spellCheckEditor) {
-                ['editor', 'editor2'].forEach(fieldName => {
-                    const field = window.spellCheckEditor.fields[fieldName];
-                    if (field && caseData._historyCache[fieldName]) {
-                        field.history = [...caseData._historyCache[fieldName]];
-                        console.log(`📜 [CaseManager] Applied just-loaded history to ${fieldName}: ${field.history.length} items`);
-                    }
-                });
-            }
+        } else {
+            console.log(`✅ [CaseManager] History already preloaded for case ${caseData.caseNumber}`);
         }
         
         // ============================================================
@@ -4174,15 +4142,15 @@ class CaseManager {
                 // Populate editors with CRM data if this is a newly created case
                 if (shouldPopulateEditors) {
                     console.log(`📝 [CaseManager] Populating editors with latest CRM data for new case`);
-                const editor1 = document.getElementById('editor');
-                const editor2 = document.getElementById('editor2');
-                
-                if (editor1 && latestProblemStatement && latestProblemStatement.trim()) {
+                    const editor1 = document.getElementById('editor');
+                    const editor2 = document.getElementById('editor2');
+                    
+                    if (editor1 && latestProblemStatement && latestProblemStatement.trim()) {
                         console.log(`📝 [CaseManager] Setting problem statement (${latestProblemStatement.length} chars)`);
                         editor1.innerText = latestProblemStatement;
-                }
-                
-                if (editor2 && latestDailyNotes && latestDailyNotes.trim()) {
+                    }
+                    
+                    if (editor2 && latestDailyNotes && latestDailyNotes.trim()) {
                         console.log(`📝 [CaseManager] Setting FSR notes (${latestDailyNotes.length} chars)`);
                         editor2.innerText = latestDailyNotes;
                     }
@@ -4639,25 +4607,25 @@ class CaseManager {
             if (caseToDelete.isTrackedInDatabase) {
                 // Don't await - run in background
                 (async () => {
-                try {
-                    // Convert to string to avoid scientific notation for large numbers
-                    const caseNumberStr = String(caseToDelete.caseNumber);
-                    console.log(`🔍 [CaseManager] Deleting from backend with case number: ${caseNumberStr}`);
-                    
-                    const response = await fetch(`/api/cases/delete/${caseNumberStr}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    
-                    if (response.ok) {
+                    try {
+                        // Convert to string to avoid scientific notation for large numbers
+                        const caseNumberStr = String(caseToDelete.caseNumber);
+                        console.log(`🔍 [CaseManager] Deleting from backend with case number: ${caseNumberStr}`);
+                        
+                        const response = await fetch(`/api/cases/delete/${caseNumberStr}`, {
+                            method: 'DELETE',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            }
+                        });
+                        
+                        if (response.ok) {
                             console.log('✅ [CaseManager] Case deleted from backend:', caseToDelete.caseNumber);
-                    } else {
+                        } else {
                             console.error('❌ [CaseManager] Failed to delete case from backend:', caseToDelete.caseNumber);
                             // Note: Case already removed from UI, user won't see backend failure
-                    }
-                } catch (error) {
+                        }
+                    } catch (error) {
                         console.error('❌ [CaseManager] Error deleting case from backend:', error);
                         // Note: Case already removed from UI, user won't see backend failure
                     }
@@ -4904,9 +4872,6 @@ class CaseManager {
             
             // Function to filter preloaded suggestions and fetch titles
             const filterSuggestions = async (query) => {
-                console.log(`🔍 [CaseManager] filterSuggestions called with query: "${query}"`);
-                console.log(`📊 [CaseManager] Preloaded suggestions count: ${this.preloadedSuggestions.length}`);
-                
                 if (!query || query.length < 1) {
                     suggestionsData = [];
                     displaySuggestions();
@@ -4919,15 +4884,12 @@ class CaseManager {
                 }).slice(0, 10); // Limit to 10 suggestions
                 
                 console.log(`🔍 [CaseManager] Query: "${query}" -> ${filteredCases.length} cases from preloaded suggestions (no DB queries)`);
-                console.log(`📋 [CaseManager] Filtered cases:`, filteredCases);
                 
                 // Build initial suggestions data (without titles)
                 suggestionsData = filteredCases.map(caseNum => ({
                     caseNumber: caseNum,
                     caseName: null // Will be fetched next
                 }));
-                
-                console.log(`✅ [CaseManager] Built ${suggestionsData.length} suggestion items`);
                 
                 // Display suggestions immediately (with "Available in CRM" placeholder)
                 displaySuggestions();
