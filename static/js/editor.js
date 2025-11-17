@@ -2693,21 +2693,16 @@ class CaseManager {
         try {
             console.log('🔍 [CaseManager] Preloading case suggestions from CRM database...');
             const response = await fetch('/api/cases/suggestions/preload');
-            console.log(`📡 [CaseManager] Response status: ${response.status}, ok: ${response.ok}`);
-            
             if (response.ok) {
                 const data = await response.json();
-                console.log(`📦 [CaseManager] Response data keys:`, Object.keys(data));
-                console.log(`📦 [CaseManager] Response data.case_numbers type:`, typeof data.case_numbers);
-                console.log(`📦 [CaseManager] Response data.case_numbers is array:`, Array.isArray(data.case_numbers));
-                console.log(`📦 [CaseManager] Response data.case_numbers length:`, data.case_numbers ? data.case_numbers.length : 'null/undefined');
-                
                 this.preloadedSuggestions = data.case_numbers || [];
                 const totalCases = this.preloadedSuggestions.length;
                 const filteredByEmail = data.filtered_by_email || 'unknown';
                 console.log(`✅ [CaseManager] Preloaded ${totalCases} case suggestions from CRM database (filtered by user email: ${filteredByEmail})`);
                 console.log(`📊 [CaseManager] Total preloaded cases from CRM database: ${totalCases}`);
                 console.log(`🔒 [CaseManager] All ${totalCases} cases are pre-filtered by email: ${filteredByEmail}`);
+                console.log(`🔍 [DEBUG] preloadedSuggestions is array: ${Array.isArray(this.preloadedSuggestions)}`);
+                console.log(`🔍 [DEBUG] preloadedSuggestions type check:`, typeof this.preloadedSuggestions);
                 
                 // Log sample of 5 case numbers for testing
                 if (totalCases > 0) {
@@ -2715,18 +2710,20 @@ class CaseManager {
                     const sampleCases = this.preloadedSuggestions.slice(0, sampleCount);
                     console.log(`🔍 [CaseManager] Sample preloaded case numbers from CRM (first ${sampleCount} of ${totalCases}):`, sampleCases);
                     console.log(`📋 [CaseManager] Using ${totalCases} cases from CRM database for suggestions (all filtered by email: ${filteredByEmail})`);
+                    
+                    // Log types of case numbers
+                    if (sampleCases.length > 0) {
+                        console.log(`🔍 [DEBUG] Sample case number types:`, sampleCases.map(c => ({ value: c, type: typeof c, toString: c.toString() })));
+                    }
                 } else {
                     console.log(`⚠️ [CaseManager] No cases found in CRM database for preloading`);
-                    console.log(`⚠️ [CaseManager] Full response data:`, JSON.stringify(data).substring(0, 500));
                 }
             } else {
-                const errorText = await response.text();
-                console.error('❌ [CaseManager] Failed to preload suggestions:', response.status, errorText);
+                console.error('❌ [CaseManager] Failed to preload suggestions:', response.status);
                 this.preloadedSuggestions = [];
             }
         } catch (error) {
             console.error('❌ [CaseManager] Error preloading suggestions:', error);
-            console.error('❌ [CaseManager] Error stack:', error.stack);
             this.preloadedSuggestions = [];
         }
     }
@@ -4874,43 +4871,64 @@ class CaseManager {
             
             // Function to filter preloaded suggestions and fetch titles
             const filterSuggestions = async (query) => {
+                console.log(`🔍 [DEBUG] filterSuggestions called with query: "${query}"`);
+                console.log(`🔍 [DEBUG] preloadedSuggestions type: ${typeof this.preloadedSuggestions}`);
+                console.log(`🔍 [DEBUG] preloadedSuggestions is array: ${Array.isArray(this.preloadedSuggestions)}`);
+                console.log(`🔍 [DEBUG] preloadedSuggestions length: ${this.preloadedSuggestions?.length || 0}`);
+                
                 if (!query || query.length < 1) {
+                    console.log(`🔍 [DEBUG] Empty query, clearing suggestions`);
                     suggestionsData = [];
                     displaySuggestions();
                     return;
                 }
                 
-                // Cancel any ongoing search
-                if (currentFilteringQuery !== null && currentFilteringQuery !== query) {
-                    console.log(`🔄 [CaseManager] Query changed, cancelling previous search`);
+                // Check if preloadedSuggestions is populated
+                if (!this.preloadedSuggestions || this.preloadedSuggestions.length === 0) {
+                    console.warn(`⚠️ [DEBUG] preloadedSuggestions is empty or not loaded yet!`);
+                    console.warn(`⚠️ [DEBUG] preloadedSuggestions value:`, this.preloadedSuggestions);
+                    suggestionsData = [];
+                    displaySuggestions();
+                    return;
                 }
-                currentFilteringQuery = query;
                 
-                // Debug: Check preloadedSuggestions state
-                console.log(`🔍 [CaseManager] filterSuggestions called with query: "${query}"`);
-                console.log(`📊 [CaseManager] preloadedSuggestions length: ${this.preloadedSuggestions.length}`);
+                // Log sample of preloaded suggestions for debugging
+                const sampleSize = Math.min(10, this.preloadedSuggestions.length);
+                console.log(`🔍 [DEBUG] Sample of preloadedSuggestions (first ${sampleSize}):`, 
+                    this.preloadedSuggestions.slice(0, sampleSize));
                 
-                // Step 1: Filter preloaded suggestions first (fast, instant results)
-                const filteredFromPreload = this.preloadedSuggestions.filter(caseNum => {
-                    const caseNumStr = String(caseNum);
-                    const queryLower = query.toLowerCase();
-                    return caseNumStr.toLowerCase().startsWith(queryLower);
+                // Filter preloaded suggestions (already filtered by email) - no database queries
+                const queryLower = query.toLowerCase();
+                console.log(`🔍 [DEBUG] Filtering with query (lowercase): "${queryLower}"`);
+                
+                const filteredCases = this.preloadedSuggestions.filter(caseNum => {
+                    const caseNumStr = caseNum.toString().toLowerCase();
+                    const matches = caseNumStr.startsWith(queryLower);
+                    if (matches && filteredCases.length < 5) {
+                        console.log(`🔍 [DEBUG] Match found: ${caseNum} (${caseNumStr}) matches "${queryLower}"`);
+                    }
+                    return matches;
                 }).slice(0, 10); // Limit to 10 suggestions
                 
-                console.log(`🔍 [CaseManager] Query: "${query}" -> ${filteredFromPreload.length} cases from preloaded suggestions`);
+                console.log(`🔍 [DEBUG] Filtered cases count: ${filteredCases.length}`);
+                console.log(`🔍 [DEBUG] Filtered cases:`, filteredCases);
+                console.log(`🔍 [CaseManager] Query: "${query}" -> ${filteredCases.length} cases from preloaded suggestions (no DB queries)`);
                 
-                // Step 2: If we have results from preload, use them (fast path)
-                if (filteredFromPreload.length > 0) {
-                    console.log(`✅ [CaseManager] Using preloaded suggestions (fast path)`);
-                    suggestionsData = filteredFromPreload.map(caseNum => ({
-                        caseNumber: caseNum,
-                        caseName: null // Will be fetched next
-                    }));
-                    
-                    // Display suggestions immediately
-                    displaySuggestions();
-                    
-                    // Fetch titles for filtered cases in background
+                // Build initial suggestions data (without titles)
+                suggestionsData = filteredCases.map(caseNum => ({
+                    caseNumber: caseNum,
+                    caseName: null // Will be fetched next
+                }));
+                
+                console.log(`🔍 [DEBUG] suggestionsData built:`, suggestionsData);
+                console.log(`🔍 [DEBUG] suggestionsData length: ${suggestionsData.length}`);
+                
+                // Display suggestions immediately (with "Available in CRM" placeholder)
+                console.log(`🔍 [DEBUG] Calling displaySuggestions() with ${suggestionsData.length} items`);
+                displaySuggestions();
+                
+                // Fetch titles for filtered cases in background
+                if (filteredCases.length > 0) {
                     try {
                         const response = await fetch('/api/cases/titles', {
                             method: 'POST',
@@ -4918,142 +4936,52 @@ class CaseManager {
                                 'Content-Type': 'application/json'
                             },
                             body: JSON.stringify({
-                                case_numbers: filteredFromPreload
+                                case_numbers: filteredCases
                             })
                         });
-                        
-                        // Check if query changed while fetching titles
-                        if (currentFilteringQuery !== query) {
-                            console.log(`🔄 [CaseManager] Query changed during title fetch, ignoring results`);
-                            return;
-                        }
                         
                         if (response.ok) {
                             const data = await response.json();
                             const titles = data.titles || {};
                             
                             // Update suggestions with titles
-                            suggestionsData = filteredFromPreload.map(caseNum => ({
+                            suggestionsData = filteredCases.map(caseNum => ({
                                 caseNumber: caseNum,
                                 caseName: titles[String(caseNum)] || null
                             }));
                             
-                            console.log(`✅ [CaseManager] Fetched titles for ${filteredFromPreload.length} cases`);
+                            console.log(`✅ [CaseManager] Fetched titles for ${filteredCases.length} cases`);
                             displaySuggestions(); // Re-render with titles
+                        } else {
+                            console.log(`⚠️ [CaseManager] Failed to fetch titles: ${response.status}`);
                         }
                     } catch (error) {
                         console.error(`❌ [CaseManager] Error fetching titles:`, error);
+                        // Continue with suggestions without titles
                     }
-                    return; // Exit early - we have results
-                }
-                
-                // Step 3: No matches in preload - CLEAR old suggestions and search ALL cases via backend
-                console.log(`🔍 [CaseManager] No matches in preload (${filteredFromPreload.length} results), searching ALL cases via backend...`);
-                console.log(`🔍 [CaseManager] Preload sample check - first 10 cases:`, this.preloadedSuggestions.slice(0, 10));
-                console.log(`🔍 [CaseManager] Query "${query}" does not match any of the ${this.preloadedSuggestions.length} preloaded cases`);
-                
-                // Clear suggestions immediately so old results don't show
-                suggestionsData = [];
-                displaySuggestions();
-                console.log(`🧹 [CaseManager] Cleared old suggestions, starting backend search...`);
-                
-                try {
-                    const searchUrl = `/api/cases/suggestions?search=${encodeURIComponent(query)}&limit=10`;
-                    console.log(`🌐 [CaseManager] Fetching from backend: ${searchUrl}`);
-                    const response = await fetch(searchUrl);
-                    console.log(`📡 [CaseManager] Backend response status: ${response.status}, ok: ${response.ok}`);
-                    
-                    // Check if query changed while we were fetching
-                    if (currentFilteringQuery !== query) {
-                        console.log(`🔄 [CaseManager] Query changed during backend search, ignoring results`);
-                        return;
-                    }
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        console.log(`📦 [CaseManager] Backend response data:`, data);
-                        const backendCases = data.case_numbers || [];
-                        
-                        console.log(`✅ [CaseManager] Backend search found ${backendCases.length} cases matching "${query}"`);
-                        console.log(`📋 [CaseManager] Backend cases:`, backendCases);
-                        
-                        if (backendCases.length > 0) {
-                            // Build suggestions from backend results
-                            suggestionsData = backendCases.map(caseNum => ({
-                                caseNumber: caseNum,
-                                caseName: null // Will be fetched next
-                            }));
-                            
-                            console.log(`📋 [CaseManager] Built suggestionsData with ${suggestionsData.length} items`);
-                            // Display suggestions
-                            displaySuggestions();
-                            
-                            // Fetch titles for backend results
-                            try {
-                                const titleResponse = await fetch('/api/cases/titles', {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json'
-                                    },
-                                    body: JSON.stringify({
-                                        case_numbers: backendCases
-                                    })
-                                });
-                                
-                                // Check if query changed during title fetch
-                                if (currentFilteringQuery !== query) {
-                                    console.log(`🔄 [CaseManager] Query changed during title fetch, ignoring results`);
-                                    return;
-                                }
-                                
-                                if (titleResponse.ok) {
-                                    const titleData = await titleResponse.json();
-                                    const titles = titleData.titles || {};
-                                    
-                                    // Update suggestions with titles
-                                    suggestionsData = backendCases.map(caseNum => ({
-                                        caseNumber: caseNum,
-                                        caseName: titles[String(caseNum)] || null
-                                    }));
-                                    
-                                    console.log(`✅ [CaseManager] Fetched titles for ${backendCases.length} backend cases`);
-                                    displaySuggestions(); // Re-render with titles
-                                } else {
-                                    console.error(`❌ [CaseManager] Title fetch failed: ${titleResponse.status}`);
-                                }
-                            } catch (error) {
-                                console.error(`❌ [CaseManager] Error fetching titles for backend cases:`, error);
-                            }
-                        } else {
-                            console.log(`ℹ️ [CaseManager] No cases found matching "${query}" in backend search`);
-                            suggestionsData = [];
-                            displaySuggestions();
-                        }
-                    } else {
-                        const errorText = await response.text();
-                        console.error(`❌ [CaseManager] Backend search failed: ${response.status}`, errorText);
-                        suggestionsData = [];
-                        displaySuggestions();
-                    }
-                } catch (error) {
-                    console.error(`❌ [CaseManager] Error searching backend:`, error);
-                    console.error(`❌ [CaseManager] Error stack:`, error.stack);
-                    suggestionsData = [];
-                    displaySuggestions();
                 }
             };
             
             // Function to display suggestions
             const displaySuggestions = () => {
-                console.log(`📋 [CaseManager] displaySuggestions called with ${suggestionsData.length} suggestions`);
+                console.log(`🔍 [DEBUG] displaySuggestions() called`);
+                console.log(`🔍 [DEBUG] suggestionsData.length: ${suggestionsData.length}`);
+                console.log(`🔍 [DEBUG] suggestions element exists: ${!!suggestions}`);
+                console.log(`🔍 [DEBUG] suggestions element:`, suggestions);
+                
+                if (!suggestions) {
+                    console.error(`❌ [DEBUG] suggestions element is null/undefined!`);
+                    return;
+                }
+                
                 if (suggestionsData.length === 0) {
-                    console.log(`📋 [CaseManager] No suggestions to display, hiding suggestions box`);
+                    console.log(`🔍 [DEBUG] No suggestions data, hiding suggestions element`);
                     suggestions.style.display = 'none';
                     return;
                 }
                 
-                console.log(`📋 [CaseManager] Rendering ${suggestionsData.length} suggestions`);
-                suggestions.innerHTML = suggestionsData.map((suggestion, index) => {
+                console.log(`🔍 [DEBUG] Building HTML for ${suggestionsData.length} suggestions`);
+                const html = suggestionsData.map((suggestion, index) => {
                     const caseNum = suggestion.caseNumber;
                     const caseName = suggestion.caseName;
                     
@@ -5075,7 +5003,6 @@ class CaseManager {
                     `;
                 }).join('');
                 
-                console.log(`📋 [CaseManager] Suggestions HTML generated, showing suggestions box`);
                 suggestions.style.display = 'block';
                 
                 // Add click handlers and hover effects for suggestions
@@ -5103,6 +5030,8 @@ class CaseManager {
             // Input event handler - triggers immediately on each keystroke
             input.addEventListener('input', (e) => {
                 const query = e.target.value.trim();
+                console.log(`🔍 [DEBUG] Input event triggered, query: "${query}"`);
+                console.log(`🔍 [DEBUG] Current preloadedSuggestions length: ${this.preloadedSuggestions?.length || 0}`);
                 // Trigger filtering immediately - ongoing operations will be cancelled
                 filterSuggestions(query);
             });
