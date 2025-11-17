@@ -4870,12 +4870,22 @@ class CaseManager {
                     return;
                 }
                 
+                // Debug: Check preloadedSuggestions state
+                console.log(`🔍 [CaseManager] filterSuggestions called with query: "${query}"`);
+                console.log(`📊 [CaseManager] preloadedSuggestions length: ${this.preloadedSuggestions.length}`);
+                console.log(`📊 [CaseManager] preloadedSuggestions sample (first 5):`, this.preloadedSuggestions.slice(0, 5));
+                console.log(`📊 [CaseManager] preloadedSuggestions types:`, this.preloadedSuggestions.slice(0, 5).map(c => typeof c));
+                
                 // Filter preloaded suggestions (already filtered by email) - no database queries
                 const filteredCases = this.preloadedSuggestions.filter(caseNum => {
-                    return caseNum.toString().toLowerCase().startsWith(query.toLowerCase());
+                    const caseNumStr = String(caseNum);
+                    const queryLower = query.toLowerCase();
+                    const matches = caseNumStr.toLowerCase().startsWith(queryLower);
+                    return matches;
                 }).slice(0, 10); // Limit to 10 suggestions
                 
                 console.log(`🔍 [CaseManager] Query: "${query}" -> ${filteredCases.length} cases from preloaded suggestions (no DB queries)`);
+                console.log(`📋 [CaseManager] Filtered cases:`, filteredCases);
                 
                 // Build initial suggestions data (without titles)
                 suggestionsData = filteredCases.map(caseNum => ({
