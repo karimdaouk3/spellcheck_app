@@ -4880,34 +4880,37 @@ class CaseManager {
                     return;
                 }
                 
+                // Cancel any ongoing search
+                if (currentFilteringQuery !== null && currentFilteringQuery !== query) {
+                    console.log(`🔄 [CaseManager] Query changed, cancelling previous search`);
+                }
+                currentFilteringQuery = query;
+                
                 // Debug: Check preloadedSuggestions state
                 console.log(`🔍 [CaseManager] filterSuggestions called with query: "${query}"`);
                 console.log(`📊 [CaseManager] preloadedSuggestions length: ${this.preloadedSuggestions.length}`);
-                console.log(`📊 [CaseManager] preloadedSuggestions sample (first 5):`, this.preloadedSuggestions.slice(0, 5));
-                console.log(`📊 [CaseManager] preloadedSuggestions types:`, this.preloadedSuggestions.slice(0, 5).map(c => typeof c));
                 
-                // Filter preloaded suggestions (already filtered by email) - no database queries
-                const filteredCases = this.preloadedSuggestions.filter(caseNum => {
+                // Step 1: Filter preloaded suggestions first (fast, instant results)
+                const filteredFromPreload = this.preloadedSuggestions.filter(caseNum => {
                     const caseNumStr = String(caseNum);
                     const queryLower = query.toLowerCase();
-                    const matches = caseNumStr.toLowerCase().startsWith(queryLower);
-                    return matches;
+                    return caseNumStr.toLowerCase().startsWith(queryLower);
                 }).slice(0, 10); // Limit to 10 suggestions
                 
-                console.log(`🔍 [CaseManager] Query: "${query}" -> ${filteredCases.length} cases from preloaded suggestions (no DB queries)`);
-                console.log(`📋 [CaseManager] Filtered cases:`, filteredCases);
+                console.log(`🔍 [CaseManager] Query: "${query}" -> ${filteredFromPreload.length} cases from preloaded suggestions`);
                 
-                // Build initial suggestions data (without titles)
-                suggestionsData = filteredCases.map(caseNum => ({
-                    caseNumber: caseNum,
-                    caseName: null // Will be fetched next
-                }));
-                
-                // Display suggestions immediately (with "Available in CRM" placeholder)
-                displaySuggestions();
-                
-                // Fetch titles for filtered cases in background
-                if (filteredCases.length > 0) {
+                // Step 2: If we have results from preload, use them (fast path)
+                if (filteredFromPreload.length > 0) {
+                    console.log(`✅ [CaseManager] Using preloaded suggestions (fast path)`);
+                    suggestionsData = filteredFromPreload.map(caseNum => ({
+                        caseNumber: caseNum,
+                        caseName: null // Will be fetched next
+                    }));
+                    
+                    // Display suggestions immediately
+                    displaySuggestions();
+                    
+                    // Fetch titles for filtered cases in background
                     try {
                         const response = await fetch('/api/cases/titles', {
                             method: 'POST',
@@ -4915,7 +4918,7 @@ class CaseManager {
                                 'Content-Type': 'application/json'
                             },
                             body: JSON.stringify({
-                                case_numbers: filteredCases
+                                case_numbers: filteredFromPreload
                             })
                         });
                         
@@ -4924,20 +4927,89 @@ class CaseManager {
                             const titles = data.titles || {};
                             
                             // Update suggestions with titles
-                            suggestionsData = filteredCases.map(caseNum => ({
+                            suggestionsData = filteredFromPreload.map(caseNum => ({
                                 caseNumber: caseNum,
                                 caseName: titles[String(caseNum)] || null
                             }));
                             
-                            console.log(`✅ [CaseManager] Fetched titles for ${filteredCases.length} cases`);
+                            console.log(`✅ [CaseManager] Fetched titles for ${filteredFromPreload.length} cases`);
                             displaySuggestions(); // Re-render with titles
-                        } else {
-                            console.log(`⚠️ [CaseManager] Failed to fetch titles: ${response.status}`);
                         }
                     } catch (error) {
                         console.error(`❌ [CaseManager] Error fetching titles:`, error);
-                        // Continue with suggestions without titles
                     }
+                    return; // Exit early - we have results
+                }
+                
+                // Step 3: No matches in preload - search ALL cases via backend (full access)
+                console.log(`🔍 [CaseManager] No matches in preload, searching ALL cases via backend...`);
+                try {
+                    const response = await fetch(`/api/cases/suggestions?search=${encodeURIComponent(query)}&limit=10`);
+                    
+                    // Check if query changed while we were fetching
+                    if (currentFilteringQuery !== query) {
+                        console.log(`🔄 [CaseManager] Query changed during backend search, ignoring results`);
+                        return;
+                    }
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const backendCases = data.case_numbers || [];
+                        
+                        console.log(`✅ [CaseManager] Backend search found ${backendCases.length} cases matching "${query}"`);
+                        
+                        if (backendCases.length > 0) {
+                            // Build suggestions from backend results
+                            suggestionsData = backendCases.map(caseNum => ({
+                                caseNumber: caseNum,
+                                caseName: null // Will be fetched next
+                            }));
+                            
+                            // Display suggestions
+                            displaySuggestions();
+                            
+                            // Fetch titles for backend results
+                            try {
+                                const titleResponse = await fetch('/api/cases/titles', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({
+                                        case_numbers: backendCases
+                                    })
+                                });
+                                
+                                if (titleResponse.ok) {
+                                    const titleData = await titleResponse.json();
+                                    const titles = titleData.titles || {};
+                                    
+                                    // Update suggestions with titles
+                                    suggestionsData = backendCases.map(caseNum => ({
+                                        caseNumber: caseNum,
+                                        caseName: titles[String(caseNum)] || null
+                                    }));
+                                    
+                                    console.log(`✅ [CaseManager] Fetched titles for ${backendCases.length} backend cases`);
+                                    displaySuggestions(); // Re-render with titles
+                                }
+                            } catch (error) {
+                                console.error(`❌ [CaseManager] Error fetching titles for backend cases:`, error);
+                            }
+                        } else {
+                            console.log(`ℹ️ [CaseManager] No cases found matching "${query}" in backend search`);
+                            suggestionsData = [];
+                            displaySuggestions();
+                        }
+                    } else {
+                        console.error(`❌ [CaseManager] Backend search failed: ${response.status}`);
+                        suggestionsData = [];
+                        displaySuggestions();
+                    }
+                } catch (error) {
+                    console.error(`❌ [CaseManager] Error searching backend:`, error);
+                    suggestionsData = [];
+                    displaySuggestions();
                 }
             };
             
