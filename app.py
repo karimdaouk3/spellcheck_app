@@ -338,48 +338,13 @@ def get_external_case_id(case_number):
     """
     return case_number
 
-def get_available_case_numbers():
+# DEPRECATED: This function is no longer used - use get_available_case_numbers(user_email, search_query, limit) instead
+# Keeping for backwards compatibility but it should not be called
+def get_available_case_numbers_old():
     """
-    Get list of available case numbers for the current user from CRM.
-    Used to suggest case numbers when creating a new case.
+    DEPRECATED: Old function signature - use get_available_case_numbers(user_email, search_query, limit) instead
     """
-    try:
-        # Get user email with fallback to default test email
-        user_email_upper = get_user_email_for_crm()
-        print(f"🔍 [CRM] Getting available case numbers for user {user_email_upper}")
-        
-        # Query 1: Get available case numbers (email restriction commented out for testing)
-        # Email restriction for production
-        like_pattern = f"%~{user_email_upper}~%"
-        
-        query = """
-            SELECT DISTINCT "Case Number"
-            FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
-            WHERE "Case Number" IS NOT NULL
-            AND "USER_EMAILS" LIKE %s
-            ORDER BY "Case Number" DESC
-        """
-        
-        print(f"🔍 [CRM] Query parameters: email pattern='{like_pattern}'")
-        result = snowflake_query(query, CONNECTION_PAYLOAD, (like_pattern,))
-        
-        if result is not None and not result.empty:
-            case_numbers = result["Case Number"].tolist()
-            print(f"✅ [CRM] Found {len(case_numbers)} available case numbers for user {user_email_upper}")
-            return case_numbers
-        else:
-            print(f"ℹ️ [CRM] No case numbers found for user {user_email_upper}")
-            return []
-            
-    except Exception as e:
-        print(f"❌ [CRM] Error getting available case numbers: {e}")
-        # Check if it's a database access error
-        if "Database 'IT_SF_SHARE_REPLICA' does not exist or not authorized" in str(e):
-            print(f"⚠️ [CRM] IT_SF_SHARE_REPLICA database not accessible, returning empty list")
-            return []
-        else:
-            print(f"❌ [CRM] Unexpected error getting case numbers: {e}")
-            return []
+    pass
 
 import yaml
 from werkzeug.middleware.proxy_fix import ProxyFix
