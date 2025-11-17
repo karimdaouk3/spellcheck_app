@@ -2809,6 +2809,15 @@ class CaseManager {
     }
     
     showCaseLoadingIndicator(message = 'Loading...') {
+        console.log(`🔵 [Loading] showCaseLoadingIndicator called with message: "${message}"`);
+        
+        // Remove any existing loading overlay first
+        const existingOverlay = document.getElementById('case-switch-loading-overlay');
+        if (existingOverlay) {
+            console.log(`🔵 [Loading] Removing existing loading overlay before creating new one`);
+            existingOverlay.remove();
+        }
+        
         // Create loading overlay for case switching
         const loadingOverlay = document.createElement('div');
         loadingOverlay.id = 'case-switch-loading-overlay';
@@ -2841,12 +2850,18 @@ class CaseManager {
         `;
         
         document.body.appendChild(loadingOverlay);
+        console.log(`🔵 [Loading] Loading overlay created and appended to body`);
     }
     
     hideCaseLoadingIndicator() {
+        console.log(`🔴 [Loading] hideCaseLoadingIndicator called`);
         const loadingOverlay = document.getElementById('case-switch-loading-overlay');
         if (loadingOverlay) {
+            console.log(`🔴 [Loading] Found loading overlay, removing it`);
             loadingOverlay.remove();
+            console.log(`🔴 [Loading] Loading overlay removed successfully`);
+        } else {
+            console.log(`🔴 [Loading] No loading overlay found to remove`);
         }
     }
     
@@ -3644,6 +3659,7 @@ class CaseManager {
         }
         
         // Show loading indicator NOW (after popup is closed and we know we're creating a case)
+        console.log(`🔵 [DEBUG] About to show loading indicator for case ${caseNumberValue}`);
         this.showCaseLoadingIndicator('Creating Case...');
         
         // Try to create case in database first
@@ -3777,6 +3793,7 @@ class CaseManager {
             // If we reach here, it's a tracked CRM case - update loading message
             // (Loading indicator already shown at the start of createNewCase)
             // Update the message to be more specific
+            console.log(`🔵 [DEBUG] Updating loading message to 'Loading Case Details...' for tracked CRM case`);
             this.showCaseLoadingIndicator('Loading Case Details...');
             
         // Create the case (either tracked or untracked)
@@ -3802,11 +3819,14 @@ class CaseManager {
             this.renderCasesList();
             
             // Switch to the case first (await to ensure it completes)
+            console.log(`🔵 [DEBUG] About to switch to case ${newCase.id}`);
             await this.switchToCase(newCase.id);
+            console.log(`🔵 [DEBUG] Finished switching to case ${newCase.id}`);
             
             // If this is a tracked CRM case, fetch CRM data (title and content) immediately
             if (isTrackedInDatabase !== false && !untrackedCaseTitle) {
                 console.log(`🔍 [CaseManager] Fetching CRM data for case ${caseNumberValue}`);
+                console.log(`🔵 [DEBUG] isTrackedInDatabase: ${isTrackedInDatabase}, untrackedCaseTitle: ${untrackedCaseTitle}`);
                 
                 try {
                     // Fetch title
@@ -3841,11 +3861,16 @@ class CaseManager {
                 } catch (error) {
                     console.error(`❌ [CaseManager] Error fetching CRM data for case ${caseNumberValue}:`, error);
                 } finally {
+                    console.log(`🔴 [DEBUG] In finally block for tracked CRM case - about to hide loading indicator`);
                     this.hideCaseLoadingIndicator();
+                    console.log(`🔴 [DEBUG] Loading indicator hidden in finally block`);
                 }
             } else {
                 // Not a tracked CRM case, hide loading indicator immediately
+                console.log(`🔴 [DEBUG] Not a tracked CRM case - hiding loading indicator immediately`);
+                console.log(`🔴 [DEBUG] isTrackedInDatabase: ${isTrackedInDatabase}, untrackedCaseTitle: ${untrackedCaseTitle}`);
                 this.hideCaseLoadingIndicator();
+                console.log(`🔴 [DEBUG] Loading indicator hidden for non-tracked case`);
             }
             
             // Close mobile sidebar
