@@ -4904,6 +4904,9 @@ class CaseManager {
             
             // Function to filter preloaded suggestions and fetch titles
             const filterSuggestions = async (query) => {
+                console.log(`🔍 [CaseManager] filterSuggestions called with query: "${query}"`);
+                console.log(`📊 [CaseManager] Preloaded suggestions count: ${this.preloadedSuggestions.length}`);
+                
                 if (!query || query.length < 1) {
                     suggestionsData = [];
                     displaySuggestions();
@@ -4916,12 +4919,15 @@ class CaseManager {
                 }).slice(0, 10); // Limit to 10 suggestions
                 
                 console.log(`🔍 [CaseManager] Query: "${query}" -> ${filteredCases.length} cases from preloaded suggestions (no DB queries)`);
+                console.log(`📋 [CaseManager] Filtered cases:`, filteredCases);
                 
                 // Build initial suggestions data (without titles)
                 suggestionsData = filteredCases.map(caseNum => ({
                     caseNumber: caseNum,
                     caseName: null // Will be fetched next
                 }));
+                
+                console.log(`✅ [CaseManager] Built ${suggestionsData.length} suggestion items`);
                 
                 // Display suggestions immediately (with "Available in CRM" placeholder)
                 displaySuggestions();
