@@ -4949,12 +4949,19 @@ class CaseManager {
                 
                 // Step 3: No matches in preload - CLEAR old suggestions and search ALL cases via backend
                 console.log(`🔍 [CaseManager] No matches in preload (${filteredFromPreload.length} results), searching ALL cases via backend...`);
+                console.log(`🔍 [CaseManager] Preload sample check - first 10 cases:`, this.preloadedSuggestions.slice(0, 10));
+                console.log(`🔍 [CaseManager] Query "${query}" does not match any of the ${this.preloadedSuggestions.length} preloaded cases`);
                 
                 // Clear suggestions immediately so old results don't show
                 suggestionsData = [];
                 displaySuggestions();
+                console.log(`🧹 [CaseManager] Cleared old suggestions, starting backend search...`);
+                
                 try {
-                    const response = await fetch(`/api/cases/suggestions?search=${encodeURIComponent(query)}&limit=10`);
+                    const searchUrl = `/api/cases/suggestions?search=${encodeURIComponent(query)}&limit=10`;
+                    console.log(`🌐 [CaseManager] Fetching from backend: ${searchUrl}`);
+                    const response = await fetch(searchUrl);
+                    console.log(`📡 [CaseManager] Backend response status: ${response.status}, ok: ${response.ok}`);
                     
                     // Check if query changed while we were fetching
                     if (currentFilteringQuery !== query) {
@@ -4964,9 +4971,11 @@ class CaseManager {
                     
                     if (response.ok) {
                         const data = await response.json();
+                        console.log(`📦 [CaseManager] Backend response data:`, data);
                         const backendCases = data.case_numbers || [];
                         
                         console.log(`✅ [CaseManager] Backend search found ${backendCases.length} cases matching "${query}"`);
+                        console.log(`📋 [CaseManager] Backend cases:`, backendCases);
                         
                         if (backendCases.length > 0) {
                             // Build suggestions from backend results
@@ -4975,6 +4984,7 @@ class CaseManager {
                                 caseName: null // Will be fetched next
                             }));
                             
+                            console.log(`📋 [CaseManager] Built suggestionsData with ${suggestionsData.length} items`);
                             // Display suggestions
                             displaySuggestions();
                             
@@ -4990,6 +5000,12 @@ class CaseManager {
                                     })
                                 });
                                 
+                                // Check if query changed during title fetch
+                                if (currentFilteringQuery !== query) {
+                                    console.log(`🔄 [CaseManager] Query changed during title fetch, ignoring results`);
+                                    return;
+                                }
+                                
                                 if (titleResponse.ok) {
                                     const titleData = await titleResponse.json();
                                     const titles = titleData.titles || {};
@@ -5002,6 +5018,8 @@ class CaseManager {
                                     
                                     console.log(`✅ [CaseManager] Fetched titles for ${backendCases.length} backend cases`);
                                     displaySuggestions(); // Re-render with titles
+                                } else {
+                                    console.error(`❌ [CaseManager] Title fetch failed: ${titleResponse.status}`);
                                 }
                             } catch (error) {
                                 console.error(`❌ [CaseManager] Error fetching titles for backend cases:`, error);
@@ -5012,12 +5030,14 @@ class CaseManager {
                             displaySuggestions();
                         }
                     } else {
-                        console.error(`❌ [CaseManager] Backend search failed: ${response.status}`);
+                        const errorText = await response.text();
+                        console.error(`❌ [CaseManager] Backend search failed: ${response.status}`, errorText);
                         suggestionsData = [];
                         displaySuggestions();
                     }
                 } catch (error) {
                     console.error(`❌ [CaseManager] Error searching backend:`, error);
+                    console.error(`❌ [CaseManager] Error stack:`, error.stack);
                     suggestionsData = [];
                     displaySuggestions();
                 }
