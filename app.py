@@ -338,13 +338,48 @@ def get_external_case_id(case_number):
     """
     return case_number
 
-# DEPRECATED: This function is no longer used - use get_available_case_numbers(user_email, search_query, limit) instead
-# Keeping for backwards compatibility but it should not be called
-def get_available_case_numbers_old():
+def get_available_case_numbers():
     """
-    DEPRECATED: Old function signature - use get_available_case_numbers(user_email, search_query, limit) instead
+    Get list of available case numbers for the current user from CRM.
+    Used to suggest case numbers when creating a new case.
     """
-    pass
+    try:
+        # Get user email with fallback to default test email
+        user_email_upper = get_user_email_for_crm()
+        print(f"🔍 [CRM] Getting available case numbers for user {user_email_upper}")
+        
+        # Query 1: Get available case numbers (email restriction commented out for testing)
+        # Email restriction for production
+        like_pattern = f"%~{user_email_upper}~%"
+        
+        query = """
+            SELECT DISTINCT "Case Number"
+            FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
+            WHERE "Case Number" IS NOT NULL
+            AND "USER_EMAILS" LIKE %s
+            ORDER BY "Case Number" DESC
+        """
+        
+        print(f"🔍 [CRM] Query parameters: email pattern='{like_pattern}'")
+        result = snowflake_query(query, CONNECTION_PAYLOAD, (like_pattern,))
+        
+        if result is not None and not result.empty:
+            case_numbers = result["Case Number"].tolist()
+            print(f"✅ [CRM] Found {len(case_numbers)} available case numbers for user {user_email_upper}")
+            return case_numbers
+        else:
+            print(f"ℹ️ [CRM] No case numbers found for user {user_email_upper}")
+            return []
+            
+    except Exception as e:
+        print(f"❌ [CRM] Error getting available case numbers: {e}")
+        # Check if it's a database access error
+        if "Database 'IT_SF_SHARE_REPLICA' does not exist or not authorized" in str(e):
+            print(f"⚠️ [CRM] IT_SF_SHARE_REPLICA database not accessible, returning empty list")
+            return []
+        else:
+            print(f"❌ [CRM] Unexpected error getting case numbers: {e}")
+            return []
 
 import yaml
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -872,15 +907,15 @@ def preload_case_suggestions():
     print(f"✅ [CRM] Using email filter: {user_email_upper} for preloading cases")
     
     try:
-        # Get case numbers with a reasonable limit to avoid browser timeout
-        # Limit to 10,000 cases for preloading (browsers can't handle 3M+ cases)
-        # Users can still search for more cases using the search endpoint
-        MAX_PRELOAD_CASES = 10000
-        case_numbers = get_available_case_numbers(user_email_upper, "", limit=MAX_PRELOAD_CASES)
+        # Get ALL case numbers (no search filter, no limit - get all cases)
+        # IMPORTANT: This function filters by email - only cases matching user_email_upper will be returned
+        # No limit is applied - we fetch all matching cases regardless of count
+        case_numbers = get_available_case_numbers(user_email_upper, "", limit=None)
         total_cases = len(case_numbers)
-        print(f"✅ [CRM] Preloaded {total_cases} case suggestions from CRM database for user {user_email_upper} (limited to {MAX_PRELOAD_CASES} for performance)")
+        print(f"✅ [CRM] Preloaded {total_cases} case suggestions from CRM database for user {user_email_upper}")
         print(f"📊 [CRM] Total preloaded cases from CRM database (filtered by email): {total_cases}")
         print(f"🔒 [CRM] All {total_cases} cases are filtered by email: {user_email_upper}")
+        print(f"📊 [CRM] NO LIMIT applied - fetched all {total_cases} cases matching user email")
         
         if total_cases == 0:
             print(f"⚠️ [CRM] No cases found in CRM database for preloading for user {user_email_upper}")
@@ -889,15 +924,12 @@ def preload_case_suggestions():
             sample_count = min(5, total_cases)
             print(f"🔍 [CRM] Sample of preloaded cases (first {sample_count}): {case_numbers[:sample_count]}")
             print(f"✅ [CRM] All cases are pre-filtered by email {user_email_upper} - no additional filtering needed")
-            if total_cases >= MAX_PRELOAD_CASES:
-                print(f"⚠️ [CRM] WARNING: Preload limited to {MAX_PRELOAD_CASES} cases. More cases available - use search to find them.")
         
         return jsonify({
             "success": True,
             "case_numbers": case_numbers,
             "count": len(case_numbers),
-            "filtered_by_email": user_email_upper,
-            "limited": total_cases >= MAX_PRELOAD_CASES
+            "filtered_by_email": user_email_upper
         })
         
     except Exception as e:
