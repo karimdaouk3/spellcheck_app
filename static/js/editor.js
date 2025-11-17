@@ -1846,37 +1846,45 @@ class LanguageToolEditor {
         }
     }
  
-    // Auto-scroll to rewrite questions when they are generated (mobile stacked layout)
+    // Auto-scroll to rewrite questions when they are generated (mobile stacked layout only)
     autoScrollToRewriteQuestions() {
         // Only auto-scroll on mobile (stacked layout) - when content-flex is column
         const contentFlex = document.querySelector('.content-flex');
-        if (contentFlex && window.getComputedStyle(contentFlex).flexDirection === 'column') {
-            const rewritePopup = document.getElementById('rewrite-popup');
-            if (rewritePopup) {
-                // Smooth scroll to the rewrite popup
-                rewritePopup.scrollIntoView({ 
-                    behavior: 'smooth', 
-                    block: 'start',
-                    inline: 'nearest'
-                });
-            }
+        const isStacked = contentFlex && window.getComputedStyle(contentFlex).flexDirection === 'column';
+        
+        if (!isStacked) {
+            return; // No auto-scroll on unstacked screens
+        }
+        
+        const rewritePopup = document.getElementById('rewrite-popup');
+        if (rewritePopup) {
+            // Smooth scroll to the rewrite popup
+            rewritePopup.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start',
+                inline: 'nearest'
+            });
         }
     }
     
-    // Auto-scroll back to the rewritten editor box when rewrite is completed
+    // Auto-scroll back to the rewritten editor box when rewrite is completed (mobile stacked layout only)
     autoScrollToRewrittenBox(field) {
         // Only auto-scroll on mobile (stacked layout) - when content-flex is column
         const contentFlex = document.querySelector('.content-flex');
-        if (contentFlex && window.getComputedStyle(contentFlex).flexDirection === 'column') {
-            const editorContainer = document.querySelector(`#${field}`).closest('.editor-container');
-            if (editorContainer) {
-                // Smooth scroll to the editor container
-                editorContainer.scrollIntoView({ 
-                    behavior: 'smooth', 
-                    block: 'start',
-                    inline: 'nearest'
-                });
-            }
+        const isStacked = contentFlex && window.getComputedStyle(contentFlex).flexDirection === 'column';
+        
+        if (!isStacked) {
+            return; // No auto-scroll on unstacked screens
+        }
+        
+        const editorContainer = document.querySelector(`#${field}`).closest('.editor-container');
+        if (editorContainer) {
+            // Smooth scroll to the editor container
+            editorContainer.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start',
+                inline: 'nearest'
+            });
         }
     }
 
@@ -3248,39 +3256,19 @@ class CaseManager {
             });
         }
         
-        // Header sidebar toggle button
+        // Header sidebar toggle button - works exactly like activeCaseBox
         if (sidebarToggleBtn && sidebar) {
             sidebarToggleBtn.addEventListener('click', () => {
-                // Check if we're on mobile (stacked layout)
-                const isMobile = window.innerWidth <= 950;
+                const isCurrentlyCollapsed = sidebar.classList.contains('collapsed');
                 
-                if (isMobile) {
-                    // On mobile, toggle 'open' class and manage 'collapsed' class
-                    const isCurrentlyOpen = sidebar.classList.contains('open');
-                    const isCurrentlyCollapsed = sidebar.classList.contains('collapsed');
-                    
-                    if (isCurrentlyOpen || !isCurrentlyCollapsed) {
-                        // Close sidebar
-                        sidebar.classList.remove('open');
-                        sidebar.classList.add('collapsed');
-                    } else {
-                        // Open sidebar
-                        sidebar.classList.add('open');
-                        sidebar.classList.remove('collapsed');
-                    }
+                if (isCurrentlyCollapsed) {
+                    // Expand
+                    sidebar.classList.remove('collapsed');
+                    localStorage.setItem('sidebar-collapsed', 'false');
                 } else {
-                    // On desktop, use 'collapsed' class
-                    const isCurrentlyCollapsed = sidebar.classList.contains('collapsed');
-                    
-                    if (isCurrentlyCollapsed) {
-                        // Expand
-                        sidebar.classList.remove('collapsed');
-                        localStorage.setItem('sidebar-collapsed', 'false');
-                    } else {
-                        // Collapse
-                        sidebar.classList.add('collapsed');
-                        localStorage.setItem('sidebar-collapsed', 'true');
-                    }
+                    // Collapse
+                    sidebar.classList.add('collapsed');
+                    localStorage.setItem('sidebar-collapsed', 'true');
                 }
             });
         }
