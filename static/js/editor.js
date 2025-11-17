@@ -2239,7 +2239,7 @@ class LanguageToolEditor {
             historyItem.onclick = async () => {
                 // Show confirmation popup before reverting
                 const confirmed = await this.showYesNoPrompt(
-                    'Revert to this version?',
+                    'Revert to this version? This will remove your unsaved progress.',
                     historyItem.closest('.history-panel') || null
                 );
                 
