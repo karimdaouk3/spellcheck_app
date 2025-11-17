@@ -2693,8 +2693,15 @@ class CaseManager {
         try {
             console.log('🔍 [CaseManager] Preloading case suggestions from CRM database...');
             const response = await fetch('/api/cases/suggestions/preload');
+            console.log(`📡 [CaseManager] Response status: ${response.status}, ok: ${response.ok}`);
+            
             if (response.ok) {
                 const data = await response.json();
+                console.log(`📦 [CaseManager] Response data keys:`, Object.keys(data));
+                console.log(`📦 [CaseManager] Response data.case_numbers type:`, typeof data.case_numbers);
+                console.log(`📦 [CaseManager] Response data.case_numbers is array:`, Array.isArray(data.case_numbers));
+                console.log(`📦 [CaseManager] Response data.case_numbers length:`, data.case_numbers ? data.case_numbers.length : 'null/undefined');
+                
                 this.preloadedSuggestions = data.case_numbers || [];
                 const totalCases = this.preloadedSuggestions.length;
                 const filteredByEmail = data.filtered_by_email || 'unknown';
@@ -2710,13 +2717,16 @@ class CaseManager {
                     console.log(`📋 [CaseManager] Using ${totalCases} cases from CRM database for suggestions (all filtered by email: ${filteredByEmail})`);
                 } else {
                     console.log(`⚠️ [CaseManager] No cases found in CRM database for preloading`);
+                    console.log(`⚠️ [CaseManager] Full response data:`, JSON.stringify(data).substring(0, 500));
                 }
             } else {
-                console.error('❌ [CaseManager] Failed to preload suggestions:', response.status);
+                const errorText = await response.text();
+                console.error('❌ [CaseManager] Failed to preload suggestions:', response.status, errorText);
                 this.preloadedSuggestions = [];
             }
         } catch (error) {
             console.error('❌ [CaseManager] Error preloading suggestions:', error);
+            console.error('❌ [CaseManager] Error stack:', error.stack);
             this.preloadedSuggestions = [];
         }
     }
