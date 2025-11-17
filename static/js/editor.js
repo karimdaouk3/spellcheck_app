@@ -4981,7 +4981,7 @@ class CaseManager {
                 }
                 
                 console.log(`🔍 [DEBUG] Building HTML for ${suggestionsData.length} suggestions`);
-                const html = suggestionsData.map((suggestion, index) => {
+                const fullHtml = suggestionsData.map((suggestion, index) => {
                     const caseNum = suggestion.caseNumber;
                     const caseName = suggestion.caseName;
                     
@@ -5003,7 +5003,13 @@ class CaseManager {
                     `;
                 }).join('');
                 
+                console.log(`🔍 [DEBUG] Setting suggestions.innerHTML (length: ${fullHtml.length} chars)`);
+                suggestions.innerHTML = fullHtml;
+                console.log(`🔍 [DEBUG] suggestions.innerHTML set, now setting display: block`);
                 suggestions.style.display = 'block';
+                console.log(`🔍 [DEBUG] suggestions.style.display: ${suggestions.style.display}`);
+                console.log(`🔍 [DEBUG] suggestions.offsetHeight: ${suggestions.offsetHeight}`);
+                console.log(`🔍 [DEBUG] suggestions.children.length: ${suggestions.children.length}`);
                 
                 // Add click handlers and hover effects for suggestions
                 suggestions.querySelectorAll('.suggestion-item').forEach((item, index) => {
