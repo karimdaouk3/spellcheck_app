@@ -4901,11 +4901,15 @@ class CaseManager {
                 const queryLower = query.toLowerCase();
                 console.log(`🔍 [DEBUG] Filtering with query (lowercase): "${queryLower}"`);
                 
+                let matchCount = 0;
                 const filteredCases = this.preloadedSuggestions.filter(caseNum => {
                     const caseNumStr = caseNum.toString().toLowerCase();
                     const matches = caseNumStr.startsWith(queryLower);
-                    if (matches && filteredCases.length < 5) {
-                        console.log(`🔍 [DEBUG] Match found: ${caseNum} (${caseNumStr}) matches "${queryLower}"`);
+                    if (matches) {
+                        matchCount++;
+                        if (matchCount <= 5) {
+                            console.log(`🔍 [DEBUG] Match found: ${caseNum} (${caseNumStr}) matches "${queryLower}"`);
+                        }
                     }
                     return matches;
                 }).slice(0, 10); // Limit to 10 suggestions
