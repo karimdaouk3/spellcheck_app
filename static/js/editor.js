@@ -3251,16 +3251,36 @@ class CaseManager {
         // Header sidebar toggle button
         if (sidebarToggleBtn && sidebar) {
             sidebarToggleBtn.addEventListener('click', () => {
-                const isCurrentlyCollapsed = sidebar.classList.contains('collapsed');
+                // Check if we're on mobile (stacked layout)
+                const isMobile = window.innerWidth <= 950;
                 
-                if (isCurrentlyCollapsed) {
-                    // Expand
-                    sidebar.classList.remove('collapsed');
-                    localStorage.setItem('sidebar-collapsed', 'false');
+                if (isMobile) {
+                    // On mobile, toggle 'open' class and manage 'collapsed' class
+                    const isCurrentlyOpen = sidebar.classList.contains('open');
+                    const isCurrentlyCollapsed = sidebar.classList.contains('collapsed');
+                    
+                    if (isCurrentlyOpen || !isCurrentlyCollapsed) {
+                        // Close sidebar
+                        sidebar.classList.remove('open');
+                        sidebar.classList.add('collapsed');
+                    } else {
+                        // Open sidebar
+                        sidebar.classList.add('open');
+                        sidebar.classList.remove('collapsed');
+                    }
                 } else {
-                    // Collapse
-                    sidebar.classList.add('collapsed');
-                    localStorage.setItem('sidebar-collapsed', 'true');
+                    // On desktop, use 'collapsed' class
+                    const isCurrentlyCollapsed = sidebar.classList.contains('collapsed');
+                    
+                    if (isCurrentlyCollapsed) {
+                        // Expand
+                        sidebar.classList.remove('collapsed');
+                        localStorage.setItem('sidebar-collapsed', 'false');
+                    } else {
+                        // Collapse
+                        sidebar.classList.add('collapsed');
+                        localStorage.setItem('sidebar-collapsed', 'true');
+                    }
                 }
             });
         }
