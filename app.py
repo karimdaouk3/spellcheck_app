@@ -1158,10 +1158,13 @@ def get_available_case_numbers(user_email, search_query="", limit=10):
             base_query += f' AND "Case Number" LIKE \'%{search_query}%\''
         
         # Add limit only if specified (for suggestions, not preloading)
+        # When limit=None, fetch ALL cases - no LIMIT clause added to SQL
         if limit is not None:
             base_query += f" ORDER BY \"Case Number\" DESC LIMIT {limit}"
+            print(f"🔍 [CRM] Query with LIMIT {limit} applied")
         else:
             base_query += " ORDER BY \"Case Number\" DESC"
+            print(f"🔍 [CRM] Query with NO LIMIT - will fetch ALL matching cases from database")
         
         print(f"🔍 [CRM] Full SQL query: {base_query}")
         result = snowflake_query(base_query, CONNECTION_PAYLOAD, tuple(query_params))
