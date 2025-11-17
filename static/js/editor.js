@@ -2637,26 +2637,37 @@ class CaseManager {
         await this.fetchUserInfo();
         console.log('✅ User info fetched, userId:', this.userId);
         
-        // Step 1: Load database cases first (fast) - this unlocks the UI
+        // Step 1: Load database cases first (fast)
         await this.loadCases();
         console.log('✅ Cases loaded from database');
         
-        // Step 2: Setup UI and unlock the site
+        // Step 2: Setup UI (but keep loading indicator visible)
         this.setupEventListeners();
         this.renderCasesList();
         this.startAutoSave();
-        
-        // Hide loading indicator - user can now use the site
-        this.hideLoadingIndicator();
-        console.log('✅ Site is now usable - database cases loaded');
         
         // Check if there are no cases and show placeholder if needed
         if (this.cases.length === 0) {
             console.log('📄 [CaseManager] No cases found on init, showing no cases placeholder');
             this.clearAllEditorsAndUI();
+            // Hide loading indicator for empty state
+            this.hideLoadingIndicator();
+        } else {
+            // Step 3: Preload history for all cases (wait for this to complete)
+            console.log('📜 [CaseManager] Preloading history for all cases...');
+            try {
+                await this.preloadAllCaseHistory();
+                console.log('✅ History preloaded for all cases');
+            } catch (err) {
+                console.warn('⚠️ [CaseManager] Error preloading history:', err);
+            }
+            
+            // Hide loading indicator - user can now use the site
+            this.hideLoadingIndicator();
+            console.log('✅ Site is now usable - cases and history loaded');
         }
         
-        // Step 3: Preload CRM cases in background (slow - don't block UI)
+        // Step 4: Preload CRM cases in background (slow - don't block UI)
         // This happens after the site is usable, so user doesn't wait
         this.preloadCaseSuggestions().then(() => {
             console.log('✅ CRM case suggestions preloaded in background');
@@ -2664,7 +2675,7 @@ class CaseManager {
             console.error('❌ Error preloading CRM suggestions in background:', error);
         });
         
-        // Step 4: Check for closed cases in background (non-blocking)
+        // Step 5: Check for closed cases in background (non-blocking)
         this.checkForClosedCases().then(() => {
             console.log('✅ Closed cases check completed in background');
         }).catch((error) => {
@@ -3242,12 +3253,6 @@ class CaseManager {
             // Also sync with localStorage for offline access
             this.saveCasesLocally();
             console.log('💾 [CaseManager] Cases synced to localStorage for offline access');
-            
-            // Preload history for all cases in background (don't await - non-blocking)
-            console.log('📜 [CaseManager] Starting history preload for all cases...');
-            this.preloadAllCaseHistory().catch(err => {
-                console.warn('⚠️ [CaseManager] Error preloading history:', err);
-            });
             
         } catch (error) {
             console.error('❌ [CaseManager] Error loading cases from database:', error);
