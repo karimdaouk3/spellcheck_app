@@ -3285,7 +3285,8 @@ class CaseManager {
             
             const mostRecentCase = sortedByAccess[0];
             console.log(`🎯 [CaseManager] Auto-selecting most recently used case: ${mostRecentCase.caseNumber} (ID: ${mostRecentCase.id})`);
-            this.switchToCase(mostRecentCase.id);
+            await this.switchToCase(mostRecentCase.id);
+            console.log(`✅ [CaseManager] Initial case fully loaded with all content`);
         }
     }
     
