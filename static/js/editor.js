@@ -139,6 +139,10 @@ class LanguageToolEditor {
         // Case management - initialize asynchronously
         this.caseManager = new CaseManager();
         window.caseManager = this.caseManager; // Make globally accessible for auto-save
+        
+        // Show loading indicator IMMEDIATELY before async operations start
+        this.caseManager.showLoadingIndicator();
+        
         this.caseManager.init(); // Call init() to start async initialization
         this.currentCase = null;
     }
@@ -1199,16 +1203,16 @@ class LanguageToolEditor {
                 body.line_item_id = this.fields.editor && typeof this.fields.editor.problemVersionId === 'number' ? this.fields.editor.problemVersionId : 1;
             }
             // Set case_id for both step 1 and step 2
-            if (this.caseManager && this.caseManager.currentCase) {
-                body.case_id = this.caseManager.currentCase.caseNumber;
-                fieldObj.caseId = this.caseManager.currentCase.caseNumber;
-                console.log(`📝 [LLM] Using case number: ${body.case_id}`);
-            } else {
-                // Fallback to UUID if no case is active
-                fieldObj.caseId = this.generateUUIDv4();
-                body.case_id = fieldObj.caseId;
-                console.log(`⚠️ [LLM] No active case, using UUID: ${body.case_id}`);
-            }
+                if (this.caseManager && this.caseManager.currentCase) {
+                    body.case_id = this.caseManager.currentCase.caseNumber;
+                    fieldObj.caseId = this.caseManager.currentCase.caseNumber;
+                    console.log(`📝 [LLM] Using case number: ${body.case_id}`);
+                } else {
+                    // Fallback to UUID if no case is active
+                    fieldObj.caseId = this.generateUUIDv4();
+                    body.case_id = fieldObj.caseId;
+                    console.log(`⚠️ [LLM] No active case, using UUID: ${body.case_id}`);
+                }
             
             // For step 1, include the actual case number from case manager
             if (answers) {
@@ -2247,7 +2251,7 @@ class LanguageToolEditor {
                 );
                 
                 if (confirmed) {
-                    this.restoreFromHistory(item, this.activeField);
+                this.restoreFromHistory(item, this.activeField);
                 }
             };
             
@@ -2631,68 +2635,32 @@ class CaseManager {
     async init() {
         console.log('🚀 Initializing CaseManager...');
         
-        // Show loading indicator
-        this.showLoadingIndicator();
+        // Note: Loading indicator already shown in LanguageToolEditor constructor
+        // This ensures it appears IMMEDIATELY without waiting for async operations
         
         await this.fetchUserInfo();
         console.log('✅ User info fetched, userId:', this.userId);
         
-        // Step 1: Load database cases first (fast)
+        // Step 1: Load database cases first (fast) - this unlocks the UI
         await this.loadCases();
         console.log('✅ Cases loaded from database');
         
-        // Step 2: Setup UI (but keep loading indicator visible)
+        // Step 2: Setup UI and unlock the site
         this.setupEventListeners();
         this.renderCasesList();
         this.startAutoSave();
+        
+        // Hide loading indicator - user can now use the site
+        this.hideLoadingIndicator();
+        console.log('✅ Site is now usable - database cases loaded');
         
         // Check if there are no cases and show placeholder if needed
         if (this.cases.length === 0) {
             console.log('📄 [CaseManager] No cases found on init, showing no cases placeholder');
             this.clearAllEditorsAndUI();
-            // Hide loading indicator for empty state
-            this.hideLoadingIndicator();
-        } else {
-            // Step 3: Preload history for all cases (wait for this to complete)
-            console.log('📜 [CaseManager] Preloading history for all cases...');
-            try {
-                await this.preloadAllCaseHistory();
-                console.log('✅ History preloaded for all cases');
-            } catch (err) {
-                console.warn('⚠️ [CaseManager] Error preloading history:', err);
-            }
-            
-            // Step 4: Now auto-select the most recently used case
-            console.log(`🎯 [DEBUG] Auto-selecting case on load. Cases BEFORE sort:`, 
-                this.cases.map(c => ({ 
-                    caseNumber: c.caseNumber, 
-                    lastAccessedAt: c.lastAccessedAt ? new Date(c.lastAccessedAt).toISOString() : 'null' 
-                })));
-            
-            // Sort by lastAccessedAt to find the most recently used case
-            const sortedByAccess = [...this.cases].sort((a, b) => {
-                const aTime = a.lastAccessedAt ? new Date(a.lastAccessedAt).getTime() : 0;
-                const bTime = b.lastAccessedAt ? new Date(b.lastAccessedAt).getTime() : 0;
-                return bTime - aTime;
-            });
-            
-            console.log(`🎯 [DEBUG] Auto-selecting case on load. Cases AFTER sort:`, 
-                sortedByAccess.map(c => ({ 
-                    caseNumber: c.caseNumber, 
-                    lastAccessedAt: c.lastAccessedAt ? new Date(c.lastAccessedAt).toISOString() : 'null' 
-                })));
-            
-            const mostRecentCase = sortedByAccess[0];
-            console.log(`🎯 [CaseManager] Auto-selecting most recently used case: ${mostRecentCase.caseNumber} (ID: ${mostRecentCase.id})`);
-            await this.switchToCase(mostRecentCase.id);
-            console.log(`✅ [CaseManager] Initial case fully loaded with all content`);
-            
-            // Hide loading indicator - user can now use the site
-            this.hideLoadingIndicator();
-            console.log('✅ Site is now usable - cases and history loaded');
         }
         
-        // Step 5: Preload CRM cases in background (slow - don't block UI)
+        // Step 3: Preload CRM cases in background (slow - don't block UI)
         // This happens after the site is usable, so user doesn't wait
         this.preloadCaseSuggestions().then(() => {
             console.log('✅ CRM case suggestions preloaded in background');
@@ -2700,7 +2668,7 @@ class CaseManager {
             console.error('❌ Error preloading CRM suggestions in background:', error);
         });
         
-        // Step 6: Check for closed cases in background (non-blocking)
+        // Step 4: Check for closed cases in background (non-blocking)
         this.checkForClosedCases().then(() => {
             console.log('✅ Closed cases check completed in background');
         }).catch((error) => {
@@ -3279,6 +3247,12 @@ class CaseManager {
             this.saveCasesLocally();
             console.log('💾 [CaseManager] Cases synced to localStorage for offline access');
             
+            // Preload history for all cases in background (don't await - non-blocking)
+            console.log('📜 [CaseManager] Starting history preload for all cases...');
+            this.preloadAllCaseHistory().catch(err => {
+                console.warn('⚠️ [CaseManager] Error preloading history:', err);
+            });
+            
         } catch (error) {
             console.error('❌ [CaseManager] Error loading cases from database:', error);
             console.log('🔄 [CaseManager] Falling back to localStorage...');
@@ -3286,7 +3260,32 @@ class CaseManager {
             this.loadCasesFromLocalStorage();
         }
         
-        // Don't auto-select case here - will be done in init() after history preload
+        // Set first case as current if none selected
+        // Sort by lastAccessedAt BEFORE auto-selecting to pick the most recently used case
+        if (this.cases.length > 0 && !this.currentCase) {
+            console.log(`🎯 [DEBUG] Auto-selecting case on load. Cases BEFORE sort:`, 
+                this.cases.map(c => ({ 
+                    caseNumber: c.caseNumber, 
+                    lastAccessedAt: c.lastAccessedAt ? new Date(c.lastAccessedAt).toISOString() : 'null' 
+                })));
+            
+            // Sort by lastAccessedAt to find the most recently used case
+            const sortedByAccess = [...this.cases].sort((a, b) => {
+                const aTime = a.lastAccessedAt ? new Date(a.lastAccessedAt).getTime() : 0;
+                const bTime = b.lastAccessedAt ? new Date(b.lastAccessedAt).getTime() : 0;
+                return bTime - aTime;
+            });
+            
+            console.log(`🎯 [DEBUG] Auto-selecting case on load. Cases AFTER sort:`, 
+                sortedByAccess.map(c => ({ 
+                    caseNumber: c.caseNumber, 
+                    lastAccessedAt: c.lastAccessedAt ? new Date(c.lastAccessedAt).toISOString() : 'null' 
+                })));
+            
+            const mostRecentCase = sortedByAccess[0];
+            console.log(`🎯 [CaseManager] Auto-selecting most recently used case: ${mostRecentCase.caseNumber} (ID: ${mostRecentCase.id})`);
+            this.switchToCase(mostRecentCase.id);
+        }
     }
     
     async refreshCases() {
@@ -4150,15 +4149,15 @@ class CaseManager {
                 // Populate editors with CRM data if this is a newly created case
                 if (shouldPopulateEditors) {
                     console.log(`📝 [CaseManager] Populating editors with latest CRM data for new case`);
-                    const editor1 = document.getElementById('editor');
-                    const editor2 = document.getElementById('editor2');
-                    
-                    if (editor1 && latestProblemStatement && latestProblemStatement.trim()) {
+                const editor1 = document.getElementById('editor');
+                const editor2 = document.getElementById('editor2');
+                
+                if (editor1 && latestProblemStatement && latestProblemStatement.trim()) {
                         console.log(`📝 [CaseManager] Setting problem statement (${latestProblemStatement.length} chars)`);
                         editor1.innerText = latestProblemStatement;
-                    }
-                    
-                    if (editor2 && latestDailyNotes && latestDailyNotes.trim()) {
+                }
+                
+                if (editor2 && latestDailyNotes && latestDailyNotes.trim()) {
                         console.log(`📝 [CaseManager] Setting FSR notes (${latestDailyNotes.length} chars)`);
                         editor2.innerText = latestDailyNotes;
                     }
@@ -4615,25 +4614,25 @@ class CaseManager {
             if (caseToDelete.isTrackedInDatabase) {
                 // Don't await - run in background
                 (async () => {
-                    try {
-                        // Convert to string to avoid scientific notation for large numbers
-                        const caseNumberStr = String(caseToDelete.caseNumber);
-                        console.log(`🔍 [CaseManager] Deleting from backend with case number: ${caseNumberStr}`);
-                        
-                        const response = await fetch(`/api/cases/delete/${caseNumberStr}`, {
-                            method: 'DELETE',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            }
-                        });
-                        
-                        if (response.ok) {
+                try {
+                    // Convert to string to avoid scientific notation for large numbers
+                    const caseNumberStr = String(caseToDelete.caseNumber);
+                    console.log(`🔍 [CaseManager] Deleting from backend with case number: ${caseNumberStr}`);
+                    
+                    const response = await fetch(`/api/cases/delete/${caseNumberStr}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (response.ok) {
                             console.log('✅ [CaseManager] Case deleted from backend:', caseToDelete.caseNumber);
-                        } else {
+                    } else {
                             console.error('❌ [CaseManager] Failed to delete case from backend:', caseToDelete.caseNumber);
                             // Note: Case already removed from UI, user won't see backend failure
-                        }
-                    } catch (error) {
+                    }
+                } catch (error) {
                         console.error('❌ [CaseManager] Error deleting case from backend:', error);
                         // Note: Case already removed from UI, user won't see backend failure
                     }
