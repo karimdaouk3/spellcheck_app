@@ -3432,9 +3432,8 @@ class CaseManager {
     
     async loadHistoryFromDatabase(caseNumber) {
         /**
-         * Load simplified history from database for a case.
-         * Merges with existing in-session history.
-         * History is cached on the case object to avoid reloading.
+         * Load history from database for a case and cache it in the case object.
+         * This allows instant history display when switching to any case.
          */
         if (!window.spellCheckEditor) {
             console.warn('⚠️ [CaseManager] spellCheckEditor not initialized, skipping history load');
@@ -3443,20 +3442,28 @@ class CaseManager {
         
         // Check if we already loaded history for this case
         const caseData = this.cases.find(c => c.caseNumber === caseNumber);
-        if (caseData && caseData._historyLoaded) {
-            console.log(`📜 [CaseManager] History already loaded for case ${caseNumber}, skipping`);
+        if (!caseData) {
+            console.warn(`⚠️ [CaseManager] Case ${caseNumber} not found in cases array`);
+            return;
+        }
+        
+        if (caseData._historyCache) {
+            console.log(`📜 [CaseManager] History already cached for case ${caseNumber}, skipping`);
             return;
         }
         
         try {
+            // Initialize history cache for this case
+            caseData._historyCache = {
+                editor: [],
+                editor2: []
+            };
+            
             // Load history for both fields
             const fields = ['problem_statement', 'fsr'];
             
             for (const fieldType of fields) {
                 const fieldName = fieldType === 'problem_statement' ? 'editor' : 'editor2';
-                const field = window.spellCheckEditor.fields[fieldName];
-                
-                if (!field) continue;
                 
                 // Fetch history from database
                 const response = await fetch(`/api/cases/history?case_number=${caseNumber}&field_type=${fieldType}`);
@@ -3469,12 +3476,7 @@ class CaseManager {
                 const data = await response.json();
                 const dbHistory = data.history || [];
                 
-                console.log(`📜 [CaseManager] Loaded ${dbHistory.length} history items from DB for ${fieldType}`);
-                
-                if (dbHistory.length === 0) continue;
-                
-                // Get existing in-session history
-                const existingHistory = field.history || [];
+                console.log(`📜 [CaseManager] Loaded ${dbHistory.length} history items from DB for case ${caseNumber} ${fieldType}`);
                 
                 // Convert DB history to full format with evaluation details
                 const dbHistoryEntries = dbHistory.map(item => ({
@@ -3489,41 +3491,21 @@ class CaseManager {
                     reviewId: null
                 }));
                 
-                // Merge: Keep in-session history at top (most recent), then DB history
-                // Remove duplicates based on text and timestamp
-                const mergedHistory = [...existingHistory];
-                
-                for (const dbEntry of dbHistoryEntries) {
-                    // Check if this entry already exists in session history
-                    const isDuplicate = existingHistory.some(existing => 
-                        existing.text === dbEntry.text && 
-                        Math.abs(new Date(existing.timestamp) - new Date(dbEntry.timestamp)) < 1000 // Within 1 second
-                    );
-                    
-                    if (!isDuplicate) {
-                        mergedHistory.push(dbEntry);
-                    }
-                }
-                
                 // Sort by timestamp (most recent first) and limit to 50
-                mergedHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-                field.history = mergedHistory.slice(0, 50);
+                dbHistoryEntries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
                 
-                console.log(`✅ [CaseManager] Merged history for ${fieldType}: ${field.history.length} total items (${dbHistory.length} from DB, ${existingHistory.length} from session)`);
-            }
-            
-            // Mark history as loaded for this case to avoid reloading
-            if (caseData) {
-                caseData._historyLoaded = true;
-            }
-            
-            // Re-render history sidebar if active
-            if (window.spellCheckEditor.renderHistory) {
-                window.spellCheckEditor.renderHistory();
+                // Store in case's history cache
+                caseData._historyCache[fieldName] = dbHistoryEntries.slice(0, 50);
+                
+                console.log(`✅ [CaseManager] Cached ${caseData._historyCache[fieldName].length} history items for case ${caseNumber} ${fieldType}`);
             }
             
         } catch (error) {
-            console.error(`❌ [CaseManager] Error loading history from database:`, error);
+            console.error(`❌ [CaseManager] Error loading history for case ${caseNumber}:`, error);
+            // Set empty cache to avoid retrying
+            if (caseData) {
+                caseData._historyCache = { editor: [], editor2: [] };
+            }
         }
     }
     
@@ -3901,13 +3883,56 @@ class CaseManager {
         }
         
         // ============================================================
-        // STEP 6: LOAD HISTORY from database (if not already loaded)
+        // STEP 6: APPLY CACHED HISTORY from preloaded data
         // ============================================================
-        if (!caseData._historyLoaded) {
-            console.log(`📜 [CaseManager] Loading history from database for case ${caseData.caseNumber}`);
+        if (caseData._historyCache && window.spellCheckEditor) {
+            console.log(`✅ [CaseManager] Applying preloaded history cache for case ${caseData.caseNumber}`);
+            
+            // Apply cached history to both fields
+            ['editor', 'editor2'].forEach(fieldName => {
+                const field = window.spellCheckEditor.fields[fieldName];
+                if (field && caseData._historyCache[fieldName]) {
+                    // Get existing in-session history for this field
+                    const inSessionHistory = field.history || [];
+                    
+                    // Merge: Keep in-session history at top (most recent), then cached DB history
+                    // Remove duplicates based on text and timestamp
+                    const mergedHistory = [...inSessionHistory];
+                    
+                    for (const cachedEntry of caseData._historyCache[fieldName]) {
+                        // Check if this entry already exists in session history
+                        const isDuplicate = inSessionHistory.some(existing => 
+                            existing.text === cachedEntry.text && 
+                            Math.abs(new Date(existing.timestamp) - new Date(cachedEntry.timestamp)) < 1000 // Within 1 second
+                        );
+                        
+                        if (!isDuplicate) {
+                            mergedHistory.push(cachedEntry);
+                        }
+                    }
+                    
+                    // Sort by timestamp (most recent first) and limit to 50
+                    mergedHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                    field.history = mergedHistory.slice(0, 50);
+                    
+                    console.log(`📜 [CaseManager] Applied cached history to ${fieldName}: ${field.history.length} total items (${caseData._historyCache[fieldName].length} from cache, ${inSessionHistory.length} from session)`);
+                }
+            });
+        } else if (!caseData._historyCache) {
+            // History not preloaded yet (shouldn't happen if preloadAllCaseHistory ran)
+            console.log(`⚠️ [CaseManager] History not yet cached for case ${caseData.caseNumber}, loading now...`);
             await this.loadHistoryFromDatabase(caseData.caseNumber);
-        } else {
-            console.log(`✅ [CaseManager] History already preloaded for case ${caseData.caseNumber}`);
+            
+            // Now apply the newly loaded cache
+            if (caseData._historyCache && window.spellCheckEditor) {
+                ['editor', 'editor2'].forEach(fieldName => {
+                    const field = window.spellCheckEditor.fields[fieldName];
+                    if (field && caseData._historyCache[fieldName]) {
+                        field.history = [...caseData._historyCache[fieldName]];
+                        console.log(`📜 [CaseManager] Applied just-loaded history to ${fieldName}: ${field.history.length} items`);
+                    }
+                });
+            }
         }
         
         // ============================================================
