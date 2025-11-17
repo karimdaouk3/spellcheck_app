@@ -3607,12 +3607,14 @@ class CaseManager {
         
         // Check if user cancelled (null means cancelled, empty string means no input)
         if (caseNumber === null) {
-            // User cancelled, just return without error
+            // User cancelled, hide loading and return without error
+            this.hideCaseLoadingIndicator();
             return;
         }
         
         // Validate input
         if (!caseNumber || caseNumber.trim() === '') {
+            this.hideCaseLoadingIndicator();
             await this.showCustomAlert('Error', 'Case number is required.');
             return;
         }
@@ -3675,7 +3677,10 @@ class CaseManager {
                 if (createData.warning) {
                     console.log(`⚠️ [CaseManager] CRM warning for case ${caseNumberValue}:`, createData.warning);
                     
-                    // Show title prompt for untracked case (no loading indicator for untracked)
+                    // Hide loading indicator for untracked case (will show title prompt)
+                    this.hideCaseLoadingIndicator();
+                    
+                    // Show title prompt for untracked case
                     const caseTitleInput = await this.showUntrackedCasePrompt(caseNumberValue);
                     
                     if (caseTitleInput === null) {
@@ -3775,7 +3780,9 @@ class CaseManager {
                 return; // Exit early - untracked case is already created and shown
             }
             
-            // If we reach here, it's a tracked CRM case - show loading indicator
+            // If we reach here, it's a tracked CRM case - update loading message
+            // (Loading indicator already shown at the start of createNewCase)
+            // Update the message to be more specific
             this.showCaseLoadingIndicator('Loading Case Details...');
             
         // Create the case (either tracked or untracked)
