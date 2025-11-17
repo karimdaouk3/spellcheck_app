@@ -133,6 +133,9 @@ class LanguageToolEditor {
         this.createHighlightOverlay('editor');
         this.createHighlightOverlay('editor2');
         
+        // Auto-select problem statement on initial load
+        this.updateActiveEditorHighlight();
+        
         // Case management - initialize asynchronously
         this.caseManager = new CaseManager();
         window.caseManager = this.caseManager; // Make globally accessible for auto-save
