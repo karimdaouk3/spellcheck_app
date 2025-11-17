@@ -3603,14 +3603,12 @@ class CaseManager {
         
         // Check if user cancelled (null means cancelled, empty string means no input)
         if (caseNumber === null) {
-            // User cancelled, hide loading and return without error
-            this.hideCaseLoadingIndicator();
+            // User cancelled, just return without error
             return;
         }
         
         // Validate input
         if (!caseNumber || caseNumber.trim() === '') {
-            this.hideCaseLoadingIndicator();
             await this.showCustomAlert('Error', 'Case number is required.');
             return;
         }
@@ -3623,14 +3621,12 @@ class CaseManager {
         const MAX_CASE_NUMBER_LENGTH = 50;
         
         if (trimmedCaseNumber.length > MAX_CASE_NUMBER_LENGTH) {
-            this.hideCaseLoadingIndicator();
             await this.showCustomAlert('Invalid Case Number', 
                 `Case number is too long. Maximum length is ${MAX_CASE_NUMBER_LENGTH} characters.`);
             return;
         }
         
         if (trimmedCaseNumber.length < 1) {
-            this.hideCaseLoadingIndicator();
             await this.showCustomAlert('Invalid Case Number', 'Case number cannot be empty.');
             return;
         }
@@ -3641,12 +3637,14 @@ class CaseManager {
         // Check if case number already exists locally
         const existingCase = this.cases.find(c => c.caseNumber === caseNumberValue || String(c.caseNumber) === caseNumberValue);
         if (existingCase) {
-            this.hideCaseLoadingIndicator();
             await this.showCustomAlert('Case Already Exists', 'This case number already exists in your list.');
             // Switch to existing case
             this.switchToCase(existingCase.id);
             return;
         }
+        
+        // Show loading indicator NOW (after popup is closed and we know we're creating a case)
+        this.showCaseLoadingIndicator('Creating Case...');
         
         // Try to create case in database first
         try {
