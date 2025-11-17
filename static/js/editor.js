@@ -3598,10 +3598,6 @@ class CaseManager {
     }
     
     async createNewCase() {
-        // Show loading indicator immediately when user clicks "create case"
-        // This will be hidden if user cancels or if it's an untracked case
-        this.showCaseLoadingIndicator('Creating Case...');
-        
         // Show case number input with suggestions
         const caseNumber = await this.showCaseNumberInputWithSuggestions();
         
