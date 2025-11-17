@@ -270,6 +270,104 @@ class LanguageToolEditor {
         });
     }
     
+    // Improved confirmation popup for history revert
+    showHistoryRevertConfirm() {
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.4);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                backdrop-filter: blur(2px);
+            `;
+            
+            const dialog = document.createElement('div');
+            dialog.style.cssText = `
+                background: #fff;
+                border-radius: 12px;
+                padding: 0;
+                min-width: 400px;
+                max-width: 90%;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+                overflow: hidden;
+            `;
+            
+            dialog.innerHTML = `
+                <div style="background: linear-gradient(135deg, #41007F 0%, #5a1a9a 100%); padding: 24px; color: white;">
+                    <div style="font-size: 20px; font-weight: 600; margin-bottom: 8px;">⚠️ Revert to This Version?</div>
+                    <div style="font-size: 14px; opacity: 0.9;">This action cannot be undone</div>
+                </div>
+                <div style="padding: 24px;">
+                    <div style="color: #374151; font-size: 15px; line-height: 1.6; margin-bottom: 24px;">
+                        Reverting will replace your current text with this version and <strong style="color: #dc2626;">remove all unsaved progress</strong>.
+                    </div>
+                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <button id="history-revert-cancel" style="
+                            padding: 10px 20px;
+                            border: 2px solid #e5e7eb;
+                            background: #fff;
+                            color: #374151;
+                            border-radius: 8px;
+                            cursor: pointer;
+                            font-weight: 600;
+                            font-size: 14px;
+                            transition: all 0.2s ease;
+                        " onmouseover="this.style.borderColor='#d1d5db'; this.style.background='#f9fafb';" 
+                        onmouseout="this.style.borderColor='#e5e7eb'; this.style.background='#fff';">
+                            Cancel
+                        </button>
+                        <button id="history-revert-confirm" style="
+                            padding: 10px 20px;
+                            border: none;
+                            background: linear-gradient(135deg, #41007F 0%, #5a1a9a 100%);
+                            color: #fff;
+                            border-radius: 8px;
+                            cursor: pointer;
+                            font-weight: 600;
+                            font-size: 14px;
+                            transition: all 0.2s ease;
+                            box-shadow: 0 2px 8px rgba(65, 0, 127, 0.2);
+                        " onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(65, 0, 127, 0.3)';" 
+                        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(65, 0, 127, 0.2)';">
+                            Revert
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+            
+            const cleanup = () => {
+                if (overlay && overlay.parentElement) {
+                    overlay.parentElement.removeChild(overlay);
+                }
+            };
+            
+            document.getElementById('history-revert-cancel').addEventListener('click', () => {
+                cleanup();
+                resolve(false);
+            });
+            
+            document.getElementById('history-revert-confirm').addEventListener('click', () => {
+                cleanup();
+                resolve(true);
+            });
+            
+            // Close on overlay click (outside dialog)
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    cleanup();
+                    resolve(false);
+                }
+            });
+        });
+    }
+    
     createHighlightOverlay(field) {
         const fieldObj = this.fields[field];
         // Remove any existing overlay
