@@ -5025,12 +5025,29 @@ class CaseManager {
                 }).join('');
                 
                 console.log(`🔍 [DEBUG] Setting suggestions.innerHTML (length: ${fullHtml.length} chars)`);
-                suggestions.innerHTML = fullHtml;
+                try {
+                    suggestions.innerHTML = fullHtml;
+                    console.log(`🔍 [DEBUG] ✅ suggestions.innerHTML set successfully`);
+                } catch (error) {
+                    console.error(`❌ [DEBUG] Error setting innerHTML:`, error);
+                    return;
+                }
+                
                 console.log(`🔍 [DEBUG] suggestions.innerHTML set, now setting display: block`);
                 suggestions.style.display = 'block';
+                
+                // Force a reflow to ensure display takes effect
+                void suggestions.offsetHeight;
+                
                 console.log(`🔍 [DEBUG] suggestions.style.display: ${suggestions.style.display}`);
                 console.log(`🔍 [DEBUG] suggestions.offsetHeight: ${suggestions.offsetHeight}`);
                 console.log(`🔍 [DEBUG] suggestions.children.length: ${suggestions.children.length}`);
+                console.log(`🔍 [DEBUG] suggestions.getBoundingClientRect():`, suggestions.getBoundingClientRect());
+                
+                if (suggestions.offsetHeight === 0) {
+                    console.warn(`⚠️ [DEBUG] WARNING: suggestions element has 0 height after setting display: block!`);
+                    console.warn(`⚠️ [DEBUG] Computed style:`, window.getComputedStyle(suggestions).display);
+                }
                 
                 // Add click handlers and hover effects for suggestions
                 suggestions.querySelectorAll('.suggestion-item').forEach((item, index) => {
