@@ -4922,6 +4922,12 @@ class CaseManager {
                             })
                         });
                         
+                        // Check if query changed while fetching titles
+                        if (currentFilteringQuery !== query) {
+                            console.log(`🔄 [CaseManager] Query changed during title fetch, ignoring results`);
+                            return;
+                        }
+                        
                         if (response.ok) {
                             const data = await response.json();
                             const titles = data.titles || {};
@@ -4941,8 +4947,12 @@ class CaseManager {
                     return; // Exit early - we have results
                 }
                 
-                // Step 3: No matches in preload - search ALL cases via backend (full access)
-                console.log(`🔍 [CaseManager] No matches in preload, searching ALL cases via backend...`);
+                // Step 3: No matches in preload - CLEAR old suggestions and search ALL cases via backend
+                console.log(`🔍 [CaseManager] No matches in preload (${filteredFromPreload.length} results), searching ALL cases via backend...`);
+                
+                // Clear suggestions immediately so old results don't show
+                suggestionsData = [];
+                displaySuggestions();
                 try {
                     const response = await fetch(`/api/cases/suggestions?search=${encodeURIComponent(query)}&limit=10`);
                     
