@@ -2638,20 +2638,49 @@ class CaseManager {
         await this.loadCases();
         console.log('✅ Cases loaded from database');
         
-        // Step 2: Setup UI and unlock the site
+        // Step 2: Setup UI
         this.setupEventListeners();
         this.renderCasesList();
         this.startAutoSave();
         
-        // Hide loading indicator - user can now use the site
-        this.hideLoadingIndicator();
-        console.log('✅ Site is now usable - database cases loaded');
-        
-        // Check if there are no cases and show placeholder if needed
-        if (this.cases.length === 0) {
+        // Step 3: Auto-select case and ensure problem statement is selected with history loaded
+        if (this.cases.length > 0 && !this.currentCase) {
+            // Sort by lastAccessedAt to find the most recently used case
+            const sortedByAccess = [...this.cases].sort((a, b) => {
+                const aTime = a.lastAccessedAt ? new Date(a.lastAccessedAt).getTime() : 0;
+                const bTime = b.lastAccessedAt ? new Date(b.lastAccessedAt).getTime() : 0;
+                return bTime - aTime;
+            });
+            
+            const mostRecentCase = sortedByAccess[0];
+            console.log(`🎯 [CaseManager] Auto-selecting most recently used case: ${mostRecentCase.caseNumber} (ID: ${mostRecentCase.id})`);
+            
+            // Switch to case (this loads history and restores state)
+            await this.switchToCase(mostRecentCase.id);
+            
+            // Ensure problem statement is selected and history is rendered
+            if (window.spellCheckEditor) {
+                window.spellCheckEditor.activeField = 'editor';
+                window.spellCheckEditor.updateActiveEditorHighlight();
+                window.spellCheckEditor.renderHistory();
+                console.log('✅ [CaseManager] Problem statement selected and history rendered');
+            }
+        } else if (this.cases.length === 0) {
+            // No cases - show placeholder
             console.log('📄 [CaseManager] No cases found on init, showing no cases placeholder');
             this.clearAllEditorsAndUI();
+            
+            // Still ensure problem statement is selected even with no cases
+            if (window.spellCheckEditor) {
+                window.spellCheckEditor.activeField = 'editor';
+                window.spellCheckEditor.updateActiveEditorHighlight();
+                window.spellCheckEditor.renderHistory();
+            }
         }
+        
+        // Hide loading indicator - user can now use the site (after case is loaded and problem statement is selected)
+        this.hideLoadingIndicator();
+        console.log('✅ Site is now usable - case loaded, problem statement selected, history rendered');
         
         // Step 3: Preload CRM cases in background (slow - don't block UI)
         // This happens after the site is usable, so user doesn't wait
