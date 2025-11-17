@@ -1461,8 +1461,7 @@ body {
         box-shadow: none;
     }
     
-    .cases-sidebar:not(.collapsed),
-    .cases-sidebar.open {
+    .cases-sidebar:not(.collapsed) {
         transform: translateX(0);
         box-shadow: 0 0 20px rgba(0,0,0,0.3);
     }
