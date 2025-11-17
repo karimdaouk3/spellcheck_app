@@ -872,11 +872,13 @@ def preload_case_suggestions():
     print(f"✅ [CRM] Using email filter: {user_email_upper} for preloading cases")
     
     try:
-        # Get all case numbers (no search filter, no limit - get all cases)
-        # IMPORTANT: This function filters by email - only cases matching user_email_upper will be returned
-        case_numbers = get_available_case_numbers(user_email_upper, "", limit=None)
+        # Get case numbers with a reasonable limit to avoid browser timeout
+        # Limit to 10,000 cases for preloading (browsers can't handle 3M+ cases)
+        # Users can still search for more cases using the search endpoint
+        MAX_PRELOAD_CASES = 10000
+        case_numbers = get_available_case_numbers(user_email_upper, "", limit=MAX_PRELOAD_CASES)
         total_cases = len(case_numbers)
-        print(f"✅ [CRM] Preloaded {total_cases} case suggestions from CRM database for user {user_email_upper}")
+        print(f"✅ [CRM] Preloaded {total_cases} case suggestions from CRM database for user {user_email_upper} (limited to {MAX_PRELOAD_CASES} for performance)")
         print(f"📊 [CRM] Total preloaded cases from CRM database (filtered by email): {total_cases}")
         print(f"🔒 [CRM] All {total_cases} cases are filtered by email: {user_email_upper}")
         
@@ -887,12 +889,15 @@ def preload_case_suggestions():
             sample_count = min(5, total_cases)
             print(f"🔍 [CRM] Sample of preloaded cases (first {sample_count}): {case_numbers[:sample_count]}")
             print(f"✅ [CRM] All cases are pre-filtered by email {user_email_upper} - no additional filtering needed")
+            if total_cases >= MAX_PRELOAD_CASES:
+                print(f"⚠️ [CRM] WARNING: Preload limited to {MAX_PRELOAD_CASES} cases. More cases available - use search to find them.")
         
         return jsonify({
             "success": True,
             "case_numbers": case_numbers,
             "count": len(case_numbers),
-            "filtered_by_email": user_email_upper
+            "filtered_by_email": user_email_upper,
+            "limited": total_cases >= MAX_PRELOAD_CASES
         })
         
     except Exception as e:
