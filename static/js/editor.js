@@ -3383,10 +3383,6 @@ class CaseManager {
         // Set first case as current if none selected
         // Sort by lastAccessedAt BEFORE auto-selecting to pick the most recently used case
         if (this.cases.length > 0 && !this.currentCase) {
-                this.cases.map(c => ({ 
-                    caseNumber: c.caseNumber, 
-                    lastAccessedAt: c.lastAccessedAt ? new Date(c.lastAccessedAt).toISOString() : 'null' 
-                })));
             
             // Sort by lastAccessedAt to find the most recently used case
             const sortedByAccess = [...this.cases].sort((a, b) => {
@@ -3395,10 +3391,6 @@ class CaseManager {
                 return bTime - aTime;
             });
             
-                sortedByAccess.map(c => ({ 
-                    caseNumber: c.caseNumber, 
-                    lastAccessedAt: c.lastAccessedAt ? new Date(c.lastAccessedAt).toISOString() : 'null' 
-                })));
             
             const mostRecentCase = sortedByAccess[0];
             this.switchToCase(mostRecentCase.id);
