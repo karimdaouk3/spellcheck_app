@@ -1427,7 +1427,6 @@ class LanguageToolEditor {
                             
                             // Re-render sidebar to show new order
                             window.caseManager.renderCasesList();
-                            window.caseManager.saveCases(); // Also save to localStorage for backwards compatibility
                             console.log(`📋 [LLM] Sidebar re-rendered with new case order`);
                         }
                         
@@ -1486,7 +1485,6 @@ class LanguageToolEditor {
                     
                     // Re-render sidebar to show new order
                     this.caseManager.renderCasesList();
-                    this.caseManager.saveCases(); // Also save to localStorage for backwards compatibility
                     console.log(`📋 [LLM] Sidebar re-rendered with new case order`);
                 }
             }
@@ -3364,24 +3362,13 @@ class CaseManager {
             console.log(`📊 [CaseManager] Processing ${Object.keys(backendCases).length} cases from database`);
             
             // Use lastAccessedAt from database (persists across all session types including incognito)
-            // Fallback to localStorage for backwards compatibility, then updatedAt, then epoch
-            const storageKey = `fsr-cases-${this.userId}`;
-            const savedCases = localStorage.getItem(storageKey);
-            const localStorageCases = savedCases ? JSON.parse(savedCases) : [];
-            const localStorageMap = new Map(localStorageCases.map(c => [c.caseNumber, c]));
-            
+            // Priority: Database lastAccessedAt > updatedAt > epoch
             this.cases = Object.values(backendCases).map(caseData => {
-                // Check if we have lastAccessedAt from localStorage for this case (fallback)
-                const localCase = localStorageMap.get(caseData.caseNumber);
-                
-                // Priority: Database lastAccessedAt > localStorage > updatedAt > epoch
+                // Use database value directly (no localStorage fallback)
                 let lastAccessedAt = null;
                 if (caseData.lastAccessedAt) {
                     // Use database value (persists across all sessions)
                     lastAccessedAt = new Date(caseData.lastAccessedAt);
-                } else if (localCase?.lastAccessedAt) {
-                    // Fallback to localStorage (for backwards compatibility)
-                    lastAccessedAt = new Date(localCase.lastAccessedAt);
                 } else if (caseData.updatedAt) {
                     // Fallback to updatedAt
                     lastAccessedAt = new Date(caseData.updatedAt);
@@ -3521,7 +3508,7 @@ class CaseManager {
     // Removed: filterClosedCases() - No longer needed, case status is provided by database endpoints
     
     saveCases() {
-        // Save cases to localStorage (persists lastAccessedAt and other metadata)
+        // Save cases to localStorage (for offline access and other metadata)
         this.saveCasesLocally();
     }
     

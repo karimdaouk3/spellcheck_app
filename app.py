@@ -3555,44 +3555,6 @@ def get_case_history():
         traceback.print_exc()
         return jsonify({"error": "Failed to fetch history"}), 500
 
-def add_last_accessed_at_column(database, schema, connection_payload):
-    """
-    Add LAST_ACCESSED_AT column to CASE_SESSIONS table if it doesn't exist.
-    This allows case ordering to persist across all session types (including incognito).
-    Only runs for DEV environment.
-    """
-    try:
-        # Check if column already exists
-        check_query = f"""
-            SELECT COUNT(*) as COL_COUNT
-            FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_SCHEMA = '{schema}'
-            AND TABLE_NAME = 'CASE_SESSIONS'
-            AND COLUMN_NAME = 'LAST_ACCESSED_AT'
-        """
-        result = snowflake_query(check_query, connection_payload)
-        
-        if result is not None and not result.empty:
-            # Get the count value - handle different possible column names
-            col_count = result.iloc[0, 0] if len(result.columns) > 0 else result.iloc[0].get('COL_COUNT', 0)
-            if col_count > 0:
-                print(f"✅ [Migration] LAST_ACCESSED_AT column already exists in {database}.{schema}.CASE_SESSIONS")
-                return
-        
-        # Add the column
-        alter_query = f"""
-            ALTER TABLE {database}.{schema}.CASE_SESSIONS
-            ADD COLUMN LAST_ACCESSED_AT TIMESTAMP_NTZ
-        """
-        snowflake_query(alter_query, connection_payload, return_df=False)
-        print(f"✅ [Migration] Added LAST_ACCESSED_AT column to {database}.{schema}.CASE_SESSIONS")
-        
-    except Exception as e:
-        print(f"⚠️ [Migration] Error adding LAST_ACCESSED_AT column: {e}")
-        import traceback
-        traceback.print_exc()
-        # Don't fail app startup if migration fails - column might already exist or permissions issue
-
 if __name__ == "__main__":
     print("Starting LanguageTool Flask App...")
     with open("./config.yaml", 'r') as f:
@@ -3608,13 +3570,6 @@ if __name__ == "__main__":
         SCHEMA = f"DEV_{SCHEMA}"
     print(f"SSO Enabled: {app.config['ENABLE_SSO']}")
     print(f"Development Mode Enabled: {app.config['DEV_MODE']}")
-    
-    # Add LAST_ACCESSED_AT column to CASE_SESSIONS table (DEV only)
-    if app.config['DEV_MODE']:
-        print(f"🔄 [Migration] Checking LAST_ACCESSED_AT column in {DATABASE}.{SCHEMA}.CASE_SESSIONS (DEV only)...")
-        add_last_accessed_at_column(DATABASE, SCHEMA, CONNECTION_PAYLOAD)
-    else:
-        print(f"ℹ️ [Migration] Skipping LAST_ACCESSED_AT migration (PROD mode - manual migration required)")
     
     app.run(host='127.0.0.1', port=8055)
 
