@@ -629,7 +629,7 @@ def get_user_cases():
     
     try:
         query = f"""
-            SELECT cs.CASE_ID, cs.CASE_STATUS, cs.CASE_TITLE, cs.CRM_LAST_SYNC_TIME
+            SELECT cs.CASE_ID, cs.CASE_STATUS, cs.CASE_TITLE, cs.CRM_LAST_SYNC_TIME, cs.LAST_ACCESSED_AT
             FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS cs
             LEFT JOIN {DATABASE}.{SCHEMA}.CASE_REVIEW cr ON cs.CASE_ID = cr.CASE_ID
             WHERE cs.CREATED_BY_USER = %s
@@ -643,11 +643,13 @@ def get_user_cases():
             print(f"✅ [Backend] Found {len(result)} cases in database")
             for _, row in result.iterrows():
                 case_title = row.get("CASE_TITLE")
+                last_accessed_at = row.get("LAST_ACCESSED_AT")
                 case_info = {
                     "case_id": row["CASE_ID"],
                     "case_status": row["CASE_STATUS"],
                     "case_title": case_title if case_title and pd.notna(case_title) else None,
                     "last_sync_time": row["CRM_LAST_SYNC_TIME"],
+                    "last_accessed_at": last_accessed_at.isoformat() if last_accessed_at and pd.notna(last_accessed_at) else None,
                     "is_closed": row["CASE_STATUS"] == "closed",
                     "needs_feedback": False  # Will be determined by external CRM check
                 }
@@ -784,6 +786,7 @@ def get_user_case_data():
                 cs.CASE_ID,
                 cs.CASE_STATUS,
                 cs.CASE_TITLE,
+                cs.LAST_ACCESSED_AT,
                 lis_problem.INPUT_FIELD_VALUE as PROBLEM_STATEMENT,
                 lis_fsr.INPUT_FIELD_VALUE as FSR_NOTES,
                 lis_fsr.LINE_ITEM_ID as FSR_LINE_ITEM_ID,
@@ -812,6 +815,7 @@ def get_user_case_data():
             for idx, row in cases_result.iterrows():
                 case_id = row["CASE_ID"]
                 case_title = row.get("CASE_TITLE")
+                last_accessed_at = row.get("LAST_ACCESSED_AT")
                 problem_statement = row["PROBLEM_STATEMENT"] or ""
                 fsr_notes = row["FSR_NOTES"] or ""
                 line_item_id = row["FSR_LINE_ITEM_ID"]
@@ -822,7 +826,8 @@ def get_user_case_data():
                         "caseTitle": case_title if case_title and pd.notna(case_title) else None,
                         "problemStatement": problem_statement,
                         "fsrNotes": "",
-                        "updatedAt": datetime.utcnow().isoformat() + 'Z'
+                        "updatedAt": datetime.utcnow().isoformat() + 'Z',
+                        "lastAccessedAt": last_accessed_at.isoformat() if last_accessed_at and pd.notna(last_accessed_at) else None
                     }
                     print(f"📊 [Backend] Case {case_id}: title={case_title[:50] if case_title and pd.notna(case_title) else 'None'}...")
                 
@@ -1112,6 +1117,87 @@ def update_case_title():
         import traceback
         traceback.print_exc()
         return jsonify({"error": "Failed to update case title"}), 500
+
+@app.route('/api/cases/update-last-accessed', methods=['PUT'])
+def update_last_accessed_at():
+    """
+    Update the LAST_ACCESSED_AT timestamp for a specific case.
+    Called when a review (LLM call) is completed to update case ordering.
+    """
+    user_data = session.get('user_data')
+    if not user_data:
+        print("❌ [Backend] /api/cases/update-last-accessed: Not authenticated")
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    user_id = user_data.get('user_id')
+    
+    try:
+        data = request.get_json()
+        case_number = data.get('case_number')
+        last_accessed_at = data.get('last_accessed_at')  # ISO format timestamp string
+        
+        if not case_number:
+            return jsonify({"error": "Case number required"}), 400
+        
+        # Verify the case exists for this user
+        check_query = f"""
+            SELECT CASE_ID 
+            FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
+            WHERE CASE_ID = %s AND CREATED_BY_USER = %s
+        """
+        check_result = snowflake_query(check_query, CONNECTION_PAYLOAD, (case_number, user_id))
+        
+        if check_result is None or check_result.empty:
+            print(f"❌ [Backend] Case {case_number} not found for user {user_id}")
+            return jsonify({"error": "Case not found"}), 404
+        
+        # Update LAST_ACCESSED_AT
+        # If last_accessed_at is provided, use it; otherwise use current timestamp
+        if last_accessed_at:
+            # Parse the ISO format timestamp and convert to Snowflake format
+            from datetime import datetime
+            try:
+                dt = datetime.fromisoformat(last_accessed_at.replace('Z', '+00:00'))
+                update_query = f"""
+                    UPDATE {DATABASE}.{SCHEMA}.CASE_SESSIONS
+                    SET LAST_ACCESSED_AT = %s
+                    WHERE CASE_ID = %s AND CREATED_BY_USER = %s
+                """
+                snowflake_query(update_query, CONNECTION_PAYLOAD, 
+                               (dt, case_number, user_id), 
+                               return_df=False)
+            except Exception as e:
+                print(f"⚠️ [Backend] Error parsing timestamp, using CURRENT_TIMESTAMP(): {e}")
+                update_query = f"""
+                    UPDATE {DATABASE}.{SCHEMA}.CASE_SESSIONS
+                    SET LAST_ACCESSED_AT = CURRENT_TIMESTAMP()
+                    WHERE CASE_ID = %s AND CREATED_BY_USER = %s
+                """
+                snowflake_query(update_query, CONNECTION_PAYLOAD, 
+                               (case_number, user_id), 
+                               return_df=False)
+        else:
+            # Use current timestamp if not provided
+            update_query = f"""
+                UPDATE {DATABASE}.{SCHEMA}.CASE_SESSIONS
+                SET LAST_ACCESSED_AT = CURRENT_TIMESTAMP()
+                WHERE CASE_ID = %s AND CREATED_BY_USER = %s
+            """
+            snowflake_query(update_query, CONNECTION_PAYLOAD, 
+                           (case_number, user_id), 
+                           return_df=False)
+        
+        print(f"✅ [Backend] Successfully updated LAST_ACCESSED_AT for case {case_number}")
+        return jsonify({
+            "success": True,
+            "case_number": case_number
+        })
+        
+    except Exception as e:
+        print(f"❌ [Backend] Error updating LAST_ACCESSED_AT: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": "Failed to update last accessed time"}), 500
 
 # ==================== CRM INTEGRATION FUNCTIONS ====================
 
@@ -3054,11 +3140,11 @@ def create_case():
         if not case_title:
             case_title = data.get('case_title')
         
-        # Insert new case session with case title
+        # Insert new case session with case title and initial LAST_ACCESSED_AT
         insert_query = f"""
             INSERT INTO {DATABASE}.{SCHEMA}.CASE_SESSIONS 
-            (CASE_ID, CREATED_BY_USER, USER_ID, CASE_STATUS, CASE_TITLE, CREATION_TIME, CRM_LAST_SYNC_TIME)
-            VALUES (%s, %s, %s, 'open', %s, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
+            (CASE_ID, CREATED_BY_USER, USER_ID, CASE_STATUS, CASE_TITLE, CREATION_TIME, CRM_LAST_SYNC_TIME, LAST_ACCESSED_AT)
+            VALUES (%s, %s, %s, 'open', %s, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
         """
         snowflake_query(insert_query, CONNECTION_PAYLOAD, 
                        (case_number, user_id, user_id, case_title), 
@@ -3467,6 +3553,38 @@ def get_case_history():
         traceback.print_exc()
         return jsonify({"error": "Failed to fetch history"}), 500
 
+def add_last_accessed_at_column(database, schema, connection_payload):
+    """
+    Add LAST_ACCESSED_AT column to CASE_SESSIONS table if it doesn't exist.
+    This allows case ordering to persist across all session types (including incognito).
+    """
+    try:
+        # Check if column already exists
+        check_query = f"""
+            SELECT COUNT(*) as col_count
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = '{schema}'
+            AND TABLE_NAME = 'CASE_SESSIONS'
+            AND COLUMN_NAME = 'LAST_ACCESSED_AT'
+        """
+        result = snowflake_query(check_query, connection_payload)
+        
+        if result is not None and not result.empty and result.iloc[0]['col_count'] > 0:
+            print(f"✅ [Migration] LAST_ACCESSED_AT column already exists in {database}.{schema}.CASE_SESSIONS")
+            return
+        
+        # Add the column
+        alter_query = f"""
+            ALTER TABLE {database}.{schema}.CASE_SESSIONS
+            ADD COLUMN LAST_ACCESSED_AT TIMESTAMP_NTZ
+        """
+        snowflake_query(alter_query, connection_payload, return_df=False)
+        print(f"✅ [Migration] Added LAST_ACCESSED_AT column to {database}.{schema}.CASE_SESSIONS")
+        
+    except Exception as e:
+        print(f"⚠️ [Migration] Error adding LAST_ACCESSED_AT column: {e}")
+        # Don't fail app startup if migration fails - column might already exist or permissions issue
+
 if __name__ == "__main__":
     print("Starting LanguageTool Flask App...")
     with open("./config.yaml", 'r') as f:
@@ -3482,6 +3600,16 @@ if __name__ == "__main__":
         SCHEMA = f"DEV_{SCHEMA}"
     print(f"SSO Enabled: {app.config['ENABLE_SSO']}")
     print(f"Development Mode Enabled: {app.config['DEV_MODE']}")
+    
+    # Add LAST_ACCESSED_AT column to CASE_SESSIONS table (for DEV)
+    print(f"🔄 [Migration] Checking LAST_ACCESSED_AT column in {DATABASE}.{SCHEMA}.CASE_SESSIONS...")
+    add_last_accessed_at_column(DATABASE, SCHEMA, CONNECTION_PAYLOAD)
+    
+    # Also add to PROD schema if different
+    PROD_SCHEMA = "TEXTIO_SERVICES_INPUTS"
+    if SCHEMA != PROD_SCHEMA and PROD_PAYLOAD:
+        print(f"🔄 [Migration] Checking LAST_ACCESSED_AT column in {DATABASE}.{PROD_SCHEMA}.CASE_SESSIONS...")
+        add_last_accessed_at_column(DATABASE, PROD_SCHEMA, PROD_PAYLOAD)
     
     app.run(host='127.0.0.1', port=8055)
 

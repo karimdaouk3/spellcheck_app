@@ -1294,16 +1294,16 @@ class LanguageToolEditor {
                 body.line_item_id = this.fields.editor && typeof this.fields.editor.problemVersionId === 'number' ? this.fields.editor.problemVersionId : 1;
             }
             // Set case_id for both step 1 and step 2
-            if (this.caseManager && this.caseManager.currentCase) {
-                body.case_id = this.caseManager.currentCase.caseNumber;
-                fieldObj.caseId = this.caseManager.currentCase.caseNumber;
-                console.log(`📝 [LLM] Using case number: ${body.case_id}`);
-            } else {
-                // Fallback to UUID if no case is active
-                fieldObj.caseId = this.generateUUIDv4();
-                body.case_id = fieldObj.caseId;
-                console.log(`⚠️ [LLM] No active case, using UUID: ${body.case_id}`);
-            }
+                if (this.caseManager && this.caseManager.currentCase) {
+                    body.case_id = this.caseManager.currentCase.caseNumber;
+                    fieldObj.caseId = this.caseManager.currentCase.caseNumber;
+                    console.log(`📝 [LLM] Using case number: ${body.case_id}`);
+                } else {
+                    // Fallback to UUID if no case is active
+                    fieldObj.caseId = this.generateUUIDv4();
+                    body.case_id = fieldObj.caseId;
+                    console.log(`⚠️ [LLM] No active case, using UUID: ${body.case_id}`);
+                }
             
             // For step 1, include the actual case number from case manager
             if (answers) {
@@ -1416,11 +1416,18 @@ class LanguageToolEditor {
                         
                         // Update lastAccessedAt only for review (step 1), not rewrite (step 2)
                         if (!answers) {
-                            originalCase.lastAccessedAt = new Date();
-                            console.log(`🕐 [LLM] Updated lastAccessedAt for case ${llmCallCaseNumber} to: ${originalCase.lastAccessedAt.toISOString()}`);
+                            const newLastAccessedAt = new Date();
+                            originalCase.lastAccessedAt = newLastAccessedAt;
+                            console.log(`🕐 [LLM] Updated lastAccessedAt for case ${llmCallCaseNumber} to: ${newLastAccessedAt.toISOString()}`);
+                            
+                            // Save to database (persists across all session types)
+                            window.caseManager.saveLastAccessedAtToDatabase(llmCallCaseNumber, newLastAccessedAt).catch(err => {
+                                console.error(`❌ [LLM] Error saving lastAccessedAt to database: ${err}`);
+                            });
                             
                             // Re-render sidebar to show new order
                             window.caseManager.renderCasesList();
+                            window.caseManager.saveCases(); // Also save to localStorage for backwards compatibility
                             console.log(`📋 [LLM] Sidebar re-rendered with new case order`);
                         }
                         
@@ -1468,12 +1475,18 @@ class LanguageToolEditor {
                 
                 // Update lastAccessedAt and re-render sidebar for active case
                 if (this.caseManager && this.caseManager.currentCase) {
-                    this.caseManager.currentCase.lastAccessedAt = new Date();
-                    console.log(`🕐 [LLM] Updated lastAccessedAt for current case ${this.caseManager.currentCase.caseNumber} to: ${this.caseManager.currentCase.lastAccessedAt.toISOString()}`);
+                    const newLastAccessedAt = new Date();
+                    this.caseManager.currentCase.lastAccessedAt = newLastAccessedAt;
+                    console.log(`🕐 [LLM] Updated lastAccessedAt for current case ${this.caseManager.currentCase.caseNumber} to: ${newLastAccessedAt.toISOString()}`);
+                    
+                    // Save to database (persists across all session types)
+                    this.caseManager.saveLastAccessedAtToDatabase(this.caseManager.currentCase.caseNumber, newLastAccessedAt).catch(err => {
+                        console.error(`❌ [LLM] Error saving lastAccessedAt to database: ${err}`);
+                    });
                     
                     // Re-render sidebar to show new order
                     this.caseManager.renderCasesList();
-                    this.caseManager.saveCases();
+                    this.caseManager.saveCases(); // Also save to localStorage for backwards compatibility
                     console.log(`📋 [LLM] Sidebar re-rendered with new case order`);
                 }
             }
@@ -1862,14 +1875,14 @@ class LanguageToolEditor {
             return; // No auto-scroll if not column layout
         }
         
-        const rewritePopup = document.getElementById('rewrite-popup');
-        if (rewritePopup) {
-            // Smooth scroll to the rewrite popup
-            rewritePopup.scrollIntoView({ 
-                behavior: 'smooth', 
-                block: 'start',
-                inline: 'nearest'
-            });
+            const rewritePopup = document.getElementById('rewrite-popup');
+            if (rewritePopup) {
+                // Smooth scroll to the rewrite popup
+                rewritePopup.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start',
+                    inline: 'nearest'
+                });
         }
     }
     
@@ -1889,14 +1902,14 @@ class LanguageToolEditor {
             return; // No auto-scroll if not column layout
         }
         
-        const editorContainer = document.querySelector(`#${field}`).closest('.editor-container');
-        if (editorContainer) {
-            // Smooth scroll to the editor container
-            editorContainer.scrollIntoView({ 
-                behavior: 'smooth', 
-                block: 'start',
-                inline: 'nearest'
-            });
+            const editorContainer = document.querySelector(`#${field}`).closest('.editor-container');
+            if (editorContainer) {
+                // Smooth scroll to the editor container
+                editorContainer.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start',
+                    inline: 'nearest'
+                });
         }
     }
 
@@ -2359,7 +2372,7 @@ class LanguageToolEditor {
                 const confirmed = await this.showHistoryRevertConfirm();
                 
                 if (confirmed) {
-                    this.restoreFromHistory(item, this.activeField);
+                this.restoreFromHistory(item, this.activeField);
                 }
             };
             
@@ -2560,8 +2573,8 @@ class LanguageToolEditor {
                         if (isStacked) {
                             const contentFlex = document.querySelector('.content-flex');
                             if (contentFlex && window.getComputedStyle(contentFlex).flexDirection === 'column') {
-                                // Scroll to the textarea and focus it
-                                textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        // Scroll to the textarea and focus it
+                        textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             }
                         }
                         setTimeout(() => {
@@ -3350,15 +3363,32 @@ class CaseManager {
             const backendCases = caseData.cases || {};
             console.log(`📊 [CaseManager] Processing ${Object.keys(backendCases).length} cases from database`);
             
-            // Load existing lastAccessedAt from localStorage for merging
+            // Use lastAccessedAt from database (persists across all session types including incognito)
+            // Fallback to localStorage for backwards compatibility, then updatedAt, then epoch
             const storageKey = `fsr-cases-${this.userId}`;
             const savedCases = localStorage.getItem(storageKey);
             const localStorageCases = savedCases ? JSON.parse(savedCases) : [];
             const localStorageMap = new Map(localStorageCases.map(c => [c.caseNumber, c]));
             
             this.cases = Object.values(backendCases).map(caseData => {
-                // Check if we have lastAccessedAt from localStorage for this case
+                // Check if we have lastAccessedAt from localStorage for this case (fallback)
                 const localCase = localStorageMap.get(caseData.caseNumber);
+                
+                // Priority: Database lastAccessedAt > localStorage > updatedAt > epoch
+                let lastAccessedAt = null;
+                if (caseData.lastAccessedAt) {
+                    // Use database value (persists across all sessions)
+                    lastAccessedAt = new Date(caseData.lastAccessedAt);
+                } else if (localCase?.lastAccessedAt) {
+                    // Fallback to localStorage (for backwards compatibility)
+                    lastAccessedAt = new Date(localCase.lastAccessedAt);
+                } else if (caseData.updatedAt) {
+                    // Fallback to updatedAt
+                    lastAccessedAt = new Date(caseData.updatedAt);
+                } else {
+                    // Fallback to epoch (unaccessed cases appear at bottom)
+                    lastAccessedAt = new Date(0);
+                }
                 
                 const caseInfo = {
                     id: caseData.caseNumber, // Use case number as ID for consistency
@@ -3368,11 +3398,7 @@ class CaseManager {
                     fsrNotes: caseData.fsrNotes || '',
                     createdAt: new Date(caseData.updatedAt || Date.now()),
                     updatedAt: new Date(caseData.updatedAt || Date.now()),
-                    // Preserve lastAccessedAt from localStorage if it exists
-                    // Otherwise use updatedAt if available, or a very old date (epoch) so unaccessed cases appear at bottom
-                    lastAccessedAt: localCase?.lastAccessedAt 
-                        ? new Date(localCase.lastAccessedAt) 
-                        : (caseData.updatedAt ? new Date(caseData.updatedAt) : new Date(0)),
+                    lastAccessedAt: lastAccessedAt,
                     isTrackedInDatabase: true // All cases from database are tracked
                 };
                 
@@ -3508,6 +3534,50 @@ class CaseManager {
         const storageKey = `fsr-cases-${this.userId}`;
         localStorage.setItem(storageKey, JSON.stringify(this.cases));
         console.log(`Saved ${this.cases.length} cases to localStorage for user ${this.userId}`);
+    }
+    
+    async saveLastAccessedAtToDatabase(caseNumber, lastAccessedAt) {
+        /**
+         * Save lastAccessedAt to database so it persists across all session types (including incognito).
+         */
+        if (this.userId === null || this.userId === undefined) {
+            console.warn('⚠️ [CaseManager] No user ID available, cannot save lastAccessedAt to database');
+            return false;
+        }
+        
+        // Skip saving for untracked cases
+        const caseData = this.cases.find(c => c.caseNumber === caseNumber);
+        if (caseData && caseData.isTrackedInDatabase === false) {
+            console.log(`⏭️ [CaseManager] Skipping database save for untracked case ${caseNumber}`);
+            return true; // Not an error, just skipped
+        }
+        
+        try {
+            console.log(`💾 [CaseManager] Saving lastAccessedAt to database for case ${caseNumber}...`);
+            
+            const response = await fetch('/api/cases/update-last-accessed', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    case_number: caseNumber,
+                    last_accessed_at: lastAccessedAt.toISOString()
+                })
+            });
+            
+            if (response.ok) {
+                console.log(`✅ [CaseManager] Successfully saved lastAccessedAt to database for case ${caseNumber}`);
+                return true;
+            } else {
+                const errorData = await response.json();
+                console.error(`❌ [CaseManager] Failed to save lastAccessedAt to database: ${errorData.error || response.statusText}`);
+                return false;
+            }
+        } catch (error) {
+            console.error(`❌ [CaseManager] Error saving lastAccessedAt to database for case ${caseNumber}:`, error);
+            return false;
+        }
     }
     
     async saveCaseToBackend(caseData) {
@@ -4323,15 +4393,15 @@ class CaseManager {
                 // Populate editors with CRM data if this is a newly created case
                 if (shouldPopulateEditors) {
                     console.log(`📝 [CaseManager] Populating editors with latest CRM data for new case`);
-                    const editor1 = document.getElementById('editor');
-                    const editor2 = document.getElementById('editor2');
-                    
-                    if (editor1 && latestProblemStatement && latestProblemStatement.trim()) {
+                const editor1 = document.getElementById('editor');
+                const editor2 = document.getElementById('editor2');
+                
+                if (editor1 && latestProblemStatement && latestProblemStatement.trim()) {
                         console.log(`📝 [CaseManager] Setting problem statement (${latestProblemStatement.length} chars)`);
                         editor1.innerText = latestProblemStatement;
-                    }
-                    
-                    if (editor2 && latestDailyNotes && latestDailyNotes.trim()) {
+                }
+                
+                if (editor2 && latestDailyNotes && latestDailyNotes.trim()) {
                         console.log(`📝 [CaseManager] Setting FSR notes (${latestDailyNotes.length} chars)`);
                         editor2.innerText = latestDailyNotes;
                     }
@@ -4788,25 +4858,25 @@ class CaseManager {
             if (caseToDelete.isTrackedInDatabase) {
                 // Don't await - run in background
                 (async () => {
-                    try {
-                        // Convert to string to avoid scientific notation for large numbers
-                        const caseNumberStr = String(caseToDelete.caseNumber);
-                        console.log(`🔍 [CaseManager] Deleting from backend with case number: ${caseNumberStr}`);
-                        
-                        const response = await fetch(`/api/cases/delete/${caseNumberStr}`, {
-                            method: 'DELETE',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            }
-                        });
-                        
-                        if (response.ok) {
+                try {
+                    // Convert to string to avoid scientific notation for large numbers
+                    const caseNumberStr = String(caseToDelete.caseNumber);
+                    console.log(`🔍 [CaseManager] Deleting from backend with case number: ${caseNumberStr}`);
+                    
+                    const response = await fetch(`/api/cases/delete/${caseNumberStr}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (response.ok) {
                             console.log('✅ [CaseManager] Case deleted from backend:', caseToDelete.caseNumber);
-                        } else {
+                    } else {
                             console.error('❌ [CaseManager] Failed to delete case from backend:', caseToDelete.caseNumber);
                             // Note: Case already removed from UI, user won't see backend failure
-                        }
-                    } catch (error) {
+                    }
+                } catch (error) {
                         console.error('❌ [CaseManager] Error deleting case from backend:', error);
                         // Note: Case already removed from UI, user won't see backend failure
                     }
