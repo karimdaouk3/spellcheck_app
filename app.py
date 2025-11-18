@@ -1973,18 +1973,11 @@ def llm():
         step = 1
     ruleset_name = data.get("ruleset", "problem_statement")
 
-    request_time = time.time() - start_time
-    print(f"⏱️  [TIMING] /llm step={step} - Request processing: {request_time:.3f}s")
-
     # Load rules dynamically from DB
-    rules_start = time.time()
     if ruleset_name == "fsr":
         rules_payload = load_ruleset_from_db("FSR_DAILY_NOTE", "DEFAULT")
     else:
         rules_payload = load_ruleset_from_db("PROBLEM_STATEMENT", "DEFAULT")
-    rules_time = time.time() - rules_start
-    if rules_time > 0.1:
-        print(f"⏱️  [TIMING] /llm step={step} - Rules loading: {rules_time:.3f}s")
     # Advice list
     if ruleset_name == "fsr":
         advice_list = []
@@ -1996,7 +1989,6 @@ def llm():
         ]
 
     if not text.strip():
-        print("[DBG] /llm abort empty text")
         return jsonify({"result": "No text provided."})
 
     # Shared model config
@@ -2016,7 +2008,6 @@ def llm():
     # Build prompt
     if step == 1:
         rules_list = [r['name'] for r in (rules_payload.get('rules') or [])]
-        print(f"[DBG] /llm rules loaded count={len(rules_list)} rules={rules_list}")
         rules_lines = "\n".join(f"- {n}" for n in rules_list)
         advice = "\n".join(f"- {tip}" for tip in advice_list)
         rewrite_uuid = str(uuid.uuid4())
@@ -2094,21 +2085,6 @@ def llm():
     # Call LLM (for both steps)
     prompt_len = len(user_prompt)
     system_len = len(SYSTEM_PROMPT)
-    total_chars = prompt_len + system_len
-    print(f"📊 [LLM] Prompt length: {prompt_len:,} chars, System: {system_len:,} chars, Total: {total_chars:,} chars")
-    
-    # Estimate token count (rough: ~4 chars per token)
-    estimated_tokens_input = total_chars / 4
-    print(f"📊 [LLM] Estimated input tokens: ~{int(estimated_tokens_input):,}")
-    
-    # Print the full prompt for debugging
-    print(f"\n{'='*80}")
-    print(f"📝 [LLM PROMPT] Full prompt for step={step}:")
-    print(f"{'='*80}")
-    print(f"SYSTEM PROMPT:\n{SYSTEM_PROMPT}")
-    print(f"\n{'='*80}")
-    print(f"USER PROMPT:\n{user_prompt}")
-    print(f"{'='*80}\n")
     
     llm_start = time.time()
     try:
@@ -2116,52 +2092,16 @@ def llm():
         max_retries = 2
         for attempt in range(max_retries):
             try:
-                # Time DNS lookup and connection (if possible)
-                network_start = time.time()
-                request_start = time.time()
-                
-                print(f"🔄 [LLM] Making LLM API call (attempt {attempt + 1})...")
                 response = litellm.completion(
                     messages=[{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user_prompt}],
                     **model_kwargs
                 )
                 
-                request_time = time.time() - request_start
-                network_time = time.time() - network_start
-                
-                # Check response size
-                if response and "choices" in response and response["choices"]:
-                    response_content = response["choices"][0]["message"]["content"]
-                    response_len = len(response_content)
-                    estimated_output_tokens = response_len / 4
-                    print(f"📊 [LLM] Response length: {response_len:,} chars, Estimated output tokens: ~{int(estimated_output_tokens):,}")
-                    print(f"⏱️  [TIMING] /llm step={step} - LLM HTTP request: {request_time:.3f}s (network: {network_time:.3f}s)")
-                    
-                    # Print the full response for debugging
-                    print(f"\n{'='*80}")
-                    print(f"📤 [LLM RESPONSE] Full response for step={step} (length: {response_len:,} chars):")
-                    print(f"{'='*80}")
-                    print(response_content)
-                    print(f"{'='*80}\n")
-                else:
-                    print(f"⏱️  [TIMING] /llm step={step} - LLM HTTP request: {request_time:.3f}s")
-                
                 break  # Success, exit retry loop
             except Exception as retry_error:
-                retry_time = time.time() - llm_start
-                print(f"⚠️  [LLM] Attempt {attempt + 1} failed after {retry_time:.3f}s: {retry_error}")
                 if attempt == max_retries - 1:  # Last attempt
                     raise retry_error
                 time.sleep(1)  # Wait before retry
-        
-        llm_time = time.time() - llm_start
-        print(f"⏱️  [TIMING] /llm step={step} - LLM API call (total): {llm_time:.3f}s")
-        
-        # Calculate throughput
-        if response and "choices" in response and response["choices"]:
-            response_content = response["choices"][0]["message"]["content"]
-            tokens_per_sec = (len(response_content) / 4) / llm_time if llm_time > 0 else 0
-            print(f"📊 [LLM] Throughput: ~{tokens_per_sec:.1f} output tokens/sec")
         
         # Check if response is valid
         if not response or "choices" not in response or not response["choices"]:
@@ -2179,7 +2119,6 @@ def llm():
             llm_result = json.loads(llm_result_str)
         except Exception as e:
             print(f"⚠️  [LLM] JSON parse error: {e}")
-            print(f"[LLM] Response preview (first 200 chars): {llm_result_str[:200]}")
             
             # Try to extract JSON from Markdown code blocks
             try:
@@ -2246,8 +2185,6 @@ def llm():
                 else:
                     llm_result = {}
         
-        parse_time = time.time() - parse_start
-        print(f"⏱️  [TIMING] /llm step={step} - JSON parsing: {parse_time:.3f}s")
     except Exception as e:
         print(f"❌ [LLM] Error: {e}")
         # Return a more user-friendly error structure
@@ -2294,10 +2231,6 @@ def llm():
         llm_result["user_input_id"] = None  # Will be populated in background
         llm_result["evaluation_id"] = None  # Will be populated in background
         
-        response_prep_time = time.time() - response_prep_start
-        total_time_before_response = time.time() - start_time
-        print(f"⏱️  [TIMING] /llm step={step} - Response prep: {response_prep_time:.3f}s")
-        print(f"⏱️  [TIMING] /llm step={step} - TOTAL TIME BEFORE RESPONSE: {total_time_before_response:.3f}s")
         response = jsonify({"result": llm_result})
         
         # Move ALL database queries to background thread
@@ -2406,10 +2339,6 @@ def llm():
         user_data = session.get("user_data", {})
         user_id = user_data.get("user_id")
         
-        response_prep_time = time.time() - response_prep_start
-        total_time_before_response = time.time() - start_time
-        print(f"⏱️  [TIMING] /llm step={step} - Response prep: {response_prep_time:.3f}s")
-        print(f"⏱️  [TIMING] /llm step={step} - TOTAL TIME BEFORE RESPONSE: {total_time_before_response:.3f}s")
         response = jsonify({"result": llm_result})
         
         # Run database queries in background thread
@@ -2458,48 +2387,31 @@ def llm():
                 )
                 
                 # Update LAST_INPUT_STATE with the rewritten text for persistence
-                print(f"[DBG] /llm step2 PERSISTENCE CHECK: rewritten={bool(rewritten)}, user_input_id={data.get('user_input_id')}")
                 if rewritten and data.get("user_input_id"):
-                    print(f"[DBG] /llm step2 PERSISTENCE: user_id={user_id}")
-                    
                     # Get the case session ID from the user input
                     case_query = f"""
                         SELECT CASE_ID, INPUT_FIELD_TYPE 
                         FROM {DATABASE}.{SCHEMA}.USER_SESSION_INPUTS 
                         WHERE ID = %s
                     """
-                    print(f"[DBG] /llm step2 PERSISTENCE: Querying USER_SESSION_INPUTS for user_input_id={data.get('user_input_id')}")
                     case_result = snowflake_query(case_query, CONNECTION_PAYLOAD, (data.get("user_input_id"),))
-                    print(f"[DBG] /llm step2 PERSISTENCE: case_result={case_result is not None}, empty={case_result.empty if case_result is not None else 'N/A'}")
                     
                     if case_result is not None and not case_result.empty:
                         case_id = case_result.iloc[0]["CASE_ID"]
                         input_field_type = case_result.iloc[0]["INPUT_FIELD_TYPE"]
-                        print(f"[DBG] /llm step2 PERSISTENCE: Found case_id={case_id}, input_field_type={input_field_type}")
                         
                         # Get case session ID
                         session_query = f"""
                             SELECT ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
                             WHERE CASE_ID = %s AND CREATED_BY_USER = %s
                         """
-                        print(f"[DBG] /llm step2 PERSISTENCE: Querying CASE_SESSIONS for case_id={case_id}, user_id={user_id}")
                         session_result = snowflake_query(session_query, CONNECTION_PAYLOAD, (case_id, user_id))
-                        print(f"[DBG] /llm step2 PERSISTENCE: session_result={session_result is not None}, empty={session_result.empty if session_result is not None else 'N/A'}")
                         
                         if session_result is not None and not session_result.empty:
                             case_session_id = session_result.iloc[0]["ID"]
-                            print(f"[DBG] /llm step2 PERSISTENCE: Found case_session_id={case_session_id}")
                             
                             # Determine input field ID based on type
                             input_field_id = 1 if input_field_type == "problem_statement" else 2
-                            print(f"[DBG] /llm step2 PERSISTENCE: input_field_id={input_field_id} (1=problem_statement, 2=fsr_notes)")
-                            
-                            # Update LAST_INPUT_STATE with rewritten text
-                            print(f"[DBG] /llm step2 PERSISTENCE: About to update LAST_INPUT_STATE with:")
-                            print(f"[DBG] /llm step2 PERSISTENCE: - case_session_id={case_session_id}")
-                            print(f"[DBG] /llm step2 PERSISTENCE: - input_field_id={input_field_id}")
-                            print(f"[DBG] /llm step2 PERSISTENCE: - rewritten_text_length={len(rewritten) if rewritten else 0}")
-                            print(f"[DBG] /llm step2 PERSISTENCE: - rewritten_text_preview={rewritten[:100] if rewritten else 'None'}...")
                             
                             update_query = f"""
                                 MERGE INTO {DATABASE}.{SCHEMA}.LAST_INPUT_STATE AS target
@@ -2514,17 +2426,9 @@ def llm():
                                     (CASE_SESSION_ID, INPUT_FIELD_ID, INPUT_FIELD_VALUE, LINE_ITEM_ID, INPUT_FIELD_EVAL_ID, LAST_UPDATED)
                                     VALUES (source.CASE_SESSION_ID, source.INPUT_FIELD_ID, source.INPUT_FIELD_VALUE, source.LINE_ITEM_ID, source.INPUT_FIELD_EVAL_ID, CURRENT_TIMESTAMP())
                             """
-                            print(f"[DBG] /llm step2 PERSISTENCE: Executing MERGE query...")
                             snowflake_query(update_query, CONNECTION_PAYLOAD, 
                                            (case_session_id, input_field_id, rewritten, 1, None), 
                                            return_df=False)
-                            print(f"[DBG] /llm step2 PERSISTENCE: ✅ Successfully updated LAST_INPUT_STATE with rewritten text for case {case_id}")
-                        else:
-                            print(f"[DBG] /llm step2 PERSISTENCE: ❌ No case session found for case_id={case_id}, user_id={user_id}")
-                    else:
-                        print(f"[DBG] /llm step2 PERSISTENCE: ❌ No user session input found for user_input_id={data.get('user_input_id')}")
-                else:
-                    print(f"[DBG] /llm step2 PERSISTENCE: ❌ Skipping persistence - rewritten={bool(rewritten)}, user_input_id={data.get('user_input_id')}")
             except Exception as e:
                 print(f"[DBG] /llm step2 background DB operations error: {e}")
         
@@ -2535,7 +2439,6 @@ def llm():
         return response
 
     else:
-        print(f"[DBG] /llm unexpected step={step}")
         return jsonify({"result": {"echo": True, "step": step}})
 
 # API keys for the scoring endpoint

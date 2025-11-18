@@ -1297,12 +1297,10 @@ class LanguageToolEditor {
                 if (this.caseManager && this.caseManager.currentCase) {
                     body.case_id = this.caseManager.currentCase.caseNumber;
                     fieldObj.caseId = this.caseManager.currentCase.caseNumber;
-                    console.log(`📝 [LLM] Using case number: ${body.case_id}`);
                 } else {
                     // Fallback to UUID if no case is active
                     fieldObj.caseId = this.generateUUIDv4();
                     body.case_id = fieldObj.caseId;
-                    console.log(`⚠️ [LLM] No active case, using UUID: ${body.case_id}`);
                 }
             
             // For step 1, include the actual case number from case manager
@@ -1318,20 +1316,13 @@ class LanguageToolEditor {
             
             // Capture the case number that this LLM call is for
             const llmCallCaseNumber = body.case_id;
-            console.log(`🔒 [LLM] Locking LLM call to case: ${llmCallCaseNumber}`);
             
-            const fetchStart = performance.now();
             const response = await fetch('/llm', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             });
-            const fetchTime = performance.now() - fetchStart;
-            const parseStart = performance.now();
             const data = await response.json();
-            const parseTime = performance.now() - parseStart;
-            const totalTime = performance.now() - fetchStart;
-            console.log(`⏱️  [TIMING] Frontend - Fetch: ${fetchTime.toFixed(3)}ms, Parse: ${parseTime.toFixed(3)}ms, Total: ${totalTime.toFixed(3)}ms`);
             if (typeof data.result === 'object') {
                 // Preserve original text outside of result to avoid polluting evaluation object
                 fieldObj.lastOriginalText = text;
@@ -1354,11 +1345,8 @@ class LanguageToolEditor {
                 : null;
             const isSameCase = currentCaseNumber === llmCallCaseNumber;
             
-            console.log(`🔍 [LLM] Response received - Original case: ${llmCallCaseNumber}, Current case: ${currentCaseNumber}, Same: ${isSameCase}`);
-            
             if (!isSameCase) {
                 // User switched to a different case - save results to the original case but don't display
-                console.log(`⚠️ [LLM] User switched cases during LLM call. Saving results to case ${llmCallCaseNumber} without displaying.`);
                 
                 // Find the original case in the case manager
                 if (window.caseManager) {
@@ -1427,12 +1415,10 @@ class LanguageToolEditor {
                             
                             // Re-render sidebar to show new order
                             window.caseManager.renderCasesList();
-                            console.log(`📋 [LLM] Sidebar re-rendered with new case order`);
                         }
                         
                         // Save to localStorage
                         window.caseManager.saveCases();
-                        console.log(`✅ [LLM] Results saved to case ${llmCallCaseNumber} for later viewing`);
                     } else {
                         console.warn(`⚠️ [LLM] Could not find case ${llmCallCaseNumber} to save results`);
                     }
@@ -1445,7 +1431,6 @@ class LanguageToolEditor {
             }
             
             // User is still on the same case - display results normally
-            console.log(`✅ [LLM] User still on same case. Displaying results.`);
             
             fieldObj.llmLastResult = data.result;
             // Capture IDs returned from backend for coordination (no DB lookups)
@@ -1476,8 +1461,6 @@ class LanguageToolEditor {
                 if (this.caseManager && this.caseManager.currentCase) {
                     const newLastAccessedAt = new Date();
                     this.caseManager.currentCase.lastAccessedAt = newLastAccessedAt;
-                    console.log(`🕐 [LLM] Updated lastAccessedAt for current case ${this.caseManager.currentCase.caseNumber} to: ${newLastAccessedAt.toISOString()}`);
-                    
                     // Save to database (persists across all session types)
                     this.caseManager.saveLastAccessedAtToDatabase(this.caseManager.currentCase.caseNumber, newLastAccessedAt).catch(err => {
                         console.error(`❌ [LLM] Error saving lastAccessedAt to database: ${err}`);
@@ -1485,7 +1468,6 @@ class LanguageToolEditor {
                     
                     // Re-render sidebar to show new order
                     this.caseManager.renderCasesList();
-                    console.log(`📋 [LLM] Sidebar re-rendered with new case order`);
                 }
             }
             
@@ -1506,7 +1488,6 @@ class LanguageToolEditor {
             
             // Auto-save case state after LLM evaluation or rewrite
             if (window.caseManager) {
-                console.log('💾 [Auto-save] Saving case state after LLM call');
                 window.caseManager.saveCurrentCaseState();
             }
         } catch (e) {
@@ -2759,17 +2740,14 @@ class CaseManager {
     }
     
     async init() {
-        console.log('🚀 Initializing CaseManager...');
         
         // Show loading indicator
         this.showLoadingIndicator();
         
         await this.fetchUserInfo();
-        console.log('✅ User info fetched, userId:', this.userId);
         
         // Step 1: Load database cases first (fast) - this unlocks the UI
         await this.loadCases();
-        console.log('✅ Cases loaded from database');
         
         // Step 2: Setup UI
         this.setupEventListeners();
@@ -2796,11 +2774,9 @@ class CaseManager {
                 window.spellCheckEditor.activeField = 'editor';
                 window.spellCheckEditor.updateActiveEditorHighlight();
                 window.spellCheckEditor.renderHistory();
-                console.log('✅ [CaseManager] Problem statement selected and history rendered');
             }
         } else if (this.cases.length === 0) {
             // No cases - show placeholder
-            console.log('📄 [CaseManager] No cases found on init, showing no cases placeholder');
             this.clearAllEditorsAndUI();
             
             // Still ensure problem statement is selected even with no cases
@@ -2813,24 +2789,20 @@ class CaseManager {
         
         // Hide loading indicator - user can now use the site (after case is loaded and problem statement is selected)
         this.hideLoadingIndicator();
-        console.log('✅ Site is now usable - case loaded, problem statement selected, history rendered');
         
         // Step 3: Preload CRM cases in background (slow - don't block UI)
         // This happens after the site is usable, so user doesn't wait
         this.preloadCaseSuggestions().then(() => {
-            console.log('✅ CRM case suggestions preloaded in background');
         }).catch((error) => {
             console.error('❌ Error preloading CRM suggestions in background:', error);
         });
         
         // Step 4: Check for closed cases in background (non-blocking)
         this.checkForClosedCases().then(() => {
-            console.log('✅ Closed cases check completed in background');
         }).catch((error) => {
             console.error('❌ Error checking closed cases in background:', error);
         });
         
-        console.log('✅ CaseManager initialization complete - site ready');
     }
     
     async fetchUserInfo() {
@@ -2861,29 +2833,20 @@ class CaseManager {
     
     async preloadCaseSuggestions() {
         try {
-            console.log('🔍 [CaseManager] Preloading case suggestions from CRM database...');
             const response = await fetch('/api/cases/suggestions/preload');
             if (response.ok) {
                 const data = await response.json();
                 this.preloadedSuggestions = data.case_numbers || [];
                 const totalCases = this.preloadedSuggestions.length;
                 const filteredByEmail = data.filtered_by_email || 'unknown';
-                console.log(`✅ [CaseManager] Preloaded ${totalCases} case suggestions from CRM database (filtered by user email: ${filteredByEmail})`);
-                console.log(`📊 [CaseManager] Total preloaded cases from CRM database: ${totalCases}`);
-                console.log(`🔒 [CaseManager] All ${totalCases} cases are pre-filtered by email: ${filteredByEmail}`);
-                console.log(`🔍 [DEBUG] preloadedSuggestions is array: ${Array.isArray(this.preloadedSuggestions)}`);
-                console.log(`🔍 [DEBUG] preloadedSuggestions type check:`, typeof this.preloadedSuggestions);
                 
                 // Log sample of 5 case numbers for testing
                 if (totalCases > 0) {
                     const sampleCount = Math.min(5, totalCases);
                     const sampleCases = this.preloadedSuggestions.slice(0, sampleCount);
-                    console.log(`🔍 [CaseManager] Sample preloaded case numbers from CRM (first ${sampleCount} of ${totalCases}):`, sampleCases);
-                    console.log(`📋 [CaseManager] Using ${totalCases} cases from CRM database for suggestions (all filtered by email: ${filteredByEmail})`);
                     
                     // Log types of case numbers
                     if (sampleCases.length > 0) {
-                        console.log(`🔍 [DEBUG] Sample case number types:`, sampleCases.map(c => ({ value: c, type: typeof c, toString: c.toString() })));
                     }
                 } else {
                     console.log(`⚠️ [CaseManager] No cases found in CRM database for preloading`);
@@ -3332,11 +3295,9 @@ class CaseManager {
             return;
         }
         
-        console.log(`🚀 [CaseManager] Loading cases for user ${this.userId} from database... (forceRefresh: ${forceRefresh})`);
         
         try {
             // Parallelize Step 1 and Step 2 - they query similar data and can run concurrently
-            console.log('📋 [CaseManager] Fetching user cases and case data in parallel...');
             const cacheBust = Date.now();
             
             const [userCasesResponse, caseDataResponse] = await Promise.all([
@@ -3359,7 +3320,6 @@ class CaseManager {
             
             // Convert backend format to frontend format
             const backendCases = caseData.cases || {};
-            console.log(`📊 [CaseManager] Processing ${Object.keys(backendCases).length} cases from database`);
             
             // Use lastAccessedAt from database (persists across all session types including incognito)
             // Priority: Database lastAccessedAt > updatedAt > epoch
@@ -3392,25 +3352,18 @@ class CaseManager {
                 return caseInfo;
             });
             
-            console.log(`✅ [CaseManager] Successfully loaded ${this.cases.length} cases from database`);
-            console.log(`📊 [CaseManager] Case titles from DB:`, this.cases.map(c => ({ caseNumber: c.caseNumber, caseTitle: c.caseTitle })));
             
             // Only load CRM data for cases that don't have titles in the database
             const casesNeedingTitles = this.cases.filter(caseData => caseData.caseNumber && !caseData.caseTitle);
             
             if (casesNeedingTitles.length > 0) {
-                console.log(`🔍 [CaseManager] Loading CRM data for ${casesNeedingTitles.length} cases missing titles...`);
                 const crmLoadPromises = casesNeedingTitles.map(caseData => this.loadCRMDataAndPopulateHistory(caseData.caseNumber));
                 
                 await Promise.all(crmLoadPromises);
-                console.log(`✅ [CaseManager] Loaded CRM data for ${casesNeedingTitles.length} cases`);
-                console.log(`📊 [CaseManager] Cases after CRM load:`, this.cases.map(c => ({ id: c.id, caseNumber: c.caseNumber, caseTitle: c.caseTitle })));
                 
                 // Wait a moment for async saves to complete
                 await new Promise(resolve => setTimeout(resolve, 500));
-                console.log(`⏱️ [CaseManager] Waited for case title saves to complete`);
             } else {
-                console.log(`✅ [CaseManager] All ${this.cases.length} cases already have titles from database, skipping CRM load`);
             }
             
             // Re-render to show updated case titles
@@ -3418,17 +3371,14 @@ class CaseManager {
             
             // Also sync with localStorage for offline access
             this.saveCasesLocally();
-            console.log('💾 [CaseManager] Cases synced to localStorage for offline access');
             
             // Preload history for all cases in background (don't await - non-blocking)
-            console.log('📜 [CaseManager] Starting history preload for all cases...');
             this.preloadAllCaseHistory().catch(err => {
                 console.warn('⚠️ [CaseManager] Error preloading history:', err);
             });
             
         } catch (error) {
             console.error('❌ [CaseManager] Error loading cases from database:', error);
-            console.log('🔄 [CaseManager] Falling back to localStorage...');
             // Fallback to localStorage
             this.loadCasesFromLocalStorage();
         }
@@ -3436,7 +3386,6 @@ class CaseManager {
         // Set first case as current if none selected
         // Sort by lastAccessedAt BEFORE auto-selecting to pick the most recently used case
         if (this.cases.length > 0 && !this.currentCase) {
-            console.log(`🎯 [DEBUG] Auto-selecting case on load. Cases BEFORE sort:`, 
                 this.cases.map(c => ({ 
                     caseNumber: c.caseNumber, 
                     lastAccessedAt: c.lastAccessedAt ? new Date(c.lastAccessedAt).toISOString() : 'null' 
@@ -3488,13 +3437,11 @@ class CaseManager {
                         const number = parts[2].padStart(3, '0');
                         caseData.caseNumber = parseInt(year + number);
                         needsMigration = true;
-                        console.log(`🔄 [CaseManager] Migrated case number: ${caseData.caseNumber}`);
                     }
                 }
             });
             
             if (needsMigration) {
-                console.log('💾 [CaseManager] Migrating localStorage case numbers to integer format');
                 this.saveCasesLocally();
             }
             
