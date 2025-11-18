@@ -1406,7 +1406,6 @@ class LanguageToolEditor {
                         if (!answers) {
                             const newLastAccessedAt = new Date();
                             originalCase.lastAccessedAt = newLastAccessedAt;
-                            console.log(`🕐 [LLM] Updated lastAccessedAt for case ${llmCallCaseNumber} to: ${newLastAccessedAt.toISOString()}`);
                             
                             // Save to database (persists across all session types)
                             window.caseManager.saveLastAccessedAtToDatabase(llmCallCaseNumber, newLastAccessedAt).catch(err => {
@@ -2764,7 +2763,6 @@ class CaseManager {
             });
             
             const mostRecentCase = sortedByAccess[0];
-            console.log(`🎯 [CaseManager] Auto-selecting most recently used case: ${mostRecentCase.caseNumber} (ID: ${mostRecentCase.id})`);
             
             // Switch to case (this loads history and restores state)
             await this.switchToCase(mostRecentCase.id);
@@ -2849,7 +2847,6 @@ class CaseManager {
                     if (sampleCases.length > 0) {
                     }
                 } else {
-                    console.log(`⚠️ [CaseManager] No cases found in CRM database for preloading`);
                 }
             } else {
                 console.error('❌ [CaseManager] Failed to preload suggestions:', response.status);
@@ -3398,20 +3395,17 @@ class CaseManager {
                 return bTime - aTime;
             });
             
-            console.log(`🎯 [DEBUG] Auto-selecting case on load. Cases AFTER sort:`, 
                 sortedByAccess.map(c => ({ 
                     caseNumber: c.caseNumber, 
                     lastAccessedAt: c.lastAccessedAt ? new Date(c.lastAccessedAt).toISOString() : 'null' 
                 })));
             
             const mostRecentCase = sortedByAccess[0];
-            console.log(`🎯 [CaseManager] Auto-selecting most recently used case: ${mostRecentCase.caseNumber} (ID: ${mostRecentCase.id})`);
             this.switchToCase(mostRecentCase.id);
         }
     }
     
     async refreshCases() {
-        console.log('🔄 [CaseManager] Force refreshing cases from database...');
         await this.loadCases(true);
         this.renderCasesList();
         if (this.currentCase) {
@@ -3445,7 +3439,6 @@ class CaseManager {
                 this.saveCasesLocally();
             }
             
-            console.log(`Loaded ${this.cases.length} cases from localStorage`);
         } else {
             this.cases = [];
             console.log(`No cases found in localStorage`);
@@ -3482,12 +3475,10 @@ class CaseManager {
         // Skip saving for untracked cases
         const caseData = this.cases.find(c => c.caseNumber === caseNumber);
         if (caseData && caseData.isTrackedInDatabase === false) {
-            console.log(`⏭️ [CaseManager] Skipping database save for untracked case ${caseNumber}`);
             return true; // Not an error, just skipped
         }
         
         try {
-            console.log(`💾 [CaseManager] Saving lastAccessedAt to database for case ${caseNumber}...`);
             
             const response = await fetch('/api/cases/update-last-accessed', {
                 method: 'PUT',
@@ -3501,7 +3492,6 @@ class CaseManager {
             });
             
             if (response.ok) {
-                console.log(`✅ [CaseManager] Successfully saved lastAccessedAt to database for case ${caseNumber}`);
                 return true;
             } else {
                 const errorData = await response.json();
@@ -3522,13 +3512,9 @@ class CaseManager {
         
         // Skip saving untracked cases to backend
         if (caseData.isTrackedInDatabase === false) {
-            console.log(`⏭️ [CaseManager] Skipping backend save for untracked case ${caseData.caseNumber}`);
             return true; // Not an error, just skipped
         }
         
-        console.log(`💾 [CaseManager] Saving case ${caseData.caseNumber} to database...`);
-        console.log(`📝 [CaseManager] Problem Statement: ${(caseData.problemStatement || '').substring(0, 50)}...`);
-        console.log(`📝 [CaseManager] FSR Notes: ${(caseData.fsrNotes || '').substring(0, 50)}...`);
         
         try {
             // Use the new input state endpoint
@@ -3547,8 +3533,6 @@ class CaseManager {
             
             if (response.ok) {
                 const result = await response.json();
-                console.log(`✅ [CaseManager] Successfully saved case ${caseData.caseNumber} to database`);
-                console.log(`📊 [CaseManager] Database response:`, result);
                 return true;
             } else {
                 const errorText = await response.text();
@@ -3576,11 +3560,9 @@ class CaseManager {
         }
         
         if (this.cases.length === 0) {
-            console.log('📜 [CaseManager] No cases to preload history for');
             return;
         }
         
-        console.log(`📜 [CaseManager] Preloading history for ${this.cases.length} cases...`);
         const startTime = performance.now();
         
         // Load history for all cases in parallel
@@ -3591,7 +3573,6 @@ class CaseManager {
         await Promise.all(historyPromises);
         
         const loadTime = performance.now() - startTime;
-        console.log(`✅ [CaseManager] Preloaded history for ${this.cases.length} cases in ${loadTime.toFixed(0)}ms`);
     }
     
     async loadHistoryFromDatabase(caseNumber) {
