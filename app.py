@@ -586,7 +586,7 @@ def validate_case_number(case_number):
         
         # Check if case exists for this user
         query = f"""
-            SELECT CASE_ID, CASE_STATUS, CASE_TITLE, CRM_LAST_SYNC_TIME
+            SELECT CASE_ID, CASE_STATUS, CASE_TITLE, CRM_LAST_SYNC_TIME, LAST_ACCESSED_AT
             FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
             WHERE CASE_ID = %s AND CREATED_BY_USER = %s
         """
@@ -600,11 +600,13 @@ def validate_case_number(case_number):
             }), 404
         
         case_row = result.iloc[0]
+        last_accessed_at = case_row.get("LAST_ACCESSED_AT")
         return jsonify({
             "valid": True,
             "case_number": case_number,
             "case_status": case_row["CASE_STATUS"],
-            "last_sync": case_row["CRM_LAST_SYNC_TIME"].isoformat() if case_row["CRM_LAST_SYNC_TIME"] else None
+            "last_sync": case_row["CRM_LAST_SYNC_TIME"].isoformat() if case_row["CRM_LAST_SYNC_TIME"] else None,
+            "last_accessed_at": last_accessed_at.isoformat() if last_accessed_at and pd.notna(last_accessed_at) else None
         })
         
     except ValueError:
