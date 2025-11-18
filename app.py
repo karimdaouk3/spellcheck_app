@@ -3559,11 +3559,12 @@ def add_last_accessed_at_column(database, schema, connection_payload):
     """
     Add LAST_ACCESSED_AT column to CASE_SESSIONS table if it doesn't exist.
     This allows case ordering to persist across all session types (including incognito).
+    Only runs for DEV environment.
     """
     try:
         # Check if column already exists
         check_query = f"""
-            SELECT COUNT(*) as col_count
+            SELECT COUNT(*) as COL_COUNT
             FROM INFORMATION_SCHEMA.COLUMNS
             WHERE TABLE_SCHEMA = '{schema}'
             AND TABLE_NAME = 'CASE_SESSIONS'
@@ -3571,9 +3572,12 @@ def add_last_accessed_at_column(database, schema, connection_payload):
         """
         result = snowflake_query(check_query, connection_payload)
         
-        if result is not None and not result.empty and result.iloc[0]['col_count'] > 0:
-            print(f"✅ [Migration] LAST_ACCESSED_AT column already exists in {database}.{schema}.CASE_SESSIONS")
-            return
+        if result is not None and not result.empty:
+            # Get the count value - handle different possible column names
+            col_count = result.iloc[0, 0] if len(result.columns) > 0 else result.iloc[0].get('COL_COUNT', 0)
+            if col_count > 0:
+                print(f"✅ [Migration] LAST_ACCESSED_AT column already exists in {database}.{schema}.CASE_SESSIONS")
+                return
         
         # Add the column
         alter_query = f"""
@@ -3585,6 +3589,8 @@ def add_last_accessed_at_column(database, schema, connection_payload):
         
     except Exception as e:
         print(f"⚠️ [Migration] Error adding LAST_ACCESSED_AT column: {e}")
+        import traceback
+        traceback.print_exc()
         # Don't fail app startup if migration fails - column might already exist or permissions issue
 
 if __name__ == "__main__":
@@ -3603,15 +3609,12 @@ if __name__ == "__main__":
     print(f"SSO Enabled: {app.config['ENABLE_SSO']}")
     print(f"Development Mode Enabled: {app.config['DEV_MODE']}")
     
-    # Add LAST_ACCESSED_AT column to CASE_SESSIONS table (for DEV)
-    print(f"🔄 [Migration] Checking LAST_ACCESSED_AT column in {DATABASE}.{SCHEMA}.CASE_SESSIONS...")
-    add_last_accessed_at_column(DATABASE, SCHEMA, CONNECTION_PAYLOAD)
-    
-    # Also add to PROD schema if different
-    PROD_SCHEMA = "TEXTIO_SERVICES_INPUTS"
-    if SCHEMA != PROD_SCHEMA and PROD_PAYLOAD:
-        print(f"🔄 [Migration] Checking LAST_ACCESSED_AT column in {DATABASE}.{PROD_SCHEMA}.CASE_SESSIONS...")
-        add_last_accessed_at_column(DATABASE, PROD_SCHEMA, PROD_PAYLOAD)
+    # Add LAST_ACCESSED_AT column to CASE_SESSIONS table (DEV only)
+    if app.config['DEV_MODE']:
+        print(f"🔄 [Migration] Checking LAST_ACCESSED_AT column in {DATABASE}.{SCHEMA}.CASE_SESSIONS (DEV only)...")
+        add_last_accessed_at_column(DATABASE, SCHEMA, CONNECTION_PAYLOAD)
+    else:
+        print(f"ℹ️ [Migration] Skipping LAST_ACCESSED_AT migration (PROD mode - manual migration required)")
     
     app.run(host='127.0.0.1', port=8055)
 
