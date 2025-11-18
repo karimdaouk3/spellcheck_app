@@ -633,12 +633,12 @@ def get_user_cases():
         query = f"""
             SELECT cs.CASE_ID, cs.CASE_STATUS, cs.CASE_TITLE, cs.CRM_LAST_SYNC_TIME, cs.LAST_ACCESSED_AT
             FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS cs
-            LEFT JOIN {DATABASE}.{SCHEMA}.CASE_REVIEW cr ON cs.CASE_ID = cr.CASE_ID
+            LEFT JOIN {DATABASE}.{SCHEMA}.CASE_REVIEW cr ON cs.CASE_ID = cr.CASE_ID AND cr.USER_ID = %s
             WHERE cs.CREATED_BY_USER = %s
             AND cr.CASE_ID IS NULL
         """
         print(f"📊 [Backend] Executing query: {query}")
-        result = snowflake_query(query, CONNECTION_PAYLOAD, (user_id,))
+        result = snowflake_query(query, CONNECTION_PAYLOAD, (user_id, user_id))
         
         cases = []
         if result is not None and not result.empty:
