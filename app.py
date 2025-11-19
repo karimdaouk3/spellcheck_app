@@ -392,7 +392,25 @@ tool = lt.LanguageTool('en-US', remote_server='http://localhost:8081')
 app = Flask(__name__)
 app.secret_key = 'placeholder_key'
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
- 
+
+# Load configuration from config.yaml
+# This needs to run when the module is imported (for gunicorn) not just in __main__
+try:
+    with open("./config.yaml", 'r') as f:
+        config = yaml.safe_load(f)
+    app.config['ENABLE_SSO'] = config.get("AppConfig", {}).get("ENABLE_SSO", False)
+    app.config['DEV_MODE'] = config.get("AppConfig", {}).get("DEV_MODE", False)
+except FileNotFoundError:
+    # Fallback defaults if config.yaml is not found
+    app.config['ENABLE_SSO'] = False
+    app.config['DEV_MODE'] = False
+    print("Warning: config.yaml not found, using default values")
+except Exception as e:
+    # Fallback defaults if there's an error reading config
+    app.config['ENABLE_SSO'] = False
+    app.config['DEV_MODE'] = False
+    print(f"Warning: Error loading config.yaml: {e}, using default values")
+
  
 openai_api_key = "EMPTY"
 openai_api_base = "http://ca1pgpu02:8081/v1"
@@ -421,7 +439,7 @@ def prepare_flask_request(request):
  
 @app.route('/login')
 def login():
-    if not app.config['ENABLE_SSO']:
+    if not app.config.get('ENABLE_SSO', False):
         # Simulate login for development or non-SSO mode
         session["user_data"] = {
             "username": "pruthvi_venkataseeramreddi",
@@ -3464,15 +3482,16 @@ if __name__ == "__main__":
         config = yaml.safe_load(f)
     CONNECTION_PAYLOAD = config.get("Engineering_SAGE_SVC", {})
     PROD_PAYLOAD = config.get("Production_SAGE_SVC", {})
-    app.config['ENABLE_SSO'] = config.get("AppConfig", {}).get("ENABLE_SSO", True)
+    # Config already loaded above, but reload for consistency in __main__ mode
+    app.config['ENABLE_SSO'] = config.get("AppConfig", {}).get("ENABLE_SSO", False)
     app.config['DEV_MODE'] = config.get("AppConfig", {}).get("DEV_MODE", False)
     
     DATABASE = "SAGE"
     SCHEMA = "TEXTIO_SERVICES_INPUTS"
-    if app.config['DEV_MODE']:
+    if app.config.get('DEV_MODE', False):
         SCHEMA = f"DEV_{SCHEMA}"
-    print(f"SSO Enabled: {app.config['ENABLE_SSO']}")
-    print(f"Development Mode Enabled: {app.config['DEV_MODE']}")
+    print(f"SSO Enabled: {app.config.get('ENABLE_SSO', False)}")
+    print(f"Development Mode Enabled: {app.config.get('DEV_MODE', False)}")
     
     app.run(host='127.0.0.1', port=8055)
 
