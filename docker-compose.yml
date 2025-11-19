@@ -8,13 +8,13 @@ services:
       # Note: For build-time DNS, configure /etc/docker/daemon.json instead
       # See DOCKER_DNS_TROUBLESHOOTING.md for details
     ports:
-      - "5000:5000"
+      - "8055:8055"
     # DNS configuration for runtime (fixes DNS resolution issues)
     dns:
       - 8.8.8.8
       - 8.8.4.4
     environment:
-      - PORT=5000
+      - PORT=8055
       - FLASK_ENV=production
       - PYTHONUNBUFFERED=1
       # LanguageTool settings
@@ -27,7 +27,7 @@ services:
       - ./config.yaml:/app/config.yaml:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8055/health"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -73,7 +73,7 @@ export LT_URL="$LT_URL"
 echo "Starting Gunicorn with ${WEB_CONCURRENCY:-2} workers..."
 exec gunicorn \
     -w ${WEB_CONCURRENCY:-2} \
-    -b 0.0.0.0:${PORT:-5000} \
+    -b 0.0.0.0:${PORT:-8055} \
     --timeout 120 \
     --graceful-timeout 30 \
     --keep-alive 5 \

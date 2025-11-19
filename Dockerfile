@@ -33,11 +33,11 @@ COPY scripts/start.sh /start.sh
 RUN chmod +x /start.sh
 
 # Expose Flask port
-EXPOSE 5000
+EXPOSE 8055
 
 # Default environment
 ENV PYTHONUNBUFFERED=1 \
-    PORT=5000 \
+    PORT=8055 \
     FLASK_ENV=production
 
 # Start LanguageTool server then run the app via gunicorn
