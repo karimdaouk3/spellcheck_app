@@ -489,74 +489,107 @@ def login():
 
     req = prepare_flask_request(request)
     auth = init_saml_auth(req)
-    return redirect(auth.login(return_to='https://fsrcoach/api/sso_login'))
+    
+    # Build the return URL dynamically based on the request
+    # Use the request's scheme and host, or fall back to configured domain
+    if request.headers.get('X-Forwarded-Host'):
+        # If behind a proxy (nginx), use the forwarded host
+        host = request.headers.get('X-Forwarded-Host')
+        scheme = request.headers.get('X-Forwarded-Proto', 'https')
+    elif request.host:
+        # Use the request host
+        host = request.host
+        scheme = request.scheme
+    else:
+        # Fallback to configured domain (should match SAML ACS URL)
+        host = 'fsrcoach-dev.kla.com'
+        scheme = 'https'
+    
+    return_url = f"{scheme}://{host}/api/sso_login"
+    print(f"[DBG] SSO Login: Redirecting to SSO with return_to={return_url}")
+    return redirect(auth.login(return_to=return_url))
 
   
-@app.route('/api/sso_login', methods=['POST'])
+@app.route('/api/sso_login', methods=['POST', 'GET'])
 def acs():
-    post_data = request.form.copy()
-    saml_response = post_data.get('SAMLResponse')
- 
-    if saml_response:
-        decode_response = base64.b64decode(saml_response)
-        root = ET.fromstring(decode_response)
- 
-        attributes = {}
-        for attribute_element in root.iter('{urn:oasis:names:tc:SAML:2.0:assertion}Attribute'):
-            attribute_name = attribute_element.get('Name')
-            attribute_values = [value.text for value in attribute_element.iter('{urn:oasis:names:tc:SAML:2.0:assertion}AttributeValue')]
-            attributes[attribute_name] = attribute_values
- 
-        username = "{}".format(*attributes['username'])
-        email = "{}".format(*attributes['email'])
-        first_name = "{}".format(*attributes['firstname'])
-        last_name = "{}".format(*attributes['lastname'])
-        employee_id = "{}".format(*attributes['employeeID'])
+    """SAML Assertion Consumer Service (ACS) endpoint."""
+    try:
+        post_data = request.form.copy()
+        saml_response = post_data.get('SAMLResponse')
         
-        # Normalize email to uppercase for CRM compatibility (CRM expects uppercase emails)
-        email_upper = email.upper() if email else ""
-        
-        user_info = {
-            "username": username,
-            "email": email_upper,  # Store email in uppercase format for CRM compatibility
-            "first_name": first_name,
-            "last_name": last_name,
-            "employee_id": employee_id
-        }
-        
-        print(f"[DBG] SSO Login: Email from SSO: {email} -> Normalized to: {email_upper}")
+        # Also check GET parameters (some SAML providers use GET)
+        if not saml_response:
+            saml_response = request.args.get('SAMLResponse')
  
-        # Check if user already exists
-        check_query = f"SELECT COUNT(*) FROM {DATABASE}.{SCHEMA}.USER_INFORMATION WHERE EMPLOYEEID = %s"
-        check_params = (employee_id,)
-        result_df = snowflake_query(check_query, CONNECTION_PAYLOAD, check_params)
- 
-        # If user doesn't exist, insert them
-        if result_df.iloc[0, 0] == 0:
-            insert_query = f"""
-            INSERT INTO {DATABASE}.{SCHEMA}.USER_INFORMATION (FIRST_NAME, LAST_NAME, EMAIL, EMPLOYEEID)
-            VALUES (%s, %s, %s, %s)
-            """
-            # Use uppercase email format for consistency with CRM
-            insert_params = (first_name, last_name, email_upper, employee_id)
-            snowflake_query(insert_query, CONNECTION_PAYLOAD, insert_params, return_df=False)
- 
-        # Get user ID from USER_INFORMATION
-        get_id_query = f"SELECT ID FROM {DATABASE}.{SCHEMA}.USER_INFORMATION WHERE EMPLOYEEID = %s"
-        get_id_params = (employee_id,)
-        id_df = snowflake_query(get_id_query, CONNECTION_PAYLOAD, get_id_params)
-        user_id = int(id_df.iloc[0]["ID"])  # Convert to regular Python int
-        print(f"[DBG] Login: Retrieved user_id={user_id} for employee_id={employee_id}")
- 
-        # Add user_id to session data
-        user_info["user_id"] = user_id
-        session["user_data"] = user_info
-        print(f"[DBG] Login: Set session user_data={user_info}")
-        print(f"[DBG] Login: Session keys after setting={list(session.keys())}")
- 
-        return redirect(url_for('index'))
- 
-    return "No response"
+        if saml_response:
+            decode_response = base64.b64decode(saml_response)
+            root = ET.fromstring(decode_response)
+
+            attributes = {}
+            for attribute_element in root.iter('{urn:oasis:names:tc:SAML:2.0:assertion}Attribute'):
+                attribute_name = attribute_element.get('Name')
+                attribute_values = [value.text for value in attribute_element.iter('{urn:oasis:names:tc:SAML:2.0:assertion}AttributeValue')]
+                attributes[attribute_name] = attribute_values
+
+            username = "{}".format(*attributes['username'])
+            email = "{}".format(*attributes['email'])
+            first_name = "{}".format(*attributes['firstname'])
+            last_name = "{}".format(*attributes['lastname'])
+            employee_id = "{}".format(*attributes['employeeID'])
+            
+            # Normalize email to uppercase for CRM compatibility (CRM expects uppercase emails)
+            email_upper = email.upper() if email else ""
+            
+            user_info = {
+                "username": username,
+                "email": email_upper,  # Store email in uppercase format for CRM compatibility
+                "first_name": first_name,
+                "last_name": last_name,
+                "employee_id": employee_id
+            }
+            
+            print(f"[DBG] SSO Login: Email from SSO: {email} -> Normalized to: {email_upper}")
+
+            # Check if user already exists
+            check_query = f"SELECT COUNT(*) FROM {DATABASE}.{SCHEMA}.USER_INFORMATION WHERE EMPLOYEEID = %s"
+            check_params = (employee_id,)
+            result_df = snowflake_query(check_query, CONNECTION_PAYLOAD, check_params)
+
+            # If user doesn't exist, insert them
+            if result_df.iloc[0, 0] == 0:
+                insert_query = f"""
+                INSERT INTO {DATABASE}.{SCHEMA}.USER_INFORMATION (FIRST_NAME, LAST_NAME, EMAIL, EMPLOYEEID)
+                VALUES (%s, %s, %s, %s)
+                """
+                # Use uppercase email format for consistency with CRM
+                insert_params = (first_name, last_name, email_upper, employee_id)
+                snowflake_query(insert_query, CONNECTION_PAYLOAD, insert_params, return_df=False)
+
+            # Get user ID from USER_INFORMATION
+            get_id_query = f"SELECT ID FROM {DATABASE}.{SCHEMA}.USER_INFORMATION WHERE EMPLOYEEID = %s"
+            get_id_params = (employee_id,)
+            id_df = snowflake_query(get_id_query, CONNECTION_PAYLOAD, get_id_params)
+            user_id = int(id_df.iloc[0]["ID"])  # Convert to regular Python int
+            print(f"[DBG] Login: Retrieved user_id={user_id} for employee_id={employee_id}")
+
+            # Add user_id to session data
+            user_info["user_id"] = user_id
+            session["user_data"] = user_info
+            print(f"[DBG] Login: Set session user_data={user_info}")
+            print(f"[DBG] Login: Session keys after setting={list(session.keys())}")
+
+            return redirect(url_for('index'))
+        else:
+            print(f"[ERROR] SSO Login: No SAMLResponse received")
+            print(f"[ERROR] Request method: {request.method}")
+            print(f"[ERROR] Request form data: {dict(request.form)}")
+            print(f"[ERROR] Request args: {dict(request.args)}")
+            return "No SAML response received", 400
+    except Exception as e:
+        print(f"[ERROR] SSO Login exception: {e}")
+        import traceback
+        traceback.print_exc()
+        return f"SSO login error: {str(e)}", 500
  
  
 @app.route('/health')
