@@ -3,7 +3,8 @@
 FROM python:3.11-slim
 
 # Install system deps: Java for LanguageTool, curl, unzip
-RUN apt-get update && apt-get install -y --no-install-recommends openjdk-17-jre-headless curl unzip && rm -rf /var/lib/apt/lists/*
+# Using openjdk-21-jre-headless (Java 17 not available in Debian Trixie)
+RUN apt-get update && apt-get install -y --no-install-recommends openjdk-21-jre-headless curl unzip && rm -rf /var/lib/apt/lists/*
 
 # Download and install LanguageTool server
 ENV LT_VERSION=6.4
