@@ -130,8 +130,11 @@ fi
 # Step 8: Check if user is in docker group
 echo "📋 Step 8: Checking user groups..."
 CURRENT_USER=$(whoami)
-if groups | grep -q docker; then
+# Use id command instead of groups to avoid hanging - it's faster and more reliable
+if id -nG 2>/dev/null | grep -q docker || id -Gn 2>/dev/null | grep -q docker; then
     print_test "pass" "User '$CURRENT_USER' is in docker group"
+elif getent group docker 2>/dev/null | grep -q "$CURRENT_USER"; then
+    print_test "pass" "User '$CURRENT_USER' is in docker group (checked via getent)"
 else
     print_test "warn" "User '$CURRENT_USER' is NOT in docker group"
     echo "   Add with: sudo usermod -aG docker $CURRENT_USER"
