@@ -5,8 +5,18 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # Add DNS configuration for build if needed
+      # Uncomment and set your DNS servers if you have DNS issues:
+      # dns:
+      #   - 8.8.8.8
+      #   - 8.8.4.4
     ports:
       - "5000:5000"
+    # Add DNS configuration for runtime if needed
+    # Uncomment if you have DNS resolution issues:
+    # dns:
+    #   - 8.8.8.8
+    #   - 8.8.4.4
     environment:
       - PORT=5000
       - FLASK_ENV=production

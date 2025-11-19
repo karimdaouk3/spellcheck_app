@@ -107,12 +107,20 @@ else
     echo ""
 fi
 
-# Step 6: Test Docker info
-echo "📋 Step 6: Testing Docker info..."
+# Step 6: Test Docker info and check DNS configuration
+echo "📋 Step 6: Testing Docker info and DNS configuration..."
 if $DOCKER_CMD info &> /dev/null; then
     DOCKER_INFO=$($DOCKER_CMD info 2>&1 | head -n 5)
     print_test "pass" "Docker daemon is accessible"
     echo "   $DOCKER_INFO" | head -n 3 | sed 's/^/   /'
+    
+    # Check if DNS is configured in Docker
+    DOCKER_DNS=$($DOCKER_CMD info 2>&1 | grep -i "DNS" || true)
+    if [ -n "$DOCKER_DNS" ]; then
+        echo "   Docker DNS: $DOCKER_DNS" | sed 's/^/   /'
+    else
+        echo "   Note: No custom DNS configured (using system default)"
+    fi
 else
     print_test "fail" "Cannot get Docker info"
     echo ""
@@ -142,10 +150,18 @@ else
     echo ""
 fi
 
-# Step 9: Check docker-compose.yml exists
-echo "📋 Step 9: Checking project files..."
+# Step 9: Check docker-compose.yml exists and DNS configuration
+echo "📋 Step 9: Checking project files and DNS configuration..."
 if [ -f "docker-compose.yml" ]; then
     print_test "pass" "docker-compose.yml exists"
+    
+    # Check if DNS is configured in docker-compose.yml
+    if grep -q "^\s*dns:" docker-compose.yml 2>/dev/null || grep -q "^\s*-\s*8.8.8.8" docker-compose.yml 2>/dev/null; then
+        echo "   ✓ DNS is configured in docker-compose.yml"
+    else
+        echo "   ⚠ DNS not configured in docker-compose.yml"
+        echo "   If you have DNS issues, uncomment DNS settings in docker-compose.yml"
+    fi
 else
     print_test "fail" "docker-compose.yml not found in current directory"
     echo "   Make sure you're in the project root directory"
@@ -159,19 +175,59 @@ else
     echo ""
 fi
 
-# Step 10: Test a simple Docker command
-echo "📋 Step 10: Testing Docker pull (optional)..."
-if $DOCKER_CMD pull hello-world &> /dev/null; then
-    print_test "pass" "Can pull Docker images"
-    # Clean up
-    $DOCKER_CMD rmi hello-world &> /dev/null || true
+# Step 10: Test DNS resolution from host
+echo "📋 Step 10: Testing DNS resolution from host..."
+if command -v nslookup &> /dev/null; then
+    if nslookup deb.debian.org &> /dev/null; then
+        print_test "pass" "Host can resolve deb.debian.org (needed for Docker build)"
+    else
+        print_test "fail" "Host cannot resolve deb.debian.org"
+        echo "   This will cause Docker build to fail"
+        echo "   Check your DNS settings: cat /etc/resolv.conf"
+        echo ""
+    fi
+elif command -v dig &> /dev/null; then
+    if dig +short deb.debian.org &> /dev/null; then
+        print_test "pass" "Host can resolve deb.debian.org (needed for Docker build)"
+    else
+        print_test "fail" "Host cannot resolve deb.debian.org"
+        echo "   This will cause Docker build to fail"
+        echo "   Check your DNS settings: cat /etc/resolv.conf"
+        echo ""
+    fi
 else
-    print_test "warn" "Cannot pull Docker images (may be network issue)"
+    print_test "warn" "Cannot test DNS (nslookup/dig not available)"
     echo ""
 fi
 
-# Step 11: Check config.yaml
-echo "📋 Step 11: Checking configuration..."
+# Step 11: Test DNS resolution from Docker container
+echo "📋 Step 11: Testing DNS resolution from Docker container..."
+if $DOCKER_CMD run --rm --dns 8.8.8.8 alpine nslookup deb.debian.org &> /dev/null; then
+    print_test "pass" "Docker can resolve DNS (with Google DNS)"
+elif $DOCKER_CMD run --rm alpine nslookup deb.debian.org &> /dev/null; then
+    print_test "pass" "Docker can resolve DNS (with default DNS)"
+else
+    print_test "fail" "Docker cannot resolve DNS"
+    echo "   This will cause 'Temporary failure resolving' errors during build"
+    echo "   Fix: Add DNS to docker-compose.yml or /etc/docker/daemon.json"
+    echo "   See: DOCKER_DNS_TROUBLESHOOTING.md"
+    echo ""
+fi
+
+# Step 12: Test Docker pull (network connectivity)
+echo "📋 Step 12: Testing Docker pull (network connectivity)..."
+if $DOCKER_CMD pull hello-world &> /dev/null; then
+    print_test "pass" "Can pull Docker images (network connectivity OK)"
+    # Clean up
+    $DOCKER_CMD rmi hello-world &> /dev/null || true
+else
+    print_test "warn" "Cannot pull Docker images (may be network/DNS issue)"
+    echo "   This might indicate DNS or network connectivity problems"
+    echo ""
+fi
+
+# Step 13: Check config.yaml
+echo "📋 Step 13: Checking configuration..."
 if [ -f "config.yaml" ]; then
     print_test "pass" "config.yaml exists"
 elif [ -f "config.yaml.example" ]; then
