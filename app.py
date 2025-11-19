@@ -443,41 +443,49 @@ try:
     # Database connection payloads (needed for gunicorn)
     # Load from config.yaml - this overrides any value from utils
     CONNECTION_PAYLOAD = config.get("Engineering_SAGE_SVC", {})
-    
     PROD_PAYLOAD = config.get("Production_SAGE_SVC", {})
     
     # Database and schema configuration (needed for gunicorn)
-    DATABASE = "SAGE"
-    SCHEMA = "TEXTIO_SERVICES_INPUTS"
+    # Read from config.yaml based on DEV_MODE
     if app.config.get('DEV_MODE', False):
-        SCHEMA = f"DEV_{SCHEMA}"
+        # Use Engineering (dev) connection for DEV_MODE
+        DATABASE = CONNECTION_PAYLOAD.get("database", "SAGE")
+        SCHEMA = CONNECTION_PAYLOAD.get("schema", "DEV_TEXTIO_SERVICES_INPUTS")
+    else:
+        # Use Production connection for production mode
+        DATABASE = PROD_PAYLOAD.get("database", "SAGE")
+        SCHEMA = PROD_PAYLOAD.get("schema", "TEXTIO_SERVICES_INPUTS")
     
-    print(f"[Config] Loaded config.yaml - SSO: {app.config.get('ENABLE_SSO')}, DEV_MODE: {app.config.get('DEV_MODE')}, SCHEMA: {SCHEMA}")
+    print(f"[Config] Loaded config.yaml - SSO: {app.config.get('ENABLE_SSO')}, DEV_MODE: {app.config.get('DEV_MODE')}, DATABASE: {DATABASE}, SCHEMA: {SCHEMA}")
     
 except FileNotFoundError:
     # Fallback defaults if config.yaml is not found
     app.config['ENABLE_SSO'] = False
     app.config['DEV_MODE'] = False
+    
+    # Set empty connection payloads as fallback
+    CONNECTION_PAYLOAD = {}
+    PROD_PAYLOAD = {}
+    
+    # Fallback database/schema values
     DATABASE = "SAGE"
     SCHEMA = "TEXTIO_SERVICES_INPUTS"
     
-    # Set empty CONNECTION_PAYLOAD as fallback
-    CONNECTION_PAYLOAD = {}
-    
-    PROD_PAYLOAD = {}
     print("Warning: config.yaml not found, using default values")
     
 except Exception as e:
     # Fallback defaults if there's an error reading config
     app.config['ENABLE_SSO'] = False
     app.config['DEV_MODE'] = False
+    
+    # Set empty connection payloads as fallback
+    CONNECTION_PAYLOAD = {}
+    PROD_PAYLOAD = {}
+    
+    # Fallback database/schema values
     DATABASE = "SAGE"
     SCHEMA = "TEXTIO_SERVICES_INPUTS"
     
-    # Set empty CONNECTION_PAYLOAD as fallback
-    CONNECTION_PAYLOAD = {}
-    
-    PROD_PAYLOAD = {}
     print(f"Warning: Error loading config.yaml: {e}, using default values")
 
  
