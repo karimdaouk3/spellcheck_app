@@ -22,10 +22,11 @@ from onelogin.saml2.auth import OneLogin_Saml2_Auth
 from onelogin.saml2.settings import OneLogin_Saml2_Settings
 from utils import (
     SYSTEM_PROMPT,
-    ACTIVE_MODEL_CONFIG
+    ACTIVE_MODEL_CONFIG,
+    CONNECTION_PAYLOAD as UTILS_CONNECTION_PAYLOAD
 )
-# Note: CONNECTION_PAYLOAD is now loaded from config.yaml at module level
-# to ensure it's available when running under gunicorn
+# Note: CONNECTION_PAYLOAD from utils is used as default,
+# but can be overridden by config.yaml if needed
 from snowflakeconnection import snowflake_query
 
 # ==================== EXTERNAL CRM INTEGRATION ====================
@@ -441,8 +442,14 @@ try:
     app.config['DEV_MODE'] = config.get("AppConfig", {}).get("DEV_MODE", False)
     
     # Database connection payloads (needed for gunicorn)
-    # Load from config.yaml - this overrides any value from utils
-    CONNECTION_PAYLOAD = config.get("Engineering_SAGE_SVC", {})
+    # Use CONNECTION_PAYLOAD from utils if available, otherwise load from config.yaml
+    # This maintains the original pattern where utils provides the default
+    if UTILS_CONNECTION_PAYLOAD:
+        CONNECTION_PAYLOAD = UTILS_CONNECTION_PAYLOAD
+    else:
+        CONNECTION_PAYLOAD = config.get("Engineering_SAGE_SVC", {})
+    
+    # PROD_PAYLOAD always comes from config.yaml
     PROD_PAYLOAD = config.get("Production_SAGE_SVC", {})
     
     # Database and schema configuration (needed for gunicorn)
@@ -463,8 +470,8 @@ except FileNotFoundError:
     app.config['ENABLE_SSO'] = False
     app.config['DEV_MODE'] = False
     
-    # Set empty connection payloads as fallback
-    CONNECTION_PAYLOAD = {}
+    # Use CONNECTION_PAYLOAD from utils as fallback if config.yaml not found
+    CONNECTION_PAYLOAD = UTILS_CONNECTION_PAYLOAD if UTILS_CONNECTION_PAYLOAD else {}
     PROD_PAYLOAD = {}
     
     # Fallback database/schema values
@@ -478,8 +485,8 @@ except Exception as e:
     app.config['ENABLE_SSO'] = False
     app.config['DEV_MODE'] = False
     
-    # Set empty connection payloads as fallback
-    CONNECTION_PAYLOAD = {}
+    # Use CONNECTION_PAYLOAD from utils as fallback if config.yaml not found
+    CONNECTION_PAYLOAD = UTILS_CONNECTION_PAYLOAD if UTILS_CONNECTION_PAYLOAD else {}
     PROD_PAYLOAD = {}
     
     # Fallback database/schema values
@@ -592,41 +599,27 @@ def acs():
             
             print(f"[DBG] SSO Login: Email from SSO: {email} -> Normalized to: {email_upper}")
 
-            # Optimized: Use MERGE to insert or update user, then get ID in one operation
-            # This reduces 3 queries to 2 queries (or 1 if we can combine further)
-            try:
-                # First, try to get user ID (most common case - user exists)
-                get_id_query = f"SELECT ID FROM {DATABASE}.{SCHEMA}.USER_INFORMATION WHERE EMPLOYEEID = %s"
-                get_id_params = (employee_id,)
-                id_df = snowflake_query(get_id_query, CONNECTION_PAYLOAD, get_id_params)
-                
-                if id_df is not None and not id_df.empty:
-                    # User exists, get the ID
-                    user_id = int(id_df.iloc[0]["ID"])
-                    print(f"[DBG] Login: User exists, retrieved user_id={user_id} for employee_id={employee_id}")
-                else:
-                    # User doesn't exist, insert and get ID
-                    print(f"[DBG] Login: User doesn't exist, inserting new user for employee_id={employee_id}")
-                    insert_query = f"""
-                    INSERT INTO {DATABASE}.{SCHEMA}.USER_INFORMATION (FIRST_NAME, LAST_NAME, EMAIL, EMPLOYEEID)
-                    VALUES (%s, %s, %s, %s)
-                    """
-                    # Use uppercase email format for consistency with CRM
-                    insert_params = (first_name, last_name, email_upper, employee_id)
-                    snowflake_query(insert_query, CONNECTION_PAYLOAD, insert_params, return_df=False)
-                    
-                    # Get the newly inserted user ID
-                    id_df = snowflake_query(get_id_query, CONNECTION_PAYLOAD, get_id_params)
-                    if id_df is not None and not id_df.empty:
-                        user_id = int(id_df.iloc[0]["ID"])
-                        print(f"[DBG] Login: Inserted new user, retrieved user_id={user_id} for employee_id={employee_id}")
-                    else:
-                        raise Exception("Failed to retrieve user_id after insert")
-            except Exception as db_error:
-                print(f"[ERROR] SSO Login database error: {db_error}")
-                # Fallback: try to continue without user_id (set to 0)
-                user_id = 0
-                print(f"[WARN] SSO Login: Continuing with user_id=0 due to database error")
+            # Check if user already exists
+            check_query = f"SELECT COUNT(*) FROM {DATABASE}.{SCHEMA}.USER_INFORMATION WHERE EMPLOYEEID = %s"
+            check_params = (employee_id,)
+            result_df = snowflake_query(check_query, CONNECTION_PAYLOAD, check_params)
+
+            # If user doesn't exist, insert them
+            if result_df.iloc[0, 0] == 0:
+                insert_query = f"""
+                INSERT INTO {DATABASE}.{SCHEMA}.USER_INFORMATION (FIRST_NAME, LAST_NAME, EMAIL, EMPLOYEEID)
+                VALUES (%s, %s, %s, %s)
+                """
+                # Use uppercase email format for consistency with CRM
+                insert_params = (first_name, last_name, email_upper, employee_id)
+                snowflake_query(insert_query, CONNECTION_PAYLOAD, insert_params, return_df=False)
+
+            # Get user ID from USER_INFORMATION
+            get_id_query = f"SELECT ID FROM {DATABASE}.{SCHEMA}.USER_INFORMATION WHERE EMPLOYEEID = %s"
+            get_id_params = (employee_id,)
+            id_df = snowflake_query(get_id_query, CONNECTION_PAYLOAD, get_id_params)
+            user_id = int(id_df.iloc[0]["ID"])  # Convert to regular Python int
+            print(f"[DBG] Login: Retrieved user_id={user_id} for employee_id={employee_id}")
 
             # Add user_id to session data
             user_info["user_id"] = user_id
