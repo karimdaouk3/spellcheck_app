@@ -149,31 +149,54 @@ echo ""
 echo -e "${CYAN}📋 Step 4: Process Status Inside Container${NC}"
 echo "----------------------------------------"
 if [ -n "$CONTAINER_NAME" ]; then
-    # Check if gunicorn is running
-    GUNICORN_PROCESS=$($DOCKER_CMD exec $CONTAINER_NAME ps aux 2>/dev/null | grep -i gunicorn | grep -v grep || echo "")
-    if [ -n "$GUNICORN_PROCESS" ]; then
-        print_test "pass" "Gunicorn process is running"
-        echo "$GUNICORN_PROCESS" | head -1 | sed 's/^/   /'
+    # Check if ps command is available
+    HAS_PS=$($DOCKER_CMD exec $CONTAINER_NAME sh -c "command -v ps > /dev/null 2>&1 && echo yes || echo no" 2>/dev/null)
+    
+    if [ "$HAS_PS" = "yes" ]; then
+        # Check if gunicorn is running
+        GUNICORN_PROCESS=$($DOCKER_CMD exec $CONTAINER_NAME ps aux 2>/dev/null | grep -i gunicorn | grep -v grep || echo "")
+        if [ -n "$GUNICORN_PROCESS" ]; then
+            print_test "pass" "Gunicorn process is running"
+            echo "$GUNICORN_PROCESS" | head -1 | sed 's/^/   /'
+        else
+            print_test "warn" "Gunicorn process NOT found in ps output"
+            echo "   (This may be a false positive if ps format differs)"
+        fi
+        
+        # Check if LanguageTool Java process is running
+        JAVA_PROCESS=$($DOCKER_CMD exec $CONTAINER_NAME ps aux 2>/dev/null | grep -i java | grep -v grep || echo "")
+        if [ -n "$JAVA_PROCESS" ]; then
+            print_test "pass" "LanguageTool Java process is running"
+        else
+            print_test "warn" "LanguageTool Java process NOT found in ps output"
+        fi
+        
+        # Check Python processes
+        PYTHON_PROCESSES=$($DOCKER_CMD exec $CONTAINER_NAME ps aux 2>/dev/null | grep -i python | grep -v grep | wc -l)
+        if [ "$PYTHON_PROCESSES" -gt 0 ]; then
+            print_test "pass" "Found $PYTHON_PROCESSES Python process(es)"
+        else
+            print_test "warn" "No Python processes found in ps output"
+            echo "   (Checking via alternative methods...)"
+        fi
     else
-        print_test "fail" "Gunicorn process NOT found"
-        echo "   The Flask app may have crashed"
+        print_test "warn" "ps command not available in container"
+        echo "   Using alternative process detection methods..."
     fi
     
-    # Check if LanguageTool Java process is running
-    JAVA_PROCESS=$($DOCKER_CMD exec $CONTAINER_NAME ps aux 2>/dev/null | grep -i java | grep -v grep || echo "")
-    if [ -n "$JAVA_PROCESS" ]; then
-        print_test "pass" "LanguageTool Java process is running"
-    else
-        print_test "warn" "LanguageTool Java process NOT found"
-        echo "   LanguageTool may not have started"
+    # Alternative: Check if processes are responding via health checks
+    # If health endpoint works, processes must be running
+    if curl -s --connect-timeout 2 http://localhost:5000/health > /dev/null 2>&1; then
+        print_test "pass" "Application is responding (processes are running)"
+        echo "   Health check confirms Flask/Gunicorn is active"
     fi
     
-    # Check Python processes
-    PYTHON_PROCESSES=$($DOCKER_CMD exec $CONTAINER_NAME ps aux 2>/dev/null | grep -i python | grep -v grep | wc -l)
-    if [ "$PYTHON_PROCESSES" -gt 0 ]; then
-        print_test "pass" "Found $PYTHON_PROCESSES Python process(es)"
-    else
-        print_test "fail" "No Python processes found"
+    # Check via /proc if available
+    if $DOCKER_CMD exec $CONTAINER_NAME test -d /proc 2>/dev/null; then
+        PYTHON_PIDS=$($DOCKER_CMD exec $CONTAINER_NAME sh -c "ls /proc/*/comm 2>/dev/null | xargs grep -l python 2>/dev/null | wc -l" 2>/dev/null || echo "0")
+        if [ "$PYTHON_PIDS" != "0" ] && [ -n "$PYTHON_PIDS" ]; then
+            print_test "pass" "Found Python processes via /proc ($PYTHON_PIDS process(es))"
+        fi
     fi
 else
     print_test "warn" "Cannot check processes (container not found)"
@@ -187,11 +210,31 @@ if [ -n "$CONTAINER_NAME" ]; then
     NETWORK_MODE=$($DOCKER_CMD inspect --format='{{.HostConfig.NetworkMode}}' $CONTAINER_NAME 2>/dev/null)
     print_test "pass" "Container network mode: $NETWORK_MODE"
     
-    # Check if container can reach itself
-    if $DOCKER_CMD exec $CONTAINER_NAME ping -c 1 localhost > /dev/null 2>&1; then
-        print_test "pass" "Container network connectivity OK"
-    else
-        print_test "fail" "Container network connectivity issues"
+    # Check if container can reach itself (try multiple methods)
+    NETWORK_OK=false
+    
+    # Try ping if available
+    if $DOCKER_CMD exec $CONTAINER_NAME sh -c "command -v ping > /dev/null 2>&1" 2>/dev/null; then
+        if $DOCKER_CMD exec $CONTAINER_NAME ping -c 1 localhost > /dev/null 2>&1; then
+            print_test "pass" "Container network connectivity OK (ping test)"
+            NETWORK_OK=true
+        fi
+    fi
+    
+    # Alternative: Test via curl/http
+    if [ "$NETWORK_OK" = false ]; then
+        if $DOCKER_CMD exec $CONTAINER_NAME curl -s --connect-timeout 2 http://localhost:5000/health > /dev/null 2>&1; then
+            print_test "pass" "Container network connectivity OK (HTTP test)"
+            NETWORK_OK=true
+        elif $DOCKER_CMD exec $CONTAINER_NAME sh -c "echo > /dev/tcp/localhost/5000" 2>/dev/null; then
+            print_test "pass" "Container network connectivity OK (TCP test)"
+            NETWORK_OK=true
+        fi
+    fi
+    
+    if [ "$NETWORK_OK" = false ]; then
+        print_test "warn" "Could not verify container network connectivity"
+        echo "   (ping/curl may not be available, but app is responding externally)"
     fi
 fi
 
