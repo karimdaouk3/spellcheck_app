@@ -2,13 +2,16 @@
 
 FROM python:3.11-slim
 
-# Install system deps: Java for LanguageTool, curl, unzip
-# Using openjdk-21-jre-headless (Java 17 not available in Debian Trixie)
-RUN apt-get update && apt-get install -y --no-install-recommends openjdk-21-jre-headless curl unzip && rm -rf /var/lib/apt/lists/*
+# Install system deps: Java for LanguageTool, unzip
+# Using openjdk-21 as openjdk-17 is not available in Debian Trixie
+RUN apt-get update && apt-get install -y --no-install-recommends openjdk-21-jre-headless unzip && rm -rf /var/lib/apt/lists/*
 
-# Download and install LanguageTool server
-ENV LT_VERSION=6.4
-RUN mkdir -p /opt && curl -fsSL -o /tmp/LanguageTool-${LT_VERSION}.zip https://languagetool.org/download/LanguageTool-${LT_VERSION}.zip && unzip -q /tmp/LanguageTool-${LT_VERSION}.zip -d /opt && mv /opt/LanguageTool-${LT_VERSION} /opt/LanguageTool && rm -f /tmp/LanguageTool-${LT_VERSION}.zip
+# Copy and install LanguageTool server from local file
+COPY LanguageTool-stable.zip /tmp/LanguageTool-stable.zip
+RUN mkdir -p /opt && unzip -q /tmp/LanguageTool-stable.zip -d /opt && \
+    LT_DIR=$(find /opt -maxdepth 1 -type d -name "LanguageTool*" | head -1) && \
+    mv "$LT_DIR" /opt/LanguageTool && \
+    rm -f /tmp/LanguageTool-stable.zip
 
 # Create app directory
 WORKDIR /app
