@@ -26,10 +26,10 @@ server {
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Forwarded-Port $server_port;
         
-        # Timeouts for long-running requests
-        proxy_connect_timeout 120s;
-        proxy_send_timeout 120s;
-        proxy_read_timeout 120s;
+        # Timeouts for long-running requests (increased for database operations)
+        proxy_connect_timeout 180s;
+        proxy_send_timeout 180s;
+        proxy_read_timeout 180s;
         
         # Buffer settings
         proxy_buffering off;

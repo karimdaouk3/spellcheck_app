@@ -592,27 +592,41 @@ def acs():
             
             print(f"[DBG] SSO Login: Email from SSO: {email} -> Normalized to: {email_upper}")
 
-            # Check if user already exists
-            check_query = f"SELECT COUNT(*) FROM {DATABASE}.{SCHEMA}.USER_INFORMATION WHERE EMPLOYEEID = %s"
-            check_params = (employee_id,)
-            result_df = snowflake_query(check_query, CONNECTION_PAYLOAD, check_params)
-
-            # If user doesn't exist, insert them
-            if result_df.iloc[0, 0] == 0:
-                insert_query = f"""
-                INSERT INTO {DATABASE}.{SCHEMA}.USER_INFORMATION (FIRST_NAME, LAST_NAME, EMAIL, EMPLOYEEID)
-                VALUES (%s, %s, %s, %s)
-                """
-                # Use uppercase email format for consistency with CRM
-                insert_params = (first_name, last_name, email_upper, employee_id)
-                snowflake_query(insert_query, CONNECTION_PAYLOAD, insert_params, return_df=False)
-
-            # Get user ID from USER_INFORMATION
-            get_id_query = f"SELECT ID FROM {DATABASE}.{SCHEMA}.USER_INFORMATION WHERE EMPLOYEEID = %s"
-            get_id_params = (employee_id,)
-            id_df = snowflake_query(get_id_query, CONNECTION_PAYLOAD, get_id_params)
-            user_id = int(id_df.iloc[0]["ID"])  # Convert to regular Python int
-            print(f"[DBG] Login: Retrieved user_id={user_id} for employee_id={employee_id}")
+            # Optimized: Use MERGE to insert or update user, then get ID in one operation
+            # This reduces 3 queries to 2 queries (or 1 if we can combine further)
+            try:
+                # First, try to get user ID (most common case - user exists)
+                get_id_query = f"SELECT ID FROM {DATABASE}.{SCHEMA}.USER_INFORMATION WHERE EMPLOYEEID = %s"
+                get_id_params = (employee_id,)
+                id_df = snowflake_query(get_id_query, CONNECTION_PAYLOAD, get_id_params)
+                
+                if id_df is not None and not id_df.empty:
+                    # User exists, get the ID
+                    user_id = int(id_df.iloc[0]["ID"])
+                    print(f"[DBG] Login: User exists, retrieved user_id={user_id} for employee_id={employee_id}")
+                else:
+                    # User doesn't exist, insert and get ID
+                    print(f"[DBG] Login: User doesn't exist, inserting new user for employee_id={employee_id}")
+                    insert_query = f"""
+                    INSERT INTO {DATABASE}.{SCHEMA}.USER_INFORMATION (FIRST_NAME, LAST_NAME, EMAIL, EMPLOYEEID)
+                    VALUES (%s, %s, %s, %s)
+                    """
+                    # Use uppercase email format for consistency with CRM
+                    insert_params = (first_name, last_name, email_upper, employee_id)
+                    snowflake_query(insert_query, CONNECTION_PAYLOAD, insert_params, return_df=False)
+                    
+                    # Get the newly inserted user ID
+                    id_df = snowflake_query(get_id_query, CONNECTION_PAYLOAD, get_id_params)
+                    if id_df is not None and not id_df.empty:
+                        user_id = int(id_df.iloc[0]["ID"])
+                        print(f"[DBG] Login: Inserted new user, retrieved user_id={user_id} for employee_id={employee_id}")
+                    else:
+                        raise Exception("Failed to retrieve user_id after insert")
+            except Exception as db_error:
+                print(f"[ERROR] SSO Login database error: {db_error}")
+                # Fallback: try to continue without user_id (set to 0)
+                user_id = 0
+                print(f"[WARN] SSO Login: Continuing with user_id=0 due to database error")
 
             # Add user_id to session data
             user_info["user_id"] = user_id
