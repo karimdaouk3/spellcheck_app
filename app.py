@@ -435,15 +435,25 @@ try:
         config = yaml.safe_load(f)
     app.config['ENABLE_SSO'] = config.get("AppConfig", {}).get("ENABLE_SSO", False)
     app.config['DEV_MODE'] = config.get("AppConfig", {}).get("DEV_MODE", False)
+    
+    # Set DATABASE and SCHEMA based on config (needed for gunicorn)
+    DATABASE = "SAGE"
+    SCHEMA = "TEXTIO_SERVICES_INPUTS"
+    if app.config.get('DEV_MODE', False):
+        SCHEMA = f"DEV_{SCHEMA}"
 except FileNotFoundError:
     # Fallback defaults if config.yaml is not found
     app.config['ENABLE_SSO'] = False
     app.config['DEV_MODE'] = False
+    DATABASE = "SAGE"
+    SCHEMA = "TEXTIO_SERVICES_INPUTS"
     print("Warning: config.yaml not found, using default values")
 except Exception as e:
     # Fallback defaults if there's an error reading config
     app.config['ENABLE_SSO'] = False
     app.config['DEV_MODE'] = False
+    DATABASE = "SAGE"
+    SCHEMA = "TEXTIO_SERVICES_INPUTS"
     print(f"Warning: Error loading config.yaml: {e}, using default values")
 
  
