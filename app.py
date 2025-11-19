@@ -22,9 +22,10 @@ from onelogin.saml2.auth import OneLogin_Saml2_Auth
 from onelogin.saml2.settings import OneLogin_Saml2_Settings
 from utils import (
     SYSTEM_PROMPT,
-    ACTIVE_MODEL_CONFIG,
-    CONNECTION_PAYLOAD
+    ACTIVE_MODEL_CONFIG
 )
+# Note: CONNECTION_PAYLOAD is now loaded from config.yaml at module level
+# to ensure it's available when running under gunicorn
 from snowflakeconnection import snowflake_query
 
 # ==================== EXTERNAL CRM INTEGRATION ====================
@@ -430,30 +431,53 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
 # Load configuration from config.yaml
 # This needs to run when the module is imported (for gunicorn) not just in __main__
+# All config values must be defined here so they're available when running under gunicorn
 try:
     with open("./config.yaml", 'r') as f:
         config = yaml.safe_load(f)
+    
+    # App configuration
     app.config['ENABLE_SSO'] = config.get("AppConfig", {}).get("ENABLE_SSO", False)
     app.config['DEV_MODE'] = config.get("AppConfig", {}).get("DEV_MODE", False)
     
-    # Set DATABASE and SCHEMA based on config (needed for gunicorn)
+    # Database connection payloads (needed for gunicorn)
+    # Load from config.yaml - this overrides any value from utils
+    CONNECTION_PAYLOAD = config.get("Engineering_SAGE_SVC", {})
+    
+    PROD_PAYLOAD = config.get("Production_SAGE_SVC", {})
+    
+    # Database and schema configuration (needed for gunicorn)
     DATABASE = "SAGE"
     SCHEMA = "TEXTIO_SERVICES_INPUTS"
     if app.config.get('DEV_MODE', False):
         SCHEMA = f"DEV_{SCHEMA}"
+    
+    print(f"[Config] Loaded config.yaml - SSO: {app.config.get('ENABLE_SSO')}, DEV_MODE: {app.config.get('DEV_MODE')}, SCHEMA: {SCHEMA}")
+    
 except FileNotFoundError:
     # Fallback defaults if config.yaml is not found
     app.config['ENABLE_SSO'] = False
     app.config['DEV_MODE'] = False
     DATABASE = "SAGE"
     SCHEMA = "TEXTIO_SERVICES_INPUTS"
+    
+    # Set empty CONNECTION_PAYLOAD as fallback
+    CONNECTION_PAYLOAD = {}
+    
+    PROD_PAYLOAD = {}
     print("Warning: config.yaml not found, using default values")
+    
 except Exception as e:
     # Fallback defaults if there's an error reading config
     app.config['ENABLE_SSO'] = False
     app.config['DEV_MODE'] = False
     DATABASE = "SAGE"
     SCHEMA = "TEXTIO_SERVICES_INPUTS"
+    
+    # Set empty CONNECTION_PAYLOAD as fallback
+    CONNECTION_PAYLOAD = {}
+    
+    PROD_PAYLOAD = {}
     print(f"Warning: Error loading config.yaml: {e}, using default values")
 
  
@@ -3560,20 +3584,12 @@ def get_case_history():
 
 if __name__ == "__main__":
     print("Starting LanguageTool Flask App...")
-    with open("./config.yaml", 'r') as f:
-        config = yaml.safe_load(f)
-    CONNECTION_PAYLOAD = config.get("Engineering_SAGE_SVC", {})
-    PROD_PAYLOAD = config.get("Production_SAGE_SVC", {})
-    # Config already loaded above, but reload for consistency in __main__ mode
-    app.config['ENABLE_SSO'] = config.get("AppConfig", {}).get("ENABLE_SSO", False)
-    app.config['DEV_MODE'] = config.get("AppConfig", {}).get("DEV_MODE", False)
-    
-    DATABASE = "SAGE"
-    SCHEMA = "TEXTIO_SERVICES_INPUTS"
-    if app.config.get('DEV_MODE', False):
-        SCHEMA = f"DEV_{SCHEMA}"
+    # Note: All config values (CONNECTION_PAYLOAD, PROD_PAYLOAD, DATABASE, SCHEMA)
+    # are already loaded at module level above, so they're available here
+    # This block is mainly for running the dev server directly
     print(f"SSO Enabled: {app.config.get('ENABLE_SSO', False)}")
     print(f"Development Mode Enabled: {app.config.get('DEV_MODE', False)}")
+    print(f"Database: {DATABASE}, Schema: {SCHEMA}")
     
     app.run(host='127.0.0.1', port=8055)
 
