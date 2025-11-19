@@ -21,8 +21,50 @@ if [ "$EUID" -ne 0 ]; then
     exec sudo bash "$0" "$@"
 fi
 
+# Detect system DNS servers
+echo "📋 Detecting system DNS servers..."
+SYSTEM_DNS=""
+if [ -f /etc/resolv.conf ]; then
+    SYSTEM_DNS=$(grep "^nameserver" /etc/resolv.conf | awk '{print $2}' | tr '\n' ' ' | sed 's/ $//')
+fi
+
+if [ -z "$SYSTEM_DNS" ] && command -v nmcli &> /dev/null; then
+    SYSTEM_DNS=$(nmcli dev show 2>/dev/null | grep "IP4.DNS" | awk '{print $2}' | tr '\n' ' ' | sed 's/ $//')
+fi
+
+# Determine which DNS to use
+USE_SYSTEM_DNS=false
+if [ -n "$SYSTEM_DNS" ]; then
+    echo "   Detected system DNS: $SYSTEM_DNS"
+    echo ""
+    echo "Choose DNS configuration:"
+    echo "  1) Use system DNS (corporate DNS): $SYSTEM_DNS"
+    echo "  2) Use Google DNS: 8.8.8.8, 8.8.4.4"
+    echo ""
+    read -p "Enter choice [1 or 2, default: 1]: " DNS_CHOICE
+    DNS_CHOICE=${DNS_CHOICE:-1}
+    
+    if [ "$DNS_CHOICE" = "1" ]; then
+        USE_SYSTEM_DNS=true
+        DNS1=$(echo $SYSTEM_DNS | awk '{print $1}')
+        DNS2=$(echo $SYSTEM_DNS | awk '{print $2}')
+        # If only one DNS, use Google as secondary
+        if [ -z "$DNS2" ]; then
+            DNS2="8.8.4.4"
+        fi
+    else
+        DNS1="8.8.8.8"
+        DNS2="8.8.4.4"
+    fi
+else
+    echo "   No system DNS detected, using Google DNS"
+    DNS1="8.8.8.8"
+    DNS2="8.8.4.4"
+fi
+
 # Backup existing daemon.json if it exists
 if [ -f /etc/docker/daemon.json ]; then
+    echo ""
     echo "📋 Backing up existing /etc/docker/daemon.json..."
     cp /etc/docker/daemon.json /etc/docker/daemon.json.bak.$(date +%Y%m%d_%H%M%S)
     echo -e "${GREEN}✅ Backup created${NC}"
@@ -31,13 +73,13 @@ fi
 # Create or update daemon.json
 echo ""
 echo "📋 Configuring Docker daemon DNS..."
-cat > /etc/docker/daemon.json << 'EOF'
+cat > /etc/docker/daemon.json << EOF
 {
-  "dns": ["8.8.8.8", "8.8.4.4"]
+  "dns": ["$DNS1", "$DNS2"]
 }
 EOF
 
-echo -e "${GREEN}✅ DNS configured in /etc/docker/daemon.json${NC}"
+echo -e "${GREEN}✅ DNS configured: $DNS1, $DNS2${NC}"
 echo ""
 
 # Restart Docker
@@ -65,8 +107,7 @@ echo "   1. Pull the latest changes: git pull"
 echo "   2. Test DNS: ./test-docker-setup.sh"
 echo "   3. Build: sudo docker-compose build"
 echo ""
-echo "💡 If you need to use corporate DNS instead of Google DNS,"
-echo "   edit /etc/docker/daemon.json and replace 8.8.8.8/8.8.4.4"
-echo "   with your DNS servers, then restart Docker again."
+echo "💡 To change DNS later, edit /etc/docker/daemon.json"
+echo "   and restart Docker: sudo systemctl restart docker"
 echo ""
 

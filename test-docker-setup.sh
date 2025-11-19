@@ -175,8 +175,29 @@ else
     echo ""
 fi
 
-# Step 10: Test DNS resolution from host
-echo "📋 Step 10: Testing DNS resolution from host..."
+# Step 10: Detect system DNS servers
+echo "📋 Step 10: Detecting system DNS servers..."
+SYSTEM_DNS=""
+if [ -f /etc/resolv.conf ]; then
+    SYSTEM_DNS=$(grep "^nameserver" /etc/resolv.conf | awk '{print $2}' | tr '\n' ' ' | sed 's/ $//')
+fi
+
+if [ -z "$SYSTEM_DNS" ] && command -v nmcli &> /dev/null; then
+    SYSTEM_DNS=$(nmcli dev show 2>/dev/null | grep "IP4.DNS" | awk '{print $2}' | tr '\n' ' ' | sed 's/ $//')
+fi
+
+if [ -n "$SYSTEM_DNS" ]; then
+    print_test "pass" "System DNS servers detected: $SYSTEM_DNS"
+    echo "   💡 Use these IPs in /etc/docker/daemon.json if you need corporate DNS"
+    echo "   Example: {\"dns\": [\"$(echo $SYSTEM_DNS | awk '{print $1}')\", \"$(echo $SYSTEM_DNS | awk '{print $2}' 2>/dev/null || echo '8.8.4.4')\"]}"
+else
+    print_test "warn" "Could not detect system DNS servers"
+    echo "   Check manually: cat /etc/resolv.conf"
+fi
+echo ""
+
+# Step 11: Test DNS resolution from host
+echo "📋 Step 11: Testing DNS resolution from host..."
 if command -v nslookup &> /dev/null; then
     if nslookup deb.debian.org &> /dev/null; then
         print_test "pass" "Host can resolve deb.debian.org (needed for Docker build)"
@@ -200,8 +221,8 @@ else
     echo ""
 fi
 
-# Step 11: Test DNS resolution from Docker container
-echo "📋 Step 11: Testing DNS resolution from Docker container..."
+# Step 12: Test DNS resolution from Docker container
+echo "📋 Step 12: Testing DNS resolution from Docker container..."
 if $DOCKER_CMD run --rm --dns 8.8.8.8 alpine nslookup deb.debian.org &> /dev/null; then
     print_test "pass" "Docker can resolve DNS (with Google DNS)"
 elif $DOCKER_CMD run --rm alpine nslookup deb.debian.org &> /dev/null; then
@@ -214,8 +235,8 @@ else
     echo ""
 fi
 
-# Step 12: Test Docker pull (network connectivity)
-echo "📋 Step 12: Testing Docker pull (network connectivity)..."
+# Step 13: Test Docker pull (network connectivity)
+echo "📋 Step 13: Testing Docker pull (network connectivity)..."
 if $DOCKER_CMD pull hello-world &> /dev/null; then
     print_test "pass" "Can pull Docker images (network connectivity OK)"
     # Clean up
@@ -226,8 +247,8 @@ else
     echo ""
 fi
 
-# Step 13: Check config.yaml
-echo "📋 Step 13: Checking configuration..."
+# Step 14: Check config.yaml
+echo "📋 Step 14: Checking configuration..."
 if [ -f "config.yaml" ]; then
     print_test "pass" "config.yaml exists"
 elif [ -f "config.yaml.example" ]; then
