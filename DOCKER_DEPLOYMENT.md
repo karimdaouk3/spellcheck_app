@@ -117,8 +117,29 @@ gcloud run deploy spellcheck-app \
 ### Option 2: Deploy to Your Own Server
 
 **1. Install Docker on your server:**
+
+**For Rocky Linux / RHEL / CentOS:**
 ```bash
-# Ubuntu/Debian
+# Install Docker
+sudo dnf install -y docker docker-compose
+
+# Or if docker-compose is not available, install it separately:
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+
+# Start Docker service
+sudo systemctl start docker
+sudo systemctl enable docker
+
+# Add your user to docker group (to avoid using sudo)
+sudo usermod -aG docker $USER
+
+# IMPORTANT: Log out and log back in for group changes to take effect
+# Or run: newgrp docker
+```
+
+**For Ubuntu/Debian:**
+```bash
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 sudo usermod -aG docker $USER
@@ -262,6 +283,53 @@ docker stats spellcheck-app
 ```
 
 ## 🔧 Troubleshooting
+
+### Permission Denied Error (Linux Servers)
+
+**Error:** `permission denied while trying to connect to the Docker daemon socket`
+
+**Solution 1: Add user to docker group (Recommended)**
+```bash
+# Add your user to docker group
+sudo usermod -aG docker $USER
+
+# Log out and log back in, OR run:
+newgrp docker
+
+# Verify it works
+docker ps
+```
+
+**Solution 2: Use sudo (Temporary workaround)**
+```bash
+# Use sudo for docker commands
+sudo docker-compose build
+sudo docker-compose up -d
+
+# Note: You may need to use sudo for all docker commands
+```
+
+**Solution 3: Check Docker service is running**
+```bash
+# Check if Docker daemon is running
+sudo systemctl status docker
+
+# If not running, start it:
+sudo systemctl start docker
+sudo systemctl enable docker  # Enable on boot
+```
+
+**Solution 4: Fix socket permissions (if above doesn't work)**
+```bash
+# Check socket permissions
+ls -l /var/run/docker.sock
+
+# Fix permissions (if needed)
+sudo chmod 666 /var/run/docker.sock
+# OR better: ensure docker group owns it
+sudo chown root:docker /var/run/docker.sock
+sudo chmod 660 /var/run/docker.sock
+```
 
 ### Container Won't Start
 ```bash
