@@ -386,7 +386,42 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 # --- Start / connect to your running LanguageTool server ---------------
 # Make sure the server is already running:
 #   $ java -cp "*" org.languagetool.server.HTTPServer --port 8081
-tool = lt.LanguageTool('en-US', remote_server='http://localhost:8081')
+# Initialize LanguageTool with retry logic to handle startup delays
+_tool = None
+def get_language_tool():
+    """Get LanguageTool instance with lazy initialization and retry logic."""
+    global _tool
+    if _tool is not None:
+        return _tool
+    
+    LT_PORT = os.environ.get('LT_PORT', '8081')
+    LT_URL = f"http://localhost:{LT_PORT}"
+    max_retries = 5
+    retry_delay = 2
+    
+    for attempt in range(max_retries):
+        try:
+            _tool = lt.LanguageTool('en-US', remote_server=LT_URL)
+            print(f"✅ Successfully connected to LanguageTool at {LT_URL}")
+            return _tool
+        except Exception as e:
+            if attempt < max_retries - 1:
+                print(f"⚠️ Failed to connect to LanguageTool (attempt {attempt + 1}/{max_retries}): {e}")
+                print(f"   Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+            else:
+                print(f"❌ Failed to connect to LanguageTool after {max_retries} attempts: {e}")
+                raise
+    
+    return _tool
+
+# Try to initialize LanguageTool at module load, but don't fail if it's not ready yet
+try:
+    tool = get_language_tool()
+except Exception as e:
+    print(f"⚠️ LanguageTool not ready at module load: {e}")
+    print("   Will retry on first use...")
+    tool = None
 # -----------------------------------------------------------------------
 
 app = Flask(__name__)
@@ -1888,7 +1923,11 @@ def check():
         return jsonify([])
     
     try:
-        matches = tool.check(text)
+        # Ensure LanguageTool is initialized
+        current_tool = tool
+        if current_tool is None:
+            current_tool = get_language_tool()
+        matches = current_tool.check(text)
         
         # Load KLA term bank
         try:

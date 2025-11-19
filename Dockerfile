@@ -2,12 +2,13 @@
 
 FROM python:3.11-slim
 
-# Install system deps: Java for LanguageTool, ffmpeg for pydub, unzip
+# Install system deps: Java for LanguageTool, ffmpeg for pydub, unzip, curl for health checks
 # Using openjdk-21 as openjdk-17 is not available in Debian Trixie
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openjdk-21-jre-headless \
     ffmpeg \
     unzip \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy and install LanguageTool server from local file
