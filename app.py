@@ -42,7 +42,7 @@ DEFAULT_TEST_EMAIL = "PRUTHVI.VENKATASEERAMREDDI@KLA.COM"
 # Email filtering toggle for CRM queries
 # Set to False to disable email filtering (returns all cases from CRM)
 # Set to True to enable email filtering (only returns cases matching user email)
-CRM_EMAIL_FILTERING_ENABLED = True  # Set to True to enable email filtering (only returns cases matching user email)
+CRM_EMAIL_FILTERING_ENABLED = False  # Set to False for testing (no email filtering)
 
 def get_user_email_for_crm():
     """
@@ -81,14 +81,12 @@ def check_external_crm_exists(case_number):
     try:
         # Get user email with fallback to default test email
         user_email_upper = get_user_email_for_crm()
-        print(f"🔍 [CRM] Checking if case {case_number} exists for user {user_email_upper}")
         
         # Convert case_number to string to match database column type
         case_number_str = str(case_number)
         
         # Build query with conditional email filtering
         if CRM_EMAIL_FILTERING_ENABLED:
-            print(f"🔍 [CRM] Checking if case {case_number} exists (EMAIL FILTERING ENABLED)")
             like_pattern = f"%~{user_email_upper}~%"
             query = """
                 SELECT DISTINCT "Case Number"
@@ -98,9 +96,7 @@ def check_external_crm_exists(case_number):
                 AND "USER_EMAILS" LIKE %s
             """
             query_params = (case_number_str, like_pattern)
-            print(f"🔍 [CRM] Query parameters: case_number_str='{case_number_str}', email pattern='{like_pattern}'")
         else:
-            print(f"🔍 [CRM] Checking if case {case_number} exists (EMAIL FILTERING DISABLED - ALL CASES)")
             query = """
                 SELECT DISTINCT "Case Number"
                 FROM IT_SF_SHARE_REPLICA.RSRV.CRMSV_INTERFACE_SAGE_ROW_LEVEL_SECURITY_T
@@ -108,37 +104,21 @@ def check_external_crm_exists(case_number):
                 AND "Case Number" = %s
             """
             query_params = (case_number_str,)
-            print(f"🔍 [CRM] Query parameters: case_number_str='{case_number_str}'")
         
         result = snowflake_query(query, CONNECTION_PAYLOAD, query_params)
         
-        print(f"📊 [CRM] Query result for case {case_number}:")
-        print(f"   - Result is None: {result is None}")
-        print(f"   - Result is empty: {result.empty if result is not None else 'N/A'}")
         if result is not None and not result.empty:
-            print(f"   - Number of rows returned: {len(result)}")
-            print(f"   - Columns: {list(result.columns)}")
-            print(f"   - Sample data: {result.head(3).to_dict('records')}")
-            if CRM_EMAIL_FILTERING_ENABLED:
-                print(f"✅ [CRM] Case {case_number} found in CRM for user {user_email_upper}")
-            else:
-                print(f"✅ [CRM] Case {case_number} found in CRM")
             return True
         else:
-            if CRM_EMAIL_FILTERING_ENABLED:
-                print(f"❌ [CRM] Case {case_number} not found in CRM for user {user_email_upper}")
-            else:
-                print(f"❌ [CRM] Case {case_number} not found in CRM")
             return False
             
     except Exception as e:
-        print(f"❌ [CRM] Error checking case {case_number} in CRM: {e}")
         # Check if it's a database access error
         if "Database 'IT_SF_SHARE_REPLICA' does not exist or not authorized" in str(e):
-            print(f"⚠️ [CRM] IT_SF_SHARE_REPLICA database not accessible, defaulting to False for case {case_number}")
+            print(f"⚠️ [CRM] IT_SF_SHARE_REPLICA database not accessible for case {case_number}")
             return False
         else:
-            print(f"❌ [CRM] Unexpected error for case {case_number}: {e}")
+            print(f"❌ [CRM] Error checking case {case_number} in CRM: {e}")
             return False
 
 def check_external_crm_status_for_case(case_id):
@@ -465,77 +445,33 @@ try:
         active_payload = PROD_PAYLOAD
         config_source = "Production_SAGE_SVC (DEV_MODE=False)"
     
-    # Enhanced debugging output
-    print("=" * 80)
-    print("🔍 [DB CONFIG DEBUG] Database Configuration Details")
-    print("=" * 80)
-    print(f"📋 Mode: {'DEVELOPMENT' if app.config.get('DEV_MODE', False) else 'PRODUCTION'}")
-    print(f"📋 Config Source: {config_source}")
-    print(f"📋 SSO Enabled: {app.config.get('ENABLE_SSO', False)}")
-    print(f"📋 DEV_MODE: {app.config.get('DEV_MODE', False)}")
-    print(f"")
-    print(f"🗄️  Database: '{DATABASE}'")
-    print(f"📁 Schema: '{SCHEMA}'")
-    print(f"🔗 Full Path: {DATABASE}.{SCHEMA}")
-    print(f"")
-    print(f"🔐 Connection Payload (sanitized):")
-    print(f"   - Account: {active_payload.get('account', 'NOT SET')}")
-    print(f"   - User: {active_payload.get('user', 'NOT SET')}")
-    print(f"   - Warehouse: {active_payload.get('warehouse', 'NOT SET')}")
-    print(f"   - Role: {active_payload.get('role', 'NOT SET')}")
-    print(f"   - Database: {active_payload.get('database', 'NOT SET')}")
-    print(f"   - Schema: {active_payload.get('schema', 'NOT SET')}")
-    print(f"")
-    print(f"📊 Example Query Path: {DATABASE}.{SCHEMA}.CASE_SESSIONS")
-    print("=" * 80)
-    
-    # Test database connection
+    # Test database connection and log warnings only
     try:
-        print(f"🧪 [DB CONFIG DEBUG] Testing database connection...")
         test_query = f"SELECT CURRENT_DATABASE() as DB, CURRENT_SCHEMA() as SCHEMA"
         test_result = snowflake_query(test_query, active_payload)
         
         if test_result is not None and not test_result.empty:
             actual_db = test_result.iloc[0]['DB']
-            actual_schema = test_result.iloc[0]['SCHEMA']
-            print(f"✅ [DB CONFIG DEBUG] Connection successful!")
-            print(f"   - Connected to database: '{actual_db}'")
-            print(f"   - Current schema: '{actual_schema}'")
             
-            # Verify database matches
+            # Verify database matches - only log if mismatch
             if actual_db.upper() != DATABASE.upper():
-                print(f"⚠️  [DB CONFIG DEBUG] WARNING: Config database '{DATABASE}' does not match actual database '{actual_db}'!")
-            else:
-                print(f"✅ [DB CONFIG DEBUG] Database name matches config")
+                print(f"⚠️  [Config] WARNING: Config database '{DATABASE}' does not match actual database '{actual_db}'!")
             
-            # Test if the schema exists
+            # Test if the schema exists - only log if missing
             schema_check_query = f"SHOW SCHEMAS LIKE '{SCHEMA}' IN DATABASE {DATABASE}"
             schema_check = snowflake_query(schema_check_query, active_payload)
-            if schema_check is not None and not schema_check.empty:
-                print(f"✅ [DB CONFIG DEBUG] Schema '{SCHEMA}' exists in database '{DATABASE}'")
-            else:
-                print(f"⚠️  [DB CONFIG DEBUG] WARNING: Schema '{SCHEMA}' not found in database '{DATABASE}'")
+            if schema_check is None or schema_check.empty:
+                print(f"⚠️  [Config] WARNING: Schema '{SCHEMA}' not found in database '{DATABASE}'")
             
-            # Test if CASE_SESSIONS table exists
+            # Test if CASE_SESSIONS table exists - only log if missing
             table_check_query = f"SHOW TABLES LIKE 'CASE_SESSIONS' IN {DATABASE}.{SCHEMA}"
             table_check = snowflake_query(table_check_query, active_payload)
-            if table_check is not None and not table_check.empty:
-                print(f"✅ [DB CONFIG DEBUG] Table 'CASE_SESSIONS' exists in {DATABASE}.{SCHEMA}")
-            else:
-                print(f"⚠️  [DB CONFIG DEBUG] WARNING: Table 'CASE_SESSIONS' not found in {DATABASE}.{SCHEMA}")
-        else:
-            print(f"❌ [DB CONFIG DEBUG] Connection test returned empty result")
+            if table_check is None or table_check.empty:
+                print(f"⚠️  [Config] WARNING: Table 'CASE_SESSIONS' not found in {DATABASE}.{SCHEMA}")
     except Exception as e:
-        print(f"❌ [DB CONFIG DEBUG] Connection test FAILED: {e}")
-        print(f"   This may indicate:")
-        print(f"   - Database '{DATABASE}' does not exist or is not authorized")
-        print(f"   - Schema '{SCHEMA}' does not exist")
-        print(f"   - Connection credentials are incorrect")
-        print(f"   - Network/firewall issues")
+        print(f"❌ [Config] Database connection test FAILED: {e}")
     
-    print("=" * 80)
-    print(f"[Config] Loaded config.yaml - SSO: {app.config.get('ENABLE_SSO')}, DEV_MODE: {app.config.get('DEV_MODE')}, DATABASE: {DATABASE}, SCHEMA: {SCHEMA}")
-    print("=" * 80)
+    print(f"[Config] Mode: {'DEV' if app.config.get('DEV_MODE', False) else 'PROD'}, Database: {DATABASE}, Schema: {SCHEMA}")
     
 except FileNotFoundError:
     # Fallback defaults if config.yaml is not found
@@ -624,7 +560,6 @@ def login():
             "employee_id": "12345",
             "user_id": 0
         }
-        print("[DBG] Login: SSO disabled, using mock user_data")
         return redirect(url_for('index'))
 
     req = prepare_flask_request(request)
@@ -646,7 +581,6 @@ def login():
         scheme = 'https'
     
     return_url = f"{scheme}://{host}/api/sso_login"
-    print(f"[DBG] SSO Login: Redirecting to SSO with return_to={return_url}")
     return redirect(auth.login(return_to=return_url))
 
   
@@ -688,7 +622,6 @@ def acs():
                 "employee_id": employee_id
             }
             
-            print(f"[DBG] SSO Login: Email from SSO: {email} -> Normalized to: {email_upper}")
 
             # Check if user already exists
             check_query = f"SELECT COUNT(*) FROM {DATABASE}.{SCHEMA}.USER_INFORMATION WHERE EMPLOYEEID = %s"
@@ -1259,7 +1192,6 @@ def get_case_titles_batch_endpoint():
         if not case_numbers:
             return jsonify({"success": True, "titles": {}})
         
-        print(f"🔍 [CRM] Getting titles for {len(case_numbers)} cases")
         
         # Get titles for all case numbers
         titles = get_case_titles_batch(case_numbers, user_email_upper)
@@ -1454,9 +1386,6 @@ def get_available_case_numbers(user_email, search_query="", limit=10):
                 AND "USER_EMAILS" LIKE %s
             """
             query_params = [like_pattern]
-            
-            print(f"🔒 [CRM] EMAIL FILTERING ENABLED: Only cases with email '{user_email_upper}' will be returned")
-            print(f"🔒 [CRM] LIKE pattern: {like_pattern}")
         else:
             # No email filtering - get all cases
             base_query = """
@@ -1465,7 +1394,6 @@ def get_available_case_numbers(user_email, search_query="", limit=10):
                 WHERE "Case Number" IS NOT NULL
             """
             query_params = []
-            print(f"🔓 [CRM] EMAIL FILTERING DISABLED: Returning ALL cases from CRM")
         
         # Add search filtering if provided
         if search_query:
@@ -1475,43 +1403,15 @@ def get_available_case_numbers(user_email, search_query="", limit=10):
         # When limit=None, fetch ALL cases - no LIMIT clause added to SQL
         if limit is not None:
             base_query += f" ORDER BY \"Case Number\" DESC LIMIT {limit}"
-            print(f"🔍 [CRM] Query with LIMIT {limit} applied")
         else:
             base_query += " ORDER BY \"Case Number\" DESC"
-            print(f"🔍 [CRM] Query with NO LIMIT - will fetch ALL matching cases from database")
         
-        print(f"🔍 [CRM] Full SQL query: {base_query}")
         result = snowflake_query(base_query, CONNECTION_PAYLOAD, tuple(query_params))
-        
-        print(f"📊 [CRM] Query result:")
-        print(f"   - Result is None: {result is None}")
-        print(f"   - Result is empty: {result.empty if result is not None else 'N/A'}")
-        if result is not None and not result.empty:
-            print(f"   - Number of rows: {len(result)}")
-            print(f"   - Columns: {list(result.columns)}")
-            print(f"   - Sample data: {result.head(3).to_dict('records')}")
         
         if result is not None and not result.empty:
             case_numbers = result["CASE_NUMBER"].tolist()
-            if CRM_EMAIL_FILTERING_ENABLED:
-                user_email_upper = user_email.upper() if user_email else "UNKNOWN"
-                print(f"🔍 [CRM] Found {len(case_numbers)} cases matching search: '{search_query}' with email filter: {user_email_upper}")
-                print(f"✅ [CRM] All {len(case_numbers)} cases are filtered by email: {user_email_upper}")
-                print(f"🔒 [CRM] VERIFICATION: All returned cases have USER_EMAILS containing '{user_email_upper}'")
-            else:
-                print(f"🔍 [CRM] Found {len(case_numbers)} cases matching search: '{search_query}' (NO EMAIL FILTER)")
-            
-            # Verify email filtering is working - log first few case numbers for verification
-            if len(case_numbers) > 0:
-                sample_count = min(3, len(case_numbers))
-                print(f"🔍 [CRM] Sample cases (first {sample_count}): {case_numbers[:sample_count]}")
-                if CRM_EMAIL_FILTERING_ENABLED:
-                    user_email_upper = user_email.upper() if user_email else "UNKNOWN"
-                    print(f"🔒 [CRM] These cases are guaranteed to match email: {user_email_upper} (filtered by SQL query)")
-            
             return case_numbers
         else:
-            print(f"ℹ️ [CRM] No cases found matching search: '{search_query}'")
             return []
             
     except Exception as e:
@@ -1548,19 +1448,15 @@ def check_case_status_batch(case_numbers, user_email=None):
                 AND "Case Number" IN ('{case_list}')
             """
             
-            print(f"🔍 [CRM] Validating {len(case_numbers)} cases belong to user {user_email_upper} (EMAIL FILTERING ENABLED)")
             validated_result = snowflake_query(validation_query, CONNECTION_PAYLOAD, (like_pattern,))
             
             if validated_result is not None and not validated_result.empty:
                 validated_cases = set(validated_result["CASE_NUMBER"].astype(str).tolist())
                 # Filter to only check validated cases
                 case_numbers = [case for case in case_numbers if str(case) in validated_cases]
-                print(f"✅ [CRM] Validated {len(case_numbers)} cases for user {user_email_upper}")
             else:
-                print(f"⚠️ [CRM] No cases validated for user {user_email_upper}, returning empty status")
+                print(f"⚠️ [CRM] No cases validated for user {user_email_upper}")
                 return {case_num: 'unknown' for case_num in case_numbers}
-        elif not CRM_EMAIL_FILTERING_ENABLED:
-            print(f"🔓 [CRM] EMAIL FILTERING DISABLED: Checking status for all {len(case_numbers)} cases")
         
         if not case_numbers:
             return {}
@@ -1619,16 +1515,11 @@ def get_case_details(case_number, user_email=None):
                 AND "Case Number" = %s
             """
             
-            print(f"🔍 [CRM] Validating case {case_number} belongs to user {user_email_upper} (EMAIL FILTERING ENABLED)")
             validated_result = snowflake_query(validation_query, CONNECTION_PAYLOAD, (like_pattern, str(case_number)))
             
             if validated_result is None or validated_result.empty:
-                print(f"⚠️ [CRM] Case {case_number} does not belong to user {user_email_upper}, returning empty details")
+                print(f"⚠️ [CRM] Case {case_number} does not belong to user {user_email_upper}")
                 return []
-            
-            print(f"✅ [CRM] Case {case_number} validated for user {user_email_upper}")
-        elif not CRM_EMAIL_FILTERING_ENABLED:
-            print(f"🔓 [CRM] EMAIL FILTERING DISABLED: Getting details for case {case_number} (no validation)")
         
         query = """
             SELECT DISTINCT
@@ -1700,7 +1591,6 @@ def get_case_titles_batch(case_numbers, user_email=None):
                 print(f"⚠️ [CRM] No cases validated for user {user_email_upper}, returning empty titles")
                 return {}
         elif not CRM_EMAIL_FILTERING_ENABLED:
-            print(f"🔓 [CRM] EMAIL FILTERING DISABLED: Getting titles for all {len(case_numbers)} cases")
         
         if not case_numbers:
             return {}
@@ -1721,7 +1611,6 @@ def get_case_titles_batch(case_numbers, user_email=None):
             QUALIFY rn = 1
         """
         
-        print(f"🔍 [CRM] Getting titles for {len(case_numbers)} cases")
         result = snowflake_query(query, PROD_PAYLOAD)
         
         titles = {}
@@ -1731,10 +1620,6 @@ def get_case_titles_batch(case_numbers, user_email=None):
                 case_title = row["Case Title"]
                 if pd.notna(case_title) and case_title:
                     titles[case_num] = str(case_title)
-            
-            print(f"✅ [CRM] Found titles for {len(titles)} cases")
-        else:
-            print(f"⚠️ [CRM] No titles found for cases")
         
         return titles
             
@@ -1748,32 +1633,18 @@ def get_case_titles_batch(case_numbers, user_email=None):
 
 @app.before_request
 def _dbg_before_request():
-    try:
-        path = request.path
-        meth = request.method
-        host = request.host
-        ua = request.headers.get('User-Agent', '')
-        sess_keys = list((session or {}).keys())
-        print(f"[DBG] BEFORE {meth} {path} host={host} ua={ua[:60]}... session_keys={sess_keys}")
-    except Exception as e:
-        print(f"[DBG] BEFORE error: {e}")
+    pass
 
 @app.after_request
 def _dbg_after_request(resp):
     try:
         resp.headers['X-Endpoint'] = str(getattr(request, 'endpoint', None))
-        print(f"[DBG] AFTER {request.method} {request.path} status={resp.status_code} endpoint={request.endpoint}")
-    except Exception as e:
-        print(f"[DBG] AFTER error: {e}")
+    except Exception:
+        pass
     return resp
 
 @app.errorhandler(404)
 def _dbg_404(err):
-    try:
-        rules = [str(r) for r in app.url_map.iter_rules()]
-        print(f"[DBG] 404 path={request.path} method={request.method} known_routes={rules}")
-    except Exception as e:
-        print(f"[DBG] 404 logging error: {e}")
     return err, 404
 
 @app.route('/routes', methods=['GET'])
@@ -1808,13 +1679,10 @@ def overall_feedback():
  
     # Get user info from session
     user_data = session.get("user_data", {})
-    print(f"[DBG] /overall-feedback user_data: {user_data}")
-    print(f"[DBG] /overall-feedback user_data keys: {list(user_data.keys()) if user_data else 'None'}")
     
     # If user_id is missing but we have employee_id, try to get it from database
     if not user_data.get("user_id") and user_data.get("employee_id"):
         try:
-            print(f"[DBG] /overall-feedback: Attempting to retrieve user_id for employee_id={user_data.get('employee_id')}")
             get_id_query = f"SELECT ID FROM {DATABASE}.{SCHEMA}.USER_INFORMATION WHERE EMPLOYEEID = %s"
             get_id_params = (user_data.get("employee_id"),)
             id_df = snowflake_query(get_id_query, CONNECTION_PAYLOAD, get_id_params)
@@ -1822,17 +1690,13 @@ def overall_feedback():
                 user_id = int(id_df.iloc[0]["ID"])  # Convert to regular Python int
                 user_data["user_id"] = user_id
                 session["user_data"] = user_data
-                print(f"[DBG] /overall-feedback: Retrieved and set user_id={user_id}")
-            else:
-                print(f"[DBG] /overall-feedback: No user found for employee_id={user_data.get('employee_id')}")
         except Exception as e:
-            print(f"[DBG] /overall-feedback: Error retrieving user_id: {e}")
+            print(f"❌ [Backend] Error retrieving user_id: {e}")
     
     required_fields = ["user_id", "first_name", "last_name", "email", "employee_id"]
     missing_fields = [field for field in required_fields if not user_data.get(field)]
  
     if missing_fields:
-        print(f"[DBG] /overall-feedback missing fields: {missing_fields}")
         return render_template("feedback.html", 
                                message=f"Missing user attributes: {', '.join(missing_fields)}", 
                                message_type="error")
@@ -1911,28 +1775,14 @@ def feedback():
 @app.route("/llm-evaluation-log", methods=["POST"])
 def llm_evaluation_log():
     data = request.get_json()
-    print(f"[DBG] /llm-evaluation-log received data: {data}")
     if not data or "text" not in data or "score" not in data or "criteria" not in data or "timestamp" not in data:
-        missing = []
-        if not data:
-            missing.append("no data")
-        else:
-            if "text" not in data: missing.append("text")
-            if "score" not in data: missing.append("score")
-            if "criteria" not in data: missing.append("criteria")
-            if "timestamp" not in data: missing.append("timestamp")
-        print(f"[DBG] /llm-evaluation-log missing fields: {missing}")
         return jsonify({"status": "error data"}), 400
  
     user_data = session.get("user_data", {})
-    print(f"[DBG] /llm-evaluation-log session exists: {bool(session)}")
-    print(f"[DBG] /llm-evaluation-log user_data: {user_data}")
-    print(f"[DBG] /llm-evaluation-log user_data keys: {list(user_data.keys()) if user_data else 'None'}")
     required_fields = ["first_name", "last_name", "email", "employee_id"]
     missing_fields = [field for field in required_fields if not user_data.get(field)]
  
     if missing_fields:
-        print(f"[DBG] /llm-evaluation-log missing fields: {missing_fields}")
         return jsonify({
             "status": "error",
             "message": f"Missing user attributes: {', '.join(missing_fields)}"
@@ -1954,7 +1804,6 @@ def llm_evaluation_log():
                 params=(user_input_id,)
             )
             if user_check is None or user_check.empty:
-                print(f"[DBG] /llm-evaluation-log: user_input_id {user_input_id} not found in USER_SESSION_INPUTS")
                 return jsonify({"status": "error", "message": "Invalid user_input_id"}), 400
         
         # Check if rewrite_uuid exists in LLM_REWRITE_PROMPTS
@@ -1970,7 +1819,6 @@ def llm_evaluation_log():
                 params=(rewrite_uuid,)
             )
             if rewrite_check is None or rewrite_check.empty:
-                print(f"[DBG] /llm-evaluation-log: rewrite_uuid {rewrite_uuid} not found in LLM_REWRITE_PROMPTS - setting to null")
                 rewrite_uuid = None  # Set to null instead of failing
         
         insert_query = f"""
@@ -1989,7 +1837,6 @@ def llm_evaluation_log():
         )
 
         snowflake_query(insert_query, CONNECTION_PAYLOAD, params=params, return_df=False)
-        print(f"[DBG] Successfully inserted LLM evaluation log with user_input_id={user_input_id}, rewrite_uuid={rewrite_uuid}")
         return jsonify({"status": "ok"})
     except Exception as e:
         print(f"Error inserting evaluation log: {e}")
@@ -2176,7 +2023,6 @@ def load_ruleset_from_db(input_field_type: str, group_name: str = "DEFAULT"):
                     "weight": float(row["WEIGHT"]) if row["WEIGHT"] is not None else 0,
                     "description": row.get("DESCRIPTION")
                 })
-        print(f"[DBG] Loaded {len(rules)} criteria for {input_field_type}/{group_name}")
         return {"rules": rules}
     except Exception as e:
         print(f"Failed to load ruleset from DB: {e}")
@@ -3449,12 +3295,9 @@ def get_input_state():
             FROM {DATABASE}.{SCHEMA}.LAST_INPUT_STATE
             WHERE CASE_SESSION_ID = %s AND INPUT_FIELD_ID = 1
         """
-        print(f"[DBG] /api/cases/input-state GET: Querying problem statement for case_session_id={case_session_id}")
         problem_result = snowflake_query(problem_query, CONNECTION_PAYLOAD, (case_session_id,))
-        print(f"[DBG] /api/cases/input-state GET: problem_result={problem_result is not None}, empty={problem_result.empty if problem_result is not None else 'N/A'}")
         if problem_result is not None and not problem_result.empty:
             problem_text = problem_result.iloc[0]["INPUT_FIELD_VALUE"] or ""
-            print(f"[DBG] /api/cases/input-state GET: problem_text_length={len(problem_text)}, preview={problem_text[:100]}...")
         
         # Get FSR notes (INPUT_FIELD_ID = 2)
         fsr_query = f"""
@@ -3463,13 +3306,7 @@ def get_input_state():
             WHERE CASE_SESSION_ID = %s AND INPUT_FIELD_ID = 2
             ORDER BY LINE_ITEM_ID
         """
-        print(f"[DBG] /api/cases/input-state GET: Querying FSR notes for case_session_id={case_session_id}")
         fsr_result = snowflake_query(fsr_query, CONNECTION_PAYLOAD, (case_session_id,))
-        print(f"[DBG] /api/cases/input-state GET: fsr_result={fsr_result is not None}, empty={fsr_result.empty if fsr_result is not None else 'N/A'}")
-        if fsr_result is not None and not fsr_result.empty:
-            for idx, row in fsr_result.iterrows():
-                fsr_text = row["INPUT_FIELD_VALUE"] or ""
-                print(f"[DBG] /api/cases/input-state GET: fsr_line_{row['LINE_ITEM_ID']}_length={len(fsr_text)}, preview={fsr_text[:100]}...")
         
         # Build response
         response_data = {
