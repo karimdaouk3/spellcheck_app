@@ -42,7 +42,7 @@ DEFAULT_TEST_EMAIL = "PRUTHVI.VENKATASEERAMREDDI@KLA.COM"
 # Email filtering toggle for CRM queries
 # Set to False to disable email filtering (returns all cases from CRM)
 # Set to True to enable email filtering (only returns cases matching user email)
-CRM_EMAIL_FILTERING_ENABLED = False  # Set to False for testing (no email filtering)
+CRM_EMAIL_FILTERING_ENABLED = True  # Set to True to enable email filtering (only returns cases matching user email)
 
 def get_user_email_for_crm():
     """
@@ -64,12 +64,6 @@ def get_user_email_for_crm():
     
     # Ensure email is uppercase for CRM format (should already be uppercase from SSO, but normalize just in case)
     email_upper = user_email.upper()
-    
-    # Log which email is being used (SSO vs non-SSO)
-    if email_upper == DEFAULT_TEST_EMAIL.upper():
-        print(f"ℹ️ [CRM] Using default test email (non-SSO mode): {email_upper}")
-    else:
-        print(f"✅ [CRM] Using SSO user email: {email_upper}")
     
     return email_upper
 
@@ -130,8 +124,6 @@ def check_external_crm_status_for_case(case_id):
         'closed' - Case has been closed in external CRM
     """
     try:
-        print(f"🔍 [CRM] Checking status for case {case_id} in external CRM")
-        
         # Query 2: Check if case is actually closed (has closure date)
         query = f"""
             SELECT DISTINCT "[Case Number]"
@@ -143,19 +135,9 @@ def check_external_crm_status_for_case(case_id):
         
         result = snowflake_query(query, PROD_PAYLOAD, (case_id,))
         
-        print(f"📊 [CRM] Query result for case {case_id}:")
-        print(f"   - Result is None: {result is None}")
-        print(f"   - Result is empty: {result.empty if result is not None else 'N/A'}")
         if result is not None and not result.empty:
-            print(f"   - Number of rows returned: {len(result)}")
-            print(f"   - Columns: {list(result.columns)}")
-            print(f"   - Sample data: {result.head(3).to_dict('records')}")
-            print(f"❌ [CRM] Case {case_id} is CLOSED in external CRM (has Verify Closure Date/Time)")
             return "closed"
         else:
-            print(f"   - No matching records found with closure date in GEAR.INSIGHTS.CRMSV_INTERFACE_SAGE_CASE_SUMMARY")
-            print(f"   - This means case {case_id} is either OPEN or not tracked in CRM")
-            print(f"✅ [CRM] Case {case_id} is OPEN in external CRM (no closure date or not tracked)")
             return "open"
             
     except Exception as e:
@@ -194,7 +176,6 @@ def check_external_crm_status_batch(case_ids, user_email=None):
         if (cache_key in _crm_cache and 
             current_time - _crm_cache[cache_key]['timestamp'] < CRM_CACHE_TTL):
             status_map[case_id] = _crm_cache[cache_key]['status']
-            print(f"📦 [CRM] Using cached status for case {case_id}: {status_map[case_id]}")
         else:
             uncached_cases.append(case_id)
     
@@ -216,24 +197,20 @@ def check_external_crm_status_batch(case_ids, user_email=None):
                     AND "Case Number" IN ('{case_list}')
                 """
                 
-                print(f"🔍 [CRM] Validating {len(uncached_cases)} cases belong to user {user_email_upper}")
                 validated_result = snowflake_query(validation_query, CONNECTION_PAYLOAD, (like_pattern,))
                 
                 if validated_result is not None and not validated_result.empty:
                     validated_cases = set(validated_result["CASE_NUMBER"].astype(str).tolist())
                     # Filter to only check validated cases
                     uncached_cases = [case for case in uncached_cases if str(case) in validated_cases]
-                    print(f"✅ [CRM] Validated {len(uncached_cases)} cases for user {user_email_upper}")
                 else:
-                    print(f"⚠️ [CRM] No cases validated for user {user_email_upper}, returning unknown status")
+                    print(f"⚠️ [CRM] No cases validated for user {user_email_upper}")
                     for case_id in uncached_cases:
                         status_map[case_id] = "unknown"
                     return status_map
             
             if not uncached_cases:
                 return status_map
-            
-            print(f"🔍 [CRM] Batch checking status for {len(uncached_cases)} uncached cases in external CRM")
             
             # Create IN clause for batch query
             case_ids_str = ','.join([str(cid) for cid in uncached_cases])
@@ -249,32 +226,18 @@ def check_external_crm_status_batch(case_ids, user_email=None):
             
             result = snowflake_query(query, PROD_PAYLOAD)
             
-            print(f"📊 [CRM] Batch query result:")
-            print(f"   - Result is None: {result is None}")
-            print(f"   - Result is empty: {result.empty if result is not None else 'N/A'}")
-            if result is not None and not result.empty:
-                print(f"   - Number of rows returned: {len(result)}")
-                print(f"   - Columns: {list(result.columns)}")
-                print(f"   - Sample data: {result.head(5).to_dict('records')}")
-            
             # Build status mapping for uncached cases
             closed_cases = set()
             
             if result is not None and not result.empty:
                 closed_cases = set(result["Case Number"].tolist())
-                print(f"❌ [CRM] Found {len(closed_cases)} closed cases in external CRM: {list(closed_cases)}")
-            else:
-                print(f"ℹ️ [CRM] No closed cases found in external CRM")
-                print(f"   - This means all {len(uncached_cases)} cases are OPEN or not tracked in CRM")
             
             # Map uncached cases to their status and cache results
             for case_id in uncached_cases:
                 if case_id in closed_cases:
                     status = "closed"
-                    print(f"❌ [CRM] Case {case_id}: CLOSED (has Verify Closure Date/Time)")
                 else:
                     status = "open"
-                    print(f"✅ [CRM] Case {case_id}: OPEN (no closure date or not tracked in CRM)")
                 
                 status_map[case_id] = status
                 
@@ -284,8 +247,6 @@ def check_external_crm_status_batch(case_ids, user_email=None):
                     'status': status,
                     'timestamp': current_time
                 }
-            
-            print(f"📊 [CRM] Batch status results for uncached cases: {status_map}")
             
         except Exception as e:
             print(f"❌ [CRM] Error in batch status check: {e}")
@@ -328,8 +289,6 @@ def get_available_case_numbers():
     try:
         # Get user email with fallback to default test email
         user_email_upper = get_user_email_for_crm()
-        print(f"🔍 [CRM] Getting available case numbers for user {user_email_upper}")
-        
         # Query 1: Get available case numbers (email restriction commented out for testing)
         # Email restriction for production
         like_pattern = f"%~{user_email_upper}~%"
@@ -342,15 +301,12 @@ def get_available_case_numbers():
             ORDER BY "Case Number" DESC
         """
         
-        print(f"🔍 [CRM] Query parameters: email pattern='{like_pattern}'")
         result = snowflake_query(query, CONNECTION_PAYLOAD, (like_pattern,))
         
         if result is not None and not result.empty:
             case_numbers = result["Case Number"].tolist()
-            print(f"✅ [CRM] Found {len(case_numbers)} available case numbers for user {user_email_upper}")
             return case_numbers
         else:
-            print(f"ℹ️ [CRM] No case numbers found for user {user_email_upper}")
             return []
             
     except Exception as e:
@@ -384,7 +340,6 @@ def get_language_tool():
     for attempt in range(max_retries):
         try:
             _tool = lt.LanguageTool('en-US', remote_server=LT_URL)
-            print(f"✅ Successfully connected to LanguageTool at {LT_URL}")
             return _tool
         except Exception as e:
             if attempt < max_retries - 1:
@@ -796,12 +751,10 @@ def get_user_cases():
             WHERE cs.CREATED_BY_USER = %s
             AND cr.CASE_ID IS NULL
         """
-        print(f"📊 [Backend] Executing query: {query}")
         result = snowflake_query(query, CONNECTION_PAYLOAD, (user_id, user_id))
         
         cases = []
         if result is not None and not result.empty:
-            print(f"✅ [Backend] Found {len(result)} cases in database")
             for _, row in result.iterrows():
                 case_title = row.get("CASE_TITLE")
                 last_accessed_at = row.get("LAST_ACCESSED_AT")
@@ -815,9 +768,6 @@ def get_user_cases():
                     "needs_feedback": False  # Will be determined by external CRM check
                 }
                 cases.append(case_info)
-                print(f"📝 [Backend] Case {case_info['case_id']}: title={case_info['case_title'][:50] if case_info['case_title'] else 'None'}...")
-        else:
-            print("ℹ️ [Backend] No cases found for user")
         
         response_data = {
             "user_id": user_id,
@@ -866,16 +816,13 @@ def check_external_crm_status():
             FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
             WHERE CREATED_BY_USER = %s AND CASE_STATUS = 'open'
         """
-        print(f"📊 [Backend] Executing query: {query}")
         result = snowflake_query(query, CONNECTION_PAYLOAD, (user_id,))
         
         cases_needing_feedback = []
         if result is not None and not result.empty:
-            print(f"✅ [Backend] Found {len(result)} open cases to check")
             
             # Extract case IDs for batch processing
             case_ids = [row["CASE_ID"] for _, row in result.iterrows()]
-            print(f"🔍 [Backend] Batch checking CRM status for cases: {case_ids}")
             
             # Batch check external CRM status for all cases at once (with email filtering)
             external_statuses = check_external_crm_status_batch(case_ids, user_email=user_email_upper)
@@ -883,7 +830,6 @@ def check_external_crm_status():
             for _, row in result.iterrows():
                 case_id = row["CASE_ID"]
                 external_status = external_statuses.get(case_id, "open")  # Default to open if not found
-                print(f"📋 [Backend] Case {case_id} external status: {external_status}")
                 
                 # If case is closed in external CRM but open in database, needs feedback
                 if external_status == "closed":
@@ -894,18 +840,12 @@ def check_external_crm_status():
                         "external_status": external_status,
                         "needs_feedback": True
                     })
-                    print(f"⚠️ [Backend] Case {case_id} closed in external CRM - needs feedback")
-                else:
-                    print(f"✅ [Backend] Case {case_id} still open in external CRM")
-        else:
-            print("ℹ️ [Backend] No open cases found for user")
         
         response_data = {
             "user_id": user_id,
             "cases_needing_feedback": cases_needing_feedback,
             "count": len(cases_needing_feedback)
         }
-        print(f"📤 [Backend] Returning {len(cases_needing_feedback)} cases needing feedback")
         return jsonify(response_data)
         
     except Exception as e:
@@ -965,12 +905,10 @@ def get_user_case_data():
             WHERE cs.CREATED_BY_USER = %s AND cs.CASE_STATUS = 'open'
             ORDER BY cs.CASE_ID, lis_fsr.LINE_ITEM_ID
         """
-        print(f"📊 [Backend] Executing optimized query: {query}")
         cases_result = snowflake_query(query, CONNECTION_PAYLOAD, (user_id,))
         
         cases = {}
         if cases_result is not None and not cases_result.empty:
-            print(f"📊 [Backend] /api/cases/data: Processing {len(cases_result)} rows from database")
             # Group by case_id to handle multiple FSR line items per case
             case_data = {}
             for idx, row in cases_result.iterrows():
@@ -990,7 +928,6 @@ def get_user_case_data():
                         "updatedAt": datetime.utcnow().isoformat() + 'Z',
                         "lastAccessedAt": last_accessed_at.isoformat() if last_accessed_at and pd.notna(last_accessed_at) else None
                     }
-                    print(f"📊 [Backend] Case {case_id}: title={case_title[:50] if case_title and pd.notna(case_title) else 'None'}...")
                 
                 # Use the last FSR line item (highest LINE_ITEM_ID)
                 if fsr_notes and (not case_data[case_id]["fsrNotes"] or line_item_id > case_data[case_id].get("lastLineItemId", 0)):
@@ -999,7 +936,6 @@ def get_user_case_data():
             
             # Convert to the expected format
             cases = {case_id: data for case_id, data in case_data.items()}
-            print(f"✅ [Backend] Processed {len(cases)} cases")
         
         return jsonify({
             "user_id": str(user_id),
@@ -1069,27 +1005,15 @@ def preload_case_suggestions():
     # Get user email with fallback to default test email
     user_email_upper = get_user_email_for_crm()
     user_email = user_email_upper.lower()  # For display purposes
-    print(f"🔍 [CRM] Preloading case suggestions for user: {user_email} (formatted: {user_email_upper})")
-    print(f"✅ [CRM] Using email filter: {user_email_upper} for preloading cases")
-    
     try:
         # Get ALL case numbers (no search filter, no limit - get all cases)
         # IMPORTANT: This function filters by email - only cases matching user_email_upper will be returned
         # No limit is applied - we fetch all matching cases regardless of count
         case_numbers = get_available_case_numbers(user_email_upper, "", limit=None)
         total_cases = len(case_numbers)
-        print(f"✅ [CRM] Preloaded {total_cases} case suggestions from CRM database for user {user_email_upper}")
-        print(f"📊 [CRM] Total preloaded cases from CRM database (filtered by email): {total_cases}")
-        print(f"🔒 [CRM] All {total_cases} cases are filtered by email: {user_email_upper}")
-        print(f"📊 [CRM] NO LIMIT applied - fetched all {total_cases} cases matching user email")
         
         if total_cases == 0:
             print(f"⚠️ [CRM] No cases found in CRM database for preloading for user {user_email_upper}")
-        else:
-            # Verify all cases are filtered by email (log first few for verification)
-            sample_count = min(5, total_cases)
-            print(f"🔍 [CRM] Sample of preloaded cases (first {sample_count}): {case_numbers[:sample_count]}")
-            print(f"✅ [CRM] All cases are pre-filtered by email {user_email_upper} - no additional filtering needed")
         
         return jsonify({
             "success": True,
@@ -1119,13 +1043,9 @@ def get_case_suggestions():
     
     # Get search query parameter for filtering
     search_query = request.args.get('q', '').strip()
-    print(f"🔍 [CRM] Getting case suggestions for user: {user_email} (formatted: {user_email_upper})")
-    if search_query:
-        print(f"🔍 [CRM] Filtering by search query: '{search_query}'")
     
     try:
         case_numbers = get_available_case_numbers(user_email_upper, search_query, limit=10)
-        print(f"✅ [CRM] Found {len(case_numbers)} available cases")
         
         return jsonify({
             "success": True,
@@ -1579,14 +1499,12 @@ def get_case_titles_batch(case_numbers, user_email=None):
                 AND "Case Number" IN ('{case_list}')
             """
             
-            print(f"🔍 [CRM] Validating {len(case_numbers)} cases belong to user {user_email_upper} (EMAIL FILTERING ENABLED)")
             validated_result = snowflake_query(validation_query, CONNECTION_PAYLOAD, (like_pattern,))
             
             if validated_result is not None and not validated_result.empty:
                 validated_cases = set(validated_result["CASE_NUMBER"].astype(str).tolist())
                 # Filter to only get titles for validated cases
                 case_numbers = [case for case in case_numbers if str(case) in validated_cases]
-                print(f"✅ [CRM] Validated {len(case_numbers)} cases for user {user_email_upper}")
             else:
                 print(f"⚠️ [CRM] No cases validated for user {user_email_upper}, returning empty titles")
                 return {}
@@ -3202,29 +3120,11 @@ def delete_case(case_number):
             approx_result = snowflake_query(approx_query, CONNECTION_PAYLOAD, (user_id, case_prefix))
             
             if approx_result is not None and not approx_result.empty:
-                print(f"✅ [Backend] Found approximate match!")
-                result = approx_result
-                actual_case_id = result.iloc[0]["CASE_ID"]
-                print(f"📊 [Backend] Actual CASE_ID in database: {actual_case_id}")
+                    result = approx_result
             else:
-                print(f"❌ [Backend] No approximate match found either")
-                
-                # Debug: Check what cases exist for this user
-                debug_query = f"""
-                    SELECT CASE_ID FROM {DATABASE}.{SCHEMA}.CASE_SESSIONS 
-                    WHERE CREATED_BY_USER = %s
-                """
-                debug_result = snowflake_query(debug_query, CONNECTION_PAYLOAD, (user_id,))
-                if debug_result is not None and not debug_result.empty:
-                    existing_cases = debug_result['CASE_ID'].tolist()
-                    print(f"📊 [Backend] Existing cases for user {user_id}: {existing_cases}")
-                else:
-                    print(f"📊 [Backend] No cases found for user {user_id}")
-                
                 return jsonify({"error": "Case not found"}), 404
         
         case_session_id = result.iloc[0]["ID"]
-        print(f"📊 [Backend] Found case session ID: {case_session_id}")
         
         # Delete from LAST_INPUT_STATE first (foreign key constraint)
         delete_input_state_query = f"""
