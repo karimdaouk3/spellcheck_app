@@ -458,12 +458,86 @@ try:
         # Use Engineering (dev) connection for DEV_MODE
         DATABASE = CONNECTION_PAYLOAD.get("database", "SAGE")
         SCHEMA = CONNECTION_PAYLOAD.get("schema", "DEV_TEXTIO_SERVICES_INPUTS")
+        active_payload = CONNECTION_PAYLOAD
+        config_source = "Engineering_SAGE_SVC (DEV_MODE=True)"
     else:
         # Use Production connection for production mode
         DATABASE = PROD_PAYLOAD.get("database", "SAGE")
         SCHEMA = PROD_PAYLOAD.get("schema", "TEXTIO_SERVICES_INPUTS")
+        active_payload = PROD_PAYLOAD
+        config_source = "Production_SAGE_SVC (DEV_MODE=False)"
     
+    # Enhanced debugging output
+    print("=" * 80)
+    print("🔍 [DB CONFIG DEBUG] Database Configuration Details")
+    print("=" * 80)
+    print(f"📋 Mode: {'DEVELOPMENT' if app.config.get('DEV_MODE', False) else 'PRODUCTION'}")
+    print(f"📋 Config Source: {config_source}")
+    print(f"📋 SSO Enabled: {app.config.get('ENABLE_SSO', False)}")
+    print(f"📋 DEV_MODE: {app.config.get('DEV_MODE', False)}")
+    print(f"")
+    print(f"🗄️  Database: '{DATABASE}'")
+    print(f"📁 Schema: '{SCHEMA}'")
+    print(f"🔗 Full Path: {DATABASE}.{SCHEMA}")
+    print(f"")
+    print(f"🔐 Connection Payload (sanitized):")
+    print(f"   - Account: {active_payload.get('account', 'NOT SET')}")
+    print(f"   - User: {active_payload.get('user', 'NOT SET')}")
+    print(f"   - Warehouse: {active_payload.get('warehouse', 'NOT SET')}")
+    print(f"   - Role: {active_payload.get('role', 'NOT SET')}")
+    print(f"   - Database: {active_payload.get('database', 'NOT SET')}")
+    print(f"   - Schema: {active_payload.get('schema', 'NOT SET')}")
+    print(f"")
+    print(f"📊 Example Query Path: {DATABASE}.{SCHEMA}.CASE_SESSIONS")
+    print("=" * 80)
+    
+    # Test database connection
+    try:
+        print(f"🧪 [DB CONFIG DEBUG] Testing database connection...")
+        test_query = f"SELECT CURRENT_DATABASE() as DB, CURRENT_SCHEMA() as SCHEMA"
+        test_result = snowflake_query(test_query, active_payload)
+        
+        if test_result is not None and not test_result.empty:
+            actual_db = test_result.iloc[0]['DB']
+            actual_schema = test_result.iloc[0]['SCHEMA']
+            print(f"✅ [DB CONFIG DEBUG] Connection successful!")
+            print(f"   - Connected to database: '{actual_db}'")
+            print(f"   - Current schema: '{actual_schema}'")
+            
+            # Verify database matches
+            if actual_db.upper() != DATABASE.upper():
+                print(f"⚠️  [DB CONFIG DEBUG] WARNING: Config database '{DATABASE}' does not match actual database '{actual_db}'!")
+            else:
+                print(f"✅ [DB CONFIG DEBUG] Database name matches config")
+            
+            # Test if the schema exists
+            schema_check_query = f"SHOW SCHEMAS LIKE '{SCHEMA}' IN DATABASE {DATABASE}"
+            schema_check = snowflake_query(schema_check_query, active_payload)
+            if schema_check is not None and not schema_check.empty:
+                print(f"✅ [DB CONFIG DEBUG] Schema '{SCHEMA}' exists in database '{DATABASE}'")
+            else:
+                print(f"⚠️  [DB CONFIG DEBUG] WARNING: Schema '{SCHEMA}' not found in database '{DATABASE}'")
+            
+            # Test if CASE_SESSIONS table exists
+            table_check_query = f"SHOW TABLES LIKE 'CASE_SESSIONS' IN {DATABASE}.{SCHEMA}"
+            table_check = snowflake_query(table_check_query, active_payload)
+            if table_check is not None and not table_check.empty:
+                print(f"✅ [DB CONFIG DEBUG] Table 'CASE_SESSIONS' exists in {DATABASE}.{SCHEMA}")
+            else:
+                print(f"⚠️  [DB CONFIG DEBUG] WARNING: Table 'CASE_SESSIONS' not found in {DATABASE}.{SCHEMA}")
+        else:
+            print(f"❌ [DB CONFIG DEBUG] Connection test returned empty result")
+    except Exception as e:
+        print(f"❌ [DB CONFIG DEBUG] Connection test FAILED: {e}")
+        print(f"   This may indicate:")
+        print(f"   - Database '{DATABASE}' does not exist or is not authorized")
+        print(f"   - Schema '{SCHEMA}' does not exist")
+        print(f"   - Connection credentials are incorrect")
+        print(f"   - Network/firewall issues")
+    
+    print("=" * 80)
     print(f"[Config] Loaded config.yaml - SSO: {app.config.get('ENABLE_SSO')}, DEV_MODE: {app.config.get('DEV_MODE')}, DATABASE: {DATABASE}, SCHEMA: {SCHEMA}")
+    print("=" * 80)
     
 except FileNotFoundError:
     # Fallback defaults if config.yaml is not found
@@ -473,12 +547,18 @@ except FileNotFoundError:
     # Use CONNECTION_PAYLOAD from utils as fallback if config.yaml not found
     CONNECTION_PAYLOAD = UTILS_CONNECTION_PAYLOAD if UTILS_CONNECTION_PAYLOAD else {}
     PROD_PAYLOAD = {}
+    active_payload = CONNECTION_PAYLOAD
     
     # Fallback database/schema values
     DATABASE = "SAGE"
     SCHEMA = "TEXTIO_SERVICES_INPUTS"
     
-    print("Warning: config.yaml not found, using default values")
+    print("=" * 80)
+    print("⚠️  [DB CONFIG DEBUG] WARNING: config.yaml not found, using default values")
+    print(f"🗄️  Database: '{DATABASE}' (default)")
+    print(f"📁 Schema: '{SCHEMA}' (default)")
+    print(f"🔗 Full Path: {DATABASE}.{SCHEMA}")
+    print("=" * 80)
     
 except Exception as e:
     # Fallback defaults if there's an error reading config
@@ -488,12 +568,19 @@ except Exception as e:
     # Use CONNECTION_PAYLOAD from utils as fallback if config.yaml not found
     CONNECTION_PAYLOAD = UTILS_CONNECTION_PAYLOAD if UTILS_CONNECTION_PAYLOAD else {}
     PROD_PAYLOAD = {}
+    active_payload = CONNECTION_PAYLOAD
     
     # Fallback database/schema values
     DATABASE = "SAGE"
     SCHEMA = "TEXTIO_SERVICES_INPUTS"
     
-    print(f"Warning: Error loading config.yaml: {e}, using default values")
+    print("=" * 80)
+    print(f"⚠️  [DB CONFIG DEBUG] WARNING: Error loading config.yaml: {e}")
+    print(f"   Using default values")
+    print(f"🗄️  Database: '{DATABASE}' (default)")
+    print(f"📁 Schema: '{SCHEMA}' (default)")
+    print(f"🔗 Full Path: {DATABASE}.{SCHEMA}")
+    print("=" * 80)
 
  
 openai_api_key = "EMPTY"
