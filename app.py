@@ -42,7 +42,7 @@ DEFAULT_TEST_EMAIL = "PRUTHVI.VENKATASEERAMREDDI@KLA.COM"
 # Email filtering toggle for CRM queries
 # Set to False to disable email filtering (returns all cases from CRM)
 # Set to True to enable email filtering (only returns cases matching user email)
-CRM_EMAIL_FILTERING_ENABLED = False  # Set to False for testing (no email filtering)
+CRM_EMAIL_FILTERING_ENABLED = True  # Set to True to enable email filtering (only returns cases matching user email)
 
 def get_user_email_for_crm():
     """

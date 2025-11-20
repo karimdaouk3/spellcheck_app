@@ -5027,6 +5027,7 @@ class CaseManager {
             let suggestionsData = [];
             let selectedIndex = -1;
             let currentFilteringQuery = null;
+            let currentAbortController = null; // For cancelling in-flight title requests
             
             // Function to filter preloaded suggestions and fetch titles
             const filterSuggestions = async (query) => {
@@ -5036,10 +5037,21 @@ class CaseManager {
                 console.log(`🔍 [DEBUG] preloadedSuggestions is array: ${Array.isArray(this.preloadedSuggestions)}`);
                 console.log(`🔍 [DEBUG] preloadedSuggestions length: ${this.preloadedSuggestions?.length || 0}`);
                 
+                // Cancel any in-flight title requests for previous queries
+                if (currentAbortController) {
+                    console.log(`🛑 [CaseManager] Cancelling previous title request`);
+                    currentAbortController.abort();
+                    currentAbortController = null;
+                }
+                
+                // Update current query
+                currentFilteringQuery = query;
+                
                 if (!query || query.length < 1) {
                     console.log(`🔍 [DEBUG] Empty query, clearing suggestions`);
                     suggestionsData = [];
                     displaySuggestions();
+                    currentFilteringQuery = null;
                     return;
                 }
                 
@@ -5109,6 +5121,13 @@ class CaseManager {
                 
                 // Fetch titles for filtered cases in background
                 if (filteredCases.length > 0) {
+                    // Create new AbortController for this request
+                    const abortController = new AbortController();
+                    currentAbortController = abortController;
+                    
+                    // Store the query this request is for
+                    const requestQuery = query;
+                    
                     try {
                         const response = await fetch('/api/cases/titles', {
                             method: 'POST',
@@ -5117,12 +5136,25 @@ class CaseManager {
                             },
                             body: JSON.stringify({
                                 case_numbers: filteredCases
-                            })
+                            }),
+                            signal: abortController.signal
                         });
+                        
+                        // Check if this request is still relevant (query hasn't changed)
+                        if (currentFilteringQuery !== requestQuery) {
+                            console.log(`⏭️ [CaseManager] Query changed from "${requestQuery}" to "${currentFilteringQuery}", ignoring response`);
+                            return;
+                        }
                         
                         if (response.ok) {
                             const data = await response.json();
                             const titles = data.titles || {};
+                            
+                            // Double-check query hasn't changed while processing
+                            if (currentFilteringQuery !== requestQuery) {
+                                console.log(`⏭️ [CaseManager] Query changed during processing, ignoring titles`);
+                                return;
+                            }
                             
                             // Update suggestions with titles
                             suggestionsData = filteredCases.map(caseNum => ({
@@ -5130,14 +5162,24 @@ class CaseManager {
                                 caseName: titles[String(caseNum)] || null
                             }));
                             
-                            console.log(`✅ [CaseManager] Fetched titles for ${filteredCases.length} cases`);
+                            console.log(`✅ [CaseManager] Fetched titles for ${filteredCases.length} cases (query: "${requestQuery}")`);
                             displaySuggestions(); // Re-render with titles
                         } else {
                             console.log(`⚠️ [CaseManager] Failed to fetch titles: ${response.status}`);
                         }
                     } catch (error) {
-                        console.error(`❌ [CaseManager] Error fetching titles:`, error);
+                        // Ignore abort errors (expected when cancelling)
+                        if (error.name === 'AbortError') {
+                            console.log(`🛑 [CaseManager] Title request cancelled for query: "${requestQuery}"`);
+                        } else {
+                            console.error(`❌ [CaseManager] Error fetching titles:`, error);
+                        }
                         // Continue with suggestions without titles
+                    } finally {
+                        // Clear abort controller if this was the current request
+                        if (currentAbortController === abortController) {
+                            currentAbortController = null;
+                        }
                     }
                 }
             };
