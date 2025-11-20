@@ -453,17 +453,15 @@ try:
     PROD_PAYLOAD = config.get("Production_SAGE_SVC", {})
     
     # Database and schema configuration (needed for gunicorn)
-    # Read from config.yaml based on DEV_MODE
+    # Always use SAGE database, prepend DEV_ to schema if in dev mode
+    DATABASE = "SAGE"
+    SCHEMA = "TEXTIO_SERVICES_INPUTS"
+    
     if app.config.get('DEV_MODE', False):
-        # Use Engineering (dev) connection for DEV_MODE
-        DATABASE = CONNECTION_PAYLOAD.get("database", "SAGE")
-        SCHEMA = CONNECTION_PAYLOAD.get("schema", "DEV_TEXTIO_SERVICES_INPUTS")
+        SCHEMA = f"DEV_{SCHEMA}"
         active_payload = CONNECTION_PAYLOAD
         config_source = "Engineering_SAGE_SVC (DEV_MODE=True)"
     else:
-        # Use Production connection for production mode
-        DATABASE = PROD_PAYLOAD.get("database", "SAGE")
-        SCHEMA = PROD_PAYLOAD.get("schema", "TEXTIO_SERVICES_INPUTS")
         active_payload = PROD_PAYLOAD
         config_source = "Production_SAGE_SVC (DEV_MODE=False)"
     
@@ -553,6 +551,9 @@ except FileNotFoundError:
     DATABASE = "SAGE"
     SCHEMA = "TEXTIO_SERVICES_INPUTS"
     
+    if app.config.get('DEV_MODE', False):
+        SCHEMA = f"DEV_{SCHEMA}"
+    
     print("=" * 80)
     print("⚠️  [DB CONFIG DEBUG] WARNING: config.yaml not found, using default values")
     print(f"🗄️  Database: '{DATABASE}' (default)")
@@ -573,6 +574,9 @@ except Exception as e:
     # Fallback database/schema values
     DATABASE = "SAGE"
     SCHEMA = "TEXTIO_SERVICES_INPUTS"
+    
+    if app.config.get('DEV_MODE', False):
+        SCHEMA = f"DEV_{SCHEMA}"
     
     print("=" * 80)
     print(f"⚠️  [DB CONFIG DEBUG] WARNING: Error loading config.yaml: {e}")
