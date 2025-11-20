@@ -1590,7 +1590,6 @@ def get_case_titles_batch(case_numbers, user_email=None):
             else:
                 print(f"⚠️ [CRM] No cases validated for user {user_email_upper}, returning empty titles")
                 return {}
-        elif not CRM_EMAIL_FILTERING_ENABLED:
         
         if not case_numbers:
             return {}
