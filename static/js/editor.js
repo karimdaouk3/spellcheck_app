@@ -5840,7 +5840,7 @@ class CaseManager {
         this.hideFeedbackLoadingOverlay();
         
         // Reset button state
-        submitBtn.textContent = 'Submit Feedback';
+        submitBtn.textContent = 'Certify Symptom, Fault, and Fix';
         submitBtn.classList.remove('loading');
         this.validateFeedbackForm();
     }
