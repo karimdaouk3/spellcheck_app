@@ -113,39 +113,31 @@ if [ "$LT_READY" = false ]; then
 fi
 echo ""
 
-# Step 6.5: Wait for Flask app to be ready (with timeout)
+# Step 6.5: Check Flask app readiness (quick check, don't wait long)
 echo "📋 Step 6.5: Checking Flask app readiness..."
-MAX_ATTEMPTS=15  # Reduced from 30 to 15 (30 seconds max)
-ATTEMPT=0
 APP_READY=false
 
-# Quick initial check
-if curl -s --connect-timeout 2 http://localhost:${APP_PORT}/health > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ Flask app is already responding!${NC}"
+# Quick check with very short timeout
+if timeout 2 curl -s --connect-timeout 1 --max-time 1 http://localhost:${APP_PORT}/health > /dev/null 2>&1; then
+    echo -e "${GREEN}✅ Flask app is responding!${NC}"
     APP_READY=true
 else
-    echo "   Waiting for Flask app to be ready (max ${MAX_ATTEMPTS}s)..."
-    while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-        # Check if health endpoint responds
-        if curl -s --connect-timeout 2 http://localhost:${APP_PORT}/health > /dev/null 2>&1; then
-            echo -e "${GREEN}✅ Flask app is healthy and responding!${NC}"
+    # Try a few more times quickly, but don't wait long
+    echo "   App not immediately ready, doing quick checks..."
+    for i in 1 2 3; do
+        if timeout 2 curl -s --connect-timeout 1 --max-time 1 http://localhost:${APP_PORT}/health > /dev/null 2>&1; then
+            echo -e "${GREEN}✅ Flask app is responding!${NC}"
             APP_READY=true
             break
         fi
-        
-        # Show progress every 5 seconds
-        if [ $((ATTEMPT % 5)) -eq 0 ] && [ $ATTEMPT -gt 0 ]; then
-            echo "   Still waiting... (${ATTEMPT}s/${MAX_ATTEMPTS}s)"
-        fi
         echo -n "."
-        sleep 2
-        ATTEMPT=$((ATTEMPT + 1))
+        sleep 1
     done
     
     if [ "$APP_READY" = false ]; then
         echo ""
-        echo -e "${YELLOW}⚠️  Flask app did not respond within ${MAX_ATTEMPTS}s${NC}"
-        echo "   Continuing to diagnostics (app may still be starting or have issues)..."
+        echo -e "${YELLOW}⚠️  Flask app not responding yet${NC}"
+        echo "   (This is OK - continuing to diagnostics to check status)"
     fi
 fi
 echo ""
