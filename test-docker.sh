@@ -81,17 +81,33 @@ LT_READY=false
 
 echo "   Checking LanguageTool on port $LT_PORT inside container..."
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-    # Check LanguageTool directly inside container
-    if docker-compose exec -T app curl -s --connect-timeout 2 http://localhost:${LT_PORT} > /dev/null 2>&1 || \
-       docker-compose exec -T app curl -s --connect-timeout 2 http://localhost:${LT_PORT}/v2/languages > /dev/null 2>&1; then
-        echo -e "   ${GREEN}✅ LanguageTool is ready!${NC}"
-        LT_READY=true
-        break
+    # Check LanguageTool directly inside container (with timeout)
+    ( docker-compose exec -T app curl -s --connect-timeout 1 --max-time 1 http://localhost:${LT_PORT} > /dev/null 2>&1 ) &
+    CURL1_PID=$!
+    ( docker-compose exec -T app curl -s --connect-timeout 1 --max-time 1 http://localhost:${LT_PORT}/v2/languages > /dev/null 2>&1 ) &
+    CURL2_PID=$!
+    sleep 1
+    # Check if either succeeded
+    if ! kill -0 $CURL1_PID 2>/dev/null || ! kill -0 $CURL2_PID 2>/dev/null; then
+        # At least one finished
+        wait $CURL1_PID 2>/dev/null
+        CURL1_EXIT=$?
+        wait $CURL2_PID 2>/dev/null
+        CURL2_EXIT=$?
+        if [ $CURL1_EXIT -eq 0 ] || [ $CURL2_EXIT -eq 0 ]; then
+            echo -e "   ${GREEN}✅ LanguageTool is ready!${NC}"
+            LT_READY=true
+            break
+        fi
+    else
+        # Both still running, kill them
+        kill $CURL1_PID $CURL2_PID 2>/dev/null
+        wait $CURL1_PID $CURL2_PID 2>/dev/null
     fi
-    # Also check if port is listening inside container
-    if docker-compose exec -T app sh -c "nc -z localhost $LT_PORT 2>/dev/null" > /dev/null 2>&1; then
+    # Also check if port is listening inside container (quick check)
+    if docker-compose exec -T app sh -c "timeout 1 nc -z localhost $LT_PORT 2>/dev/null" > /dev/null 2>&1; then
         echo -e "   ${GREEN}✅ LanguageTool port is listening!${NC}"
-        sleep 2  # Give it a moment to fully initialize
+        sleep 1  # Give it a moment to fully initialize
         LT_READY=true
         break
     fi
@@ -158,10 +174,21 @@ if [ "$APP_READY" = false ]; then
     
     echo ""
     echo "  2. Checking if port $LT_PORT is listening inside container..."
-    if docker-compose exec -T app sh -c "nc -z localhost $LT_PORT 2>/dev/null" > /dev/null 2>&1; then
-        echo -e "     ${GREEN}✅ LanguageTool port $LT_PORT is listening inside container${NC}"
+    # Quick check with timeout
+    ( docker-compose exec -T app sh -c "timeout 1 nc -z localhost $LT_PORT 2>/dev/null" > /dev/null 2>&1 ) &
+    NC_PID=$!
+    sleep 1
+    if kill -0 $NC_PID 2>/dev/null; then
+        kill $NC_PID 2>/dev/null
+        wait $NC_PID 2>/dev/null
+        echo -e "     ${YELLOW}⚠️  Port check timed out${NC}"
     else
-        echo -e "     ${RED}❌ LanguageTool port $LT_PORT is NOT listening inside container${NC}"
+        wait $NC_PID 2>/dev/null
+        if [ $? -eq 0 ]; then
+            echo -e "     ${GREEN}✅ LanguageTool port $LT_PORT is listening inside container${NC}"
+        else
+            echo -e "     ${RED}❌ LanguageTool port $LT_PORT is NOT listening inside container${NC}"
+        fi
     fi
     
     echo ""
