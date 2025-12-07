@@ -120,13 +120,30 @@ ATTEMPT=0
 APP_READY=false
 
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+    # Check if health endpoint responds
     if curl -s --connect-timeout 3 http://localhost:${APP_PORT}/health > /dev/null 2>&1; then
-        echo -e "${GREEN}✅ Flask app is healthy and responding!${NC}"
-        APP_READY=true
-        break
+        # Also check if there are database connection errors in recent logs
+        RECENT_LOGS=$(docker-compose logs --tail=20 app 2>/dev/null)
+        if echo "$RECENT_LOGS" | grep -qi "database.*fail\|snowflake.*fail\|could not connect.*snowflake"; then
+            if [ $((ATTEMPT % 5)) -eq 0 ] && [ $ATTEMPT -gt 0 ]; then
+                echo ""
+                echo -e "   ${YELLOW}⚠️  Health endpoint responds but database connection may be failing${NC}"
+                echo "   (Continuing to wait, but check logs for database errors)"
+            fi
+        else
+            echo -e "${GREEN}✅ Flask app is healthy and responding!${NC}"
+            APP_READY=true
+            break
+        fi
     fi
     if [ $((ATTEMPT % 5)) -eq 0 ] && [ $ATTEMPT -gt 0 ]; then
         echo "   Still waiting for Flask app... (${ATTEMPT}s/${MAX_ATTEMPTS}s)"
+        # Show recent errors if any
+        RECENT_ERRORS=$(docker-compose logs --tail=10 app 2>/dev/null | grep -i "error\|fail" | tail -3)
+        if [ -n "$RECENT_ERRORS" ]; then
+            echo "   Recent errors:"
+            echo "$RECENT_ERRORS" | sed 's/^/     /'
+        fi
     fi
     echo -n "."
     sleep 2
@@ -229,15 +246,33 @@ if [ "$APP_READY" = false ]; then
     docker-compose logs --tail=50 app
     echo ""
     
-    echo "  8. Checking for OOM (Out of Memory) errors in logs..."
-    if docker-compose logs app 2>/dev/null | grep -i "oom\|out of memory\|killed\|memory" | tail -10; then
-        echo -e "     ${RED}⚠️  Found memory-related errors in logs above${NC}"
+    echo "  8. Checking for database connection errors in logs..."
+    DB_ERRORS=$(docker-compose logs app 2>/dev/null | grep -i "snowflake\|database.*fail\|connection.*fail\|could not connect" | tail -10)
+    if [ -n "$DB_ERRORS" ]; then
+        echo -e "     ${RED}❌ Found database connection errors:${NC}"
+        echo "$DB_ERRORS" | sed 's/^/       /'
+        echo ""
+        echo -e "     ${YELLOW}💡 Database connection troubleshooting:${NC}"
+        echo "       • Check config.yaml has correct Snowflake credentials"
+        echo "       • Verify network connectivity to Snowflake"
+        echo "       • Check if credentials are valid and account is accessible"
+        echo "       • Review full error in logs: docker-compose logs app | grep -i snowflake"
+    else
+        echo "     No obvious database connection errors found"
+    fi
+    echo ""
+    
+    echo "  9. Checking for OOM (Out of Memory) errors in logs..."
+    OOM_ERRORS=$(docker-compose logs app 2>/dev/null | grep -i "oom\|out of memory\|killed\|memory" | tail -10)
+    if [ -n "$OOM_ERRORS" ]; then
+        echo -e "     ${RED}⚠️  Found memory-related errors in logs:${NC}"
+        echo "$OOM_ERRORS" | sed 's/^/       /'
     else
         echo "     No obvious memory errors found in recent logs"
     fi
     echo ""
     
-    echo "  9. Checking port mapping in docker-compose..."
+    echo "  10. Checking port mapping in docker-compose..."
     docker-compose config | grep -A 5 "ports:" || echo "     (could not read docker-compose config)"
     echo ""
     
@@ -246,6 +281,12 @@ if [ "$APP_READY" = false ]; then
     echo "  • Check if port $APP_PORT is in allowed range (8000-9000)"
     echo "  • Review logs above for startup errors"
     echo "  • LanguageTool might need more time - check logs for 'LanguageTool is ready'"
+    echo ""
+    echo "  ${YELLOW}If database connection is failing:${NC}"
+    echo "  • Check config.yaml Snowflake credentials are correct"
+    echo "  • Verify network/firewall allows connection to Snowflake"
+    echo "  • Test credentials manually: docker-compose exec app python -c 'from snowflakeconnection import *; print(\"Test connection\")'"
+    echo "  • Check if using correct DEV_MODE setting in config.yaml"
     echo ""
     echo "  ${YELLOW}Memory-related fixes:${NC}"
     echo "  • If memory is low, reduce JAVA_OPTS in docker-compose.yml:"
