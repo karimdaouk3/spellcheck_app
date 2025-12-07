@@ -166,12 +166,30 @@ if [ "$APP_READY" = false ]; then
     
     echo ""
     echo "  3. Testing direct connection to Flask app from inside container..."
-    if docker-compose exec -T app curl -s --connect-timeout 2 http://localhost:${APP_PORT}/health > /dev/null 2>&1; then
-        echo -e "     ${GREEN}✅ Flask app responds from inside container${NC}"
-        HEALTH_RESPONSE=$(docker-compose exec -T app curl -s http://localhost:${APP_PORT}/health 2>/dev/null)
-        echo "     Response: $HEALTH_RESPONSE"
+    # Run in background with timeout to prevent hanging
+    ( docker-compose exec -T app curl -s --connect-timeout 1 --max-time 1 http://localhost:${APP_PORT}/health > /tmp/health_check.txt 2>&1 ) &
+    CURL_PID=$!
+    sleep 2
+    if kill -0 $CURL_PID 2>/dev/null; then
+        # Still running, kill it
+        kill $CURL_PID 2>/dev/null
+        wait $CURL_PID 2>/dev/null
+        echo -e "     ${YELLOW}⚠️  Connection check timed out (may indicate app is slow or not responding)${NC}"
     else
-        echo -e "     ${RED}❌ Flask app does NOT respond from inside container${NC}"
+        wait $CURL_PID 2>/dev/null
+        if [ -f /tmp/health_check.txt ] && [ -s /tmp/health_check.txt ]; then
+            HEALTH_RESPONSE=$(cat /tmp/health_check.txt)
+            if echo "$HEALTH_RESPONSE" | grep -q "healthy\|status"; then
+                echo -e "     ${GREEN}✅ Flask app responds from inside container${NC}"
+                echo "     Response: $HEALTH_RESPONSE"
+            else
+                echo -e "     ${YELLOW}⚠️  Flask app responded but may have errors${NC}"
+                echo "     Response: $HEALTH_RESPONSE"
+            fi
+        else
+            echo -e "     ${RED}❌ Flask app does NOT respond from inside container${NC}"
+        fi
+        rm -f /tmp/health_check.txt 2>/dev/null
     fi
     
     echo ""
@@ -310,30 +328,58 @@ else
 fi
 echo ""
 
-# Step 7: Test health endpoint
+# Step 7: Test health endpoint (quick, non-blocking)
 echo "📋 Step 7: Testing health endpoint..."
 if [ "$APP_READY" = true ]; then
-    HEALTH_RESPONSE=$(curl -s http://localhost:${APP_PORT}/health)
-    if echo "$HEALTH_RESPONSE" | grep -q "healthy"; then
-        echo -e "${GREEN}✅ Health check passed${NC}"
-        echo "Response: $HEALTH_RESPONSE"
+    # Quick check with timeout
+    ( curl -s --connect-timeout 1 --max-time 1 http://localhost:${APP_PORT}/health > /tmp/health_response.txt 2>&1 ) &
+    CURL_PID=$!
+    sleep 1
+    if kill -0 $CURL_PID 2>/dev/null; then
+        kill $CURL_PID 2>/dev/null
+        wait $CURL_PID 2>/dev/null
+        echo -e "${YELLOW}⚠️  Health check timed out${NC}"
     else
-        echo -e "${YELLOW}⚠️  Health check returned unexpected response${NC}"
-        echo "Response: $HEALTH_RESPONSE"
+        wait $CURL_PID 2>/dev/null
+        if [ -f /tmp/health_response.txt ]; then
+            HEALTH_RESPONSE=$(cat /tmp/health_response.txt)
+            if echo "$HEALTH_RESPONSE" | grep -q "healthy"; then
+                echo -e "${GREEN}✅ Health check passed${NC}"
+                echo "Response: $HEALTH_RESPONSE"
+            else
+                echo -e "${YELLOW}⚠️  Health check returned unexpected response${NC}"
+                echo "Response: $HEALTH_RESPONSE"
+            fi
+            rm -f /tmp/health_response.txt 2>/dev/null
+        fi
     fi
 else
     echo -e "${YELLOW}⚠️  Skipping health check (app not ready)${NC}"
 fi
 echo ""
 
-# Step 8: Test main page
+# Step 8: Test main page (quick, non-blocking)
 echo "📋 Step 8: Testing main page..."
 if [ "$APP_READY" = true ]; then
-    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:${APP_PORT}/)
-    if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "302" ]; then
-        echo -e "${GREEN}✅ Main page accessible (HTTP $HTTP_CODE)${NC}"
+    # Quick check with timeout
+    ( curl -s -o /dev/null -w "%{http_code}" --connect-timeout 1 --max-time 1 http://localhost:${APP_PORT}/ > /tmp/http_code.txt 2>&1 ) &
+    CURL_PID=$!
+    sleep 1
+    if kill -0 $CURL_PID 2>/dev/null; then
+        kill $CURL_PID 2>/dev/null
+        wait $CURL_PID 2>/dev/null
+        echo -e "${YELLOW}⚠️  Main page check timed out${NC}"
     else
-        echo -e "${YELLOW}⚠️  Main page returned HTTP $HTTP_CODE${NC}"
+        wait $CURL_PID 2>/dev/null
+        if [ -f /tmp/http_code.txt ]; then
+            HTTP_CODE=$(cat /tmp/http_code.txt | tr -d '\n')
+            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "302" ]; then
+                echo -e "${GREEN}✅ Main page accessible (HTTP $HTTP_CODE)${NC}"
+            else
+                echo -e "${YELLOW}⚠️  Main page returned HTTP $HTTP_CODE${NC}"
+            fi
+            rm -f /tmp/http_code.txt 2>/dev/null
+        fi
     fi
 else
     echo -e "${YELLOW}⚠️  Skipping main page test (app not ready)${NC}"
