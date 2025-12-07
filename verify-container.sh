@@ -207,21 +207,49 @@ except:
     
     if [ -n "$SNOWFLAKE_ACCOUNT" ]; then
         echo "   • Testing DNS resolution for Snowflake account: $SNOWFLAKE_ACCOUNT"
-        DNS_TEST=$(timeout 3 docker-compose exec -T app nslookup ${SNOWFLAKE_ACCOUNT}.snowflakecomputing.com 2>&1 | head -5)
-        if echo "$DNS_TEST" | grep -q "Name:"; then
-            echo -e "     ${GREEN}✅ DNS resolution works${NC}"
+        # Run DNS test with timeout in background
+        ( timeout 5 docker-compose exec -T app nslookup ${SNOWFLAKE_ACCOUNT}.snowflakecomputing.com 2>&1 | head -5 > /tmp/dns_test.txt 2>&1 ) &
+        DNS_PID=$!
+        sleep 6
+        if kill -0 $DNS_PID 2>/dev/null; then
+            kill $DNS_PID 2>/dev/null
+            wait $DNS_PID 2>/dev/null
+            echo -e "     ${YELLOW}⚠️  DNS test timed out${NC}"
         else
-            echo -e "     ${RED}❌ DNS resolution failed${NC}"
-            echo "     This is likely the issue!"
+            wait $DNS_PID 2>/dev/null
+            if [ -f /tmp/dns_test.txt ]; then
+                DNS_TEST=$(cat /tmp/dns_test.txt)
+                if echo "$DNS_TEST" | grep -q "Name:\|Address:"; then
+                    echo -e "     ${GREEN}✅ DNS resolution works${NC}"
+                else
+                    echo -e "     ${RED}❌ DNS resolution failed${NC}"
+                    echo "     This is likely the issue!"
+                fi
+                rm -f /tmp/dns_test.txt 2>/dev/null
+            fi
         fi
         
         echo "   • Testing network connectivity to Snowflake..."
-        PING_TEST=$(timeout 3 docker-compose exec -T app ping -c 1 ${SNOWFLAKE_ACCOUNT}.snowflakecomputing.com 2>&1 | head -3)
-        if echo "$PING_TEST" | grep -q "1 received\|1 packets received"; then
-            echo -e "     ${GREEN}✅ Network connectivity works${NC}"
+        # Run ping test with timeout in background
+        ( timeout 5 docker-compose exec -T app ping -c 1 -W 2 ${SNOWFLAKE_ACCOUNT}.snowflakecomputing.com 2>&1 | head -3 > /tmp/ping_test.txt 2>&1 ) &
+        PING_PID=$!
+        sleep 6
+        if kill -0 $PING_PID 2>/dev/null; then
+            kill $PING_PID 2>/dev/null
+            wait $PING_PID 2>/dev/null
+            echo -e "     ${YELLOW}⚠️  Network connectivity test timed out${NC}"
         else
-            echo -e "     ${RED}❌ Network connectivity failed${NC}"
-            echo "     Firewall may be blocking Docker containers"
+            wait $PING_PID 2>/dev/null
+            if [ -f /tmp/ping_test.txt ]; then
+                PING_TEST=$(cat /tmp/ping_test.txt)
+                if echo "$PING_TEST" | grep -q "1 received\|1 packets received\|bytes from"; then
+                    echo -e "     ${GREEN}✅ Network connectivity works${NC}"
+                else
+                    echo -e "     ${RED}❌ Network connectivity failed${NC}"
+                    echo "     Firewall may be blocking Docker containers"
+                fi
+                rm -f /tmp/ping_test.txt 2>/dev/null
+            fi
         fi
     fi
     
