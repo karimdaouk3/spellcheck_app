@@ -117,27 +117,23 @@ echo ""
 echo "📋 Step 6.5: Checking Flask app readiness..."
 APP_READY=false
 
-# Quick check with very short timeout
-if timeout 2 curl -s --connect-timeout 1 --max-time 1 http://localhost:${APP_PORT}/health > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ Flask app is responding!${NC}"
-    APP_READY=true
+# Single quick check - run in background and kill if it takes too long
+( curl -s --connect-timeout 1 --max-time 1 http://localhost:${APP_PORT}/health > /dev/null 2>&1 ) &
+CURL_PID=$!
+sleep 1
+if kill -0 $CURL_PID 2>/dev/null; then
+    # curl is still running, kill it and move on
+    kill $CURL_PID 2>/dev/null
+    wait $CURL_PID 2>/dev/null
+    echo -e "${YELLOW}⚠️  Health check timed out - continuing to diagnostics${NC}"
 else
-    # Try a few more times quickly, but don't wait long
-    echo "   App not immediately ready, doing quick checks..."
-    for i in 1 2 3; do
-        if timeout 2 curl -s --connect-timeout 1 --max-time 1 http://localhost:${APP_PORT}/health > /dev/null 2>&1; then
-            echo -e "${GREEN}✅ Flask app is responding!${NC}"
-            APP_READY=true
-            break
-        fi
-        echo -n "."
-        sleep 1
-    done
-    
-    if [ "$APP_READY" = false ]; then
-        echo ""
-        echo -e "${YELLOW}⚠️  Flask app not responding yet${NC}"
-        echo "   (This is OK - continuing to diagnostics to check status)"
+    # curl finished quickly, check result
+    wait $CURL_PID 2>/dev/null
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✅ Flask app is responding!${NC}"
+        APP_READY=true
+    else
+        echo -e "${YELLOW}⚠️  Flask app not responding - continuing to diagnostics${NC}"
     fi
 fi
 echo ""
