@@ -212,7 +212,12 @@ if [ "$APP_READY" = false ]; then
                 LT_ACCESSIBLE=true
             else
                 echo -e "     ${RED}❌ LanguageTool port $LT_PORT is NOT listening inside container${NC}"
-                echo -e "     ${YELLOW}   Check LanguageTool logs: docker-compose logs app | grep -i languagetool${NC}"
+                echo -e "     ${YELLOW}   Troubleshooting steps:${NC}"
+                echo "       1. Check LanguageTool logs: docker-compose logs app | grep -i languagetool"
+                echo "       2. LanguageTool may be binding to 127.0.0.1 instead of 0.0.0.0"
+                echo "       3. Check start.sh script - LanguageTool should bind to 0.0.0.0 or localhost"
+                echo "       4. Try: docker-compose exec app netstat -tln | grep 8081"
+                echo "       5. Try: docker-compose exec app curl http://127.0.0.1:8081/v2/languages"
             fi
         fi
     fi
@@ -220,7 +225,8 @@ if [ "$APP_READY" = false ]; then
     echo ""
     echo "  3. Testing direct connection to Flask app from inside container..."
     # Run in background with timeout to prevent hanging
-    ( docker-compose exec -T app curl -s --connect-timeout 1 --max-time 1 http://localhost:${APP_PORT}/health > /tmp/health_check.txt 2>&1 ) &
+    # Redirect stderr to separate file to filter out docker-compose warnings
+    ( docker-compose exec -T app curl -s --connect-timeout 1 --max-time 1 http://localhost:${APP_PORT}/health 2>/tmp/health_stderr.txt > /tmp/health_check.txt ) &
     CURL_PID=$!
     sleep 2
     if kill -0 $CURL_PID 2>/dev/null; then
@@ -232,17 +238,35 @@ if [ "$APP_READY" = false ]; then
         wait $CURL_PID 2>/dev/null
         if [ -f /tmp/health_check.txt ] && [ -s /tmp/health_check.txt ]; then
             HEALTH_RESPONSE=$(cat /tmp/health_check.txt)
-            if echo "$HEALTH_RESPONSE" | grep -q "healthy\|status"; then
+            # Filter out docker-compose warnings from response
+            CLEAN_RESPONSE=$(echo "$HEALTH_RESPONSE" | grep -v "WARN\|version.*obsolete\|docker-compose" | head -5)
+            if echo "$HEALTH_RESPONSE" | grep -q "\"status\".*\"healthy\"\|healthy\|status"; then
                 echo -e "     ${GREEN}✅ Flask app responds from inside container${NC}"
-                echo "     Response: $HEALTH_RESPONSE"
+                if [ -n "$CLEAN_RESPONSE" ]; then
+                    echo "     Response: $CLEAN_RESPONSE"
+                else
+                    echo "     Response: (contains docker-compose warnings, but health check passed)"
+                fi
             else
-                echo -e "     ${YELLOW}⚠️  Flask app responded but may have errors${NC}"
-                echo "     Response: $HEALTH_RESPONSE"
+                echo -e "     ${YELLOW}⚠️  Flask app responded but response doesn't look like health status${NC}"
+                if [ -n "$CLEAN_RESPONSE" ]; then
+                    echo "     Clean response: $CLEAN_RESPONSE"
+                else
+                    echo "     Response contains docker-compose warnings (this is normal, but check if health endpoint is working)"
+                fi
+                echo -e "     ${YELLOW}   Expected JSON with 'status: healthy', got something else${NC}"
             fi
         else
             echo -e "     ${RED}❌ Flask app does NOT respond from inside container${NC}"
+            # Check stderr for clues
+            if [ -f /tmp/health_stderr.txt ] && [ -s /tmp/health_stderr.txt ]; then
+                STDERR_MSG=$(cat /tmp/health_stderr.txt | grep -v "WARN\|version.*obsolete" | head -3)
+                if [ -n "$STDERR_MSG" ]; then
+                    echo "     Error: $STDERR_MSG"
+                fi
+            fi
         fi
-        rm -f /tmp/health_check.txt 2>/dev/null
+        rm -f /tmp/health_check.txt /tmp/health_stderr.txt 2>/dev/null
     fi
     
     echo ""
