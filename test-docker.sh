@@ -169,15 +169,75 @@ if [ "$APP_READY" = false ]; then
     fi
     
     echo ""
-    echo "  4. Checking container status..."
+    echo "  4. Checking container memory usage..."
+    CONTAINER_NAME=$(docker-compose ps -q app 2>/dev/null | head -1)
+    if [ -n "$CONTAINER_NAME" ]; then
+        echo "     Container: $CONTAINER_NAME"
+        # Get memory stats
+        MEM_STATS=$(docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}\t{{.NetIO}}\t{{.BlockIO}}" "$CONTAINER_NAME" 2>/dev/null)
+        if [ -n "$MEM_STATS" ]; then
+            echo "$MEM_STATS" | sed 's/^/     /'
+        fi
+        
+        # Get detailed memory info
+        echo ""
+        echo "     Detailed memory information:"
+        MEM_INFO=$(docker inspect "$CONTAINER_NAME" --format='{{.HostConfig.Memory}}' 2>/dev/null)
+        if [ -n "$MEM_INFO" ] && [ "$MEM_INFO" != "<no value>" ] && [ "$MEM_INFO" != "0" ]; then
+            MEM_LIMIT_MB=$((MEM_INFO / 1024 / 1024))
+            echo "     Memory limit: ${MEM_LIMIT_MB}MB"
+        else
+            echo "     Memory limit: Not set (using Docker default)"
+        fi
+        
+        # Check if container is OOM killed
+        if docker inspect "$CONTAINER_NAME" --format='{{.State.OOMKilled}}' 2>/dev/null | grep -q "true"; then
+            echo -e "     ${RED}❌ Container was killed due to Out Of Memory (OOM)!${NC}"
+            echo "     This is likely why the app isn't starting."
+        fi
+        
+        # Check current memory usage from /proc
+        if docker exec "$CONTAINER_NAME" test -f /proc/meminfo 2>/dev/null; then
+            echo ""
+            echo "     Memory usage inside container:"
+            docker exec "$CONTAINER_NAME" cat /proc/meminfo 2>/dev/null | grep -E "MemTotal|MemAvailable|MemFree|SwapTotal|SwapFree" | sed 's/^/       /' || true
+        fi
+    else
+        echo "     Could not find container"
+    fi
+    echo ""
+    
+    echo "  5. Checking system memory..."
+    if command -v free >/dev/null 2>&1; then
+        free -h | sed 's/^/     /'
+    elif [ "$(uname)" = "Darwin" ]; then
+        # macOS
+        TOTAL_MEM=$(sysctl -n hw.memsize 2>/dev/null)
+        if [ -n "$TOTAL_MEM" ]; then
+            TOTAL_MEM_GB=$((TOTAL_MEM / 1024 / 1024 / 1024))
+            echo "     Total system memory: ${TOTAL_MEM_GB}GB"
+        fi
+        vm_stat | head -10 | sed 's/^/     /'
+    fi
+    echo ""
+    
+    echo "  6. Checking container status..."
     docker-compose ps
     echo ""
     
-    echo "  5. Recent container logs (last 50 lines)..."
+    echo "  7. Recent container logs (last 50 lines)..."
     docker-compose logs --tail=50 app
     echo ""
     
-    echo "  6. Checking port mapping in docker-compose..."
+    echo "  8. Checking for OOM (Out of Memory) errors in logs..."
+    if docker-compose logs app 2>/dev/null | grep -i "oom\|out of memory\|killed\|memory" | tail -10; then
+        echo -e "     ${RED}⚠️  Found memory-related errors in logs above${NC}"
+    else
+        echo "     No obvious memory errors found in recent logs"
+    fi
+    echo ""
+    
+    echo "  9. Checking port mapping in docker-compose..."
     docker-compose config | grep -A 5 "ports:" || echo "     (could not read docker-compose config)"
     echo ""
     
@@ -186,6 +246,20 @@ if [ "$APP_READY" = false ]; then
     echo "  • Check if port $APP_PORT is in allowed range (8000-9000)"
     echo "  • Review logs above for startup errors"
     echo "  • LanguageTool might need more time - check logs for 'LanguageTool is ready'"
+    echo ""
+    echo "  ${YELLOW}Memory-related fixes:${NC}"
+    echo "  • If memory is low, reduce JAVA_OPTS in docker-compose.yml:"
+    echo "    Change: JAVA_OPTS=-Xms256m -Xmx1g"
+    echo "    To:     JAVA_OPTS=-Xms128m -Xmx512m"
+    echo "  • Reduce Gunicorn workers:"
+    echo "    Change: WEB_CONCURRENCY=4"
+    echo "    To:     WEB_CONCURRENCY=2"
+    echo "  • Add memory limit to docker-compose.yml:"
+    echo "    deploy:"
+    echo "      resources:"
+    echo "        limits:"
+    echo "          memory: 2G"
+    echo "  • Check Docker Desktop memory allocation (Settings → Resources)"
     echo "  • Try: docker-compose logs -f app (to watch logs in real-time)"
     echo ""
     echo "   Continuing with remaining tests to gather more info..."
@@ -370,7 +444,36 @@ echo ""
 
 # Step 10: Show resource usage
 echo "📋 Step 10: Resource usage..."
-docker stats --no-stream spellcheck_app-app-1 2>/dev/null || docker stats --no-stream spellcheck-app-app-1 2>/dev/null || echo "Could not get stats"
+CONTAINER_NAME=$(docker-compose ps -q app 2>/dev/null | head -1)
+if [ -n "$CONTAINER_NAME" ]; then
+    echo "Container: $CONTAINER_NAME"
+    docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}\t{{.NetIO}}\t{{.BlockIO}}" "$CONTAINER_NAME" 2>/dev/null || echo "Could not get stats"
+    
+    echo ""
+    echo "Memory details:"
+    # Check memory limit
+    MEM_LIMIT=$(docker inspect "$CONTAINER_NAME" --format='{{.HostConfig.Memory}}' 2>/dev/null)
+    if [ -n "$MEM_LIMIT" ] && [ "$MEM_LIMIT" != "<no value>" ] && [ "$MEM_LIMIT" != "0" ]; then
+        MEM_LIMIT_MB=$((MEM_LIMIT / 1024 / 1024))
+        echo "  Memory limit: ${MEM_LIMIT_MB}MB"
+    else
+        echo "  Memory limit: Not set (using Docker default)"
+    fi
+    
+    # Check if OOM killed
+    if docker inspect "$CONTAINER_NAME" --format='{{.State.OOMKilled}}' 2>/dev/null | grep -q "true"; then
+        echo -e "  ${RED}❌ Container was OOM killed!${NC}"
+    fi
+    
+    # Show memory inside container if available
+    if docker exec "$CONTAINER_NAME" test -f /proc/meminfo 2>/dev/null; then
+        echo ""
+        echo "  Memory inside container:"
+        docker exec "$CONTAINER_NAME" cat /proc/meminfo 2>/dev/null | grep -E "MemTotal|MemAvailable|MemFree" | sed 's/^/    /' || true
+    fi
+else
+    docker stats --no-stream spellcheck_app-app-1 2>/dev/null || docker stats --no-stream spellcheck-app-app-1 2>/dev/null || echo "Could not get stats"
+fi
 echo ""
 
 # Summary
@@ -406,5 +509,12 @@ echo "  2. Verify port ${APP_PORT} is in allowed range (8000-9000)"
 echo "  3. Check docker-compose.yml port mapping: ${APP_PORT}:${APP_PORT}"
 echo "  4. Test direct access: curl http://localhost:${APP_PORT}/health"
 echo "  5. Restart reverse proxy after config changes"
+echo ""
+echo "💾 Memory Troubleshooting Commands:"
+echo "  • Check container memory: docker stats $(docker-compose ps -q app 2>/dev/null | head -1)"
+echo "  • Check if OOM killed: docker inspect $(docker-compose ps -q app 2>/dev/null | head -1) --format='{{.State.OOMKilled}}'"
+echo "  • View memory inside container: docker exec $(docker-compose ps -q app 2>/dev/null | head -1) cat /proc/meminfo"
+echo "  • Check system memory: free -h (Linux) or vm_stat (macOS)"
+echo "  • Reduce memory usage: Edit docker-compose.yml JAVA_OPTS and WEB_CONCURRENCY"
 echo ""
 
