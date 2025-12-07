@@ -181,16 +181,61 @@ else
     echo "$DB_TEST_RESULT" | sed 's/^/   /'
     echo ""
     echo -e "   ${YELLOW}💡 Troubleshooting:${NC}"
-    echo "   • The connection works outside Docker but not inside - this suggests:"
-    echo "     - Network/firewall rules blocking Docker container access"
-    echo "     - DNS resolution issues inside container"
-    echo "     - Different network interface being used"
-    echo "   • Check config.yaml has correct Snowflake credentials"
-    echo "   • Verify DEV_MODE setting matches your environment"
-    echo "   • Test network from container: docker-compose exec app ping <snowflake-host>"
-    echo "   • Check DNS: docker-compose exec app nslookup <snowflake-account>.snowflakecomputing.com"
-    echo "   • Compare config.yaml inside container: docker-compose exec app cat /app/config.yaml"
-    echo "   • Test manually: docker-compose exec app python3 -c 'from snowflakeconnection import *'"
+    echo "   The connection works outside Docker but not inside - this suggests:"
+    echo "   • Network/firewall rules blocking Docker container access"
+    echo "   • DNS resolution issues inside container"
+    echo "   • Different network interface being used"
+    echo ""
+    echo "   ${CYAN}Quick network diagnostics:${NC}"
+    
+    # Try to extract Snowflake account from config to test DNS
+    SNOWFLAKE_ACCOUNT=$(docker-compose exec -T app python3 -c "
+import yaml
+try:
+    with open('/app/config.yaml', 'r') as f:
+        config = yaml.safe_load(f)
+    dev_mode = config.get('AppConfig', {}).get('DEV_MODE', False)
+    if dev_mode:
+        payload = config.get('Engineering_SAGE_SVC', {})
+    else:
+        payload = config.get('Production_SAGE_SVC', {})
+    if payload and 'account' in payload:
+        print(payload['account'])
+except:
+    pass
+" 2>/dev/null | head -1)
+    
+    if [ -n "$SNOWFLAKE_ACCOUNT" ]; then
+        echo "   • Testing DNS resolution for Snowflake account: $SNOWFLAKE_ACCOUNT"
+        DNS_TEST=$(timeout 3 docker-compose exec -T app nslookup ${SNOWFLAKE_ACCOUNT}.snowflakecomputing.com 2>&1 | head -5)
+        if echo "$DNS_TEST" | grep -q "Name:"; then
+            echo -e "     ${GREEN}✅ DNS resolution works${NC}"
+        else
+            echo -e "     ${RED}❌ DNS resolution failed${NC}"
+            echo "     This is likely the issue!"
+        fi
+        
+        echo "   • Testing network connectivity to Snowflake..."
+        PING_TEST=$(timeout 3 docker-compose exec -T app ping -c 1 ${SNOWFLAKE_ACCOUNT}.snowflakecomputing.com 2>&1 | head -3)
+        if echo "$PING_TEST" | grep -q "1 received\|1 packets received"; then
+            echo -e "     ${GREEN}✅ Network connectivity works${NC}"
+        else
+            echo -e "     ${RED}❌ Network connectivity failed${NC}"
+            echo "     Firewall may be blocking Docker containers"
+        fi
+    fi
+    
+    echo ""
+    echo "   ${CYAN}Configuration checks:${NC}"
+    echo "   • Compare config.yaml: docker-compose exec app cat /app/config.yaml"
+    echo "   • Check DEV_MODE setting matches your environment"
+    echo "   • Verify credentials are correct"
+    echo ""
+    echo "   ${CYAN}Docker network fixes:${NC}"
+    echo "   • Check Docker network: docker network inspect dev_spellcheck_app_default"
+    echo "   • Try host network mode (temporary test): Add 'network_mode: host' to docker-compose.yml"
+    echo "   • Check firewall rules: sudo iptables -L -n | grep DOCKER"
+    echo "   • Check DNS in container: docker-compose exec app cat /etc/resolv.conf"
 fi
 echo ""
 
