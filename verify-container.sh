@@ -105,8 +105,8 @@ echo ""
 echo "📋 Step 5: Checking Snowflake database connection..."
 echo "   (This may take a few seconds...)"
 
-# Create a temporary Python script for database test with timeout
-cat > /tmp/db_test.py << 'PYEOF'
+# Run the database test with timeout protection - pass Python code via stdin
+DB_TEST_RESULT=$(timeout 15 docker-compose exec -T app python3 << 'PYEOF' 2>&1
 import yaml
 import sys
 import signal
@@ -171,26 +171,7 @@ except Exception as e:
     print(f'ERROR: {str(e)}')
     sys.exit(1)
 PYEOF
-
-# Run the database test with timeout protection
-( docker-compose exec -T app python3 /tmp/db_test.py 2>&1 ) &
-DB_TEST_PID=$!
-sleep 12  # Wait slightly longer than the Python timeout
-
-if kill -0 $DB_TEST_PID 2>/dev/null; then
-    # Still running, kill it
-    kill $DB_TEST_PID 2>/dev/null
-    wait $DB_TEST_PID 2>/dev/null
-    DB_TEST_RESULT="ERROR: Database connection test timed out (script hung)"
-    echo -e "   ${RED}❌ Database connection test timed out${NC}"
-    echo "   The connection may be slow or hanging"
-else
-    wait $DB_TEST_PID 2>/dev/null
-    DB_TEST_RESULT=$(docker-compose exec -T app python3 /tmp/db_test.py 2>&1)
-fi
-
-# Clean up
-rm -f /tmp/db_test.py
+)
 
 if echo "$DB_TEST_RESULT" | grep -q "SUCCESS"; then
     echo -e "   ${GREEN}✅ Database connection successful${NC}"
