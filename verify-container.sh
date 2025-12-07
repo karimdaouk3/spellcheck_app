@@ -101,33 +101,54 @@ else
 fi
 echo ""
 
-# Check database connection
+# Check database connection (with timeout)
 echo "📋 Step 5: Checking Snowflake database connection..."
-DB_TEST_RESULT=$(docker-compose exec -T app python3 -c "
+echo "   (This may take a few seconds...)"
+
+# Create a temporary Python script for database test with timeout
+cat > /tmp/db_test.py << 'PYEOF'
 import yaml
 import sys
+import signal
+import os
+
+def timeout_handler(signum, frame):
+    print('ERROR: Database connection test timed out after 10 seconds')
+    sys.exit(1)
+
+# Set timeout
+signal.signal(signal.SIGALRM, timeout_handler)
+signal.alarm(10)  # 10 second timeout
+
 try:
     from snowflakeconnection import snowflake_query
     
     with open('/app/config.yaml', 'r') as f:
         config = yaml.safe_load(f)
     
-    # Determine which payload to use
+    # Determine which payload to use (exactly as app.py does - lines 395-401)
     dev_mode = config.get('AppConfig', {}).get('DEV_MODE', False)
+    
+    # Get CONNECTION_PAYLOAD (Engineering_SAGE_SVC) - same as app.py line 385
+    connection_payload = config.get('Engineering_SAGE_SVC', {})
+    prod_payload = config.get('Production_SAGE_SVC', {})
+    
     if dev_mode:
-        payload = config.get('Engineering_SAGE_SVC', {})
+        payload = connection_payload
         source = 'Engineering_SAGE_SVC (DEV_MODE=True)'
     else:
-        payload = config.get('Production_SAGE_SVC', {})
+        payload = prod_payload
         source = 'Production_SAGE_SVC (DEV_MODE=False)'
     
     if not payload:
         print('ERROR: No database credentials found in config.yaml')
+        signal.alarm(0)  # Cancel timeout
         sys.exit(1)
     
-    # Test connection
+    # Test connection with a simple query
     try:
         result = snowflake_query('SELECT CURRENT_DATABASE() as DB, CURRENT_SCHEMA() as SCHEMA', payload)
+        signal.alarm(0)  # Cancel timeout on success
         if result is not None and not result.empty:
             db = result.iloc[0]['DB']
             schema = result.iloc[0]['SCHEMA']
@@ -135,29 +156,59 @@ try:
             sys.exit(0)
         else:
             print('ERROR: Query returned no results')
+            signal.alarm(0)
             sys.exit(1)
     except Exception as e:
+        signal.alarm(0)  # Cancel timeout
         print(f'ERROR: {str(e)}')
         sys.exit(1)
 except FileNotFoundError:
+    signal.alarm(0)
     print('ERROR: config.yaml not found')
     sys.exit(1)
 except Exception as e:
+    signal.alarm(0)
     print(f'ERROR: {str(e)}')
     sys.exit(1)
-" 2>&1)
+PYEOF
+
+# Run the database test with timeout protection
+( docker-compose exec -T app python3 /tmp/db_test.py 2>&1 ) &
+DB_TEST_PID=$!
+sleep 12  # Wait slightly longer than the Python timeout
+
+if kill -0 $DB_TEST_PID 2>/dev/null; then
+    # Still running, kill it
+    kill $DB_TEST_PID 2>/dev/null
+    wait $DB_TEST_PID 2>/dev/null
+    DB_TEST_RESULT="ERROR: Database connection test timed out (script hung)"
+    echo -e "   ${RED}❌ Database connection test timed out${NC}"
+    echo "   The connection may be slow or hanging"
+else
+    wait $DB_TEST_PID 2>/dev/null
+    DB_TEST_RESULT=$(docker-compose exec -T app python3 /tmp/db_test.py 2>&1)
+fi
+
+# Clean up
+rm -f /tmp/db_test.py
 
 if echo "$DB_TEST_RESULT" | grep -q "SUCCESS"; then
     echo -e "   ${GREEN}✅ Database connection successful${NC}"
     echo "$DB_TEST_RESULT" | grep "SUCCESS" | sed 's/^/   /'
 else
-    echo -e "   ${RED}❌ Database connection failed${NC}"
+    echo -e "   ${RED}❌ Database connection failed or timed out${NC}"
     echo "$DB_TEST_RESULT" | sed 's/^/   /'
     echo ""
     echo -e "   ${YELLOW}💡 Troubleshooting:${NC}"
+    echo "   • The connection works outside Docker but not inside - this suggests:"
+    echo "     - Network/firewall rules blocking Docker container access"
+    echo "     - DNS resolution issues inside container"
+    echo "     - Different network interface being used"
     echo "   • Check config.yaml has correct Snowflake credentials"
-    echo "   • Verify network/firewall allows connection to Snowflake"
-    echo "   • Check DEV_MODE setting matches your environment"
+    echo "   • Verify DEV_MODE setting matches your environment"
+    echo "   • Test network from container: docker-compose exec app ping <snowflake-host>"
+    echo "   • Check DNS: docker-compose exec app nslookup <snowflake-account>.snowflakecomputing.com"
+    echo "   • Compare config.yaml inside container: docker-compose exec app cat /app/config.yaml"
     echo "   • Test manually: docker-compose exec app python3 -c 'from snowflakeconnection import *'"
 fi
 echo ""
