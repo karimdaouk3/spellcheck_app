@@ -174,20 +174,46 @@ if [ "$APP_READY" = false ]; then
     
     echo ""
     echo "  2. Checking if port $LT_PORT is listening inside container..."
-    # Quick check with timeout
-    ( docker-compose exec -T app sh -c "timeout 1 nc -z localhost $LT_PORT 2>/dev/null" > /dev/null 2>&1 ) &
-    NC_PID=$!
+    # Try multiple methods to check LanguageTool
+    LT_ACCESSIBLE=false
+    
+    # Method 1: Try curl to LanguageTool endpoint
+    ( docker-compose exec -T app curl -s --connect-timeout 1 --max-time 1 http://localhost:${LT_PORT}/v2/languages > /tmp/lt_check.txt 2>&1 ) &
+    CURL_PID=$!
     sleep 1
-    if kill -0 $NC_PID 2>/dev/null; then
-        kill $NC_PID 2>/dev/null
-        wait $NC_PID 2>/dev/null
-        echo -e "     ${YELLOW}⚠️  Port check timed out${NC}"
+    if ! kill -0 $CURL_PID 2>/dev/null; then
+        wait $CURL_PID 2>/dev/null
+        if [ -f /tmp/lt_check.txt ] && [ -s /tmp/lt_check.txt ]; then
+            if grep -q "languages\|LanguageTool" /tmp/lt_check.txt 2>/dev/null; then
+                echo -e "     ${GREEN}✅ LanguageTool is accessible via HTTP on port $LT_PORT${NC}"
+                LT_ACCESSIBLE=true
+            fi
+        fi
+        rm -f /tmp/lt_check.txt 2>/dev/null
     else
-        wait $NC_PID 2>/dev/null
-        if [ $? -eq 0 ]; then
-            echo -e "     ${GREEN}✅ LanguageTool port $LT_PORT is listening inside container${NC}"
+        kill $CURL_PID 2>/dev/null
+        wait $CURL_PID 2>/dev/null
+    fi
+    
+    # Method 2: Check if port is listening
+    if [ "$LT_ACCESSIBLE" = false ]; then
+        ( docker-compose exec -T app sh -c "timeout 1 nc -z localhost $LT_PORT 2>/dev/null" > /dev/null 2>&1 ) &
+        NC_PID=$!
+        sleep 1
+        if kill -0 $NC_PID 2>/dev/null; then
+            kill $NC_PID 2>/dev/null
+            wait $NC_PID 2>/dev/null
+            echo -e "     ${YELLOW}⚠️  Port check timed out${NC}"
         else
-            echo -e "     ${RED}❌ LanguageTool port $LT_PORT is NOT listening inside container${NC}"
+            wait $NC_PID 2>/dev/null
+            if [ $? -eq 0 ]; then
+                echo -e "     ${GREEN}✅ LanguageTool port $LT_PORT is listening (but HTTP check failed)${NC}"
+                echo -e "     ${YELLOW}   LanguageTool may be starting but not fully ready${NC}"
+                LT_ACCESSIBLE=true
+            else
+                echo -e "     ${RED}❌ LanguageTool port $LT_PORT is NOT listening inside container${NC}"
+                echo -e "     ${YELLOW}   Check LanguageTool logs: docker-compose logs app | grep -i languagetool${NC}"
+            fi
         fi
     fi
     
@@ -434,19 +460,23 @@ else
     NGINX_RUNNING=false
 fi
 
-# Find nginx config files
-echo ""
-echo "   Searching for nginx configuration files..."
-NGINX_CONFIGS=""
-if [ -f /etc/nginx/nginx.conf ]; then
-    NGINX_CONFIGS="$NGINX_CONFIGS /etc/nginx/nginx.conf"
-fi
-if [ -d /etc/nginx/sites-enabled ]; then
-    NGINX_CONFIGS="$NGINX_CONFIGS $(find /etc/nginx/sites-enabled -name "*.conf" 2>/dev/null)"
-fi
-if [ -d /etc/nginx/conf.d ]; then
-    NGINX_CONFIGS="$NGINX_CONFIGS $(find /etc/nginx/conf.d -name "*.conf" 2>/dev/null)"
-fi
+    # Find nginx config files (including sites-enabled)
+    echo ""
+    echo "   Searching for nginx configuration files..."
+    NGINX_CONFIGS=""
+    if [ -f /etc/nginx/nginx.conf ]; then
+        NGINX_CONFIGS="$NGINX_CONFIGS /etc/nginx/nginx.conf"
+    fi
+    if [ -d /etc/nginx/sites-enabled ]; then
+        NGINX_CONFIGS="$NGINX_CONFIGS $(find /etc/nginx/sites-enabled -name "*.conf" -o -name "*" -type f 2>/dev/null | head -10)"
+    fi
+    if [ -d /etc/nginx/sites-available ]; then
+        # Also check sites-available (even if not enabled)
+        NGINX_CONFIGS="$NGINX_CONFIGS $(find /etc/nginx/sites-available -name "*.conf" 2>/dev/null | head -5)"
+    fi
+    if [ -d /etc/nginx/conf.d ]; then
+        NGINX_CONFIGS="$NGINX_CONFIGS $(find /etc/nginx/conf.d -name "*.conf" 2>/dev/null)"
+    fi
 
 if [ -n "$NGINX_CONFIGS" ]; then
     echo -e "   ${GREEN}✅ Found nginx config files${NC}"
@@ -454,11 +484,11 @@ if [ -n "$NGINX_CONFIGS" ]; then
     
     # Check each config file
     for config in $NGINX_CONFIGS; do
-        if [ -f "$config" ]; then
+        if [ -f "$config" ] && [ -r "$config" ]; then
             echo "   📄 Analyzing: $config"
             
             # Check for proxy_pass
-            PROXY_PASS_LINES=$(grep -n "proxy_pass" "$config" 2>/dev/null || true)
+            PROXY_PASS_LINES=$(grep -n "proxy_pass" "$config" 2>/dev/null | grep -v "^#" || true)
             if [ -n "$PROXY_PASS_LINES" ]; then
                 echo "      Found proxy_pass configuration:"
                 echo "$PROXY_PASS_LINES" | sed 's/^/        /'
@@ -469,10 +499,14 @@ if [ -n "$NGINX_CONFIGS" ]; then
                 elif echo "$PROXY_PASS_LINES" | grep -q "localhost:5000\|127.0.0.1:5000"; then
                     echo -e "        ${RED}❌ MISCONFIGURED: Proxying to port 5000 (should be ${APP_PORT})${NC}"
                     echo "        This is likely causing your Bad Gateway error!"
+                    echo "        Fix: Change proxy_pass to http://localhost:${APP_PORT};"
                 else
                     PORT_IN_CONFIG=$(echo "$PROXY_PASS_LINES" | grep -oE "localhost:[0-9]+|127\.0\.0\.1:[0-9]+" | head -1 | cut -d: -f2)
                     if [ -n "$PORT_IN_CONFIG" ]; then
                         echo -e "        ${YELLOW}⚠️  Proxying to port $PORT_IN_CONFIG (expected ${APP_PORT})${NC}"
+                        if [ "$PORT_IN_CONFIG" != "${APP_PORT}" ]; then
+                            echo "        Fix: Change proxy_pass to http://localhost:${APP_PORT};"
+                        fi
                     fi
                 fi
             else
@@ -527,13 +561,31 @@ if [ -n "$NGINX_CONFIGS" ]; then
     # Check if nginx can reach the app
     if [ "$NGINX_RUNNING" = true ]; then
         echo "   Testing if nginx can reach Flask app on port ${APP_PORT}..."
-        if curl -s --connect-timeout 2 http://localhost:${APP_PORT}/health > /dev/null 2>&1; then
-            echo -e "   ${GREEN}✅ Flask app is accessible on localhost:${APP_PORT}${NC}"
-            HEALTH_RESPONSE=$(curl -s http://localhost:${APP_PORT}/health 2>/dev/null)
-            echo "   Health check response: $HEALTH_RESPONSE"
-        else
-            echo -e "   ${RED}❌ Flask app is NOT accessible on localhost:${APP_PORT}${NC}"
+        ( curl -s --connect-timeout 1 --max-time 1 http://localhost:${APP_PORT}/health > /tmp/nginx_health.txt 2>&1 ) &
+        CURL_PID=$!
+        sleep 1
+        if kill -0 $CURL_PID 2>/dev/null; then
+            kill $CURL_PID 2>/dev/null
+            wait $CURL_PID 2>/dev/null
+            echo -e "   ${RED}❌ Flask app is NOT accessible on localhost:${APP_PORT} (timeout)${NC}"
             echo "   This explains the Bad Gateway error!"
+        else
+            wait $CURL_PID 2>/dev/null
+            if [ -f /tmp/nginx_health.txt ] && [ -s /tmp/nginx_health.txt ]; then
+                HEALTH_RESPONSE=$(cat /tmp/nginx_health.txt)
+                # Check if response looks like a health check (not an error)
+                if echo "$HEALTH_RESPONSE" | grep -qi "healthy\|status"; then
+                    echo -e "   ${GREEN}✅ Flask app is accessible on localhost:${APP_PORT}${NC}"
+                    echo "   Health check response: $HEALTH_RESPONSE"
+                else
+                    echo -e "   ${YELLOW}⚠️  Flask app responds but may have issues${NC}"
+                    echo "   Response: $HEALTH_RESPONSE"
+                fi
+            else
+                echo -e "   ${RED}❌ Flask app is NOT accessible on localhost:${APP_PORT}${NC}"
+                echo "   This explains the Bad Gateway error!"
+            fi
+            rm -f /tmp/nginx_health.txt 2>/dev/null
         fi
         echo ""
     fi
