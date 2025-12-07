@@ -113,43 +113,44 @@ if [ "$LT_READY" = false ]; then
 fi
 echo ""
 
-# Step 6.5: Wait for Flask app to be ready
-echo "📋 Step 6.5: Waiting for Flask app to be ready..."
-MAX_ATTEMPTS=30
+# Step 6.5: Wait for Flask app to be ready (with timeout)
+echo "📋 Step 6.5: Checking Flask app readiness..."
+MAX_ATTEMPTS=15  # Reduced from 30 to 15 (30 seconds max)
 ATTEMPT=0
 APP_READY=false
 
-while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-    # Check if health endpoint responds
-    if curl -s --connect-timeout 3 http://localhost:${APP_PORT}/health > /dev/null 2>&1; then
-        # Also check if there are database connection errors in recent logs
-        RECENT_LOGS=$(docker-compose logs --tail=20 app 2>/dev/null)
-        if echo "$RECENT_LOGS" | grep -qi "database.*fail\|snowflake.*fail\|could not connect.*snowflake"; then
-            if [ $((ATTEMPT % 5)) -eq 0 ] && [ $ATTEMPT -gt 0 ]; then
-                echo ""
-                echo -e "   ${YELLOW}⚠️  Health endpoint responds but database connection may be failing${NC}"
-                echo "   (Continuing to wait, but check logs for database errors)"
-            fi
-        else
+# Quick initial check
+if curl -s --connect-timeout 2 http://localhost:${APP_PORT}/health > /dev/null 2>&1; then
+    echo -e "${GREEN}✅ Flask app is already responding!${NC}"
+    APP_READY=true
+else
+    echo "   Waiting for Flask app to be ready (max ${MAX_ATTEMPTS}s)..."
+    while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+        # Check if health endpoint responds
+        if curl -s --connect-timeout 2 http://localhost:${APP_PORT}/health > /dev/null 2>&1; then
             echo -e "${GREEN}✅ Flask app is healthy and responding!${NC}"
             APP_READY=true
             break
         fi
-    fi
-    if [ $((ATTEMPT % 5)) -eq 0 ] && [ $ATTEMPT -gt 0 ]; then
-        echo "   Still waiting for Flask app... (${ATTEMPT}s/${MAX_ATTEMPTS}s)"
-        # Show recent errors if any
-        RECENT_ERRORS=$(docker-compose logs --tail=10 app 2>/dev/null | grep -i "error\|fail" | tail -3)
-        if [ -n "$RECENT_ERRORS" ]; then
-            echo "   Recent errors:"
-            echo "$RECENT_ERRORS" | sed 's/^/     /'
+        
+        # Show progress every 5 seconds
+        if [ $((ATTEMPT % 5)) -eq 0 ] && [ $ATTEMPT -gt 0 ]; then
+            echo "   Still waiting... (${ATTEMPT}s/${MAX_ATTEMPTS}s)"
         fi
+        echo -n "."
+        sleep 2
+        ATTEMPT=$((ATTEMPT + 1))
+    done
+    
+    if [ "$APP_READY" = false ]; then
+        echo ""
+        echo -e "${YELLOW}⚠️  Flask app did not respond within ${MAX_ATTEMPTS}s${NC}"
+        echo "   Continuing to diagnostics (app may still be starting or have issues)..."
     fi
-    echo -n "."
-    sleep 2
-    ATTEMPT=$((ATTEMPT + 1))
-done
+fi
+echo ""
 
+# Always run diagnostics if app isn't ready, or if we want to check status
 if [ "$APP_READY" = false ]; then
     echo ""
     echo -e "${RED}❌ Flask app did not become healthy in time${NC}"
@@ -305,9 +306,21 @@ if [ "$APP_READY" = false ]; then
     echo ""
     echo "   Continuing with remaining tests to gather more info..."
     echo ""
-else
-    echo ""
 fi
+
+# Always check for database errors even if app seems ready
+echo "📋 Step 6.6: Checking for database connection issues..."
+DB_ERRORS=$(docker-compose logs app 2>/dev/null | grep -i "snowflake.*fail\|database.*fail\|could not connect.*snowflake\|connection test failed" | tail -5)
+if [ -n "$DB_ERRORS" ]; then
+    echo -e "${YELLOW}⚠️  Database connection errors detected:${NC}"
+    echo "$DB_ERRORS" | sed 's/^/   /'
+    echo ""
+    echo -e "   ${YELLOW}💡 Even if the HTTP server is running, database issues may prevent full functionality${NC}"
+    echo "   Check config.yaml Snowflake credentials and network connectivity"
+else
+    echo -e "${GREEN}✅ No obvious database connection errors in recent logs${NC}"
+fi
+echo ""
 
 # Step 7: Test health endpoint
 echo "📋 Step 7: Testing health endpoint..."
